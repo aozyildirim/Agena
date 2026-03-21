@@ -236,6 +236,57 @@ class TaskService:
         )
         return result.scalar_one_or_none()
 
+    async def list_queue_tasks(self, organization_id: int) -> list[dict]:
+        if self.db is None:
+            raise ValueError('DB session required')
+
+        payloads = await self.queue_service.list_payloads()
+        total = len(payloads)
+        queue_items: list[dict] = []
+        for idx, payload in enumerate(payloads):
+            if int(payload.get('organization_id', 0) or 0) != organization_id:
+                continue
+            task_id = int(payload.get('task_id', 0) or 0)
+            if task_id <= 0:
+                continue
+            queue_items.append(
+                {
+                    'task_id': task_id,
+                    'position': total - idx,  # right-most is next to process
+                    'create_pr': bool(payload.get('create_pr', True)),
+                }
+            )
+
+        if not queue_items:
+            return []
+
+        ids = [i['task_id'] for i in queue_items]
+        result = await self.db.execute(
+            select(TaskRecord).where(
+                TaskRecord.organization_id == organization_id,
+                TaskRecord.id.in_(ids),
+            )
+        )
+        tasks = {t.id: t for t in result.scalars().all()}
+
+        out: list[dict] = []
+        for item in sorted(queue_items, key=lambda x: x['position']):
+            task = tasks.get(item['task_id'])
+            if task is None:
+                continue
+            out.append(
+                {
+                    'task_id': task.id,
+                    'title': task.title,
+                    'status': task.status,
+                    'position': item['position'],
+                    'create_pr': item['create_pr'],
+                    'source': task.source,
+                    'created_at': task.created_at,
+                }
+            )
+        return out
+
     async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True) -> str:
         if self.db is None:
             raise ValueError('DB session required')

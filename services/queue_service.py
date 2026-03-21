@@ -31,6 +31,17 @@ class QueueService:
         key = queue_name or self.settings.redis_queue_name
         return int(await self.client.llen(key))
 
+    async def list_payloads(self, queue_name: str | None = None) -> list[dict[str, Any]]:
+        key = queue_name or self.settings.redis_queue_name
+        raws = await self.client.lrange(key, 0, -1)
+        items: list[dict[str, Any]] = []
+        for raw in raws:
+            try:
+                items.append(json.loads(raw))
+            except Exception:
+                continue
+        return items
+
     async def remove_task(self, *, organization_id: int, task_id: int, queue_name: str | None = None) -> int:
         key = queue_name or self.settings.redis_queue_name
         payload = json.dumps({'organization_id': organization_id, 'task_id': task_id, 'create_pr': True})

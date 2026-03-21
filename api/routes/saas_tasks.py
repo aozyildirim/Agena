@@ -8,6 +8,7 @@ from schemas.saas_task import (
     AssignTaskResponse,
     AzureImportRequest,
     ImportTasksResponse,
+    QueueTaskItem,
     TaskDependencyUpdateRequest,
     TaskCreateRequest,
     TaskLogItem,
@@ -88,6 +89,16 @@ async def list_tasks(
     for t in tasks:
         response.append(await _to_task_response(service, tenant.organization_id, t))
     return response
+
+
+@router.get('/queue', response_model=list[QueueTaskItem])
+async def list_queue(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[QueueTaskItem]:
+    service = TaskService(db)
+    rows = await service.list_queue_tasks(tenant.organization_id)
+    return [QueueTaskItem(**row) for row in rows]
 
 
 @router.post('/import/azure', response_model=ImportTasksResponse)

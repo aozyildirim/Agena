@@ -22,6 +22,15 @@ function fmtDuration(sec?: number | null): string {
 
 export default function DashboardTasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [queueItems, setQueueItems] = useState<{
+    task_id: number;
+    title: string;
+    status: string;
+    position: number;
+    create_pr: boolean;
+    source: string;
+    created_at: string;
+  }[]>([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
@@ -37,8 +46,20 @@ export default function DashboardTasksPage() {
 
   async function load() {
     try {
-      const data = await apiFetch<TaskItem[]>('/tasks');
+      const [data, queueData] = await Promise.all([
+        apiFetch<TaskItem[]>('/tasks'),
+        apiFetch<{
+          task_id: number;
+          title: string;
+          status: string;
+          position: number;
+          create_pr: boolean;
+          source: string;
+          created_at: string;
+        }[]>('/tasks/queue'),
+      ]);
       setTasks(data);
+      setQueueItems(queueData);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Load failed');
     }
@@ -82,6 +103,16 @@ export default function DashboardTasksPage() {
       await apiFetch('/tasks/' + id + '/assign', { method: 'POST' });
       setMsg('Assigned to AI'); await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Assign failed'); }
+  }
+
+  async function onRemoveFromQueue(id: number) {
+    try {
+      await apiFetch('/tasks/' + id + '/cancel', { method: 'POST' });
+      setMsg('Removed from queue');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Remove failed');
+    }
   }
 
   const filtered = tasks.filter((t: TaskItem) => {
@@ -206,6 +237,39 @@ export default function DashboardTasksPage() {
           <button onClick={() => { setError(''); setMsg(''); }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 16 }}>×</button>
         </div>
       )}
+
+      {/* Queue panel */}
+      <div style={{ borderRadius: 16, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.06)', overflow: 'hidden' }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(245,158,11,0.22)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#f59e0b' }}>
+            Queue
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{queueItems.length} waiting</div>
+        </div>
+        {queueItems.length === 0 ? (
+          <div style={{ padding: '12px 14px', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No queued tasks.</div>
+        ) : (
+          queueItems.map((q) => (
+            <div key={q.task_id} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) auto auto', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 800 }}>#{q.position}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {q.title}
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                  Task #{q.task_id} • {q.source}
+                </div>
+              </div>
+              <Link href={`/tasks/${q.task_id}`} className='button button-outline' style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                Open
+              </Link>
+              <button className='button button-outline' onClick={() => void onRemoveFromQueue(q.task_id)} style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap', borderColor: 'rgba(248,113,113,0.35)', color: '#f87171' }}>
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </div>
 
       {/* Task list */}
       <div style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>

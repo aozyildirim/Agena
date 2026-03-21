@@ -70,3 +70,13 @@ class AzureImportRequest(BaseModel):
 
 class TaskDependencyUpdateRequest(BaseModel):
     depends_on_task_ids: list[int]
+
+
+class QueueTaskItem(BaseModel):
+    task_id: int
+    title: str
+    status: str
+    position: int
+    create_pr: bool
+    source: str
+    created_at: datetime
