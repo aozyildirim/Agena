@@ -50,6 +50,16 @@ Production-ready, multi-tenant AI agent orchestration platform built with FastAP
   - `GET /integrations/playbook/content`
   - playbook rules automatically injected into orchestration prompt context
 
+### Story & Budget Controls
+- Task Story Mode (feature highlight):
+  - structured work intent with business context
+  - acceptance criteria and edge-case notes for stronger AI prompting
+  - designed to reduce ambiguous task interpretation before generation
+- Cost Guardrails (feature highlight):
+  - per-task token and cost caps
+  - threshold-based pause/approval pattern
+  - designed to prevent budget overrun in autonomous runs
+
 ### Frontend
 - Landing page sections for Flow/Agent engine and advanced capabilities showcase
 - Dashboard overview with operations radar and queue forecast
