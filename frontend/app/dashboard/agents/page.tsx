@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { loadPrefs, savePrefs, getFlowRuns, FlowRunResult } from '@/lib/api';
+import { loadPrefs, savePrefs, getAgentAnalytics } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -140,13 +140,10 @@ export default function AgentsPage() {
   useEffect(() => {
     const boot = async () => {
       setAgents(loadAgents());
-      let prefFlows: Array<{ nodes?: Array<{ type?: string; role?: string }> }> = [];
-      let mergedAgents = loadAgents();
       try {
         const prefs = await loadPrefs();
-        prefFlows = (prefs.flows as Array<{ nodes?: Array<{ type?: string; role?: string }> }>) ?? [];
         if (prefs.agents?.length) {
-          mergedAgents = DEFAULT_AGENTS.map((def) => {
+          const mergedAgents = DEFAULT_AGENTS.map((def) => {
             const found = (prefs.agents as Partial<AgentConfig>[]).find((p) => p.role === def.role);
             return found ? { ...def, ...found } : def;
           });
@@ -156,14 +153,16 @@ export default function AgentsPage() {
       } catch {
         // fallback to local storage only
       }
-
-      let runs: FlowRunResult[] = [];
       try {
-        runs = await getFlowRuns(50);
+        const analyticsRes = await getAgentAnalytics(true);
+        const map = {} as Record<AgentRole, AgentAnalytics>;
+        Object.entries(analyticsRes.data).forEach(([role, data]) => {
+          map[role as AgentRole] = data;
+        });
+        setAnalytics(map);
       } catch {
         // no analytics runs fallback
       }
-      setAnalytics(buildAnalytics(mergedAgents, prefFlows, runs));
     };
     void boot();
   }, []);
@@ -390,34 +389,4 @@ function MetricChip({ label, value }: { label: string; value: string }) {
       <div style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>{value}</div>
     </div>
   );
-}
-
-function buildAnalytics(
-  agents: AgentConfig[],
-  flows: Array<{ nodes?: Array<{ type?: string; role?: string }> }>,
-  runs: FlowRunResult[],
-): Record<AgentRole, AgentAnalytics> {
-  const totalFlows = Math.max(1, flows.length);
-  const allAgentNodes = flows.flatMap((f) => (f.nodes ?? []).filter((n) => n.type === 'agent'));
-  const totalAgentNodes = Math.max(1, allAgentNodes.length);
-  const completedRuns = runs.filter((r) => r.status === 'completed').length;
-  const successPctBase = runs.length ? Math.round((completedRuns / runs.length) * 100) : 0;
-  const avgRunSecBase = runs.length
-    ? Math.round(runs.reduce((acc, r) => {
-      if (!r.finished_at || !r.started_at) return acc;
-      return acc + Math.max(0, (new Date(r.finished_at).getTime() - new Date(r.started_at).getTime()) / 1000);
-    }, 0) / runs.length)
-    : 0;
-
-  const map = {} as Record<AgentRole, AgentAnalytics>;
-  agents.forEach((a) => {
-    const flowHit = flows.filter((f) => (f.nodes ?? []).some((n) => n.type === 'agent' && n.role === a.role)).length;
-    const nodeHit = allAgentNodes.filter((n) => n.role === a.role).length;
-    const coveragePct = Math.round((flowHit / totalFlows) * 100);
-    const activityPct = Math.round((nodeHit / totalAgentNodes) * 100);
-    const latencySec = Math.max(1, Math.round((avgRunSecBase || 45) * (0.8 + (nodeHit || 1) / 10)));
-    const successPct = Math.min(100, Math.max(0, successPctBase + Math.round((coveragePct - 50) / 10)));
-    map[a.role] = { coveragePct, activityPct, latencySec, successPct };
-  });
-  return map;
 }

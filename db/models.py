@@ -1,4 +1,5 @@
 from models.agent_log import AgentLog
+from models.flow_assets import AgentAnalyticsSnapshot, FlowTemplate, FlowVersion
 from models.flow_run import FlowRun, FlowRunStep
 from models.integration_config import IntegrationConfig
 from models.invite import Invite
@@ -22,6 +23,9 @@ __all__ = [
     'TaskRecord',
     'RunRecord',
     'AgentLog',
+    'FlowTemplate',
+    'FlowVersion',
+    'AgentAnalyticsSnapshot',
     'FlowRun',
     'FlowRunStep',
     'Invite',

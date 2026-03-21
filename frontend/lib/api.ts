@@ -150,6 +150,35 @@ export interface FlowRunResult {
   steps: FlowRunStep[];
 }
 
+export interface FlowTemplate {
+  id: number;
+  name: string;
+  description: string | null;
+  flow: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FlowVersion {
+  id: number;
+  flow_id: string;
+  flow_name: string;
+  label: string;
+  flow: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentAnalyticsResponse {
+  snapshot_id: number | null;
+  created_at: string | null;
+  data: Record<string, {
+    coveragePct: number;
+    activityPct: number;
+    latencySec: number;
+    successPct: number;
+  }>;
+}
+
 export async function runFlow(
   flow_id: string,
   task: Record<string, unknown>,
@@ -166,4 +195,53 @@ export async function getFlowRuns(limit = 20): Promise<FlowRunResult[]> {
 
 export async function getFlowRun(runId: number): Promise<FlowRunResult> {
   return apiFetch<FlowRunResult>(`/flows/runs/${runId}`);
+}
+
+export async function listFlowTemplates(): Promise<FlowTemplate[]> {
+  return apiFetch<FlowTemplate[]>('/flows/templates');
+}
+
+export async function createFlowTemplate(
+  payload: { name: string; description?: string; flow: Record<string, unknown> },
+): Promise<FlowTemplate> {
+  return apiFetch<FlowTemplate>('/flows/templates', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateFlowTemplate(
+  id: number,
+  payload: { name: string; description?: string; flow: Record<string, unknown> },
+): Promise<FlowTemplate> {
+  return apiFetch<FlowTemplate>(`/flows/templates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteFlowTemplate(id: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/flows/templates/${id}`, { method: 'DELETE' });
+}
+
+export async function listFlowVersions(flowId: string, limit = 30): Promise<FlowVersion[]> {
+  return apiFetch<FlowVersion[]>(`/flows/${encodeURIComponent(flowId)}/versions?limit=${limit}`);
+}
+
+export async function createFlowVersion(
+  flowId: string,
+  payload: { flow_name: string; label: string; flow: Record<string, unknown> },
+): Promise<FlowVersion> {
+  return apiFetch<FlowVersion>(`/flows/${encodeURIComponent(flowId)}/versions`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getFlowVersion(flowId: string, versionId: number): Promise<FlowVersion> {
+  return apiFetch<FlowVersion>(`/flows/${encodeURIComponent(flowId)}/versions/${versionId}`);
+}
+
+export async function getAgentAnalytics(persist = true): Promise<AgentAnalyticsResponse> {
+  return apiFetch<AgentAnalyticsResponse>(`/flows/analytics/agents?persist=${persist ? '1' : '0'}`);
 }

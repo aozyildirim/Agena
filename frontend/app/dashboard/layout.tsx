@@ -14,6 +14,7 @@ const NAV_KEYS = [
   { href: '/dashboard/team', key: 'nav.team', icon: '◉' },
   { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
   { href: '/dashboard/flows', key: 'nav.flows', icon: '⟳' },
+  { href: '/dashboard/templates', key: 'nav.templates', icon: '◧' },
   { href: '/dashboard/integrations', key: 'nav.integrations', icon: '⬡' },
   { href: '/dashboard/profile', key: 'nav.profile', icon: '◐' },
 ] as const;

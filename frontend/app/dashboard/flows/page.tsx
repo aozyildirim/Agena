@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult } from '@/lib/api';
+import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -112,41 +113,7 @@ const PRESET_FLOWS: Flow[] = [
 ];
 
 const LS_FLOWS = 'tiqr_flows';
-const LS_FLOW_VERSIONS = 'tiqr_flow_versions';
 
-const FLOW_TEMPLATES: { id: string; name: string; description: string; nodes: FlowNode[]; edges: FlowEdge[] }[] = [
-  {
-    id: 'template-enterprise',
-    name: 'Enterprise Delivery',
-    description: 'PM → Lead Dev → Security Gate → Dev → QA → GitHub PR zinciri.',
-    nodes: [
-      { id: 't1', type: 'agent', role: 'pm', label: 'PM Discovery', icon: '📋', color: '#a78bfa', action: 'Scope ve acceptance criteria', waitForApproval: false, x: 60, y: 120 },
-      { id: 't2', type: 'agent', role: 'lead_developer', label: 'Tech Plan', icon: '🧑‍💻', color: '#38bdf8', action: 'Mimari ve task breakdown', waitForApproval: true, x: 280, y: 120 },
-      { id: 't3', type: 'condition', role: 'condition', label: 'Security Gate', icon: '🔐', color: '#22c55e', action: 'Security checklist', waitForApproval: true, x: 500, y: 120 },
-      { id: 't4', type: 'agent', role: 'developer', label: 'Implementation', icon: '⚡', color: '#22c55e', action: 'Kod + test', waitForApproval: false, x: 720, y: 120 },
-      { id: 't5', type: 'agent', role: 'qa', label: 'QA Regression', icon: '🔍', color: '#f472b6', action: 'Regression + edge cases', waitForApproval: false, x: 940, y: 120 },
-      { id: 't6', type: 'github', role: 'github', label: 'PR Open', icon: '🐙', color: '#6e40c9', action: 'PR create + summary', waitForApproval: false, x: 1160, y: 120 },
-    ],
-    edges: [
-      { from: 't1', to: 't2' }, { from: 't2', to: 't3' }, { from: 't3', to: 't4' }, { from: 't4', to: 't5' }, { from: 't5', to: 't6' },
-    ],
-  },
-  {
-    id: 'template-hotfix',
-    name: 'Hotfix Response',
-    description: 'Alert → Root cause → Patch → Verify → Notify akışı.',
-    nodes: [
-      { id: 'h1', type: 'trigger', role: 'trigger', label: 'Incident Trigger', icon: '🚨', color: '#f59e0b', action: 'Prod alarm', waitForApproval: false, x: 60, y: 180 },
-      { id: 'h2', type: 'agent', role: 'lead_developer', label: 'Root Cause', icon: '🧑‍💻', color: '#38bdf8', action: 'Kök sebep analizi', waitForApproval: true, x: 280, y: 180 },
-      { id: 'h3', type: 'agent', role: 'developer', label: 'Patch', icon: '⚡', color: '#22c55e', action: 'Hızlı fix', waitForApproval: false, x: 500, y: 180 },
-      { id: 'h4', type: 'agent', role: 'qa', label: 'Smoke Test', icon: '🔍', color: '#f472b6', action: 'Kritik kontrol', waitForApproval: false, x: 720, y: 180 },
-      { id: 'h5', type: 'notify', role: 'notify', label: 'Team Notify', icon: '🔔', color: '#fb923c', action: 'Slack bildirimi', waitForApproval: false, x: 940, y: 180 },
-    ],
-    edges: [
-      { from: 'h1', to: 'h2' }, { from: 'h2', to: 'h3' }, { from: 'h3', to: 'h4' }, { from: 'h4', to: 'h5' },
-    ],
-  },
-];
 function loadFlows(): Flow[] {
   if (typeof window === 'undefined') return PRESET_FLOWS;
   try {
@@ -159,19 +126,6 @@ function loadFlows(): Flow[] {
 }
 function saveFlowsLS(flows: Flow[]) { localStorage.setItem(LS_FLOWS, JSON.stringify(flows)); }
 
-function loadVersionMap(): Record<string, FlowVersion[]> {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(localStorage.getItem(LS_FLOW_VERSIONS) || '{}') as Record<string, FlowVersion[]>;
-  } catch {
-    return {};
-  }
-}
-
-function saveVersionMap(map: Record<string, FlowVersion[]>) {
-  localStorage.setItem(LS_FLOW_VERSIONS, JSON.stringify(map));
-}
-
 function sortNodesForRun(nodes: FlowNode[]): FlowNode[] {
   return [...nodes].sort((a, b) => a.x - b.x || a.y - b.y);
 }
@@ -183,7 +137,6 @@ export default function FlowsPage() {
   const [activeFlow, setActiveFlow] = useState<string>('full-cycle');
   const [creating, setCreating] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
-  const [showTemplates, setShowTemplates] = useState(false);
   const [showRuns, setShowRuns] = useState(false);
   const [runs, setRuns] = useState<FlowRunResult[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
@@ -200,8 +153,6 @@ export default function FlowsPage() {
     const local = loadFlows();
     setFlows(local);
     if (local.length) setActiveFlow(local[0].id);
-    const versions = loadVersionMap();
-    setVersionsByFlow(versions);
     loadPrefs().then((p) => {
       if (p.flows?.length) {
         // nodes/edges undefined olabilir — normalize et
@@ -217,9 +168,21 @@ export default function FlowsPage() {
   }, []);
 
   useEffect(() => {
-    const currentVersions = versionsByFlow[activeFlow] ?? [];
-    setSelectedVersionId(currentVersions[0]?.id ?? '');
-  }, [activeFlow, versionsByFlow]);
+    if (!activeFlow) return;
+    void listFlowVersions(activeFlow, 30).then((rows) => {
+      const mapped: FlowVersion[] = rows.map((v) => ({
+        id: String(v.id),
+        createdAt: v.created_at,
+        label: v.label,
+        flow: v.flow as unknown as Flow,
+      }));
+      setVersionsByFlow((prev) => ({ ...prev, [activeFlow]: mapped }));
+      setSelectedVersionId(mapped[0]?.id ?? '');
+    }).catch(() => {
+      const currentVersions = versionsByFlow[activeFlow] ?? [];
+      setSelectedVersionId(currentVersions[0]?.id ?? '');
+    });
+  }, [activeFlow]);
 
   function snapshotVersion(flow: Flow, label: string) {
     const cloned: Flow = JSON.parse(JSON.stringify(flow)) as Flow;
@@ -233,9 +196,13 @@ export default function FlowsPage() {
         ...current,
       ].slice(0, 30);
       const nextMap = { ...prev, [flow.id]: nextForFlow };
-      saveVersionMap(nextMap);
       return nextMap;
     });
+    void createFlowVersion(flow.id, {
+      flow_name: flow.name,
+      label,
+      flow: cloned as unknown as Record<string, unknown>,
+    }).catch(() => {});
   }
 
   async function persist(next: Flow[]) {
@@ -262,7 +229,6 @@ export default function FlowsPage() {
     setVersionsByFlow((prev) => {
       const copy = { ...prev };
       delete copy[id];
-      saveVersionMap(copy);
       return copy;
     });
     setActiveFlow(next[0]?.id ?? '');
@@ -279,34 +245,22 @@ export default function FlowsPage() {
     snapshotVersion(current, t('flows.versionCheckpoint'));
   }
 
-  function rollbackToVersion() {
+  async function rollbackToVersion() {
     if (!current || !selectedVersionId) return;
+    if (/^\d+$/.test(selectedVersionId)) {
+      try {
+        const ver = await getFlowVersion(current.id, Number(selectedVersionId));
+        const rolledFromDb: Flow = { ...(ver.flow as unknown as Flow), id: current.id, name: current.name };
+        updateFlow(rolledFromDb);
+        return;
+      } catch {
+        // fallback to local snapshot map
+      }
+    }
     const target = (versionsByFlow[current.id] ?? []).find((v) => v.id === selectedVersionId);
     if (!target) return;
     const rolled: Flow = { ...target.flow, id: current.id, name: current.name };
     updateFlow(rolled);
-  }
-
-  function importTemplate(templateId: string) {
-    const template = FLOW_TEMPLATES.find((x) => x.id === templateId);
-    if (!template) return;
-    const id = String(Date.now());
-    const flow: Flow = {
-      id,
-      name: template.name,
-      createdAt: new Date().toISOString(),
-      nodes: template.nodes.map((n, idx) => ({ ...n, id: `n_${id}_${idx}` })),
-      edges: template.edges.map((e) => {
-        const fromIdx = template.nodes.findIndex((n) => n.id === e.from);
-        const toIdx = template.nodes.findIndex((n) => n.id === e.to);
-        return { from: `n_${id}_${fromIdx}`, to: `n_${id}_${toIdx}` };
-      }),
-    };
-    const next = [...flows, flow];
-    void persist(next);
-    snapshotVersion(flow, `${t('flows.versionImported')}: ${template.name}`);
-    setActiveFlow(flow.id);
-    setShowTemplates(false);
   }
 
   async function runDrySimulation() {
@@ -395,10 +349,10 @@ export default function FlowsPage() {
             style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid ' + (showRuns ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'), background: showRuns ? 'rgba(167,139,250,0.12)' : 'rgba(255,255,255,0.03)', color: showRuns ? '#a78bfa' : 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', fontWeight: showRuns ? 700 : 400 }}>
             {t('flows.runHistory')}
           </button>
-          <button onClick={() => setShowTemplates((v) => !v)}
-            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: showTemplates ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)', color: showTemplates ? '#38bdf8' : 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
+          <Link href='/dashboard/templates'
+            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(56,189,248,0.08)', color: '#38bdf8', fontSize: 13, textDecoration: 'none' }}>
             {t('flows.templates')}
-          </button>
+          </Link>
           <button onClick={saveManualVersion}
             style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
             {t('flows.saveVersion')}
@@ -422,24 +376,6 @@ export default function FlowsPage() {
           </button>
         </div>
       </div>
-
-      {showTemplates && (
-        <div style={{ marginBottom: 12, borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(8,14,30,0.85)', padding: 14, display: 'grid', gap: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>{t('flows.templateMarketplace')}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 10 }}>
-            {FLOW_TEMPLATES.map((tp) => (
-              <div key={tp.id} style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', marginBottom: 6 }}>{tp.name}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5, marginBottom: 10 }}>{tp.description}</div>
-                <button onClick={() => importTemplate(tp.id)}
-                  style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                  {t('flows.importTemplate')}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {current && current.nodes.some((n) => n.waitForApproval) && (
         <div style={{ marginBottom: 12, borderRadius: 12, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)', padding: '10px 12px', display: 'grid', gap: 8 }}>
