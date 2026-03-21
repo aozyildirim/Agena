@@ -80,6 +80,9 @@ class OrchestrationService:
             task.description,
             routing.execution_prompt,
             tenant_playbook,
+            task.story_context,
+            task.acceptance_criteria,
+            task.edge_cases,
         )
         payload = {
             'id': str(task.id),
@@ -147,6 +150,23 @@ class OrchestrationService:
                     'AI pipeline is running in mock mode (OPENAI_API_KEY is missing/placeholder). '
                     'Real code generation is disabled until a valid API key is configured.'
                 )
+            usage = state.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0})
+            model_for_cost = (state.get('model_usage') or ['gpt-4o-mini'])[-1]
+            estimated_cost = self.cost_tracker.estimate_cost_usd(
+                prompt_tokens=int(usage.get('prompt_tokens', 0)),
+                completion_tokens=int(usage.get('completion_tokens', 0)),
+                model=model_for_cost,
+            )
+            guardrail_error = self._validate_cost_guardrails(
+                max_tokens=task.max_tokens,
+                max_cost_usd=task.max_cost_usd,
+                total_tokens=int(usage.get('total_tokens', 0)),
+                estimated_cost_usd=estimated_cost,
+            )
+            if guardrail_error:
+                await task_service.add_log(task.id, organization_id, 'guardrail', guardrail_error)
+                raise RuntimeError(guardrail_error)
+
             final_code = state.get('final_code', '')
             pr_url = None
             branch_name = None
@@ -220,14 +240,6 @@ class OrchestrationService:
                 await task_service.add_log(task.id, organization_id, 'pr', f'GitHub PR created: {pr_url}')
             elif create_pr:
                 await task_service.add_log(task.id, organization_id, 'pr', 'PR skipped because provider configuration is missing')
-
-            usage = state.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0})
-            model_for_cost = (state.get('model_usage') or ['gpt-4o-mini'])[-1]
-            estimated_cost = self.cost_tracker.estimate_cost_usd(
-                prompt_tokens=int(usage.get('prompt_tokens', 0)),
-                completion_tokens=int(usage.get('completion_tokens', 0)),
-                model=model_for_cost,
-            )
 
             run = RunRecord(
                 task_id=task.id,
@@ -462,15 +474,44 @@ class OrchestrationService:
         base_description: str | None,
         execution_prompt: str | None,
         tenant_playbook: str | None = None,
+        story_context: str | None = None,
+        acceptance_criteria: str | None = None,
+        edge_cases: str | None = None,
     ) -> str:
         desc = (base_description or '').strip()
         prompt = (execution_prompt or '').strip()
         playbook = (tenant_playbook or '').strip()
+        story = (story_context or '').strip()
+        criteria = (acceptance_criteria or '').strip()
+        edges = (edge_cases or '').strip()
         chunks: list[str] = []
         if desc:
             chunks.append(desc)
+        if story:
+            chunks.append(f'Business Context:\n{story}')
+        if criteria:
+            chunks.append(f'Acceptance Criteria:\n{criteria}')
+        if edges:
+            chunks.append(f'Edge Cases:\n{edges}')
         if prompt:
             chunks.append(f'Execution Prompt:\n{prompt}')
         if playbook:
             chunks.append(f'Tenant Playbook:\n{playbook}')
         return '\n\n'.join(chunks)
+
+    def _validate_cost_guardrails(
+        self,
+        *,
+        max_tokens: int | None,
+        max_cost_usd: float | None,
+        total_tokens: int,
+        estimated_cost_usd: float,
+    ) -> str | None:
+        if max_tokens is not None and total_tokens > max_tokens:
+            return f'Cost guardrail triggered: total tokens {total_tokens} exceeded max_tokens {max_tokens}'
+        if max_cost_usd is not None and estimated_cost_usd > max_cost_usd:
+            return (
+                'Cost guardrail triggered: estimated cost '
+                f'${estimated_cost_usd:.4f} exceeded max_cost_usd ${max_cost_usd:.4f}'
+            )
+        return None

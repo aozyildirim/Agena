@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -16,6 +16,11 @@ class TaskRecord(Base):
     external_id: Mapped[str] = mapped_column(String(128), index=True)
     title: Mapped[str] = mapped_column(String(512))
     description: Mapped[str] = mapped_column(Text)
+    story_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    acceptance_criteria: Mapped[str | None] = mapped_column(Text, nullable=True)
+    edge_cases: Mapped[str | None] = mapped_column(Text, nullable=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(64), default='queued', index=True)
     branch_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pr_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)

@@ -9,6 +9,11 @@ type TaskDetail = {
   id: number;
   title: string;
   description: string;
+  story_context?: string | null;
+  acceptance_criteria?: string | null;
+  edge_cases?: string | null;
+  max_tokens?: number | null;
+  max_cost_usd?: number | null;
   source: string;
   status: string;
   pr_url?: string | null;
@@ -359,6 +364,17 @@ export default function TaskDetailPage() {
                 {metrics?.startedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Run Start: {new Date(metrics.startedAt).toLocaleString()}</div> : null}
                 {metrics?.finishedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Run End: {new Date(metrics.finishedAt).toLocaleString()}</div> : null}
               </div>
+              {(task.story_context || task.acceptance_criteria || task.edge_cases || task.max_tokens || task.max_cost_usd) ? (
+                <div style={{ border: '1px solid rgba(56,189,248,0.25)', borderRadius: 10, background: 'rgba(56,189,248,0.06)', padding: '9px 10px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 5 }}>Story + Guardrails</div>
+                  {task.story_context ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', marginBottom: 4 }}><b>Context:</b> {task.story_context}</div> : null}
+                  {task.acceptance_criteria ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 4 }}><b>Acceptance:</b> {task.acceptance_criteria}</div> : null}
+                  {task.edge_cases ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 4 }}><b>Edge Cases:</b> {task.edge_cases}</div> : null}
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
+                    Guardrails: max_tokens={task.max_tokens ?? '—'} | max_cost_usd={task.max_cost_usd ?? '—'}
+                  </div>
+                </div>
+              ) : null}
               {(task.lock_scope || task.blocked_by_task_id || (task.queue_position !== null && task.queue_position !== undefined)) ? (
                 <div style={{ border: '1px solid rgba(94,234,212,0.25)', borderRadius: 10, background: 'rgba(94,234,212,0.06)', padding: '9px 10px', marginBottom: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', marginBottom: 5 }}>Queue Insight</div>

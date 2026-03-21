@@ -6,12 +6,22 @@ from pydantic import BaseModel, Field
 class TaskCreateRequest(BaseModel):
     title: str
     description: str
+    story_context: str | None = None
+    acceptance_criteria: str | None = None
+    edge_cases: str | None = None
+    max_tokens: int | None = None
+    max_cost_usd: float | None = None
 
 
 class TaskResponse(BaseModel):
     id: int
     title: str
     description: str
+    story_context: str | None = None
+    acceptance_criteria: str | None = None
+    edge_cases: str | None = None
+    max_tokens: int | None = None
+    max_cost_usd: float | None = None
     source: str
     status: str
     pr_url: str | None = None

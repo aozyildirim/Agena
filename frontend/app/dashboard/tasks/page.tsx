@@ -26,6 +26,11 @@ export default function DashboardTasksPage() {
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [storyContext, setStoryContext] = useState('');
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
+  const [edgeCases, setEdgeCases] = useState('');
+  const [maxTokens, setMaxTokens] = useState('');
+  const [maxCostUsd, setMaxCostUsd] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
@@ -48,8 +53,26 @@ export default function DashboardTasksPage() {
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     try {
-      await apiFetch('/tasks', { method: 'POST', body: JSON.stringify({ title, description }) });
-      setTitle(''); setDescription(''); setShowCreate(false);
+      await apiFetch('/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          story_context: storyContext || undefined,
+          acceptance_criteria: acceptanceCriteria || undefined,
+          edge_cases: edgeCases || undefined,
+          max_tokens: maxTokens ? Number(maxTokens) : undefined,
+          max_cost_usd: maxCostUsd ? Number(maxCostUsd) : undefined,
+        }),
+      });
+      setTitle('');
+      setDescription('');
+      setStoryContext('');
+      setAcceptanceCriteria('');
+      setEdgeCases('');
+      setMaxTokens('');
+      setMaxCostUsd('');
+      setShowCreate(false);
       setMsg('Task created'); await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Create failed'); }
   }
@@ -99,6 +122,42 @@ export default function DashboardTasksPage() {
           <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder='Task title' required />
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder='Description' rows={3} required />
+            <textarea
+              value={storyContext}
+              onChange={(e) => setStoryContext(e.target.value)}
+              placeholder='Story context (business intent, users, expected value)'
+              rows={2}
+            />
+            <textarea
+              value={acceptanceCriteria}
+              onChange={(e) => setAcceptanceCriteria(e.target.value)}
+              placeholder='Acceptance criteria'
+              rows={2}
+            />
+            <textarea
+              value={edgeCases}
+              onChange={(e) => setEdgeCases(e.target.value)}
+              placeholder='Edge cases / constraints'
+              rows={2}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input
+                type='number'
+                min='1'
+                step='1'
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(e.target.value)}
+                placeholder='Max tokens (guardrail)'
+              />
+              <input
+                type='number'
+                min='0'
+                step='0.0001'
+                value={maxCostUsd}
+                onChange={(e) => setMaxCostUsd(e.target.value)}
+                placeholder='Max cost USD (guardrail)'
+              />
+            </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button type='submit' className='button button-primary'>Create Task</button>
               <button type='button' className='button button-outline' onClick={() => setShowCreate(false)}>Cancel</button>

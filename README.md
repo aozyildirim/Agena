@@ -51,14 +51,14 @@ Production-ready, multi-tenant AI agent orchestration platform built with FastAP
   - playbook rules automatically injected into orchestration prompt context
 
 ### Story & Budget Controls
-- Task Story Mode (feature highlight):
-  - structured work intent with business context
-  - acceptance criteria and edge-case notes for stronger AI prompting
-  - designed to reduce ambiguous task interpretation before generation
-- Cost Guardrails (feature highlight):
-  - per-task token and cost caps
-  - threshold-based pause/approval pattern
-  - designed to prevent budget overrun in autonomous runs
+- Task Story Mode (implemented):
+  - task-level fields: `story_context`, `acceptance_criteria`, `edge_cases`
+  - these fields are injected into orchestration prompt context before generation
+  - available in task create UI and task detail view
+- Cost Guardrails (implemented):
+  - task-level limits: `max_tokens`, `max_cost_usd`
+  - run fails before PR creation when usage or estimated cost exceeds limit
+  - guardrail events are written to task logs (`stage=guardrail`)
 
 ### Frontend
 - Landing page sections for Flow/Agent engine and advanced capabilities showcase

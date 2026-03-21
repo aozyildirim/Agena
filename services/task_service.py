@@ -33,7 +33,18 @@ class TaskService:
     async def get_azure_tasks(self) -> list[ExternalTask]:
         return await self.azure_client.fetch_new_work_items()
 
-    async def create_task(self, organization_id: int, user_id: int, title: str, description: str) -> TaskRecord:
+    async def create_task(
+        self,
+        organization_id: int,
+        user_id: int,
+        title: str,
+        description: str,
+        story_context: str | None = None,
+        acceptance_criteria: str | None = None,
+        edge_cases: str | None = None,
+        max_tokens: int | None = None,
+        max_cost_usd: float | None = None,
+    ) -> TaskRecord:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -47,6 +58,11 @@ class TaskService:
             external_id='internal',
             title=title,
             description=description,
+            story_context=(story_context or '').strip() or None,
+            acceptance_criteria=(acceptance_criteria or '').strip() or None,
+            edge_cases=(edge_cases or '').strip() or None,
+            max_tokens=max(1, int(max_tokens)) if max_tokens is not None else None,
+            max_cost_usd=max(0.0, float(max_cost_usd)) if max_cost_usd is not None else None,
             status='queued',
         )
         self.db.add(task)

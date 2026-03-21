@@ -24,6 +24,11 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         id=task.id,
         title=task.title,
         description=task.description,
+        story_context=task.story_context,
+        acceptance_criteria=task.acceptance_criteria,
+        edge_cases=task.edge_cases,
+        max_tokens=task.max_tokens,
+        max_cost_usd=task.max_cost_usd,
         source=task.source,
         status=task.status,
         pr_url=task.pr_url,
@@ -61,6 +66,11 @@ async def create_task(
             user_id=tenant.user_id,
             title=request.title,
             description=request.description,
+            story_context=request.story_context,
+            acceptance_criteria=request.acceptance_criteria,
+            edge_cases=request.edge_cases,
+            max_tokens=request.max_tokens,
+            max_cost_usd=request.max_cost_usd,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
