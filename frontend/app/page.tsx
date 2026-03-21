@@ -373,6 +373,63 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── ADVANCED CAPABILITIES SHOWCASE ── */}
+        <section style={{ padding: '60px 0' }}>
+          <div style={{ marginBottom: 32 }}>
+            <div className='section-label'>{t('landing.capabilitiesLabel')}</div>
+            <h2 style={{ fontSize: 'clamp(24px, 2.5vw, 38px)', fontWeight: 800, color: 'rgba(255,255,255,0.92)', marginBottom: 10 }}>
+              {t('landing.capabilitiesTitle')}
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, maxWidth: 760 }}>
+              {t('landing.capabilitiesSubtitle')}
+            </p>
+          </div>
+
+          <div className='capability-grid'>
+            {[
+              {
+                icon: '🧩',
+                title: t('landing.capDependencyTitle'),
+                desc: t('landing.capDependencyDesc'),
+                badges: [t('landing.capDependencyBadge1'), t('landing.capDependencyBadge2'), t('landing.capDependencyBadge3')],
+                photo: 'https://images.unsplash.com/photo-1516383740770-fbcc5ccbece0?auto=format&fit=crop&w=900&q=80',
+              },
+              {
+                icon: '🛡️',
+                title: t('landing.capRiskTitle'),
+                desc: t('landing.capRiskDesc'),
+                badges: [t('landing.capRiskBadge1'), t('landing.capRiskBadge2'), t('landing.capRiskBadge3')],
+                photo: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80',
+              },
+              {
+                icon: '📘',
+                title: t('landing.capPlaybookTitle'),
+                desc: t('landing.capPlaybookDesc'),
+                badges: [t('landing.capPlaybookBadge1'), t('landing.capPlaybookBadge2'), t('landing.capPlaybookBadge3')],
+                photo: 'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=900&q=80',
+              },
+            ].map((item, idx) => (
+              <article key={item.title} className='capability-card' style={{ animationDelay: `${idx * 0.14}s` }}>
+                <div className='capability-photo-wrap'>
+                  <img src={item.photo} alt={item.title} className='capability-photo' loading='lazy' />
+                  <div className='capability-overlay'>
+                    <span className='chip' style={{ fontSize: 10 }}>{item.icon} {t('landing.widgetLive')}</span>
+                  </div>
+                </div>
+                <div className='capability-content'>
+                  <h3 className='capability-title'>{item.title}</h3>
+                  <p className='capability-desc'>{item.desc}</p>
+                  <div className='capability-badges'>
+                    {item.badges.map((badge) => (
+                      <span key={badge} className='capability-badge'>{badge}</span>
+                    ))}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         {/* ── PRICING ── */}
         <section style={{ padding: '60px 0' }}>
           <div style={{ marginBottom: 48, textAlign: 'center' }}>

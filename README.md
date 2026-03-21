@@ -18,6 +18,49 @@ Production-ready, multi-tenant AI agent orchestration platform built with FastAP
 - Optional vector memory (`memory/base.py`, `memory/qdrant.py`)
 - Next.js frontend routes for landing, pricing, auth, tasks, and task timeline
 
+## Feature Catalog (Current)
+
+### Core Delivery
+- AI assignment from internal, Jira, and Azure sourced tasks
+- Redis-based queue worker with dynamic concurrency
+- Task cancellation endpoint and UI action (`POST /tasks/{id}/cancel`)
+- Queue lock guard to prevent same-repo concurrent execution
+- Retry/backoff handling for transient Codex/OpenAI execution failures
+- Stale-running watchdog (auto-fail for long-running stuck jobs)
+
+### Task Intelligence
+- Queue insights on API/UI:
+  - `queue_position`, `estimated_start_sec`, `queue_wait_sec`, `retry_count`
+  - lock scope and blocker task info
+- Execution telemetry:
+  - start/end/duration
+  - token and usage metrics
+  - step-level logs with code preview and diff preview
+- PR risk scoring per task:
+  - `pr_risk_score`, `pr_risk_level`, `pr_risk_reason`
+
+### Dependency & Governance
+- Task Dependency Graph:
+  - `GET /tasks/{id}/dependencies`
+  - `PUT /tasks/{id}/dependencies`
+  - cycle detection and self-dependency protection
+  - assignment blocked while dependency blockers exist
+- Tenant Playbooks (org-specific coding policy layer):
+  - `PUT /integrations/playbook`
+  - `GET /integrations/playbook/content`
+  - playbook rules automatically injected into orchestration prompt context
+
+### Frontend
+- Landing page sections for Flow/Agent engine and advanced capabilities showcase
+- Dashboard overview with operations radar and queue forecast
+- Task list with runtime, queue wait, retry, and token visibility
+- Task detail panels for queue insight, dependency management, PR risk, and live logs
+
+### Integrations
+- Jira, Azure DevOps, OpenAI, and Playbook integration providers
+- Org-scoped integration credentials and settings
+- Repo mapping UX for Azure repo ↔ local path workflows
+
 ## Architecture
 
 Task Fetch/Create -> Save TaskRecord -> Queue Redis -> Worker -> Agent Pipeline -> GitHub PR -> Save Result + Logs + Usage
