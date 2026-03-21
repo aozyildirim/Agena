@@ -1,0 +1,80 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: ai_agent_api
+    env_file:
+      - .env
+    ports:
+      - '8010:8010'
+    volumes:
+      - ./api:/app/api
+      - ./services:/app/services
+      - ./agents:/app/agents
+      - ./integrations:/app/integrations
+      - ./models:/app/models
+      - ./schemas:/app/schemas
+    depends_on:
+      - mysql
+      - redis
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: ai_agent_worker
+    env_file:
+      - .env
+    volumes:
+      - ./api:/app/api
+      - ./services:/app/services
+      - ./agents:/app/agents
+      - ./integrations:/app/integrations
+      - ./models:/app/models
+      - ./schemas:/app/schemas
+    command: ["python", "-m", "workers.redis_worker"]
+    depends_on:
+      - mysql
+      - redis
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ai_agent_frontend
+    env_file:
+      - frontend/.env.example
+    ports:
+      - '3010:3010'
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: ai_agent_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: ai_agent_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_agent_redis
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -1,0 +1,207 @@
+'use client';
+
+import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
+import { TaskItem } from '@/components/TaskTable';
+
+const STATUS_FILTERS = ['all', 'queued', 'running', 'completed', 'failed'];
+
+function statusColor(s: string) {
+  const m: Record<string, string> = { queued: '#f59e0b', running: '#38bdf8', completed: '#22c55e', failed: '#f87171' };
+  return m[s] ?? '#6b7280';
+}
+
+export default function DashboardTasksPage() {
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+
+  async function load() {
+    try {
+      const data = await apiFetch<TaskItem[]>('/tasks');
+      setTasks(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Load failed');
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    const iv = setInterval(() => void load(), 5000);
+    return () => clearInterval(iv);
+  }, []);
+
+  async function onCreate(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await apiFetch('/tasks', { method: 'POST', body: JSON.stringify({ title, description }) });
+      setTitle(''); setDescription(''); setShowCreate(false);
+      setMsg('Task created'); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Create failed'); }
+  }
+
+  async function onAssign(id: number) {
+    try {
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST' });
+      setMsg('Assigned to AI'); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Assign failed'); }
+  }
+
+  const filtered = tasks.filter((t: TaskItem) => {
+    const matchStatus = filter === 'all' || t.status === filter;
+    const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase());
+    return matchStatus && matchSearch;
+  });
+
+  return (
+    <div style={{ display: 'grid', gap: 24 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div className='section-label'>Tasks</div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 8, marginBottom: 4 }}>
+            Agent Task Feed
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>{tasks.length} total tasks</p>
+        </div>
+        <button
+          className='button button-primary'
+          onClick={() => setShowCreate(!showCreate)}
+          style={{ alignSelf: 'flex-start' }}
+        >
+          + New Task
+        </button>
+      </div>
+
+      {/* Create form */}
+      {showCreate && (
+        <div style={{
+          borderRadius: 20, border: '1px solid rgba(13,148,136,0.3)',
+          background: 'rgba(13,148,136,0.06)', padding: 24,
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.6), transparent)' }} />
+          <h3 style={{ color: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 16 }}>Create New Task</h3>
+          <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder='Task title' required />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder='Description' rows={3} required />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type='submit' className='button button-primary'>Create Task</button>
+              <button type='button' className='button button-outline' onClick={() => setShowCreate(false)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          value={search}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+          placeholder='Search tasks...'
+          style={{ width: 220, padding: '8px 14px', fontSize: 13 }}
+        />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              style={{
+                padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                border: filter === s ? `1px solid ${s === 'all' ? '#5eead4' : statusColor(s)}` : '1px solid rgba(255,255,255,0.1)',
+                background: filter === s ? (s === 'all' ? 'rgba(94,234,212,0.12)' : `${statusColor(s)}18`) : 'transparent',
+                color: filter === s ? (s === 'all' ? '#5eead4' : statusColor(s)) : 'rgba(255,255,255,0.4)',
+                cursor: 'pointer', textTransform: 'capitalize',
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Notification */}
+      {(msg || error) && (
+        <div style={{
+          padding: '12px 16px', borderRadius: 12, fontSize: 13,
+          background: error ? 'rgba(248,113,113,0.1)' : 'rgba(34,197,94,0.1)',
+          border: `1px solid ${error ? 'rgba(248,113,113,0.3)' : 'rgba(34,197,94,0.3)'}`,
+          color: error ? '#f87171' : '#22c55e',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          {error || msg}
+          <button onClick={() => { setError(''); setMsg(''); }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 16 }}>×</button>
+        </div>
+      )}
+
+      {/* Task list */}
+      <div style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px 160px', gap: 12 }}>
+          {['Task', 'Source', 'Status', 'PR', 'Actions'].map((h) => (
+            <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1 }}>{h}</span>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>
+            No tasks found.
+          </div>
+        ) : (
+          filtered.map((t) => (
+            <div key={t.id} style={{
+              padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+              display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px 160px', gap: 12, alignItems: 'center',
+              transition: 'background 0.2s',
+            }}>
+              <div>
+                <div style={{ fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontSize: 14, marginBottom: 2 }}>{t.title}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+              </div>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+                background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)',
+                textTransform: 'capitalize', width: 'fit-content',
+              }}>{t.source}</span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                background: `${statusColor(t.status)}18`,
+                border: `1px solid ${statusColor(t.status)}40`,
+                color: statusColor(t.status), width: 'fit-content', textTransform: 'capitalize',
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(t.status), animation: t.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
+                {t.status}
+              </span>
+              <div>
+                {t.pr_url ? (
+                  <a href={t.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>View PR ↗</a>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  className='button button-primary'
+                  onClick={() => void onAssign(t.id)}
+                  style={{ padding: '6px 12px', fontSize: 12 }}
+                >
+                  Assign AI
+                </button>
+                <Link href={`/tasks/${t.id}`} className='button button-outline' style={{ padding: '6px 12px', fontSize: 12 }}>
+                  Details
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
