@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiFetch, loadPrefs, runFlow, FlowRunResult } from '@/lib/api';
+import Link from 'next/link';
+import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 type Opt = { id: string; name: string; path?: string };
@@ -13,18 +14,12 @@ type WorkItem = {
 
 type AgentRole = 'lead_developer' | 'pm' | 'qa' | 'manager' | 'developer';
 interface AgentConfig { role: AgentRole; label: string; icon: string; provider: string; model: string; custom_model: string; enabled: boolean; }
-type AzureRepo = { id: string; name: string; remote_url: string; web_url: string };
+type TaskRecord = { id: number };
 const LS_AGENTS = 'tiqr_agent_configs';
-const LS_LOCAL_REPOS = 'tiqr_local_repos';
 function loadAgentConfigs(): AgentConfig[] {
   if (typeof window === 'undefined') return [];
   try { return JSON.parse(localStorage.getItem(LS_AGENTS) || '[]') as AgentConfig[]; } catch { return []; }
 }
-function loadLocalRepos(): string[] {
-  if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(LS_LOCAL_REPOS) || '[]') as string[]; } catch { return []; }
-}
-function saveLocalRepos(repos: string[]) { localStorage.setItem(LS_LOCAL_REPOS, JSON.stringify(repos)); }
 type ImportRes = { imported: number; skipped: number };
 
 const STATES_ORDER = ['Backlog','To Do','In Progress','Code Review','QA To Do','Done','Closed','Resolved','Active','New'];
@@ -70,6 +65,23 @@ function shortName(full?: string): string {
   return parts[0] + ' ' + parts[parts.length - 1][0] + '.';
 }
 
+function toPlainText(input?: string): string {
+  if (!input) return '';
+  return input
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateText(input: string, max = 110): string {
+  if (input.length <= max) return input;
+  return input.slice(0, max - 1).trimEnd() + '…';
+}
+
 export default function SprintsPage() {
   const { t } = useLocale();
   const [projects, setProjects] = useState<Opt[]>([]);
@@ -92,10 +104,11 @@ export default function SprintsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
-  const [localRepos, setLocalRepos] = useState<string[]>([]);
+  const [repoMappings, setRepoMappings] = useState<RepoMapping[]>([]);
   const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
   const [flowRunning, setFlowRunning] = useState(false);
   const [flowResult, setFlowResult] = useState<FlowRunResult | null>(null);
+  const [taskMapByExternalId, setTaskMapByExternalId] = useState<Record<string, number>>({});
 
   const setProject = useCallback((v: string) => { setProjectRaw(v); localStorage.setItem(LS_PROJECT, v); }, []);
   const setTeam    = useCallback((v: string) => { setTeamRaw(v);    localStorage.setItem(LS_TEAM, v);    }, []);
@@ -104,7 +117,6 @@ export default function SprintsPage() {
   // İlk yükleme — DB'den + localStorage'dan
   useEffect(() => {
     setAgentConfigs(loadAgentConfigs());
-    setLocalRepos(loadLocalRepos());
     const init = async () => {
       let savedProject = localStorage.getItem(LS_PROJECT) || '';
       let savedTeam    = localStorage.getItem(LS_TEAM)    || '';
@@ -117,6 +129,7 @@ export default function SprintsPage() {
         if (prefs.flows?.length) {
           setSavedFlows((prefs.flows as unknown as { id: string; name: string }[]).map((f) => ({ id: f.id, name: f.name })));
         }
+        setRepoMappings(prefs.repo_mappings ?? []);
       } catch { /* localStorage fallback */ }
 
       setLpj(true);
@@ -193,11 +206,32 @@ export default function SprintsPage() {
       .finally(() => setImp(''));
   }
 
-  async function assignAI(item: WorkItem) {
+  async function assignAI(item: WorkItem, options?: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; agentRole?: string }) {
     setAiLoading(true); setAiResult('');
     try {
-      const res = await apiFetch<{ message: string }>('/tasks/' + item.id + '/assign-ai', { method: 'POST' });
-      setAiResult(res.message || t('sprints.aiAssigned'));
+      let taskId = taskMapByExternalId[item.id];
+      if (!taskId) {
+        const desc = toPlainText(item.description) || 'No description';
+        const ctxParts = [
+          `External Source: Azure #${item.id}`,
+          options?.project ? `Project: ${options.project}` : '',
+          options?.azureRepo ? `Azure Repo: ${options.azureRepo}` : '',
+          options?.localRepoMapping ? `Local Repo Mapping: ${options.localRepoMapping}` : '',
+          options?.localRepoPath ? `Local Repo Path: ${options.localRepoPath}` : '',
+          options?.agentRole ? `Preferred Agent: ${options.agentRole}` : '',
+        ].filter(Boolean);
+        const created = await apiFetch<TaskRecord>('/tasks', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: `[Azure #${item.id}] ${item.title}`,
+            description: `${desc}\n\n---\n${ctxParts.join('\n')}`,
+          }),
+        });
+        taskId = created.id;
+        setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: taskId as number }));
+      }
+      await apiFetch('/tasks/' + String(taskId) + '/assign', { method: 'POST' });
+      setAiResult(t('sprints.aiAssigned'));
     } catch (e) {
       setAiResult(t('sprints.aiAssignFailed') + (e instanceof Error ? e.message : 'Hata'));
     } finally {
@@ -321,19 +355,16 @@ export default function SprintsPage() {
         {selected && (
           <DetailPanel
             item={selected}
-            projects={projects}
-            currentProject={project}
-            localRepos={localRepos}
+            repoMappings={repoMappings}
             agentConfigs={agentConfigs}
             savedFlows={savedFlows}
             flowRunning={flowRunning}
             flowResult={flowResult}
             onRunFlow={(flowId) => void handleRunFlow(flowId, selected)}
-            onAddRepo={(r) => { const next = [...localRepos, r]; setLocalRepos(next); saveLocalRepos(next); }}
             onClose={() => { setSelected(null); setFlowResult(null); }}
             aiLoading={aiLoading}
             aiResult={aiResult}
-            onAssignAI={() => void assignAI(selected)}
+            onAssignAI={(options) => void assignAI(selected, options)}
           />
         )}
       </div>
@@ -362,6 +393,7 @@ function BoardCard({ item, stateColor, selected, onClick }: {
   const timeLabel = item.activated_date
     ? elapsed(item.created_date, item.activated_date)
     : elapsed(item.created_date);
+  const descriptionPreview = truncateText(toPlainText(item.description));
 
   return (
     <div
@@ -378,6 +410,11 @@ function BoardCard({ item, stateColor, selected, onClick }: {
       onMouseLeave={() => setHovered(false)}
     >
       <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.88)', lineHeight: 1.4, marginBottom: 6 }}>{item.title}</div>
+      {descriptionPreview && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.42)', lineHeight: 1.45, marginBottom: 6 }}>
+          {descriptionPreview}
+        </div>
+      )}
 
       {/* Atanan kişi */}
       {item.assigned_to && (
@@ -403,12 +440,10 @@ function BoardCard({ item, stateColor, selected, onClick }: {
   );
 }
 
-function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects, currentProject, localRepos, agentConfigs, onAddRepo, savedFlows, flowRunning, flowResult, onRunFlow }: {
+function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappings, agentConfigs, savedFlows, flowRunning, flowResult, onRunFlow }: {
   item: WorkItem; onClose: () => void;
-  aiLoading: boolean; aiResult: string; onAssignAI: () => void;
-  projects: Opt[]; currentProject: string;
-  localRepos: string[]; agentConfigs: AgentConfig[];
-  onAddRepo: (r: string) => void;
+  aiLoading: boolean; aiResult: string; onAssignAI: (options: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; agentRole?: string }) => void;
+  repoMappings: RepoMapping[]; agentConfigs: AgentConfig[];
   savedFlows: { id: string; name: string }[];
   flowRunning: boolean;
   flowResult: FlowRunResult | null;
@@ -417,34 +452,14 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects,
   const stateInfo = STATE_COLORS[item.state ?? ''] ?? { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' };
   const openDuration  = elapsed(item.created_date);
   const toActiveDuration = item.activated_date ? elapsed(item.created_date, item.activated_date) : null;
+  const plainDescription = toPlainText(item.description);
 
-  const [selProject, setSelProject] = useState(currentProject);
-  const [azureRepos, setAzureRepos] = useState<AzureRepo[]>([]);
-  const [selAzureRepo, setSelAzureRepo] = useState('');
-  const [loadingRepos, setLoadingRepos] = useState(false);
-  const [selLocalRepo, setSelLocalRepo] = useState(localRepos[0] ?? '');
+  const [selLocalRepoMappingId, setSelLocalRepoMappingId] = useState(repoMappings[0]?.id ?? '');
   const [selAgent, setSelAgent] = useState('');
-  const [newRepo, setNewRepo] = useState('');
-  const [showAddRepo, setShowAddRepo] = useState(false);
   const [selFlow, setSelFlow] = useState(savedFlows[0]?.id ?? '');
 
-  // Proje değişince Azure repoları çek
-  useEffect(() => {
-    setAzureRepos([]); setSelAzureRepo('');
-    if (!selProject) return;
-    setLoadingRepos(true);
-    apiFetch<AzureRepo[]>('/tasks/azure/repos?project=' + encodeURIComponent(selProject))
-      .then(setAzureRepos).catch(() => {}).finally(() => setLoadingRepos(false));
-  }, [selProject]);
-
   const enabledAgents = agentConfigs.filter((a) => a.enabled && (a.model || a.custom_model));
-
-  function handleAddRepo() {
-    if (!newRepo.trim()) return;
-    onAddRepo(newRepo.trim());
-    setSelLocalRepo(newRepo.trim());
-    setNewRepo(''); setShowAddRepo(false);
-  }
+  const selectedLocalMapping = repoMappings.find((m) => m.id === selLocalRepoMappingId);
 
   return (
     <div style={{
@@ -485,70 +500,38 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects,
         {toActiveDuration && <DetailRow icon="⚡" label="Açılıştan In Progress'e"><span style={{ color: '#38bdf8', fontWeight: 700 }}>{toActiveDuration}</span></DetailRow>}
         {!toActiveDuration && item.created_date && <DetailRow icon="⏳" label="Açık süre"><span style={{ color: '#f59e0b', fontWeight: 700 }}>{openDuration}</span></DetailRow>}
 
-        {item.description && (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 6 }}>Açıklama</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>{item.description}</div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 6 }}>Açıklama</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {plainDescription || 'Açıklama bulunamadı'}
           </div>
-        )}
+        </div>
 
         {/* ── AI Ayarları ── */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>AI Atama Ayarları</div>
 
-          {/* Azure Proje */}
+          {/* Repo Mapping */}
           <div>
-            <label style={dpLabelStyle}>Azure Proje</label>
-            <select value={selProject} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelProject(e.target.value)} style={dpSelectStyle}>
-              <option value="" style={{ background: '#0d1117' }}>Proje seç...</option>
-              {projects.map((p) => <option key={p.id} value={p.name} style={{ background: '#0d1117' }}>{p.name}</option>)}
-            </select>
-          </div>
-
-          {/* Azure Repo */}
-          <div>
-            <label style={dpLabelStyle}>
-              Azure Repo {loadingRepos && <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'rgba(255,255,255,0.2)' }}>yükleniyor…</span>}
-            </label>
-            {selProject ? (
-              <select value={selAzureRepo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelAzureRepo(e.target.value)}
-                disabled={loadingRepos} style={dpSelectStyle}>
-                <option value="" style={{ background: '#0d1117' }}>Repo seç...</option>
-                {azureRepos.map((r) => <option key={r.id} value={r.remote_url} style={{ background: '#0d1117' }}>{r.name}</option>)}
-              </select>
-            ) : (
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', padding: '6px 0' }}>Önce proje seç</div>
-            )}
-            {selAzureRepo && (
-              <div style={{ marginTop: 4, fontSize: 10, color: 'rgba(255,255,255,0.25)', wordBreak: 'break-all' }}>{selAzureRepo}</div>
-            )}
-          </div>
-
-          {/* Local Repo (opsiyonel) */}
-          <div>
-            <label style={dpLabelStyle}>Local Repo (opsiyonel)</label>
-            {localRepos.length > 0 && (
-              <select value={selLocalRepo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelLocalRepo(e.target.value)}
+            <label style={dpLabelStyle}>Repo Mapping</label>
+            {repoMappings.length > 0 ? (
+              <select value={selLocalRepoMappingId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelLocalRepoMappingId(e.target.value)}
                 style={{ ...dpSelectStyle, marginBottom: 6 }}>
-                <option value="" style={{ background: '#0d1117' }}>Seç...</option>
-                {localRepos.map((r) => <option key={r} value={r} style={{ background: '#0d1117' }}>{r.split('/').pop() ?? r}</option>)}
+                <option value="" style={{ background: '#0d1117' }}>Mapping seç...</option>
+                {repoMappings.map((m) => <option key={m.id} value={m.id} style={{ background: '#0d1117' }}>{m.azure_project} · {m.azure_repo_name || m.name}</option>)}
               </select>
-            )}
-            {showAddRepo ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input value={newRepo} onChange={(e) => setNewRepo(e.target.value)}
-                  placeholder="/Users/ali/projects/my-app"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddRepo()}
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.9)', fontSize: 12, outline: 'none' }} />
-                <button onClick={handleAddRepo} style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#0d9488', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>+</button>
-                <button onClick={() => setShowAddRepo(false)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer' }}>×</button>
-              </div>
             ) : (
-              <button onClick={() => setShowAddRepo(true)}
-                style={{ fontSize: 11, padding: '5px 10px', borderRadius: 7, border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
-                + Local path ekle
-              </button>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)' }}>Henüz mapping yok.</div>
             )}
+            {selectedLocalMapping && (
+              <div style={{ marginTop: 4, fontSize: 10, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>
+                <div>Azure: {selectedLocalMapping.azure_project || '-'} · {selectedLocalMapping.azure_repo_name || selectedLocalMapping.name}</div>
+                <div style={{ wordBreak: 'break-all' }}>Local: {selectedLocalMapping.local_path}</div>
+              </div>
+            )}
+            <Link href='/dashboard/mappings' style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#38bdf8', textDecoration: 'none' }}>
+              + Mapping yönet →
+            </Link>
           </div>
 
           {/* Agent seçimi */}
@@ -605,9 +588,9 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects,
             {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> Flow çalışıyor…</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? 'Flow Çalıştır' : 'Flow seç'}</>}
           </button>
         )}
-        <button onClick={onAssignAI} disabled={aiLoading || !selAgent}
+        <button onClick={() => onAssignAI({ project: selectedLocalMapping?.azure_project, azureRepo: selectedLocalMapping?.azure_repo_url, localRepoMapping: selectedLocalMapping?.name, localRepoPath: selectedLocalMapping?.local_path, agentRole: selAgent || undefined })} disabled={aiLoading || !selAgent || !selectedLocalMapping}
           style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(13,148,136,0.3)' : selAgent ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'rgba(255,255,255,0.06)', color: selAgent ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> AI çalışıyor…</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? 'Assign AI' : 'Agent seç'}</>}
+          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> AI çalışıyor…</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? (selectedLocalMapping ? 'Assign AI' : 'Mapping seç') : 'Agent seç'}</>}
         </button>
         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>AI bu işi analiz edip otomatik atar</div>
       </div>

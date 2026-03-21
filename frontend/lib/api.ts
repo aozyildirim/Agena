@@ -69,6 +69,15 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
 // ── Preferences helpers ──────────────────────────────────────────────────────
 
 export type AzureMember = { id: string; displayName: string; uniqueName: string };
+export type RepoMapping = {
+  id: string;
+  name: string;
+  local_path: string;
+  notes?: string;
+  azure_project?: string;
+  azure_repo_url?: string;
+  azure_repo_name?: string;
+};
 
 export interface UserPrefs {
   azure_project: string | null;
@@ -77,12 +86,14 @@ export interface UserPrefs {
   my_team: AzureMember[];
   agents: Record<string, unknown>[];
   flows: Record<string, unknown>[];
+  repo_mappings: RepoMapping[];
 }
 
 const LS_PROJECT = 'tiqr_sprint_project';
 const LS_TEAM    = 'tiqr_sprint_team';
 const LS_SPRINT  = 'tiqr_sprint_path';
 const LS_MY_TEAM = 'tiqr_my_team';
+const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
 
 /** DB'den tercihleri çek, localStorage'a da yaz (cache) */
 export async function loadPrefs(): Promise<UserPrefs> {
@@ -93,6 +104,7 @@ export async function loadPrefs(): Promise<UserPrefs> {
   if (prefs.my_team?.length)   localStorage.setItem(LS_MY_TEAM, JSON.stringify(prefs.my_team));
   if (prefs.agents?.length)    localStorage.setItem('tiqr_agent_configs', JSON.stringify(prefs.agents));
   if (prefs.flows?.length)     localStorage.setItem('tiqr_flows', JSON.stringify(prefs.flows));
+  if (prefs.repo_mappings)     localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(prefs.repo_mappings));
   return prefs;
 }
 
@@ -104,6 +116,7 @@ export async function savePrefs(partial: Partial<{
   my_team: AzureMember[];
   agents: Record<string, unknown>[];
   flows: Record<string, unknown>[];
+  repo_mappings: RepoMapping[];
 }>): Promise<void> {
   if (partial.azure_project !== undefined)     localStorage.setItem(LS_PROJECT, partial.azure_project);
   if (partial.azure_team !== undefined)        localStorage.setItem(LS_TEAM,    partial.azure_team);
@@ -111,6 +124,7 @@ export async function savePrefs(partial: Partial<{
   if (partial.my_team !== undefined)           localStorage.setItem(LS_MY_TEAM, JSON.stringify(partial.my_team));
   if (partial.agents !== undefined)            localStorage.setItem('tiqr_agent_configs', JSON.stringify(partial.agents));
   if (partial.flows !== undefined)             localStorage.setItem('tiqr_flows', JSON.stringify(partial.flows));
+  if (partial.repo_mappings !== undefined)     localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(partial.repo_mappings));
   await apiFetch('/preferences', {
     method: 'PUT',
     body: JSON.stringify({
@@ -120,6 +134,7 @@ export async function savePrefs(partial: Partial<{
       my_team:           partial.my_team           ?? null,
       agents:            partial.agents            ?? null,
       flows:             partial.flows             ?? null,
+      repo_mappings:     partial.repo_mappings     ?? null,
     }),
   });
 }
