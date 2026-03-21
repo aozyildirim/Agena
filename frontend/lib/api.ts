@@ -123,3 +123,47 @@ export async function savePrefs(partial: Partial<{
     }),
   });
 }
+
+// ── Flow Run helpers ─────────────────────────────────────────────────────────
+
+export interface FlowRunStep {
+  id: number;
+  node_id: string;
+  node_type: string;
+  node_label: string | null;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  output: unknown;
+  error_msg: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface FlowRunResult {
+  id: number;
+  flow_id: string;
+  flow_name: string;
+  task_id: string | null;
+  task_title: string | null;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  started_at: string;
+  finished_at: string | null;
+  steps: FlowRunStep[];
+}
+
+export async function runFlow(
+  flow_id: string,
+  task: Record<string, unknown>,
+): Promise<FlowRunResult> {
+  return apiFetch<FlowRunResult>('/flows/run', {
+    method: 'POST',
+    body: JSON.stringify({ flow_id, task }),
+  });
+}
+
+export async function getFlowRuns(limit = 20): Promise<FlowRunResult[]> {
+  return apiFetch<FlowRunResult[]>(`/flows/runs?limit=${limit}`);
+}
+
+export async function getFlowRun(runId: number): Promise<FlowRunResult> {
+  return apiFetch<FlowRunResult>(`/flows/runs/${runId}`);
+}

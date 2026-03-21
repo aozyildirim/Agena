@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiFetch, loadPrefs } from '@/lib/api';
+import { apiFetch, loadPrefs, runFlow, FlowRunResult } from '@/lib/api';
 
 type Opt = { id: string; name: string; path?: string };
 type WorkItem = {
@@ -91,6 +91,9 @@ export default function SprintsPage() {
   const [aiResult, setAiResult] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
   const [localRepos, setLocalRepos] = useState<string[]>([]);
+  const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
+  const [flowRunning, setFlowRunning] = useState(false);
+  const [flowResult, setFlowResult] = useState<FlowRunResult | null>(null);
 
   const setProject = useCallback((v: string) => { setProjectRaw(v); localStorage.setItem(LS_PROJECT, v); }, []);
   const setTeam    = useCallback((v: string) => { setTeamRaw(v);    localStorage.setItem(LS_TEAM, v);    }, []);
@@ -109,6 +112,9 @@ export default function SprintsPage() {
         if (prefs.azure_project)     savedProject = prefs.azure_project;
         if (prefs.azure_team)        savedTeam    = prefs.azure_team;
         if (prefs.azure_sprint_path) savedSprint  = prefs.azure_sprint_path;
+        if (prefs.flows?.length) {
+          setSavedFlows((prefs.flows as unknown as { id: string; name: string }[]).map((f) => ({ id: f.id, name: f.name })));
+        }
       } catch { /* localStorage fallback */ }
 
       setLpj(true);
@@ -194,6 +200,21 @@ export default function SprintsPage() {
       setAiResult('AI atama başarısız: ' + (e instanceof Error ? e.message : 'Hata'));
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function handleRunFlow(flowId: string, item: WorkItem) {
+    setFlowRunning(true); setFlowResult(null);
+    try {
+      const result = await runFlow(flowId, {
+        id: item.id, title: item.title, state: item.state ?? '',
+        description: item.description, assigned_to: item.assigned_to ?? '',
+      });
+      setFlowResult(result);
+    } catch (e) {
+      setFlowResult({ id: 0, flow_id: flowId, flow_name: '', task_id: item.id, task_title: item.title, status: 'failed', started_at: new Date().toISOString(), finished_at: null, steps: [] });
+    } finally {
+      setFlowRunning(false);
     }
   }
 
@@ -302,8 +323,12 @@ export default function SprintsPage() {
             currentProject={project}
             localRepos={localRepos}
             agentConfigs={agentConfigs}
+            savedFlows={savedFlows}
+            flowRunning={flowRunning}
+            flowResult={flowResult}
+            onRunFlow={(flowId) => void handleRunFlow(flowId, selected)}
             onAddRepo={(r) => { const next = [...localRepos, r]; setLocalRepos(next); saveLocalRepos(next); }}
-            onClose={() => setSelected(null)}
+            onClose={() => { setSelected(null); setFlowResult(null); }}
             aiLoading={aiLoading}
             aiResult={aiResult}
             onAssignAI={() => void assignAI(selected)}
@@ -376,12 +401,16 @@ function BoardCard({ item, stateColor, selected, onClick }: {
   );
 }
 
-function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects, currentProject, localRepos, agentConfigs, onAddRepo }: {
+function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects, currentProject, localRepos, agentConfigs, onAddRepo, savedFlows, flowRunning, flowResult, onRunFlow }: {
   item: WorkItem; onClose: () => void;
   aiLoading: boolean; aiResult: string; onAssignAI: () => void;
   projects: Opt[]; currentProject: string;
   localRepos: string[]; agentConfigs: AgentConfig[];
   onAddRepo: (r: string) => void;
+  savedFlows: { id: string; name: string }[];
+  flowRunning: boolean;
+  flowResult: FlowRunResult | null;
+  onRunFlow: (flowId: string) => void;
 }) {
   const stateInfo = STATE_COLORS[item.state ?? ''] ?? { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' };
   const openDuration  = elapsed(item.created_date);
@@ -395,6 +424,7 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects,
   const [selAgent, setSelAgent] = useState('');
   const [newRepo, setNewRepo] = useState('');
   const [showAddRepo, setShowAddRepo] = useState(false);
+  const [selFlow, setSelFlow] = useState(savedFlows[0]?.id ?? '');
 
   // Proje değişince Azure repoları çek
   useEffect(() => {
@@ -547,15 +577,37 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, projects,
             🤖 {aiResult}
           </div>
         )}
+
+        {/* ── Flow Çalıştır ── */}
+        {savedFlows.length > 0 && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>Flow Çalıştır</div>
+            <select value={selFlow} onChange={(e) => setSelFlow(e.target.value)} style={dpSelectStyle}>
+              <option value="" style={{ background: '#0d1117' }}>Flow seç...</option>
+              {savedFlows.map((f) => <option key={f.id} value={f.id} style={{ background: '#0d1117' }}>{f.name}</option>)}
+            </select>
+            {flowResult && (
+              <div style={{ padding: '8px 10px', borderRadius: 9, background: flowResult.status === 'completed' ? 'rgba(34,197,94,0.08)' : 'rgba(248,113,113,0.08)', border: '1px solid ' + (flowResult.status === 'completed' ? 'rgba(34,197,94,0.25)' : 'rgba(248,113,113,0.25)'), fontSize: 11, color: flowResult.status === 'completed' ? '#22c55e' : '#f87171' }}>
+                {flowResult.status === 'completed' ? '✓' : '✗'} {flowResult.status} · {flowResult.steps.length} adım
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {savedFlows.length > 0 && (
+          <button onClick={() => selFlow && onRunFlow(selFlow)} disabled={flowRunning || !selFlow}
+            style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none', background: flowRunning ? 'rgba(167,139,250,0.3)' : selFlow ? 'linear-gradient(135deg, #7c3aed, #a78bfa)' : 'rgba(255,255,255,0.06)', color: selFlow ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: flowRunning || !selFlow ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> Flow çalışıyor…</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? 'Flow Çalıştır' : 'Flow seç'}</>}
+          </button>
+        )}
         <button onClick={onAssignAI} disabled={aiLoading || !selAgent}
           style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(13,148,136,0.3)' : selAgent ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'rgba(255,255,255,0.06)', color: selAgent ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> AI çalışıyor…</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? 'Assign AI' : 'Agent seç'}</>}
         </button>
-        <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>AI bu işi analiz edip otomatik atar</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>AI bu işi analiz edip otomatik atar</div>
       </div>
     </div>
   );
