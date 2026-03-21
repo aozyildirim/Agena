@@ -221,6 +221,11 @@ class TaskService:
         if task is None:
             raise ValueError('Task not found')
 
+        # Prevent external-source tasks from opening PRs on the global GitHub repo.
+        # In the current architecture, PR creation is allowed only for internal tasks.
+        if task.source != 'internal':
+            create_pr = False
+
         queue_key = await self.queue_service.enqueue(
             {
                 'organization_id': organization_id,
