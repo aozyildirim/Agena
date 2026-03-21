@@ -54,6 +54,20 @@ interface Flow {
   createdAt: string;
 }
 
+interface FlowVersion {
+  id: string;
+  createdAt: string;
+  label: string;
+  flow: Flow;
+}
+
+interface DryRunStep {
+  id: string;
+  label: string;
+  status: 'done' | 'waiting' | 'skipped';
+  durationMs: number;
+}
+
 const AGENT_PRESETS: { role: AgentRole; label: string; icon: string; color: string }[] = [
   { role: 'manager',        label: 'Manager',         icon: '👔', color: '#f59e0b' },
   { role: 'pm',             label: 'Product Manager', icon: '📋', color: '#a78bfa' },
@@ -98,6 +112,41 @@ const PRESET_FLOWS: Flow[] = [
 ];
 
 const LS_FLOWS = 'tiqr_flows';
+const LS_FLOW_VERSIONS = 'tiqr_flow_versions';
+
+const FLOW_TEMPLATES: { id: string; name: string; description: string; nodes: FlowNode[]; edges: FlowEdge[] }[] = [
+  {
+    id: 'template-enterprise',
+    name: 'Enterprise Delivery',
+    description: 'PM → Lead Dev → Security Gate → Dev → QA → GitHub PR zinciri.',
+    nodes: [
+      { id: 't1', type: 'agent', role: 'pm', label: 'PM Discovery', icon: '📋', color: '#a78bfa', action: 'Scope ve acceptance criteria', waitForApproval: false, x: 60, y: 120 },
+      { id: 't2', type: 'agent', role: 'lead_developer', label: 'Tech Plan', icon: '🧑‍💻', color: '#38bdf8', action: 'Mimari ve task breakdown', waitForApproval: true, x: 280, y: 120 },
+      { id: 't3', type: 'condition', role: 'condition', label: 'Security Gate', icon: '🔐', color: '#22c55e', action: 'Security checklist', waitForApproval: true, x: 500, y: 120 },
+      { id: 't4', type: 'agent', role: 'developer', label: 'Implementation', icon: '⚡', color: '#22c55e', action: 'Kod + test', waitForApproval: false, x: 720, y: 120 },
+      { id: 't5', type: 'agent', role: 'qa', label: 'QA Regression', icon: '🔍', color: '#f472b6', action: 'Regression + edge cases', waitForApproval: false, x: 940, y: 120 },
+      { id: 't6', type: 'github', role: 'github', label: 'PR Open', icon: '🐙', color: '#6e40c9', action: 'PR create + summary', waitForApproval: false, x: 1160, y: 120 },
+    ],
+    edges: [
+      { from: 't1', to: 't2' }, { from: 't2', to: 't3' }, { from: 't3', to: 't4' }, { from: 't4', to: 't5' }, { from: 't5', to: 't6' },
+    ],
+  },
+  {
+    id: 'template-hotfix',
+    name: 'Hotfix Response',
+    description: 'Alert → Root cause → Patch → Verify → Notify akışı.',
+    nodes: [
+      { id: 'h1', type: 'trigger', role: 'trigger', label: 'Incident Trigger', icon: '🚨', color: '#f59e0b', action: 'Prod alarm', waitForApproval: false, x: 60, y: 180 },
+      { id: 'h2', type: 'agent', role: 'lead_developer', label: 'Root Cause', icon: '🧑‍💻', color: '#38bdf8', action: 'Kök sebep analizi', waitForApproval: true, x: 280, y: 180 },
+      { id: 'h3', type: 'agent', role: 'developer', label: 'Patch', icon: '⚡', color: '#22c55e', action: 'Hızlı fix', waitForApproval: false, x: 500, y: 180 },
+      { id: 'h4', type: 'agent', role: 'qa', label: 'Smoke Test', icon: '🔍', color: '#f472b6', action: 'Kritik kontrol', waitForApproval: false, x: 720, y: 180 },
+      { id: 'h5', type: 'notify', role: 'notify', label: 'Team Notify', icon: '🔔', color: '#fb923c', action: 'Slack bildirimi', waitForApproval: false, x: 940, y: 180 },
+    ],
+    edges: [
+      { from: 'h1', to: 'h2' }, { from: 'h2', to: 'h3' }, { from: 'h3', to: 'h4' }, { from: 'h4', to: 'h5' },
+    ],
+  },
+];
 function loadFlows(): Flow[] {
   if (typeof window === 'undefined') return PRESET_FLOWS;
   try {
@@ -110,6 +159,23 @@ function loadFlows(): Flow[] {
 }
 function saveFlowsLS(flows: Flow[]) { localStorage.setItem(LS_FLOWS, JSON.stringify(flows)); }
 
+function loadVersionMap(): Record<string, FlowVersion[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(localStorage.getItem(LS_FLOW_VERSIONS) || '{}') as Record<string, FlowVersion[]>;
+  } catch {
+    return {};
+  }
+}
+
+function saveVersionMap(map: Record<string, FlowVersion[]>) {
+  localStorage.setItem(LS_FLOW_VERSIONS, JSON.stringify(map));
+}
+
+function sortNodesForRun(nodes: FlowNode[]): FlowNode[] {
+  return [...nodes].sort((a, b) => a.x - b.x || a.y - b.y);
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function FlowsPage() {
   const { t } = useLocale();
@@ -117,15 +183,25 @@ export default function FlowsPage() {
   const [activeFlow, setActiveFlow] = useState<string>('full-cycle');
   const [creating, setCreating] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
   const [showRuns, setShowRuns] = useState(false);
   const [runs, setRuns] = useState<FlowRunResult[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
   const [selectedRun, setSelectedRun] = useState<FlowRunResult | null>(null);
+  const [versionsByFlow, setVersionsByFlow] = useState<Record<string, FlowVersion[]>>({});
+  const [selectedVersionId, setSelectedVersionId] = useState('');
+  const [dryRunSteps, setDryRunSteps] = useState<DryRunStep[]>([]);
+  const [dryRunOpen, setDryRunOpen] = useState(false);
+  const [dryRunSummary, setDryRunSummary] = useState('');
+  const [gateApprovals, setGateApprovals] = useState<Record<string, boolean>>({});
+  const [runningDryRun, setRunningDryRun] = useState(false);
 
   useEffect(() => {
     const local = loadFlows();
     setFlows(local);
     if (local.length) setActiveFlow(local[0].id);
+    const versions = loadVersionMap();
+    setVersionsByFlow(versions);
     loadPrefs().then((p) => {
       if (p.flows?.length) {
         // nodes/edges undefined olabilir — normalize et
@@ -140,6 +216,28 @@ export default function FlowsPage() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const currentVersions = versionsByFlow[activeFlow] ?? [];
+    setSelectedVersionId(currentVersions[0]?.id ?? '');
+  }, [activeFlow, versionsByFlow]);
+
+  function snapshotVersion(flow: Flow, label: string) {
+    const cloned: Flow = JSON.parse(JSON.stringify(flow)) as Flow;
+    setVersionsByFlow((prev) => {
+      const current = prev[flow.id] ?? [];
+      const latest = current[0];
+      const sameAsLatest = latest ? JSON.stringify(latest.flow) === JSON.stringify(cloned) : false;
+      if (sameAsLatest) return prev;
+      const nextForFlow: FlowVersion[] = [
+        { id: String(Date.now()), createdAt: new Date().toISOString(), label, flow: cloned },
+        ...current,
+      ].slice(0, 30);
+      const nextMap = { ...prev, [flow.id]: nextForFlow };
+      saveVersionMap(nextMap);
+      return nextMap;
+    });
+  }
+
   async function persist(next: Flow[]) {
     setFlows(next); saveFlowsLS(next);
     try { await savePrefs({ flows: next as unknown as Record<string, unknown>[] }); } catch { /* ok */ }
@@ -153,6 +251,7 @@ export default function FlowsPage() {
     };
     const next = [...flows, f];
     void persist(next);
+    snapshotVersion(f, t('flows.versionCreated'));
     setActiveFlow(f.id);
     setCreating(false); setNewFlowName('');
   }
@@ -160,12 +259,82 @@ export default function FlowsPage() {
   function deleteFlow(id: string) {
     const next = flows.filter((f) => f.id !== id);
     void persist(next);
+    setVersionsByFlow((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      saveVersionMap(copy);
+      return copy;
+    });
     setActiveFlow(next[0]?.id ?? '');
   }
 
   function updateFlow(updated: Flow) {
     const next = flows.map((f) => f.id === updated.id ? updated : f);
     void persist(next);
+    snapshotVersion(updated, t('flows.versionUpdated'));
+  }
+
+  function saveManualVersion() {
+    if (!current) return;
+    snapshotVersion(current, t('flows.versionCheckpoint'));
+  }
+
+  function rollbackToVersion() {
+    if (!current || !selectedVersionId) return;
+    const target = (versionsByFlow[current.id] ?? []).find((v) => v.id === selectedVersionId);
+    if (!target) return;
+    const rolled: Flow = { ...target.flow, id: current.id, name: current.name };
+    updateFlow(rolled);
+  }
+
+  function importTemplate(templateId: string) {
+    const template = FLOW_TEMPLATES.find((x) => x.id === templateId);
+    if (!template) return;
+    const id = String(Date.now());
+    const flow: Flow = {
+      id,
+      name: template.name,
+      createdAt: new Date().toISOString(),
+      nodes: template.nodes.map((n, idx) => ({ ...n, id: `n_${id}_${idx}` })),
+      edges: template.edges.map((e) => {
+        const fromIdx = template.nodes.findIndex((n) => n.id === e.from);
+        const toIdx = template.nodes.findIndex((n) => n.id === e.to);
+        return { from: `n_${id}_${fromIdx}`, to: `n_${id}_${toIdx}` };
+      }),
+    };
+    const next = [...flows, flow];
+    void persist(next);
+    snapshotVersion(flow, `${t('flows.versionImported')}: ${template.name}`);
+    setActiveFlow(flow.id);
+    setShowTemplates(false);
+  }
+
+  async function runDrySimulation() {
+    if (!current) return;
+    setRunningDryRun(true);
+    setDryRunOpen(true);
+    const ordered = sortNodesForRun(current.nodes);
+    const steps: DryRunStep[] = [];
+    let stoppedByGate = false;
+    for (const node of ordered) {
+      if (node.waitForApproval && !gateApprovals[node.id]) {
+        steps.push({ id: node.id, label: `${node.label} (${t('flows.approvalRequired')})`, status: 'waiting', durationMs: 0 });
+        stoppedByGate = true;
+        break;
+      }
+      const durationMs = 180 + Math.floor(Math.random() * 900);
+      await new Promise((r) => setTimeout(r, 60));
+      steps.push({ id: node.id, label: node.label, status: 'done', durationMs });
+    }
+    if (!stoppedByGate && steps.length < ordered.length) {
+      const done = new Set(steps.map((s) => s.id));
+      ordered.filter((n) => !done.has(n.id)).forEach((n) => {
+        steps.push({ id: n.id, label: n.label, status: 'skipped', durationMs: 0 });
+      });
+    }
+    setDryRunSteps(steps);
+    setDryRunSummary(stoppedByGate ? t('flows.dryRunPaused') : t('flows.dryRunDone'));
+    setRunningDryRun(false);
   }
 
   async function loadRuns() {
@@ -226,8 +395,85 @@ export default function FlowsPage() {
             style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid ' + (showRuns ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'), background: showRuns ? 'rgba(167,139,250,0.12)' : 'rgba(255,255,255,0.03)', color: showRuns ? '#a78bfa' : 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', fontWeight: showRuns ? 700 : 400 }}>
             {t('flows.runHistory')}
           </button>
+          <button onClick={() => setShowTemplates((v) => !v)}
+            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: showTemplates ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)', color: showTemplates ? '#38bdf8' : 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
+            {t('flows.templates')}
+          </button>
+          <button onClick={saveManualVersion}
+            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
+            {t('flows.saveVersion')}
+          </button>
+          <select value={selectedVersionId} onChange={(e) => setSelectedVersionId(e.target.value)}
+            style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>
+            <option value=''>{t('flows.selectVersion')}</option>
+            {(versionsByFlow[activeFlow] ?? []).map((v) => (
+              <option key={v.id} value={v.id} style={{ background: '#0d1117' }}>
+                {new Date(v.createdAt).toLocaleString()} - {v.label}
+              </option>
+            ))}
+          </select>
+          <button onClick={rollbackToVersion} disabled={!selectedVersionId}
+            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.25)', background: selectedVersionId ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)', color: selectedVersionId ? '#f87171' : 'rgba(255,255,255,0.25)', fontSize: 13, cursor: selectedVersionId ? 'pointer' : 'not-allowed' }}>
+            {t('flows.rollback')}
+          </button>
+          <button onClick={() => void runDrySimulation()} disabled={runningDryRun || !current}
+            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(34,197,94,0.25)', background: runningDryRun ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.12)', color: '#22c55e', fontSize: 13, cursor: runningDryRun ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+            {runningDryRun ? t('flows.dryRunning') : t('flows.dryRun')}
+          </button>
         </div>
       </div>
+
+      {showTemplates && (
+        <div style={{ marginBottom: 12, borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(8,14,30,0.85)', padding: 14, display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>{t('flows.templateMarketplace')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 10 }}>
+            {FLOW_TEMPLATES.map((tp) => (
+              <div key={tp.id} style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+                <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', marginBottom: 6 }}>{tp.name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5, marginBottom: 10 }}>{tp.description}</div>
+                <button onClick={() => importTemplate(tp.id)}
+                  style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                  {t('flows.importTemplate')}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {current && current.nodes.some((n) => n.waitForApproval) && (
+        <div style={{ marginBottom: 12, borderRadius: 12, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)', padding: '10px 12px', display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{t('flows.approvalGates')}</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {current.nodes.filter((n) => n.waitForApproval).map((n) => (
+              <button key={n.id} onClick={() => setGateApprovals((prev) => ({ ...prev, [n.id]: !prev[n.id] }))}
+                style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid ' + (gateApprovals[n.id] ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.35)'), background: gateApprovals[n.id] ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: gateApprovals[n.id] ? '#22c55e' : '#f59e0b', fontSize: 12, cursor: 'pointer' }}>
+                {gateApprovals[n.id] ? t('flows.approved') : t('flows.pending')}: {n.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {dryRunOpen && (
+        <div style={{ marginBottom: 12, borderRadius: 14, border: '1px solid rgba(34,197,94,0.2)', background: 'rgba(8,14,30,0.85)', padding: 12, display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{t('flows.dryRunResult')}</div>
+            <button onClick={() => setDryRunOpen(false)} style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.45)', cursor: 'pointer' }}>×</button>
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{dryRunSummary}</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {dryRunSteps.map((s) => (
+              <div key={s.id} style={{ borderRadius: 9, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', fontSize: 12, color: 'rgba(255,255,255,0.78)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{s.label}</span>
+                <span style={{ color: s.status === 'done' ? '#22c55e' : s.status === 'waiting' ? '#f59e0b' : 'rgba(255,255,255,0.35)' }}>
+                  {s.status === 'done' ? `${s.durationMs}ms` : s.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Canvas + Run History */}
       <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0, overflow: 'hidden' }}>
