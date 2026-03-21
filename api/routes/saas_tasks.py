@@ -3,6 +3,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import CurrentTenant, get_current_tenant
+from core.settings import get_settings
 from core.database import get_db_session
 from schemas.saas_task import (
     AssignTaskResponse,
@@ -15,6 +16,18 @@ from schemas.saas_task import (
 from services.task_service import TaskService
 
 router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
+
+
+def _can_create_pr() -> bool:
+    settings = get_settings()
+    token = (settings.github_token or '').strip()
+    owner = (settings.github_owner or '').strip()
+    repo = (settings.github_repo or '').strip()
+    if not token or not owner or not repo:
+        return False
+    if token.startswith('your_') or owner.startswith('your_') or repo.startswith('your_'):
+        return False
+    return True
 
 
 @router.post('', response_model=TaskResponse)
@@ -135,7 +148,11 @@ async def assign_task(
 ) -> AssignTaskResponse:
     service = TaskService(db)
     try:
-        queue_key = await service.assign_task_to_ai(tenant.organization_id, task_id, create_pr=True)
+        queue_key = await service.assign_task_to_ai(
+            tenant.organization_id,
+            task_id,
+            create_pr=_can_create_pr(),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return AssignTaskResponse(queued=True, queue_key=queue_key)

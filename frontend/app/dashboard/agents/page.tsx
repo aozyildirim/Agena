@@ -5,7 +5,7 @@ import { loadPrefs, savePrefs, getAgentAnalytics } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type AgentRole = 'lead_developer' | 'pm' | 'qa' | 'manager' | 'developer';
+type AgentRole = string;
 
 interface AgentConfig {
   role: AgentRole;
@@ -13,7 +13,7 @@ interface AgentConfig {
   icon: string;
   color: string;
   description: string;
-  provider: 'openai' | 'gemini' | 'custom' | '';
+  provider: 'openai' | 'gemini' | 'custom' | 'codex_cli' | '';
   model: string;
   custom_model: string;
   system_prompt: string;
@@ -114,11 +114,25 @@ function loadAgents(): AgentConfig[] {
     const saved = localStorage.getItem(LS_AGENTS);
     if (!saved) return DEFAULT_AGENTS;
     const parsed = JSON.parse(saved) as Partial<AgentConfig>[];
-    // Merge with defaults to handle new fields
-    return DEFAULT_AGENTS.map((def) => {
+    const mergedDefaults = DEFAULT_AGENTS.map((def) => {
       const found = parsed.find((p) => p.role === def.role);
       return found ? { ...def, ...found } : def;
     });
+    const extras = parsed
+      .filter((p) => p.role && !DEFAULT_AGENTS.some((d) => d.role === p.role))
+      .map((p) => ({
+        role: String(p.role),
+        label: p.label || 'Custom Agent',
+        icon: p.icon || '🤖',
+        color: p.color || '#5eead4',
+        description: p.description || 'Custom agent',
+        provider: (p.provider as AgentConfig['provider']) || 'custom',
+        model: p.model || '',
+        custom_model: p.custom_model || '',
+        system_prompt: p.system_prompt || '',
+        enabled: p.enabled ?? true,
+      }));
+    return [...mergedDefaults, ...extras];
   } catch {
     return DEFAULT_AGENTS;
   }
@@ -128,13 +142,34 @@ function saveAgents(agents: AgentConfig[]) {
   localStorage.setItem(LS_AGENTS, JSON.stringify(agents));
 }
 
+function toRoleId(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || ('agent_' + Date.now());
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentConfig[]>(DEFAULT_AGENTS);
   const [editing, setEditing] = useState<AgentRole | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [analytics, setAnalytics] = useState<Record<AgentRole, AgentAnalytics>>({} as Record<AgentRole, AgentAnalytics>);
+  const [analytics, setAnalytics] = useState<Record<string, AgentAnalytics>>({});
+  const [showNewAgent, setShowNewAgent] = useState(false);
+  const [draft, setDraft] = useState<AgentConfig>({
+    role: '',
+    label: '',
+    icon: '🤖',
+    color: '#38bdf8',
+    description: '',
+    provider: 'custom',
+    model: '',
+    custom_model: '',
+    system_prompt: '',
+    enabled: true,
+  });
   const { t } = useLocale();
 
   useEffect(() => {
@@ -143,21 +178,19 @@ export default function AgentsPage() {
       try {
         const prefs = await loadPrefs();
         if (prefs.agents?.length) {
-          const mergedAgents = DEFAULT_AGENTS.map((def) => {
-            const found = (prefs.agents as Partial<AgentConfig>[]).find((p) => p.role === def.role);
-            return found ? { ...def, ...found } : def;
-          });
-          setAgents(mergedAgents);
-          saveAgents(mergedAgents);
+          localStorage.setItem(LS_AGENTS, JSON.stringify(prefs.agents));
+          const merged = loadAgents();
+          setAgents(merged);
+          saveAgents(merged);
         }
       } catch {
         // fallback to local storage only
       }
       try {
         const analyticsRes = await getAgentAnalytics(true);
-        const map = {} as Record<AgentRole, AgentAnalytics>;
+        const map = {} as Record<string, AgentAnalytics>;
         Object.entries(analyticsRes.data).forEach(([role, data]) => {
-          map[role as AgentRole] = data;
+          map[role] = data;
         });
         setAnalytics(map);
       } catch {
@@ -191,12 +224,53 @@ export default function AgentsPage() {
     }
   }
 
-  const editingAgent = agents.find((a) => a.role === editing);
+  function openNewAgentPopup() {
+    setDraft({
+      role: '',
+      label: '',
+      icon: '🤖',
+      color: '#38bdf8',
+      description: '',
+      provider: 'custom',
+      model: '',
+      custom_model: '',
+      system_prompt: '',
+      enabled: true,
+    });
+    setShowNewAgent(true);
+  }
+
+  function createNewAgent() {
+    if (!draft.label.trim()) return;
+    const role = toRoleId(draft.role || draft.label);
+    if (agents.some((a) => a.role === role)) return;
+    const model = (draft.model || draft.custom_model).trim();
+    const next: AgentConfig[] = [
+      ...agents,
+      {
+        role,
+        label: draft.label.trim(),
+        icon: draft.icon.trim() || '🤖',
+        color: draft.color || '#38bdf8',
+        description: draft.description.trim(),
+        provider: draft.provider || 'custom',
+        model,
+        custom_model: draft.custom_model.trim(),
+        system_prompt: draft.system_prompt.trim(),
+        enabled: draft.enabled,
+      },
+    ];
+    setAgents(next);
+    saveAgents(next);
+    setEditing(role);
+    setShowNewAgent(false);
+  }
 
   return (
     <div style={{ display: 'grid', gap: 28, maxWidth: 900 }}>
       {/* Header */}
-      <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+        <div>
         <div className="section-label">{t('agents.section')}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 8, marginBottom: 4 }}>
           {t('agents.title')}
@@ -204,6 +278,10 @@ export default function AgentsPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
           {t('agents.subtitle')}
         </p>
+        </div>
+        <button onClick={openNewAgentPopup} className='button button-outline' style={{ whiteSpace: 'nowrap' }}>
+          + New Agent
+        </button>
       </div>
 
       {/* Agent Cards */}
@@ -265,6 +343,38 @@ export default function AgentsPage() {
           tiqr agent run --role lead_developer --task &lt;task-id&gt; --model {agents.find(a => a.role === 'lead_developer')?.model || 'gpt-4o'}
         </div>
       </div>
+
+      {showNewAgent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(2,6,23,0.75)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(640px, 100%)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(7,13,24,0.98)', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', padding: 16, display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.92)' }}>Create Agent</div>
+              <button onClick={() => setShowNewAgent(false)} style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.45)', fontSize: 18, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder='Label (e.g. Codex CLI Agent)' />
+              <input value={draft.role} onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))} placeholder='Role id (optional)' />
+              <input value={draft.icon} onChange={(e) => setDraft((d) => ({ ...d, icon: e.target.value }))} placeholder='Icon (e.g. 🤖)' />
+              <input value={draft.color} onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))} placeholder='Color (e.g. #38bdf8)' />
+            </div>
+            <textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={2} placeholder='Short description' />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <select value={draft.provider} onChange={(e) => setDraft((d) => ({ ...d, provider: e.target.value as AgentConfig['provider'] }))}>
+                <option value='custom'>Custom</option>
+                <option value='codex_cli'>Codex CLI</option>
+                <option value='openai'>OpenAI</option>
+                <option value='gemini'>Gemini</option>
+              </select>
+              <input value={draft.model} onChange={(e) => setDraft((d) => ({ ...d, model: e.target.value, custom_model: e.target.value }))} placeholder='Model (e.g. clicodex)' />
+            </div>
+            <textarea value={draft.system_prompt} onChange={(e) => setDraft((d) => ({ ...d, system_prompt: e.target.value }))} rows={3} placeholder='System prompt (optional)' />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowNewAgent(false)} className='button button-outline'>Cancel</button>
+              <button onClick={createNewAgent} disabled={!draft.label.trim() || !(draft.model.trim() || draft.custom_model.trim())} className='button button-primary'>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -291,7 +401,7 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
             <span style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.9)' }}>{agent.label}</span>
             {agent.provider && agent.model ? (
               <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: agent.color + '18', border: '1px solid ' + agent.color + '35', color: agent.color }}>
-                {agent.provider === 'openai' ? '⚡' : '✦'} {agent.model || agent.custom_model}
+                {agent.provider === 'openai' ? '⚡' : agent.provider === 'gemini' ? '✦' : agent.provider === 'codex_cli' ? '⌘' : '✎'} {agent.model || agent.custom_model}
               </span>
             ) : (
               <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.3)' }}>
@@ -316,17 +426,17 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
           <div>
             <label style={labelStyle}>{t('agents.provider')}</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {(['openai', 'gemini', 'custom'] as const).map((p) => (
+              {(['openai', 'gemini', 'custom', 'codex_cli'] as const).map((p) => (
                 <button key={p} onClick={() => onUpdate({ provider: p, model: '', custom_model: '' })}
                   style={{ padding: '10px', borderRadius: 10, border: '1px solid ' + (agent.provider === p ? agent.color + '60' : 'rgba(255,255,255,0.08)'), background: agent.provider === p ? agent.color + '12' : 'rgba(255,255,255,0.02)', color: agent.provider === p ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', fontWeight: agent.provider === p ? 700 : 400, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
-                  {p === 'openai' ? '⚡ OpenAI' : p === 'gemini' ? '✦ Gemini' : '✎ Custom'}
+                  {p === 'openai' ? '⚡ OpenAI' : p === 'gemini' ? '✦ Gemini' : p === 'codex_cli' ? '⌘ Codex CLI' : '✎ Custom'}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Model seçimi */}
-          {agent.provider && agent.provider !== 'custom' && (
+          {(agent.provider === 'openai' || agent.provider === 'gemini') && (
             <div>
               <label style={labelStyle}>{t('agents.model')}</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
@@ -342,7 +452,7 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
           )}
 
           {/* Custom model input */}
-          {agent.provider === 'custom' && (
+          {(agent.provider === 'custom' || agent.provider === 'codex_cli') && (
             <div>
               <label style={labelStyle}>Model Adı</label>
               <input

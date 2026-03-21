@@ -105,6 +105,14 @@ class CrewAIAgentRunner:
         user_prompt: str,
         complexity_hint: str,
     ) -> tuple[str, dict[str, int], str]:
+        raw_key = (self.llm.settings.openai_api_key or '').strip()
+        if not raw_key or raw_key.startswith('your_'):
+            content, usage, model, _ = await self.llm.generate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                complexity_hint=complexity_hint,
+            )
+            return content, usage, model
         try:
             from crewai import Agent, Crew, Process, Task
 
