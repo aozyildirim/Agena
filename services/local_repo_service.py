@@ -31,11 +31,12 @@ class LocalRepoService:
 
         remote_target = self._build_remote_target(remote_url, remote_pat)
         await self._run_git(root, ['fetch', remote_target, base_branch])
+        fetched_commit = await self._run_git(root, ['rev-parse', 'FETCH_HEAD'])
 
         worktree_path = Path(tempfile.mkdtemp(prefix='ai-agent-worktree-'))
         try:
-            await self._run_git(root, ['worktree', 'add', '--detach', str(worktree_path), 'FETCH_HEAD'])
-            await self._run_git(worktree_path, ['checkout', '-B', branch_name, 'FETCH_HEAD'])
+            await self._run_git(root, ['worktree', 'add', '--detach', str(worktree_path), fetched_commit])
+            await self._run_git(worktree_path, ['checkout', '-B', branch_name, fetched_commit])
 
             for file_change in files:
                 target = self._safe_target(worktree_path, file_change.path)

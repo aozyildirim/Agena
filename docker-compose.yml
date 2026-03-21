@@ -38,6 +38,7 @@ services:
       - ./models:/app/models
       - ./schemas:/app/schemas
       - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
+      - /Users/aliozyildirim/.codex:/root/.codex
     command: ["python", "-m", "workers.redis_worker"]
     depends_on:
       - mysql

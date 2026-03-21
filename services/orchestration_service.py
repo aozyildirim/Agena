@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import difflib
 import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +38,7 @@ class TaskRouting:
     preferred_agent: str | None
     preferred_agent_provider: str | None
     preferred_agent_model: str | None
+    execution_prompt: str | None
 
 
 class OrchestrationService:
@@ -70,17 +73,17 @@ class OrchestrationService:
         )
 
         routing = self._extract_task_routing(task)
+        effective_description = self._build_effective_description(task.description, routing.execution_prompt)
         payload = {
             'id': str(task.id),
             'title': task.title,
-            'description': task.description,
+            'description': effective_description,
             'source': routing.effective_source,
         }
 
         state: dict[str, Any] = {}
         try:
             if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path:
-                openai_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'openai')
                 await task_service.add_log(
                     task.id,
                     organization_id,
@@ -91,10 +94,12 @@ class OrchestrationService:
                     final_code = await self.codex_cli_service.generate_file_markdown(
                         repo_path=routing.local_repo_path,
                         task_title=task.title,
-                        task_description=task.description,
+                        task_description=effective_description,
                         model=routing.preferred_agent_model,
-                        api_key=openai_cfg.secret if openai_cfg else None,
-                        api_base_url=openai_cfg.base_url if openai_cfg else None,
+                        # For codex_cli we rely on codex auth.json session, not org OpenAI key.
+                        # Restricted API keys may not have responses/model scopes and break execution.
+                        api_key=None,
+                        api_base_url=None,
                     )
                 except Exception as codex_exc:
                     await task_service.add_log(
@@ -151,6 +156,13 @@ class OrchestrationService:
                 'code_preview',
                 self._build_code_preview_message(pr_payload.files),
             )
+            if routing.local_repo_path:
+                await task_service.add_log(
+                    task.id,
+                    organization_id,
+                    'code_diff',
+                    self._build_code_diff_message(routing.local_repo_path, pr_payload.files),
+                )
 
             if routing.local_repo_path:
                 azure_remote_pat: str | None = None
@@ -335,6 +347,7 @@ class OrchestrationService:
             preferred_agent=meta.get('preferred agent') or None,
             preferred_agent_provider=meta.get('preferred agent provider') or None,
             preferred_agent_model=meta.get('preferred agent model') or None,
+            execution_prompt=meta.get('execution prompt') or None,
         )
 
     def _can_create_github_pr(self) -> bool:
@@ -380,6 +393,45 @@ class OrchestrationService:
             lines.append(f'\n...and {len(files) - 3} more file(s).')
         return '\n'.join(lines)
 
+    def _build_code_diff_message(self, repo_path: str, files: list[GitHubFileChange]) -> str:
+        if not files:
+            return 'No generated files to diff.'
+
+        root = Path(repo_path).expanduser().resolve()
+        lines: list[str] = [f'Diff files ({len(files)}):']
+
+        for file in files[:3]:
+            rel = file.path.strip().replace('\\', '/')
+            before = ''
+            target = (root / rel).resolve()
+            if str(target).startswith(str(root)) and target.exists():
+                try:
+                    before = target.read_text(encoding='utf-8')
+                except Exception:
+                    before = ''
+            after = file.content or ''
+            diff = list(
+                difflib.unified_diff(
+                    before.splitlines(),
+                    after.splitlines(),
+                    fromfile=f'a/{rel}',
+                    tofile=f'b/{rel}',
+                    lineterm='',
+                    n=2,
+                )
+            )
+            lines.append(f'\nFile: {rel}')
+            lines.append('```diff')
+            if diff:
+                lines.extend(diff[:220])
+            else:
+                lines.append('(no visible diff)')
+            lines.append('```')
+
+        if len(files) > 3:
+            lines.append(f'\n...and {len(files) - 3} more file(s).')
+        return '\n'.join(lines)
+
     def _is_mock_run(self, state: dict[str, Any]) -> bool:
         model_usage = state.get('model_usage') or []
         return any(str(model).startswith('mock-local') for model in model_usage)
@@ -390,3 +442,12 @@ class OrchestrationService:
             return 0
         # Rough approximation for display/usage in codex_cli mode where provider usage is unavailable.
         return max(1, (len(content) + 3) // 4)
+
+    def _build_effective_description(self, base_description: str | None, execution_prompt: str | None) -> str:
+        desc = (base_description or '').strip()
+        prompt = (execution_prompt or '').strip()
+        if not prompt:
+            return desc
+        if not desc:
+            return f'Execution Prompt:\n{prompt}'
+        return f'{desc}\n\nExecution Prompt:\n{prompt}'

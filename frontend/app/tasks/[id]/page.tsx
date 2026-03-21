@@ -26,6 +26,7 @@ type TaskLog = {
 type CodeFile = {
   path: string;
   content: string;
+  isDiff?: boolean;
 };
 
 const STEP_ORDER = ['queued', 'running', 'agent', 'code_ready', 'local_exec', 'pr', 'completed'];
@@ -37,6 +38,7 @@ function stageColor(stage: string): string {
     agent: '#5eead4',
     code_ready: '#60a5fa',
     code_preview: '#f97316',
+    code_diff: '#10b981',
     local_exec: '#c084fc',
     pr: '#f59e0b',
     run_metrics: '#22c55e',
@@ -65,6 +67,18 @@ function parseRunMetrics(logs: TaskLog[]) {
 }
 
 function parseCodePreview(logs: TaskLog[]): CodeFile[] {
+  const diffs = logs.filter((l) => l.stage === 'code_diff');
+  const diffFiles: CodeFile[] = [];
+  for (const d of diffs) {
+    const pattern = /File:\s*(.+?)\n```diff\n([\s\S]*?)```/g;
+    let match: RegExpExecArray | null = pattern.exec(d.message);
+    while (match) {
+      diffFiles.push({ path: match[1].trim(), content: match[2].trim(), isDiff: true });
+      match = pattern.exec(d.message);
+    }
+  }
+  if (diffFiles.length > 0) return diffFiles;
+
   const previews = logs.filter((l) => l.stage === 'code_preview');
   const files: CodeFile[] = [];
   for (const p of previews) {
@@ -136,7 +150,7 @@ export default function TaskDetailPage() {
 
   const filteredLogs = useMemo(() => {
     if (logFilter === 'errors') return logs.filter((item) => item.stage === 'failed' || /error|failed|timeout/i.test(item.message));
-    if (logFilter === 'code') return logs.filter((item) => item.stage === 'code_preview' || item.stage === 'code_ready');
+    if (logFilter === 'code') return logs.filter((item) => item.stage === 'code_preview' || item.stage === 'code_ready' || item.stage === 'code_diff');
     return logs;
   }, [logs, logFilter]);
 
@@ -194,6 +208,30 @@ export default function TaskDetailPage() {
   }
 
   const activeCode = codeFiles[activeCodeTab];
+  const renderCodeContent = (item: CodeFile) => {
+    if (!item.isDiff) {
+      return (
+        <pre style={{ margin: 0, maxHeight: 300, overflow: 'auto', padding: 10, fontSize: 12, lineHeight: 1.45, color: 'rgba(255,255,255,0.82)' }}>
+          {item.content}
+        </pre>
+      );
+    }
+    return (
+      <div style={{ maxHeight: 300, overflow: 'auto', fontSize: 12, lineHeight: 1.45, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+        {item.content.split('\n').map((line, idx) => {
+          const isAdd = line.startsWith('+') && !line.startsWith('+++');
+          const isDel = line.startsWith('-') && !line.startsWith('---');
+          const bg = isAdd ? 'rgba(34,197,94,0.18)' : isDel ? 'rgba(248,113,113,0.18)' : 'transparent';
+          const color = isAdd ? '#86efac' : isDel ? '#fca5a5' : 'rgba(255,255,255,0.82)';
+          return (
+            <div key={`${idx}-${line.slice(0, 8)}`} style={{ padding: '1px 10px', background: bg, color, whiteSpace: 'pre' }}>
+              {line || ' '}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className='container' style={{ paddingTop: 96, paddingBottom: 20, maxWidth: 1820 }}>
@@ -319,7 +357,7 @@ export default function TaskDetailPage() {
                 {activeCode ? (
                   <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
                     <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{activeCode.path}</div>
-                    <pre style={{ margin: 0, maxHeight: 260, overflow: 'auto', padding: 10, fontSize: 12, lineHeight: 1.45, color: 'rgba(255,255,255,0.82)' }}>{activeCode.content}</pre>
+                    {renderCodeContent(activeCode)}
                   </div>
                 ) : null}
               </div>
@@ -391,7 +429,7 @@ export default function TaskDetailPage() {
                           <span style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: 0.8 }}>{log.stage}</span>
                           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>{new Date(log.created_at).toLocaleString()}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.45, whiteSpace: log.stage === 'code_preview' ? 'pre-wrap' : 'normal', fontFamily: log.stage === 'code_preview' ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit', overflowX: log.stage === 'code_preview' ? 'auto' : 'visible' }}>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.45, whiteSpace: log.stage === 'code_preview' || log.stage === 'code_diff' ? 'pre-wrap' : 'normal', fontFamily: log.stage === 'code_preview' || log.stage === 'code_diff' ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit', overflowX: log.stage === 'code_preview' || log.stage === 'code_diff' ? 'auto' : 'visible' }}>
                           {log.message}
                         </div>
                       </div>
