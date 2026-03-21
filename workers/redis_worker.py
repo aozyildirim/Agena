@@ -3,10 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from datetime import datetime, timedelta
+
+from sqlalchemy import select
 
 from core.database import SessionLocal
 from core.logging import configure_logging
 from core.settings import get_settings
+from models.task_record import TaskRecord
 from db import models  # noqa: F401
 from services.orchestration_service import OrchestrationService
 from services.queue_service import QueueService
@@ -15,6 +19,29 @@ from services.task_service import TaskService
 configure_logging()
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+async def _fail_stale_running_tasks() -> None:
+    timeout_min = max(1, settings.task_running_timeout_minutes)
+    stale_before = datetime.utcnow() - timedelta(minutes=timeout_min)
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(TaskRecord).where(
+                TaskRecord.status == 'running',
+                TaskRecord.updated_at < stale_before,
+            )
+        )
+        stale_tasks = list(result.scalars().all())
+        if not stale_tasks:
+            return
+        task_service = TaskService(session)
+        for task in stale_tasks:
+            task.status = 'failed'
+            task.failure_reason = f'Task exceeded running timeout ({timeout_min} minutes)'
+            await session.flush()
+            await task_service.add_log(task.id, task.organization_id, 'failed', task.failure_reason)
+        await session.commit()
+        logger.warning('Marked %s stale running task(s) as failed', len(stale_tasks))
 
 
 async def _run_single_task(payload: dict) -> None:
@@ -51,7 +78,7 @@ async def _run_single_task(payload: dict) -> None:
         if lock_key:
             acquired = await queue_service.acquire_lock(lock_key, lock_owner, ttl_sec=1800)
             if not acquired:
-                if lock_retries >= 20:
+                if lock_retries >= settings.queue_lock_max_retries:
                     task.status = 'failed'
                     task.failure_reason = 'Repo lock busy for too long; task aborted after retries'
                     await session.commit()
@@ -80,8 +107,14 @@ async def process_queue() -> None:
     queue_service = QueueService()
     max_workers = max(1, settings.max_workers)
     active_tasks: set[asyncio.Task] = set()
+    last_health_check = 0.0
 
     while True:
+        now = asyncio.get_running_loop().time()
+        if now - last_health_check >= 30:
+            await _fail_stale_running_tasks()
+            last_health_check = now
+
         queue_size = await queue_service.queue_size()
         desired_concurrency = min(max_workers, max(1, queue_size))
 
