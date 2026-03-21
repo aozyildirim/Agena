@@ -74,6 +74,7 @@ export type RepoMapping = {
   name: string;
   local_path: string;
   notes?: string;
+  repo_playbook?: string;
   azure_project?: string;
   azure_repo_url?: string;
   azure_repo_name?: string;

@@ -55,6 +55,12 @@ type TaskDeps = {
   blocker_task_ids: number[];
 };
 
+type DependencyTaskOption = {
+  id: number;
+  title: string;
+  status: string;
+};
+
 const STEP_ORDER = ['queued', 'running', 'agent', 'code_ready', 'local_exec', 'pr', 'completed'];
 
 function stageColor(stage: string): string {
@@ -146,7 +152,8 @@ export default function TaskDetailPage() {
   const [isRerunBusy, setIsRerunBusy] = useState(false);
   const [isCancelBusy, setIsCancelBusy] = useState(false);
   const [isDepsBusy, setIsDepsBusy] = useState(false);
-  const [depsInput, setDepsInput] = useState('');
+  const [selectedDependencyIds, setSelectedDependencyIds] = useState<number[]>([]);
+  const [dependencyCandidates, setDependencyCandidates] = useState<DependencyTaskOption[]>([]);
   const [depsData, setDepsData] = useState<TaskDeps | null>(null);
 
   const [task, setTask] = useState<TaskDetail | null>(null);
@@ -155,15 +162,18 @@ export default function TaskDetailPage() {
 
   async function loadData() {
     try {
-      const [taskData, logsData] = await Promise.all([
+      const [taskData, logsData, taskList] = await Promise.all([
         apiFetch<TaskDetail>('/tasks/' + taskId),
         apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs'),
+        apiFetch<DependencyTaskOption[]>('/tasks'),
       ]);
       setTask(taskData);
       setLogs(logsData);
+      const currentTaskId = Number(taskId);
+      setDependencyCandidates(taskList.filter((item) => item.id !== currentTaskId));
       const d = await apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies');
       setDepsData(d);
-      setDepsInput((d.depends_on_task_ids || []).join(','));
+      setSelectedDependencyIds(d.depends_on_task_ids || []);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load task');
@@ -252,17 +262,13 @@ export default function TaskDetailPage() {
     if (!taskId) return;
     try {
       setIsDepsBusy(true);
-      const ids = depsInput
-        .split(',')
-        .map((v) => Number(v.trim()))
-        .filter((v) => Number.isFinite(v) && v > 0);
-      const dedup = Array.from(new Set(ids));
+      const dedup = Array.from(new Set(selectedDependencyIds.filter((v) => Number.isFinite(v) && v > 0)));
       const updated = await apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies', {
         method: 'PUT',
         body: JSON.stringify({ depends_on_task_ids: dedup }),
       });
       setDepsData(updated);
-      setDepsInput((updated.depends_on_task_ids || []).join(','));
+      setSelectedDependencyIds(updated.depends_on_task_ids || []);
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update dependencies');
@@ -399,11 +405,55 @@ export default function TaskDetailPage() {
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', marginBottom: 8 }}>
                   Blockers: {(depsData?.blocker_task_ids || []).length > 0 ? depsData?.blocker_task_ids?.join(', ') : 'none'}
                 </div>
-                <input
-                  value={depsInput}
-                  onChange={(e) => setDepsInput(e.target.value)}
-                  placeholder='Depends on task IDs, comma separated (e.g. 12,14)'
-                />
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginBottom: 6 }}>
+                  Selected dependencies: {selectedDependencyIds.length}
+                </div>
+                <div
+                  style={{
+                    borderRadius: 10,
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(255,255,255,0.03)',
+                    maxHeight: 170,
+                    overflowY: 'auto',
+                    padding: '6px 8px',
+                    display: 'grid',
+                    gap: 6,
+                  }}
+                >
+                  {dependencyCandidates.length === 0 ? (
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', padding: '4px 2px' }}>No other tasks found.</div>
+                  ) : (
+                    dependencyCandidates.map((candidate) => {
+                      const checked = selectedDependencyIds.includes(candidate.id);
+                      return (
+                        <label key={candidate.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', padding: '4px 2px' }}>
+                          <input
+                            type='checkbox'
+                            checked={checked}
+                            onChange={(e) => {
+                              setSelectedDependencyIds((prev) => {
+                                if (e.target.checked) return Array.from(new Set([...prev, candidate.id]));
+                                return prev.filter((id) => id !== candidate.id);
+                              });
+                            }}
+                            style={{ marginTop: 2 }}
+                          />
+                          <span style={{ fontSize: 12, color: checked ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.7)', lineHeight: 1.35 }}>
+                            #{candidate.id} • {candidate.title} <span style={{ color: 'rgba(255,255,255,0.45)' }}>({candidate.status})</span>
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                <button
+                  className='button button-outline'
+                  onClick={() => setSelectedDependencyIds([])}
+                  type='button'
+                  style={{ marginTop: 8 }}
+                >
+                  Clear Selection
+                </button>
                 <button className='button button-outline' onClick={() => void saveDependencies()} disabled={isDepsBusy} style={{ marginTop: 8 }}>
                   {isDepsBusy ? 'Saving...' : 'Save Dependencies'}
                 </button>

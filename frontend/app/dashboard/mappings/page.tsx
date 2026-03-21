@@ -47,8 +47,11 @@ export default function RepoMappingsPage() {
   const [selProject, setSelProject] = useState('');
   const [repos, setRepos] = useState<AzureRepo[]>([]);
   const [selRepoUrl, setSelRepoUrl] = useState('');
+  const [pendingRepoUrl, setPendingRepoUrl] = useState('');
   const [path, setPath] = useState('');
   const [notes, setNotes] = useState('');
+  const [repoPlaybook, setRepoPlaybook] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
@@ -88,6 +91,14 @@ export default function RepoMappingsPage() {
       .finally(() => setLoadingRepos(false));
   }, [selProject]);
 
+  useEffect(() => {
+    if (!pendingRepoUrl) return;
+    const exists = repos.some((r) => r.remote_url === pendingRepoUrl);
+    if (!exists) return;
+    setSelRepoUrl(pendingRepoUrl);
+    setPendingRepoUrl('');
+  }, [pendingRepoUrl, repos]);
+
   async function persist(next: RepoMapping[]) {
     setSaving(true);
     setErr('');
@@ -104,25 +115,43 @@ export default function RepoMappingsPage() {
     }
   }
 
-  async function addMapping() {
-    const selectedRepo = repos.find((r) => r.remote_url === selRepoUrl);
-    if (!selProject || !selectedRepo || !path.trim()) return;
-    const next: RepoMapping[] = [
-      ...items,
-      {
-        id: String(Date.now()),
-        name: selectedRepo.name,
-        local_path: path.trim(),
-        notes: notes.trim() || undefined,
-        azure_project: selProject,
-        azure_repo_url: selectedRepo.remote_url,
-        azure_repo_name: selectedRepo.name,
-      },
-    ];
-    await persist(next);
+  function resetForm() {
     setSelRepoUrl('');
+    setPendingRepoUrl('');
     setPath('');
     setNotes('');
+    setRepoPlaybook('');
+    setEditingId(null);
+  }
+
+  function startEdit(item: RepoMapping) {
+    setEditingId(item.id);
+    setSelProject(item.azure_project || '');
+    setPendingRepoUrl(item.azure_repo_url || '');
+    setPath(item.local_path || '');
+    setNotes(item.notes || '');
+    setRepoPlaybook(item.repo_playbook || '');
+  }
+
+  async function upsertMapping() {
+    const selectedRepo = repos.find((r) => r.remote_url === selRepoUrl);
+    if (!selProject || !selectedRepo || !path.trim()) return;
+    const mapping: RepoMapping = {
+      id: editingId || String(Date.now()),
+      name: selectedRepo.name,
+      local_path: path.trim(),
+      notes: notes.trim() || undefined,
+      repo_playbook: repoPlaybook.trim() || undefined,
+      azure_project: selProject,
+      azure_repo_url: selectedRepo.remote_url,
+      azure_repo_name: selectedRepo.name,
+    };
+    const next: RepoMapping[] = editingId
+      ? items.map((m) => (m.id === editingId ? mapping : m))
+      : [...items, mapping];
+    await persist(next);
+    setMsg(editingId ? t('mappings.updated') : t('mappings.saved'));
+    resetForm();
   }
 
   async function removeMapping(id: string) {
@@ -171,9 +200,9 @@ export default function RepoMappingsPage() {
           </div>
 
           {selectedRepo && (
-            <div style={{ borderRadius: 10, border: '1px solid rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.08)', padding: '8px 10px' }}>
+            <div style={{ borderRadius: 10, border: '1px solid rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.08)', padding: '8px 10px', minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{selectedRepo.name}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{selectedRepo.remote_url}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2, wordBreak: 'break-all' }}>{selectedRepo.remote_url}</div>
             </div>
           )}
 
@@ -185,9 +214,34 @@ export default function RepoMappingsPage() {
             <div style={fieldLabelStyle}>Notes</div>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('mappings.notesPlaceholder')} style={fieldStyle} />
           </div>
-          <button onClick={() => void addMapping()} disabled={saving || !selProject || !selRepoUrl || !path.trim()} className='button button-primary'>
-            {saving ? t('mappings.saving') : t('mappings.add')}
-          </button>
+          <div>
+            <div style={fieldLabelStyle}>Repo Playbook</div>
+            <textarea
+              value={repoPlaybook}
+              onChange={(e) => setRepoPlaybook(e.target.value)}
+              placeholder='Per-repo coding rules, architecture constraints, test policy...'
+              rows={4}
+              style={{
+                ...fieldStyle,
+                height: 'auto',
+                padding: '10px 12px',
+                resize: 'vertical',
+                lineHeight: 1.45,
+              }}
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minHeight: 38 }}>
+            <button onClick={() => void upsertMapping()} disabled={saving || !selProject || !selRepoUrl || !path.trim()} className='button button-primary' style={{ width: '100%' }}>
+              {saving ? t('mappings.saving') : editingId ? t('mappings.update') : t('mappings.add')}
+            </button>
+            {editingId ? (
+              <button onClick={resetForm} type='button' className='button button-outline' style={{ width: '100%' }}>
+                {t('mappings.cancelEdit')}
+              </button>
+            ) : (
+              <div />
+            )}
+          </div>
 
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
             Selected repo mappings: <span style={{ color: '#7dd3fc', fontWeight: 700 }}>{selectedRepoMappings.length}</span>
@@ -195,10 +249,11 @@ export default function RepoMappingsPage() {
         </div>
 
         <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr auto', gap: 12 }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 0.9fr 1.1fr 140px', gap: 12 }}>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Azure</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Local Path</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Notes</span>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Repo Playbook</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Action</span>
           </div>
 
@@ -208,7 +263,7 @@ export default function RepoMappingsPage() {
             </div>
           ) : (
             items.map((m) => (
-              <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr auto', gap: 12, alignItems: 'center' }}>
+              <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 0.9fr 1.1fr 140px', gap: 12, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{m.azure_project || '-'}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>{m.azure_repo_name || m.name}</div>
@@ -219,9 +274,17 @@ export default function RepoMappingsPage() {
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
                   {m.notes || '-'}
                 </div>
-                <button onClick={() => void removeMapping(m.id)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.1)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                  {t('mappings.delete')}
-                </button>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.45 }}>
+                  {m.repo_playbook ? (m.repo_playbook.length > 110 ? m.repo_playbook.slice(0, 110).trimEnd() + '…' : m.repo_playbook) : '-'}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  <button onClick={() => startEdit(m)} style={{ padding: '6px 0', width: '100%', borderRadius: 8, border: '1px solid rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.12)', color: '#7dd3fc', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                    {t('mappings.edit')}
+                  </button>
+                  <button onClick={() => void removeMapping(m.id)} style={{ padding: '6px 0', width: '100%', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.1)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                    {t('mappings.delete')}
+                  </button>
+                </div>
               </div>
             ))
           )}

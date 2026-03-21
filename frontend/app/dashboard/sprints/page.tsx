@@ -206,7 +206,7 @@ export default function SprintsPage() {
       .finally(() => setImp(''));
   }
 
-  async function assignAI(item: WorkItem, options?: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string }) {
+  async function assignAI(item: WorkItem, options?: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string }) {
     setAiLoading(true); setAiResult('');
     try {
       let taskId = taskMapByExternalId[item.id];
@@ -218,6 +218,7 @@ export default function SprintsPage() {
           options?.azureRepo ? `Azure Repo: ${options.azureRepo}` : '',
           options?.localRepoMapping ? `Local Repo Mapping: ${options.localRepoMapping}` : '',
           options?.localRepoPath ? `Local Repo Path: ${options.localRepoPath}` : '',
+          options?.repoPlaybook ? `Repo Playbook: ${options.repoPlaybook.replace(/\n+/g, ' ').trim()}` : '',
           options?.agentRole ? `Preferred Agent: ${options.agentRole}` : '',
           options?.agentProvider ? `Preferred Agent Provider: ${options.agentProvider}` : '',
           options?.agentModel ? `Preferred Agent Model: ${options.agentModel}` : '',
@@ -445,7 +446,7 @@ function BoardCard({ item, stateColor, selected, onClick }: {
 
 function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappings, agentConfigs, savedFlows, flowRunning, flowResult, onRunFlow }: {
   item: WorkItem; onClose: () => void;
-  aiLoading: boolean; aiResult: string; onAssignAI: (options: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string }) => void;
+  aiLoading: boolean; aiResult: string; onAssignAI: (options: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string }) => void;
   repoMappings: RepoMapping[]; agentConfigs: AgentConfig[];
   savedFlows: { id: string; name: string }[];
   flowRunning: boolean;
@@ -532,6 +533,11 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
               <div style={{ marginTop: 4, fontSize: 10, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>
                 <div>Azure: {selectedLocalMapping.azure_project || '-'} · {selectedLocalMapping.azure_repo_name || selectedLocalMapping.name}</div>
                 <div style={{ wordBreak: 'break-all' }}>Local: {selectedLocalMapping.local_path}</div>
+                {selectedLocalMapping.repo_playbook && (
+                  <div style={{ marginTop: 5, color: 'rgba(255,255,255,0.4)' }}>
+                    Playbook: {selectedLocalMapping.repo_playbook.length > 140 ? selectedLocalMapping.repo_playbook.slice(0, 140).trimEnd() + '…' : selectedLocalMapping.repo_playbook}
+                  </div>
+                )}
               </div>
             )}
             <Link href='/dashboard/mappings' style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#38bdf8', textDecoration: 'none' }}>
@@ -615,7 +621,7 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
             {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> Flow çalışıyor…</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? 'Flow Çalıştır' : 'Flow seç'}</>}
           </button>
         )}
-        <button onClick={() => onAssignAI({ project: selectedLocalMapping?.azure_project, azureRepo: selectedLocalMapping?.azure_repo_url, localRepoMapping: selectedLocalMapping?.name, localRepoPath: selectedLocalMapping?.local_path, agentRole: selAgent || undefined, agentProvider: selectedAgent?.provider, agentModel: selectedAgent?.custom_model || selectedAgent?.model, executionPrompt: executionPrompt.trim() || undefined })} disabled={aiLoading || !selAgent || !selectedLocalMapping}
+        <button onClick={() => onAssignAI({ project: selectedLocalMapping?.azure_project, azureRepo: selectedLocalMapping?.azure_repo_url, localRepoMapping: selectedLocalMapping?.name, localRepoPath: selectedLocalMapping?.local_path, repoPlaybook: selectedLocalMapping?.repo_playbook, agentRole: selAgent || undefined, agentProvider: selectedAgent?.provider, agentModel: selectedAgent?.custom_model || selectedAgent?.model, executionPrompt: executionPrompt.trim() || undefined })} disabled={aiLoading || !selAgent || !selectedLocalMapping}
           style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(13,148,136,0.3)' : selAgent ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'rgba(255,255,255,0.06)', color: selAgent ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> AI çalışıyor…</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? (selectedLocalMapping ? 'Assign AI' : 'Mapping seç') : 'Agent seç'}</>}
         </button>

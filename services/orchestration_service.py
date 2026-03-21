@@ -35,6 +35,7 @@ class TaskRouting:
     azure_repo_url: str | None
     local_repo_mapping: str | None
     local_repo_path: str | None
+    repo_playbook: str | None
     preferred_agent: str | None
     preferred_agent_provider: str | None
     preferred_agent_model: str | None
@@ -74,11 +75,14 @@ class OrchestrationService:
 
         routing = self._extract_task_routing(task)
         tenant_playbook = await self._load_tenant_playbook(organization_id)
+        if routing.repo_playbook:
+            await task_service.add_log(task.id, organization_id, 'playbook', 'Repo playbook applied to prompt context')
         if tenant_playbook:
             await task_service.add_log(task.id, organization_id, 'playbook', 'Tenant playbook applied to prompt context')
         effective_description = self._build_effective_description(
             task.description,
             routing.execution_prompt,
+            routing.repo_playbook,
             tenant_playbook,
             task.story_context,
             task.acceptance_criteria,
@@ -363,6 +367,7 @@ class OrchestrationService:
             azure_repo_url=meta.get('azure repo') or None,
             local_repo_mapping=meta.get('local repo mapping') or None,
             local_repo_path=meta.get('local repo path') or None,
+            repo_playbook=meta.get('repo playbook') or None,
             preferred_agent=meta.get('preferred agent') or None,
             preferred_agent_provider=meta.get('preferred agent provider') or None,
             preferred_agent_model=meta.get('preferred agent model') or None,
@@ -473,6 +478,7 @@ class OrchestrationService:
         self,
         base_description: str | None,
         execution_prompt: str | None,
+        repo_playbook: str | None = None,
         tenant_playbook: str | None = None,
         story_context: str | None = None,
         acceptance_criteria: str | None = None,
@@ -480,6 +486,7 @@ class OrchestrationService:
     ) -> str:
         desc = (base_description or '').strip()
         prompt = (execution_prompt or '').strip()
+        repo_rules = (repo_playbook or '').strip()
         playbook = (tenant_playbook or '').strip()
         story = (story_context or '').strip()
         criteria = (acceptance_criteria or '').strip()
@@ -495,6 +502,8 @@ class OrchestrationService:
             chunks.append(f'Edge Cases:\n{edges}')
         if prompt:
             chunks.append(f'Execution Prompt:\n{prompt}')
+        if repo_rules:
+            chunks.append(f'Repo Playbook:\n{repo_rules}')
         if playbook:
             chunks.append(f'Tenant Playbook:\n{playbook}')
         return '\n\n'.join(chunks)
