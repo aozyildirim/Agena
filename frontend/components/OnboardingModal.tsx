@@ -82,10 +82,16 @@ export default function OnboardingModal({ userName, onClose }: Props) {
     }
   }
 
-  function goToSprints() {
-    // DB'ye kaydet + localStorage'a yaz
+  async function goToSprints() {
     if (sprint) {
-      void savePrefs({ azure_project: project, azure_team: team, azure_sprint_path: sprint });
+      // localStorage'a da yaz (hızlı erişim için)
+      localStorage.setItem('tiqr_sprint_project', project);
+      localStorage.setItem('tiqr_sprint_team', team);
+      localStorage.setItem('tiqr_sprint_path', sprint);
+      // DB'ye kaydet ve bekle
+      try {
+        await savePrefs({ azure_project: project, azure_team: team, azure_sprint_path: sprint });
+      } catch { /* localStorage'a yazıldı, devam et */ }
     }
     onClose();
     router.push('/dashboard/sprints');
@@ -211,7 +217,7 @@ export default function OnboardingModal({ userName, onClose }: Props) {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10, marginTop: 24 }}>
                 <button onClick={() => setStep('config')} style={{ padding: '12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer' }}>← Geri</button>
-                <button onClick={goToSprints}
+                <button onClick={() => void goToSprints()}
                   style={{ padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                   {sprint ? 'Sprint Board\'a Git →' : 'Atla, sonra seçerim →'}
                 </button>

@@ -11,6 +11,8 @@ const navItems = [
   { href: '/dashboard/tasks', label: 'Tasks', icon: '◈' },
   { href: '/dashboard/sprints', label: 'Sprints', icon: '◎' },
   { href: '/dashboard/team', label: 'Team', icon: '◉' },
+  { href: '/dashboard/agents', label: 'Agents', icon: '🤖' },
+  { href: '/dashboard/flows', label: 'Flows', icon: '⟳' },
   { href: '/dashboard/integrations', label: 'Integrations', icon: '⬡' },
   { href: '/dashboard/profile', label: 'Profil', icon: '◐' },
 ];
