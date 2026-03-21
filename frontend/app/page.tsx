@@ -408,6 +408,20 @@ export default function HomePage() {
                 badges: [t('landing.capPlaybookBadge1'), t('landing.capPlaybookBadge2'), t('landing.capPlaybookBadge3')],
                 photo: 'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=900&q=80',
               },
+              {
+                icon: '📝',
+                title: t('landing.capStoryTitle'),
+                desc: t('landing.capStoryDesc'),
+                badges: [t('landing.capStoryBadge1'), t('landing.capStoryBadge2'), t('landing.capStoryBadge3')],
+                photo: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80',
+              },
+              {
+                icon: '💸',
+                title: t('landing.capGuardrailTitle'),
+                desc: t('landing.capGuardrailDesc'),
+                badges: [t('landing.capGuardrailBadge1'), t('landing.capGuardrailBadge2'), t('landing.capGuardrailBadge3')],
+                photo: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80',
+              },
             ].map((item, idx) => (
               <article key={item.title} className='capability-card' style={{ animationDelay: `${idx * 0.14}s` }}>
                 <div className='capability-photo-wrap'>
