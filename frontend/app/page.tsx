@@ -388,6 +388,7 @@ export default function HomePage() {
           <div className='capability-grid'>
             {[
               {
+                kind: 'dependency',
                 icon: '🧩',
                 title: t('landing.capDependencyTitle'),
                 desc: t('landing.capDependencyDesc'),
@@ -395,6 +396,7 @@ export default function HomePage() {
                 photo: 'https://images.unsplash.com/photo-1516383740770-fbcc5ccbece0?auto=format&fit=crop&w=900&q=80',
               },
               {
+                kind: 'risk',
                 icon: '🛡️',
                 title: t('landing.capRiskTitle'),
                 desc: t('landing.capRiskDesc'),
@@ -402,6 +404,7 @@ export default function HomePage() {
                 photo: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80',
               },
               {
+                kind: 'playbook',
                 icon: '📘',
                 title: t('landing.capPlaybookTitle'),
                 desc: t('landing.capPlaybookDesc'),
@@ -409,6 +412,7 @@ export default function HomePage() {
                 photo: 'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=900&q=80',
               },
               {
+                kind: 'story',
                 icon: '📝',
                 title: t('landing.capStoryTitle'),
                 desc: t('landing.capStoryDesc'),
@@ -416,6 +420,7 @@ export default function HomePage() {
                 photo: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80',
               },
               {
+                kind: 'guardrail',
                 icon: '💸',
                 title: t('landing.capGuardrailTitle'),
                 desc: t('landing.capGuardrailDesc'),
@@ -423,7 +428,7 @@ export default function HomePage() {
                 photo: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80',
               },
             ].map((item, idx) => (
-              <article key={item.title} className='capability-card' style={{ animationDelay: `${idx * 0.14}s` }}>
+              <article key={item.title} className={`capability-card capability-${item.kind}`} style={{ animationDelay: `${idx * 0.12}s` }}>
                 <div className='capability-photo-wrap'>
                   <img src={item.photo} alt={item.title} className='capability-photo' loading='lazy' />
                   <div className='capability-overlay'>
@@ -433,11 +438,58 @@ export default function HomePage() {
                 <div className='capability-content'>
                   <h3 className='capability-title'>{item.title}</h3>
                   <p className='capability-desc'>{item.desc}</p>
-                  <div className='capability-badges'>
-                    {item.badges.map((badge) => (
-                      <span key={badge} className='capability-badge'>{badge}</span>
-                    ))}
-                  </div>
+
+                  {item.kind === 'dependency' ? (
+                    <div className='cap-dep-graph'>
+                      <div className='cap-node active'>#18</div>
+                      <div className='cap-link' />
+                      <div className='cap-node active'>#22</div>
+                      <div className='cap-link' />
+                      <div className='cap-node blocked'>#31</div>
+                    </div>
+                  ) : null}
+
+                  {item.kind === 'risk' ? (
+                    <div className='cap-risk-wrap'>
+                      <div className='cap-risk-gauge'>
+                        <span>72</span>
+                      </div>
+                      <div className='cap-risk-meta'>HIGH RISK</div>
+                    </div>
+                  ) : null}
+
+                  {item.kind === 'playbook' ? (
+                    <div className='cap-rules'>
+                      {item.badges.map((badge) => (
+                        <div key={badge} className='cap-rule-line'>• {badge}</div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {item.kind === 'story' ? (
+                    <div className='cap-story-lines'>
+                      <div className='cap-story-pill'>{item.badges[0]}</div>
+                      <div className='cap-story-pill'>{item.badges[1]}</div>
+                      <div className='cap-story-pill'>{item.badges[2]}</div>
+                    </div>
+                  ) : null}
+
+                  {item.kind === 'guardrail' ? (
+                    <div className='cap-guardrail-bars'>
+                      <div className='cap-guardrail-row'>
+                        <span>{item.badges[0]}</span>
+                        <div className='cap-meter'><i style={{ width: '66%' }} /></div>
+                      </div>
+                      <div className='cap-guardrail-row'>
+                        <span>{item.badges[1]}</span>
+                        <div className='cap-meter'><i style={{ width: '48%' }} /></div>
+                      </div>
+                      <div className='cap-guardrail-row'>
+                        <span>{item.badges[2]}</span>
+                        <div className='cap-meter'><i style={{ width: '84%' }} /></div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </article>
             ))}

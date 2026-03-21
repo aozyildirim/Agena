@@ -714,6 +714,12 @@ body::before {
   box-shadow: 0 20px 40px rgba(0,0,0,0.35), 0 0 32px rgba(13,148,136,0.14);
 }
 
+.capability-dependency:hover { border-color: rgba(34,197,94,0.45); }
+.capability-risk:hover { border-color: rgba(248,113,113,0.45); }
+.capability-playbook:hover { border-color: rgba(251,191,36,0.45); }
+.capability-story:hover { border-color: rgba(56,189,248,0.45); }
+.capability-guardrail:hover { border-color: rgba(168,85,247,0.45); }
+
 .capability-photo-wrap {
   position: relative;
   height: 170px;
@@ -761,23 +767,168 @@ body::before {
   margin-bottom: 12px;
 }
 
-.capability-badges {
+.cap-dep-graph {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.capability-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 10px;
+.cap-node {
+  min-width: 46px;
+  height: 28px;
   border-radius: 999px;
-  border: 1px solid rgba(94,234,212,0.3);
-  background: rgba(13,148,136,0.12);
-  color: rgba(94,234,212,0.95);
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.82);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cap-node.active {
+  border-color: rgba(34,197,94,0.45);
+  background: rgba(34,197,94,0.16);
+  color: #86efac;
+}
+
+.cap-node.blocked {
+  border-color: rgba(248,113,113,0.45);
+  background: rgba(248,113,113,0.16);
+  color: #fca5a5;
+}
+
+.cap-link {
+  width: 20px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(94,234,212,0.2), rgba(94,234,212,0.85), rgba(94,234,212,0.2));
+  animation: cap-flow 1.6s linear infinite;
+}
+
+@keyframes cap-flow {
+  0% { opacity: 0.35; transform: scaleX(0.8); }
+  50% { opacity: 1; transform: scaleX(1.1); }
+  100% { opacity: 0.35; transform: scaleX(0.8); }
+}
+
+.cap-risk-wrap {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.cap-risk-gauge {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: conic-gradient(#f87171 0 72%, rgba(255,255,255,0.12) 72% 100%);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.cap-risk-gauge::after {
+  content: '';
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #0b1220;
+}
+
+.cap-risk-gauge span {
+  position: relative;
+  z-index: 1;
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cap-risk-meta {
+  color: rgba(248,113,113,0.9);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+}
+
+.cap-rules {
+  display: grid;
+  gap: 6px;
+}
+
+.cap-rule-line {
+  border: 1px solid rgba(251,191,36,0.28);
+  background: rgba(251,191,36,0.12);
+  color: rgba(255,255,255,0.82);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.cap-story-lines {
+  display: grid;
+  gap: 6px;
+}
+
+.cap-story-pill {
+  border-radius: 8px;
+  border: 1px solid rgba(56,189,248,0.35);
+  background: rgba(56,189,248,0.12);
+  color: rgba(186,230,253,0.95);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  transform: translateX(0);
+  animation: cap-slide 2.5s ease-in-out infinite;
+}
+
+.cap-story-pill:nth-child(2) { animation-delay: 0.25s; }
+.cap-story-pill:nth-child(3) { animation-delay: 0.5s; }
+
+@keyframes cap-slide {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+.cap-guardrail-bars {
+  display: grid;
+  gap: 7px;
+}
+
+.cap-guardrail-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.cap-guardrail-row span {
+  color: rgba(255,255,255,0.62);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cap-meter {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.cap-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a855f7, #5eead4);
+  animation: cap-grow 1s ease;
+}
+
+@keyframes cap-grow {
+  from { transform: scaleX(0); transform-origin: left; }
+  to { transform: scaleX(1); transform-origin: left; }
 }
 
 /* ─── STATS BAR ─── */
