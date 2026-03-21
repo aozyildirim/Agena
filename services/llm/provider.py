@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
+import httpx
 from openai import AsyncOpenAI
 
 from core.settings import get_settings
@@ -10,12 +12,25 @@ from services.llm.cache import PromptCache
 
 
 class LLMProvider:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        provider: str = 'openai',
+        api_key: str | None = None,
+        base_url: str | None = None,
+        small_model: str | None = None,
+        large_model: str | None = None,
+    ) -> None:
         self.settings = get_settings()
         self.cache = PromptCache()
-        self.client = AsyncOpenAI(
-            api_key=self.settings.openai_api_key,
-            base_url=self.settings.openai_base_url,
+        self.provider = (provider or 'openai').strip().lower()
+        self.api_key = (api_key if api_key is not None else self.settings.openai_api_key).strip()
+        self.base_url = (base_url if base_url is not None else self.settings.openai_base_url).strip()
+        self.small_model = (small_model if small_model is not None else self.settings.llm_small_model).strip()
+        self.large_model = (large_model if large_model is not None else self.settings.llm_large_model).strip()
+        self.client = (
+            AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+            if self.provider == 'openai'
+            else None
         )
 
     async def generate(
@@ -25,7 +40,7 @@ class LLMProvider:
         complexity_hint: str = 'normal',
         max_output_tokens: int = 2500,
     ) -> tuple[str, dict[str, int], str, bool]:
-        raw_key = (self.settings.openai_api_key or '').strip()
+        raw_key = (self.api_key or '').strip()
         if not raw_key or raw_key.startswith('your_'):
             output = self._mock_output(system_prompt=system_prompt, user_prompt=user_prompt)
             usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
@@ -39,24 +54,40 @@ class LLMProvider:
             usage = cached.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0})
             return cached.get('output', ''), usage, model, True
 
-        response = await self.client.responses.create(
-            model=model,
-            input=[
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': truncated_user},
-            ],
-            max_output_tokens=max_output_tokens,
-            temperature=0.2,
-        )
-        output = getattr(response, 'output_text', '') or ''
-        usage = self._parse_usage(response)
+        if self.provider == 'gemini':
+            output, usage = await self._generate_gemini(
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=truncated_user,
+                max_output_tokens=max_output_tokens,
+            )
+        else:
+            if self.client is None:
+                raise RuntimeError('OpenAI client is not initialized')
+            response = await self.client.responses.create(
+                model=model,
+                input=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': truncated_user},
+                ],
+                max_output_tokens=max_output_tokens,
+                temperature=0.2,
+            )
+            output = getattr(response, 'output_text', '') or ''
+            usage = self._parse_usage(response)
         await self.cache.set(cache_key, {'output': output, 'usage': usage})
         return output, usage, model, False
 
     def _select_model(self, complexity_hint: str) -> str:
+        if self.provider == 'gemini':
+            base = self.small_model if complexity_hint in {'simple', 'low'} else self.large_model
+            if base.startswith('gemini'):
+                return base
+            # If existing env is still gpt-* defaults, map safely for Gemini provider.
+            return 'gemini-2.5-flash' if complexity_hint in {'simple', 'low'} else 'gemini-2.5-pro'
         if complexity_hint in {'simple', 'low'}:
-            return self.settings.llm_small_model
-        return self.settings.llm_large_model
+            return self.small_model
+        return self.large_model
 
     def _truncate(self, text: str) -> str:
         return text[: self.settings.max_context_chars]
@@ -97,3 +128,39 @@ class LLMProvider:
             "    return 'generated in mock mode'\n"
             '```\n'
         )
+
+    async def _generate_gemini(
+        self,
+        *,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        max_output_tokens: int,
+    ) -> tuple[str, dict[str, int]]:
+        base = self.base_url or 'https://generativelanguage.googleapis.com'
+        base = re.sub(r'/+$', '', base)
+        url = f'{base}/v1beta/models/{model}:generateContent?key={self.api_key}'
+        payload = {
+            'systemInstruction': {'parts': [{'text': system_prompt}]},
+            'contents': [{'role': 'user', 'parts': [{'text': user_prompt}]}],
+            'generationConfig': {'temperature': 0.2, 'maxOutputTokens': max_output_tokens},
+        }
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(url, json=payload)
+            r.raise_for_status()
+            data = r.json()
+        text_parts: list[str] = []
+        for cand in data.get('candidates', []) or []:
+            content = cand.get('content', {})
+            for part in content.get('parts', []) or []:
+                txt = part.get('text')
+                if txt:
+                    text_parts.append(str(txt))
+        output = '\n'.join(text_parts).strip()
+        usage_meta = data.get('usageMetadata', {}) or {}
+        usage = {
+            'prompt_tokens': int(usage_meta.get('promptTokenCount', 0) or 0),
+            'completion_tokens': int(usage_meta.get('candidatesTokenCount', 0) or 0),
+            'total_tokens': int(usage_meta.get('totalTokenCount', 0) or 0),
+        }
+        return output, usage

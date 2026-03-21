@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class CrewAIAgentRunner:
-    def __init__(self) -> None:
-        self.llm = LLMProvider()
+    def __init__(self, llm_provider: LLMProvider | None = None) -> None:
+        self.llm = llm_provider or LLMProvider()
 
     async def fetch_context(self, task_payload: dict[str, str], memory_context: list[dict[str, Any]]) -> tuple[str, dict[str, int], str]:
         prompt = (

@@ -42,11 +42,18 @@ class TaskRouting:
     execution_prompt: str | None
 
 
+@dataclass
+class LLMRuntimeConfig:
+    provider: str
+    api_key: str
+    base_url: str
+    model: str | None = None
+
+
 class OrchestrationService:
     def __init__(self, db_session: AsyncSession) -> None:
         self.settings = get_settings()
         self.db_session = db_session
-        self.orchestrator = AgentOrchestrator()
         self.github_service = GitHubService()
         self.azure_pr_service = AzurePRService(db_session)
         self.codex_cli_service = CodexCLIService()
@@ -148,7 +155,8 @@ class OrchestrationService:
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using codex_cli preferred agent')
             else:
-                state = await self.orchestrator.run(payload)
+                orchestrator = await self._build_orchestrator(organization_id, routing)
+                state = await orchestrator.run(payload)
             if self._is_mock_run(state):
                 raise RuntimeError(
                     'AI pipeline is running in mock mode (OPENAI_API_KEY is missing/placeholder). '
@@ -473,6 +481,55 @@ class OrchestrationService:
             return None
         content = (config.secret or '').strip()
         return content or None
+
+    async def _build_orchestrator(self, organization_id: int, routing: TaskRouting) -> AgentOrchestrator:
+        llm_runtime = await self._resolve_llm_runtime(organization_id, routing)
+        if llm_runtime is None:
+            return AgentOrchestrator()
+        from services.llm.provider import LLMProvider
+        llm = LLMProvider(
+            provider=llm_runtime.provider,
+            api_key=llm_runtime.api_key,
+            base_url=llm_runtime.base_url,
+            small_model=llm_runtime.model,
+            large_model=llm_runtime.model,
+        )
+        return AgentOrchestrator(llm_provider=llm)
+
+    async def _resolve_llm_runtime(self, organization_id: int, routing: TaskRouting) -> LLMRuntimeConfig | None:
+        provider = (routing.preferred_agent_provider or '').strip().lower()
+        preferred_model = (routing.preferred_agent_model or '').strip() or None
+        if provider not in {'openai', 'gemini'}:
+            provider = 'openai'
+
+        cfg_service = IntegrationConfigService(self.db_session)
+        selected_cfg = await cfg_service.get_config(organization_id, provider)
+        selected_key = ((selected_cfg.secret if selected_cfg else '') or '').strip()
+        selected_base = ((selected_cfg.base_url if selected_cfg else '') or '').strip()
+
+        # If preferred provider has no usable key, fallback to OpenAI integration/env.
+        if not selected_key or selected_key.startswith('your_'):
+            if provider != 'openai':
+                openai_cfg = await cfg_service.get_config(organization_id, 'openai')
+                openai_key = ((openai_cfg.secret if openai_cfg else '') or '').strip() or (self.settings.openai_api_key or '').strip()
+                openai_base = ((openai_cfg.base_url if openai_cfg else '') or '').strip() or (self.settings.openai_base_url or '').strip()
+                if openai_key and not openai_key.startswith('your_'):
+                    return LLMRuntimeConfig(provider='openai', api_key=openai_key, base_url=openai_base, model=preferred_model)
+            return None
+
+        if provider == 'gemini':
+            return LLMRuntimeConfig(
+                provider='gemini',
+                api_key=selected_key,
+                base_url=selected_base or 'https://generativelanguage.googleapis.com',
+                model=preferred_model,
+            )
+        return LLMRuntimeConfig(
+            provider='openai',
+            api_key=selected_key,
+            base_url=selected_base or (self.settings.openai_base_url or 'https://api.openai.com/v1'),
+            model=preferred_model,
+        )
 
     def _build_effective_description(
         self,

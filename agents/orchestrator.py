@@ -5,11 +5,12 @@ from typing import Any
 from agents.crewai_agents import CrewAIAgentRunner
 from agents.langgraph_flow import OrchestrationState, build_graph
 from memory.qdrant import QdrantMemoryStore
+from services.llm.provider import LLMProvider
 
 
 class AgentOrchestrator:
-    def __init__(self) -> None:
-        self.agents = CrewAIAgentRunner()
+    def __init__(self, llm_provider: LLMProvider | None = None) -> None:
+        self.agents = CrewAIAgentRunner(llm_provider=llm_provider)
         self.memory_store = QdrantMemoryStore()
         self.graph = build_graph(self)
 
