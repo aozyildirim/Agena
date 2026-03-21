@@ -31,6 +31,25 @@ export default function DashboardOverview() {
   const running = tasks.filter((t) => t.status === 'running').length;
   const completed = tasks.filter((t) => t.status === 'completed').length;
   const failed = tasks.filter((t) => t.status === 'failed').length;
+  const blocked = tasks.filter((t) => (t.blocked_by_task_id ?? null) !== null).length;
+  const settled = completed + failed;
+  const successRate = settled > 0 ? Math.round((completed / settled) * 100) : 0;
+  const avgQueueWait = (() => {
+    const waits = tasks
+      .map((t) => t.queue_wait_sec)
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0);
+    if (waits.length === 0) return 0;
+    return Math.round(waits.reduce((a, b) => a + b, 0) / waits.length);
+  })();
+  const slaBreached = tasks.filter((t) => {
+    if (t.status === 'queued' && (t.queue_wait_sec ?? 0) > 900) return true;
+    if (t.status === 'running' && (t.run_duration_sec ?? 0) > 1800) return true;
+    return false;
+  }).length;
+  const activeWithEta = tasks
+    .filter((t) => t.status === 'queued' && typeof t.estimated_start_sec === 'number')
+    .sort((a, b) => (a.estimated_start_sec ?? 0) - (b.estimated_start_sec ?? 0))
+    .slice(0, 4);
 
   const kpis = [
     { label: 'Total Tasks', value: tasks.length, color: '#5eead4', icon: '◈' },
@@ -40,8 +59,6 @@ export default function DashboardOverview() {
     { label: 'Failed', value: failed, color: '#f87171', icon: '✕' },
     { label: 'Tokens Used', value: billing?.tokens_used ?? 0, color: '#a78bfa', icon: '⚡' },
   ];
-
-  const recentTasks = [...tasks].reverse().slice(0, 5);
 
   return (
     <div style={{ display: 'grid', gap: 28 }}>
@@ -85,35 +102,50 @@ export default function DashboardOverview() {
         ))}
       </div>
 
-      {/* Recent Tasks + Pipeline */}
+      {/* Operations Radar + Pipeline */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr', gap: 20 }}>
-        {/* Recent tasks */}
+        {/* Operations Radar */}
         <div style={{
           borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(255,255,255,0.03)', overflow: 'hidden',
+          background: 'rgba(255,255,255,0.03)', overflow: 'hidden', padding: 20,
         }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>Recent Tasks</span>
-            <Link href='/dashboard/tasks' style={{ fontSize: 12, color: '#5eead4' }}>View all →</Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <span style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>Operations Radar</span>
+            <Link href='/dashboard/tasks' style={{ fontSize: 12, color: '#5eead4' }}>Open tasks →</Link>
           </div>
-          {recentTasks.length === 0 ? (
-            <div style={{ padding: 24, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>No tasks yet.</div>
-          ) : (
-            recentTasks.map((t) => (
-              <Link key={t.id} href={`/tasks/${t.id}`} style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                transition: 'background 0.2s', textDecoration: 'none',
-              }}>
-                <StatusDot status={t.status} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{t.source}</div>
-                </div>
-                <span style={{ fontSize: 11, color: statusColor(t.status), fontWeight: 700, textTransform: 'uppercase' }}>{t.status}</span>
-              </Link>
-            ))
-          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginBottom: 12 }}>
+            {[
+              { label: 'Success Rate', value: `${successRate}%`, tone: '#22c55e' },
+              { label: 'Avg Queue Wait', value: `${avgQueueWait}s`, tone: '#38bdf8' },
+              { label: 'SLA Breaches', value: String(slaBreached), tone: slaBreached > 0 ? '#f87171' : '#5eead4' },
+              { label: 'Repo Contention', value: String(blocked), tone: blocked > 0 ? '#f59e0b' : '#5eead4' },
+            ].map((item) => (
+              <div key={item.label} style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.015)' }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.7 }}>{item.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: item.tone, marginTop: 4 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, background: 'rgba(255,255,255,0.015)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>
+              Queue Forecast
+            </div>
+            {activeWithEta.length === 0 ? (
+              <div style={{ padding: '12px', color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>No queued tasks with ETA right now.</div>
+            ) : (
+              activeWithEta.map((t) => (
+                <Link key={t.id} href={`/tasks/${t.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.42)', marginTop: 2 }}>#{t.queue_position ?? '—'} in queue</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#5eead4', fontWeight: 700 }}>~{Math.max(0, Math.round((t.estimated_start_sec ?? 0) / 60))}m</div>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Pipeline */}
@@ -146,6 +178,9 @@ export default function DashboardOverview() {
         {[
           { href: '/dashboard/tasks', label: 'Manage Tasks', desc: 'View, create, assign tasks to AI', icon: '◈' },
           { href: '/dashboard/sprints', label: 'Sprint Board', desc: 'Browse Azure sprints & import', icon: '◎' },
+          { href: '/dashboard/mappings', label: 'Repo Mappings', desc: 'Connect Azure repos to local paths once', icon: '⌘' },
+          { href: '/dashboard/agents', label: 'AI Agents', desc: 'Choose model/provider and assignment strategy', icon: '🤖' },
+          { href: '/dashboard/flows', label: 'Flow Templates', desc: 'Run reusable automation flows by template', icon: '◧' },
           { href: '/dashboard/integrations', label: 'Integrations', desc: 'Configure Azure, Jira, GitHub', icon: '⬡' },
         ].map((l) => (
           <Link key={l.href} href={l.href} style={{
@@ -160,21 +195,5 @@ export default function DashboardOverview() {
         ))}
       </div>
     </div>
-  );
-}
-
-function statusColor(s: string) {
-  const m: Record<string, string> = { queued: '#f59e0b', running: '#38bdf8', completed: '#22c55e', failed: '#f87171' };
-  return m[s] ?? '#6b7280';
-}
-
-function StatusDot({ status }: { status: string }) {
-  return (
-    <div style={{
-      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-      background: statusColor(status),
-      boxShadow: `0 0 6px ${statusColor(status)}`,
-      animation: status === 'running' ? 'pulse-brand 1.5s infinite' : 'none',
-    }} />
   );
 }
