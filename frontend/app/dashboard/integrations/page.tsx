@@ -4,13 +4,39 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 
 type IntegrationConfig = {
-  provider: 'jira' | 'azure' | 'openai' | 'playbook';
+  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'playbook';
   base_url: string;
   project?: string | null;
   username?: string | null;
   has_secret: boolean;
+  secret_preview?: string | null;
   updated_at: string;
 };
+
+const SECRET_PREVIEW_LS_PREFIX = 'tiqr_secret_preview_';
+
+function maskSecretPreview(secret: string): string {
+  const s = secret.trim();
+  if (!s) return '';
+  if (s.length <= 6) {
+    const head = s.slice(0, 1);
+    const tail = s.slice(-1);
+    return `${head}${'*'.repeat(Math.max(2, s.length - 2))}${tail}`;
+  }
+  const head = s.slice(0, 4);
+  const tail = s.slice(-4);
+  return `${head}${'*'.repeat(Math.max(4, s.length - 8))}${tail}`;
+}
+
+function loadSecretPreview(provider: string): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(`${SECRET_PREVIEW_LS_PREFIX}${provider}`) || '';
+}
+
+function saveSecretPreview(provider: string, preview: string) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`${SECRET_PREVIEW_LS_PREFIX}${provider}`, preview);
+}
 
 export default function IntegrationsPage() {
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
@@ -22,6 +48,12 @@ export default function IntegrationsPage() {
   const [configs, setConfigs] = useState<IntegrationConfig[]>([]);
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState('https://api.openai.com/v1');
   const [openaiKey, setOpenaiKey] = useState('');
+  const [openaiKeyPreview, setOpenaiKeyPreview] = useState('');
+  const [geminiBaseUrl, setGeminiBaseUrl] = useState('https://generativelanguage.googleapis.com');
+  const [geminiKey, setGeminiKey] = useState('');
+  const [geminiKeyPreview, setGeminiKeyPreview] = useState('');
+  const [azurePatPreview, setAzurePatPreview] = useState('');
+  const [jiraTokenPreview, setJiraTokenPreview] = useState('');
   const [playbookText, setPlaybookText] = useState('');
   const [isPlaybookSaving, setIsPlaybookSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -37,12 +69,18 @@ export default function IntegrationsPage() {
     const jira = data.find((c) => c.provider === 'jira');
     const azure = data.find((c) => c.provider === 'azure');
     const openai = data.find((c) => c.provider === 'openai');
+    const gemini = data.find((c) => c.provider === 'gemini');
     if (jira) { setJiraBaseUrl(jira.base_url); setJiraEmail(jira.username ?? ''); }
     if (azure) { setAzureOrgUrl(azure.base_url); setAzureProject(azure.project ?? ''); }
     if (openai) { setOpenaiBaseUrl(openai.base_url); }
+    if (gemini) { setGeminiBaseUrl(gemini.base_url); }
   }
 
   useEffect(() => {
+    setOpenaiKeyPreview(loadSecretPreview('openai'));
+    setGeminiKeyPreview(loadSecretPreview('gemini'));
+    setAzurePatPreview(loadSecretPreview('azure'));
+    setJiraTokenPreview(loadSecretPreview('jira'));
     void loadIntegrationState().catch(() => {});
   }, []);
 
@@ -62,6 +100,11 @@ export default function IntegrationsPage() {
       }),
       loadIntegrationState(),
     ]).then(() => {
+      if (jiraSecret.trim()) {
+        const preview = maskSecretPreview(jiraSecret);
+        setJiraTokenPreview(preview);
+        saveSecretPreview('jira', preview);
+      }
       setJiraSecret(''); setMsg('Jira integration saved');
     }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
   }
@@ -74,6 +117,11 @@ export default function IntegrationsPage() {
       }),
       loadIntegrationState(),
     ]).then(() => {
+      if (azurePat.trim()) {
+        const preview = maskSecretPreview(azurePat);
+        setAzurePatPreview(preview);
+        saveSecretPreview('azure', preview);
+      }
       setAzurePat(''); setMsg('Azure integration saved');
     }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
   }
@@ -86,8 +134,31 @@ export default function IntegrationsPage() {
       }),
       loadIntegrationState(),
     ]).then(() => {
+      if (openaiKey.trim()) {
+        const preview = maskSecretPreview(openaiKey);
+        setOpenaiKeyPreview(preview);
+        saveSecretPreview('openai', preview);
+      }
       setOpenaiKey('');
       setMsg('OpenAI integration saved');
+    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+  }
+
+  async function saveGemini() {
+    Promise.all([
+      apiFetch('/integrations/gemini', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: geminiBaseUrl, secret: geminiKey || undefined }),
+      }),
+      loadIntegrationState(),
+    ]).then(() => {
+      if (geminiKey.trim()) {
+        const preview = maskSecretPreview(geminiKey);
+        setGeminiKeyPreview(preview);
+        saveSecretPreview('gemini', preview);
+      }
+      setGeminiKey('');
+      setMsg('Gemini integration saved');
     }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
   }
 
@@ -108,6 +179,7 @@ export default function IntegrationsPage() {
   const jiraConfig = configs.find((c) => c.provider === 'jira');
   const azureConfig = configs.find((c) => c.provider === 'azure');
   const openaiConfig = configs.find((c) => c.provider === 'openai');
+  const geminiConfig = configs.find((c) => c.provider === 'gemini');
   const playbookConfig = configs.find((c) => c.provider === 'playbook');
 
   return (
@@ -154,11 +226,35 @@ export default function IntegrationsPage() {
               type='password'
               value={openaiKey}
               onChange={(e) => setOpenaiKey(e.target.value)}
-              placeholder={openaiConfig?.has_secret ? '••••••••  (leave empty to keep)' : 'Paste your OpenAI API key'}
+              placeholder={openaiConfig?.has_secret ? `${openaiConfig?.secret_preview || openaiKeyPreview || '****'} (leave empty to keep)` : 'Paste your OpenAI API key'}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             Save OpenAI Config
+          </button>
+        </IntegrationCard>
+
+        {/* Gemini */}
+        <IntegrationCard
+          title='Gemini'
+          icon='✨'
+          color='#22d3ee'
+          connected={geminiConfig?.has_secret ?? false}
+          updatedAt={geminiConfig?.updated_at}
+        >
+          <FieldGroup label='Base URL'>
+            <input value={geminiBaseUrl} onChange={(e) => setGeminiBaseUrl(e.target.value)} placeholder='https://generativelanguage.googleapis.com' />
+          </FieldGroup>
+          <FieldGroup label='API Key'>
+            <input
+              type='password'
+              value={geminiKey}
+              onChange={(e) => setGeminiKey(e.target.value)}
+              placeholder={geminiConfig?.has_secret ? `${geminiConfig?.secret_preview || geminiKeyPreview || '****'} (leave empty to keep)` : 'Paste your Gemini API key'}
+            />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveGemini()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
+            Save Gemini Config
           </button>
         </IntegrationCard>
 
@@ -181,7 +277,7 @@ export default function IntegrationsPage() {
               type='password'
               value={azurePat}
               onChange={(e) => setAzurePat(e.target.value)}
-              placeholder={azureConfig?.has_secret ? '••••••••  (leave empty to keep)' : 'Paste your PAT here'}
+              placeholder={azureConfig?.has_secret ? `${azureConfig?.secret_preview || azurePatPreview || '****'} (leave empty to keep)` : 'Paste your PAT here'}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveAzure()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
@@ -208,7 +304,7 @@ export default function IntegrationsPage() {
               type='password'
               value={jiraSecret}
               onChange={(e) => setJiraSecret(e.target.value)}
-              placeholder={jiraConfig?.has_secret ? '••••••••  (leave empty to keep)' : 'Paste your API token'}
+              placeholder={jiraConfig?.has_secret ? `${jiraConfig?.secret_preview || jiraTokenPreview || '****'} (leave empty to keep)` : 'Paste your API token'}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveJira()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>

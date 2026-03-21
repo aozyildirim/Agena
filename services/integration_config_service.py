@@ -7,7 +7,12 @@ from models.integration_config import IntegrationConfig
 
 
 class IntegrationConfigService:
-    SUPPORTED_PROVIDERS = {'jira', 'azure', 'openai', 'playbook'}
+    SUPPORTED_PROVIDERS = {'jira', 'azure', 'openai', 'gemini', 'playbook'}
+    DEFAULT_BASE_URLS = {
+        'openai': 'https://api.openai.com/v1',
+        'gemini': 'https://generativelanguage.googleapis.com',
+        'playbook': 'tenant://playbook',
+    }
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -35,13 +40,14 @@ class IntegrationConfigService:
         self,
         organization_id: int,
         provider: str,
-        base_url: str,
+        base_url: str | None,
         project: str | None,
         username: str | None,
         secret: str | None,
     ) -> IntegrationConfig:
         provider = provider.lower()
         self._validate_provider(provider)
+        resolved_base_url = self._resolve_base_url(provider, base_url)
 
         existing = await self.get_config(organization_id, provider)
         if existing is None:
@@ -51,14 +57,14 @@ class IntegrationConfigService:
             existing = IntegrationConfig(
                 organization_id=organization_id,
                 provider=provider,
-                base_url=base_url.strip(),
+                base_url=resolved_base_url,
                 project=project.strip() if project else None,
                 username=username.strip() if username else None,
                 secret=secret.strip(),
             )
             self.db.add(existing)
         else:
-            existing.base_url = base_url.strip()
+            existing.base_url = resolved_base_url
             existing.project = project.strip() if project else None
             existing.username = username.strip() if username else None
             if secret is not None and secret.strip():
@@ -75,9 +81,29 @@ class IntegrationConfigService:
             'project': config.project,
             'username': config.username,
             'has_secret': bool(config.secret),
+            'secret_preview': self._mask_secret(config.secret),
             'updated_at': config.updated_at,
         }
 
     def _validate_provider(self, provider: str) -> None:
         if provider not in self.SUPPORTED_PROVIDERS:
             raise ValueError(f'Unsupported provider: {provider}')
+
+    def _resolve_base_url(self, provider: str, base_url: str | None) -> str:
+        value = (base_url or '').strip()
+        if value:
+            return value
+        default = self.DEFAULT_BASE_URLS.get(provider)
+        if default:
+            return default
+        raise ValueError(f'Base URL is required for provider: {provider}')
+
+    def _mask_secret(self, secret: str | None) -> str | None:
+        s = (secret or '').strip()
+        if not s:
+            return None
+        if len(s) <= 6:
+            head = s[:1]
+            tail = s[-1:]
+            return f'{head}{"*" * max(2, len(s) - 2)}{tail}'
+        return f'{s[:4]}{"*" * max(4, len(s) - 8)}{s[-4:]}'
