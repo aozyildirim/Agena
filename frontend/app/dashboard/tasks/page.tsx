@@ -150,8 +150,8 @@ export default function DashboardTasksPage() {
 
       {/* Task list */}
       <div style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: 'minmax(0,1.55fr) 88px 102px 90px 90px 86px minmax(180px,0.85fr)', gap: 10 }}>
-          {['Task', 'Source', 'Status', 'Time', 'Tokens', 'PR', 'Actions'].map((h) => (
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10 }}>
+          {['Task', 'Source', 'Status', 'Run', 'Queue', 'Retry', 'Tokens', 'PR', 'Actions'].map((h) => (
             <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1 }}>{h}</span>
           ))}
         </div>
@@ -164,7 +164,7 @@ export default function DashboardTasksPage() {
           filtered.map((t) => (
             <div key={t.id} style={{
               padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)',
-              display: 'grid', gridTemplateColumns: 'minmax(0,1.55fr) 88px 102px 90px 90px 86px minmax(180px,0.85fr)', gap: 10, alignItems: 'center',
+              display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10, alignItems: 'center',
               transition: 'background 0.2s',
             }}>
               <div style={{ minWidth: 0 }}>
@@ -197,7 +197,13 @@ export default function DashboardTasksPage() {
                 {t.status}
               </span>
               <div>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(t.duration_sec)}</span>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(t.run_duration_sec ?? t.duration_sec)}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(t.queue_wait_sec)}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{t.retry_count ?? 0}</span>
               </div>
               <div>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>

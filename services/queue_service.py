@@ -58,3 +58,26 @@ end
 """
         released = await self.client.eval(script, 1, full_key, owner)
         return bool(released)
+
+    async def get_task_position(self, *, organization_id: int, task_id: int, queue_name: str | None = None) -> int | None:
+        key = queue_name or self.settings.redis_queue_name
+        items = await self.client.lrange(key, 0, -1)
+        if not items:
+            return None
+
+        positions: list[int] = []
+        total = len(items)
+        for idx, raw in enumerate(items):
+            try:
+                payload = json.loads(raw)
+            except Exception:
+                continue
+            if int(payload.get('organization_id', 0) or 0) != organization_id:
+                continue
+            if int(payload.get('task_id', 0) or 0) != task_id:
+                continue
+            # lpush + brpop FIFO: right-most item is next to process (position 1)
+            positions.append(total - idx)
+        if not positions:
+            return None
+        return min(positions)

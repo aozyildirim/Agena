@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.settings import get_settings
 from integrations.azure_client import AzureDevOpsClient
 from integrations.jira_client import JiraClient
 from models.agent_log import AgentLog
@@ -19,6 +21,7 @@ from services.usage_service import UsageService
 class TaskService:
     def __init__(self, db: AsyncSession | None = None) -> None:
         self.db = db
+        self.settings = get_settings()
         self.jira_client = JiraClient()
         self.azure_client = AzureDevOpsClient()
         self.queue_service = QueueService()
@@ -330,6 +333,100 @@ class TaskService:
         metrics_log = metrics_result.scalar_one_or_none()
         duration = self._extract_duration(metrics_log.message) if metrics_log is not None else None
         return duration, total_tokens
+
+    async def get_task_insights(self, organization_id: int, task: TaskRecord) -> dict:
+        duration_sec, total_tokens = await self.get_task_metrics(organization_id, task.id)
+        logs = await self.get_logs(organization_id, task.id)
+        created_at = task.created_at
+        running_at = next((l.created_at for l in logs if l.stage == 'running'), None)
+
+        queue_wait_sec: int | None = None
+        if created_at and running_at:
+            queue_wait_sec = max(0, int((running_at - created_at).total_seconds()))
+        elif created_at and task.status == 'queued':
+            queue_wait_sec = max(0, int((datetime.utcnow() - created_at).total_seconds()))
+
+        run_duration_sec = duration_sec
+        if run_duration_sec is None and running_at and task.status == 'running':
+            run_duration_sec = max(0.0, (datetime.utcnow() - running_at).total_seconds())
+
+        retry_count = sum(
+            1
+            for l in logs
+            if l.stage == 'queued' and ('re-queued' in (l.message or '').lower() or 'requeued' in (l.message or '').lower())
+        )
+
+        local_repo_path = self._extract_local_repo_path(task.description)
+        lock_scope = local_repo_path
+        if not lock_scope and 'external source:' in (task.description or '').lower():
+            lock_scope = f'org:{organization_id}:external:{task.external_id or task.id}'
+
+        queue_position: int | None = None
+        estimated_start_sec: int | None = None
+        if task.status == 'queued':
+            queue_position = await self.queue_service.get_task_position(organization_id=organization_id, task_id=task.id)
+            avg_run_sec = await self._get_recent_average_duration_sec(organization_id)
+            workers = max(1, int(self.settings.max_workers))
+            if queue_position is not None:
+                estimated_start_sec = max(0, int(((queue_position - 1) / workers) * avg_run_sec))
+
+        blocked_by_task_id: int | None = None
+        blocked_by_task_title: str | None = None
+        if local_repo_path and task.status in {'queued', 'running'}:
+            blocker = await self._find_repo_blocker(organization_id, task.id, local_repo_path)
+            if blocker is not None:
+                blocked_by_task_id = blocker.id
+                blocked_by_task_title = blocker.title
+
+        return {
+            'duration_sec': duration_sec,
+            'run_duration_sec': run_duration_sec,
+            'queue_wait_sec': queue_wait_sec,
+            'retry_count': retry_count,
+            'queue_position': queue_position,
+            'estimated_start_sec': estimated_start_sec,
+            'lock_scope': lock_scope,
+            'blocked_by_task_id': blocked_by_task_id,
+            'blocked_by_task_title': blocked_by_task_title,
+            'total_tokens': total_tokens,
+        }
+
+    async def _get_recent_average_duration_sec(self, organization_id: int) -> float:
+        if self.db is None:
+            return 120.0
+        result = await self.db.execute(
+            select(AgentLog)
+            .where(AgentLog.organization_id == organization_id, AgentLog.stage == 'run_metrics')
+            .order_by(AgentLog.created_at.desc())
+            .limit(20)
+        )
+        rows = list(result.scalars().all())
+        values = [self._extract_duration(r.message or '') for r in rows]
+        durations = [v for v in values if v is not None and v > 0]
+        if not durations:
+            return 120.0
+        return float(sum(durations) / len(durations))
+
+    async def _find_repo_blocker(self, organization_id: int, task_id: int, local_repo_path: str) -> TaskRecord | None:
+        if self.db is None:
+            return None
+        result = await self.db.execute(
+            select(TaskRecord)
+            .where(
+                TaskRecord.organization_id == organization_id,
+                TaskRecord.id != task_id,
+                TaskRecord.status.in_(['running', 'queued']),
+                TaskRecord.description.like(f'%Local Repo Path: {local_repo_path}%'),
+            )
+            .order_by(TaskRecord.created_at.asc())
+        )
+        candidates = list(result.scalars().all())
+        if not candidates:
+            return None
+        for item in candidates:
+            if item.status == 'running':
+                return item
+        return candidates[0]
 
     def _extract_duration(self, message: str) -> float | None:
         match = re.search(r'DurationSec:\s*([0-9]+(?:\.[0-9]+)?)', message or '')

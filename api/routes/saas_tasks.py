@@ -17,6 +17,31 @@ from services.task_service import TaskService
 router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
 
 
+async def _to_task_response(service: TaskService, organization_id: int, task) -> TaskResponse:
+    insights = await service.get_task_insights(organization_id, task)
+    return TaskResponse(
+        id=task.id,
+        title=task.title,
+        description=task.description,
+        source=task.source,
+        status=task.status,
+        pr_url=task.pr_url,
+        branch_name=task.branch_name,
+        failure_reason=task.failure_reason,
+        created_at=task.created_at,
+        duration_sec=insights['duration_sec'],
+        run_duration_sec=insights['run_duration_sec'],
+        queue_wait_sec=insights['queue_wait_sec'],
+        retry_count=insights['retry_count'],
+        queue_position=insights['queue_position'],
+        estimated_start_sec=insights['estimated_start_sec'],
+        lock_scope=insights['lock_scope'],
+        blocked_by_task_id=insights['blocked_by_task_id'],
+        blocked_by_task_title=insights['blocked_by_task_title'],
+        total_tokens=insights['total_tokens'],
+    )
+
+
 @router.post('', response_model=TaskResponse)
 async def create_task(
     request: TaskCreateRequest,
@@ -33,17 +58,7 @@ async def create_task(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
-    return TaskResponse(
-        id=task.id,
-        title=task.title,
-        description=task.description,
-        source=task.source,
-        status=task.status,
-        pr_url=task.pr_url,
-        created_at=task.created_at,
-        duration_sec=None,
-        total_tokens=None,
-    )
+    return await _to_task_response(service, tenant.organization_id, task)
 
 
 @router.get('', response_model=list[TaskResponse])
@@ -55,20 +70,7 @@ async def list_tasks(
     tasks = await service.list_tasks(tenant.organization_id)
     response: list[TaskResponse] = []
     for t in tasks:
-        duration_sec, total_tokens = await service.get_task_metrics(tenant.organization_id, t.id)
-        response.append(
-            TaskResponse(
-                id=t.id,
-                title=t.title,
-                description=t.description,
-                source=t.source,
-                status=t.status,
-                pr_url=t.pr_url,
-                created_at=t.created_at,
-                duration_sec=duration_sec,
-                total_tokens=total_tokens,
-            )
-        )
+        response.append(await _to_task_response(service, tenant.organization_id, t))
     return response
 
 
@@ -123,17 +125,7 @@ async def get_task(
     task = await service.get_task(tenant.organization_id, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail='Task not found')
-    return TaskResponse(
-        id=task.id,
-        title=task.title,
-        description=task.description,
-        source=task.source,
-        status=task.status,
-        pr_url=task.pr_url,
-        created_at=task.created_at,
-        duration_sec=None,
-        total_tokens=None,
-    )
+    return await _to_task_response(service, tenant.organization_id, task)
 
 
 @router.post('/{task_id}/assign', response_model=AssignTaskResponse)
@@ -165,18 +157,7 @@ async def cancel_task(
         task = await service.cancel_task(tenant.organization_id, task_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    duration_sec, total_tokens = await service.get_task_metrics(tenant.organization_id, task.id)
-    return TaskResponse(
-        id=task.id,
-        title=task.title,
-        description=task.description,
-        source=task.source,
-        status=task.status,
-        pr_url=task.pr_url,
-        created_at=task.created_at,
-        duration_sec=duration_sec,
-        total_tokens=total_tokens,
-    )
+    return await _to_task_response(service, tenant.organization_id, task)
 
 
 @router.get('/{task_id}/logs', response_model=list[TaskLogItem])

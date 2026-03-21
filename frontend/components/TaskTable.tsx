@@ -8,7 +8,17 @@ export type TaskItem = {
   source: string;
   status: string;
   pr_url?: string | null;
+  branch_name?: string | null;
+  failure_reason?: string | null;
   duration_sec?: number | null;
+  run_duration_sec?: number | null;
+  queue_wait_sec?: number | null;
+  retry_count?: number | null;
+  queue_position?: number | null;
+  estimated_start_sec?: number | null;
+  lock_scope?: string | null;
+  blocked_by_task_id?: number | null;
+  blocked_by_task_title?: string | null;
   total_tokens?: number | null;
 };
 

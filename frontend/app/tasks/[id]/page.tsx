@@ -15,6 +15,16 @@ type TaskDetail = {
   branch_name?: string | null;
   failure_reason?: string | null;
   created_at: string;
+  duration_sec?: number | null;
+  run_duration_sec?: number | null;
+  queue_wait_sec?: number | null;
+  retry_count?: number | null;
+  queue_position?: number | null;
+  estimated_start_sec?: number | null;
+  lock_scope?: string | null;
+  blocked_by_task_id?: number | null;
+  blocked_by_task_title?: string | null;
+  total_tokens?: number | null;
 };
 
 type TaskLog = {
@@ -100,6 +110,14 @@ function classifyFailure(text: string): { label: string; detail: string } {
   if (t.includes('git checkout') || t.includes('worktree') || t.includes('local changes')) return { label: 'Git workspace', detail: 'Local repository state blocked branch/file operations.' };
   if (t.includes('401') || t.includes('unauthorized')) return { label: 'Auth', detail: 'Authentication failed for provider or API endpoint.' };
   return { label: 'Execution error', detail: 'Unhandled runtime error in agent execution pipeline.' };
+}
+
+function fmtEta(sec?: number | null): string {
+  if (sec === null || sec === undefined) return '—';
+  if (sec < 60) return `${Math.max(0, Math.round(sec))}s`;
+  const min = Math.floor(sec / 60);
+  const rem = Math.round(sec % 60);
+  return `${min}m ${rem}s`;
 }
 
 export default function TaskDetailPage() {
@@ -257,16 +275,19 @@ export default function TaskDetailPage() {
           padding: '10px 12px',
           marginBottom: 12,
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(8, minmax(0,1fr))',
+          gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(10, minmax(0,1fr))',
           gap: 8,
         }}
       >
         {[
           ['Status', task?.status ?? '—'],
           ['Source', task?.source ?? '—'],
-          ['Duration', metrics?.durationSec ? `${metrics.durationSec}s` : '—'],
-          ['Queue Wait', queueWaitSec !== null ? `${queueWaitSec}s` : '—'],
-          ['Tokens', metrics?.totalTokens || '—'],
+          ['Duration', fmtEta(task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null))],
+          ['Queue Wait', fmtEta(task?.queue_wait_sec ?? queueWaitSec)],
+          ['Retries', String(task?.retry_count ?? 0)],
+          ['Queue Pos', task?.queue_position !== null && task?.queue_position !== undefined ? `#${task.queue_position}` : '—'],
+          ['ETA', fmtEta(task?.estimated_start_sec)],
+          ['Tokens', task?.total_tokens !== null && task?.total_tokens !== undefined ? String(task.total_tokens) : metrics?.totalTokens || '—'],
           ['Last Stage', latestLog?.stage ?? '—'],
           ['Last Update', latestLog ? new Date(latestLog.created_at).toLocaleTimeString() : '—'],
           ['Logs', String(logs.length)],
@@ -298,6 +319,25 @@ export default function TaskDetailPage() {
                 {metrics?.startedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Run Start: {new Date(metrics.startedAt).toLocaleString()}</div> : null}
                 {metrics?.finishedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Run End: {new Date(metrics.finishedAt).toLocaleString()}</div> : null}
               </div>
+              {(task.lock_scope || task.blocked_by_task_id || (task.queue_position !== null && task.queue_position !== undefined)) ? (
+                <div style={{ border: '1px solid rgba(94,234,212,0.25)', borderRadius: 10, background: 'rgba(94,234,212,0.06)', padding: '9px 10px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', marginBottom: 5 }}>Queue Insight</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>
+                    {task.queue_position !== null && task.queue_position !== undefined ? `Position: #${task.queue_position} | ` : ''}
+                    ETA: {fmtEta(task.estimated_start_sec)}
+                  </div>
+                  {task.blocked_by_task_id ? (
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+                      Blocked by task #{task.blocked_by_task_id}{task.blocked_by_task_title ? ` — ${task.blocked_by_task_title}` : ''}
+                    </div>
+                  ) : null}
+                  {task.lock_scope ? (
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4, wordBreak: 'break-all' }}>
+                      Lock scope: {task.lock_scope}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div style={{ display: 'grid', gap: 8 }}>
                 <button className='button button-primary' onClick={() => void rerunTask()} disabled={isRerunBusy}>
