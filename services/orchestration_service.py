@@ -179,7 +179,11 @@ class OrchestrationService:
                 await task_service.add_log(task.id, organization_id, 'guardrail', guardrail_error)
                 raise RuntimeError(guardrail_error)
 
-            final_code = state.get('final_code', '')
+            final_code = (
+                (state.get('final_code') or '').strip()
+                or (state.get('reviewed_code') or '').strip()
+                or (state.get('generated_code') or '').strip()
+            )
             pr_url = None
             branch_name = None
             pr_payload = self._build_pr_payload(task=payload, reviewed_code=final_code)
@@ -325,12 +329,10 @@ class OrchestrationService:
 
         parsed_files = self._parse_reviewed_output_to_files(reviewed_code)
         if not parsed_files:
-            parsed_files = [
-                GitHubFileChange(
-                    path=f'generated/task_{safe_id}.md',
-                    content=reviewed_code,
-                )
-            ]
+            raise RuntimeError(
+                'Model output did not contain structured file blocks (**File: path** + fenced code). '
+                'Task cannot be applied safely to repository files.'
+            )
 
         return CreatePRRequest(
             branch_name=branch_name,
@@ -346,11 +348,14 @@ class OrchestrationService:
         )
 
     def _parse_reviewed_output_to_files(self, reviewed_code: str) -> list[GitHubFileChange]:
-        file_pattern = re.compile(r'\*\*File:\s*(.*?)\*\*\n```[\w\n]*\n(.*?)```', re.DOTALL)
+        file_pattern = re.compile(r'(?:\*\*)?File:\s*(.*?)(?:\*\*)?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL)
         matches = file_pattern.findall(reviewed_code)
         files: list[GitHubFileChange] = []
         for path, content in matches:
-            files.append(GitHubFileChange(path=path.strip(), content=content.rstrip() + '\n'))
+            clean_path = path.strip().strip('`').strip()
+            if not clean_path:
+                continue
+            files.append(GitHubFileChange(path=clean_path, content=content.rstrip() + '\n'))
         return files
 
     def _extract_task_routing(self, task: TaskRecord) -> TaskRouting:
