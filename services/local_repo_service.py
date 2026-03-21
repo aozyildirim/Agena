@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 from pathlib import Path
+from urllib.parse import quote, urlparse, urlunparse
 
 from schemas.github import GitHubFileChange
 
@@ -16,6 +17,8 @@ class LocalRepoService:
         base_branch: str,
         commit_message: str,
         files: list[GitHubFileChange],
+        remote_url: str | None = None,
+        remote_pat: str | None = None,
     ) -> tuple[bool, str]:
         root = Path(repo_path).expanduser().resolve()
         if not root.exists() or not root.is_dir():
@@ -25,9 +28,10 @@ class LocalRepoService:
         if not git_dir.exists():
             raise ValueError(f'Not a git repository: {repo_path}')
 
-        await self._run_git(root, ['fetch', 'origin', base_branch])
+        remote_target = self._build_remote_target(remote_url, remote_pat)
+        await self._run_git(root, ['fetch', remote_target, base_branch])
         await self._run_git(root, ['checkout', base_branch])
-        await self._run_git(root, ['pull', '--ff-only', 'origin', base_branch])
+        await self._run_git(root, ['pull', '--ff-only', remote_target, base_branch])
         await self._run_git(root, ['checkout', '-B', branch_name])
 
         for file_change in files:
@@ -52,7 +56,7 @@ class LocalRepoService:
                 commit_message,
             ],
         )
-        await self._run_git(root, ['push', '-u', 'origin', branch_name])
+        await self._run_git(root, ['push', '-u', remote_target, branch_name])
         return True, branch_name
 
     async def _has_staged_changes(self, repo: Path) -> bool:
@@ -78,7 +82,11 @@ class LocalRepoService:
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={**os.environ, 'LC_ALL': 'C'},
+            env={
+                **os.environ,
+                'LC_ALL': 'C',
+                'GIT_SSH_COMMAND': 'ssh -o StrictHostKeyChecking=accept-new',
+            },
         )
         out, err = await proc.communicate()
         if proc.returncode != 0:
@@ -93,3 +101,19 @@ class LocalRepoService:
         if not str(target).startswith(str(root)):
             raise ValueError(f'Invalid file path outside repository: {rel_path}')
         return target
+
+    def _build_remote_target(self, remote_url: str | None, remote_pat: str | None) -> str:
+        if not remote_url:
+            return 'origin'
+        if not remote_pat:
+            return remote_url
+        parsed = urlparse(remote_url)
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            return remote_url
+
+        username = parsed.username or 'pat'
+        host = parsed.hostname or parsed.netloc
+        if parsed.port:
+            host = f'{host}:{parsed.port}'
+        netloc = f'{quote(username, safe="")}:{quote(remote_pat, safe="")}@{host}'
+        return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))

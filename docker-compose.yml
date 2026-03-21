@@ -17,7 +17,7 @@ services:
       - ./integrations:/app/integrations
       - ./models:/app/models
       - ./schemas:/app/schemas
-      - /Users:/Users
+      - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
     depends_on:
       - mysql
       - redis
@@ -37,7 +37,7 @@ services:
       - ./integrations:/app/integrations
       - ./models:/app/models
       - ./schemas:/app/schemas
-      - /Users:/Users
+      - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
     command: ["python", "-m", "workers.redis_worker"]
     depends_on:
       - mysql

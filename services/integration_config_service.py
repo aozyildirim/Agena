@@ -7,7 +7,7 @@ from models.integration_config import IntegrationConfig
 
 
 class IntegrationConfigService:
-    SUPPORTED_PROVIDERS = {'jira', 'azure'}
+    SUPPORTED_PROVIDERS = {'jira', 'azure', 'openai'}
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db

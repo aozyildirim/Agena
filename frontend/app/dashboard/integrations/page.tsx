@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 
 type IntegrationConfig = {
-  provider: 'jira' | 'azure';
+  provider: 'jira' | 'azure' | 'openai';
   base_url: string;
   project?: string | null;
   username?: string | null;
@@ -20,6 +20,8 @@ export default function IntegrationsPage() {
   const [azureProject, setAzureProject] = useState('');
   const [azurePat, setAzurePat] = useState('');
   const [configs, setConfigs] = useState<IntegrationConfig[]>([]);
+  const [openaiBaseUrl, setOpenaiBaseUrl] = useState('https://api.openai.com/v1');
+  const [openaiKey, setOpenaiKey] = useState('');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
@@ -28,8 +30,10 @@ export default function IntegrationsPage() {
       setConfigs(data);
       const jira = data.find((c) => c.provider === 'jira');
       const azure = data.find((c) => c.provider === 'azure');
+      const openai = data.find((c) => c.provider === 'openai');
       if (jira) { setJiraBaseUrl(jira.base_url); setJiraEmail(jira.username ?? ''); }
       if (azure) { setAzureOrgUrl(azure.base_url); setAzureProject(azure.project ?? ''); }
+      if (openai) { setOpenaiBaseUrl(openai.base_url); }
     }).catch(() => {});
   }, []);
 
@@ -53,8 +57,20 @@ export default function IntegrationsPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
   }
 
+  async function saveOpenAI() {
+    try {
+      await apiFetch('/integrations/openai', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: openaiBaseUrl, secret: openaiKey || undefined }),
+      });
+      setOpenaiKey('');
+      setMsg('OpenAI integration saved');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
+  }
+
   const jiraConfig = configs.find((c) => c.provider === 'jira');
   const azureConfig = configs.find((c) => c.provider === 'azure');
+  const openaiConfig = configs.find((c) => c.provider === 'openai');
 
   return (
     <div style={{ display: 'grid', gap: 28 }}>
@@ -84,6 +100,30 @@ export default function IntegrationsPage() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {/* OpenAI */}
+        <IntegrationCard
+          title='OpenAI'
+          icon='⚡'
+          color='#34d399'
+          connected={openaiConfig?.has_secret ?? false}
+          updatedAt={openaiConfig?.updated_at}
+        >
+          <FieldGroup label='Base URL'>
+            <input value={openaiBaseUrl} onChange={(e) => setOpenaiBaseUrl(e.target.value)} placeholder='https://api.openai.com/v1' />
+          </FieldGroup>
+          <FieldGroup label='API Key'>
+            <input
+              type='password'
+              value={openaiKey}
+              onChange={(e) => setOpenaiKey(e.target.value)}
+              placeholder={openaiConfig?.has_secret ? '••••••••  (leave empty to keep)' : 'Paste your OpenAI API key'}
+            />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
+            Save OpenAI Config
+          </button>
+        </IntegrationCard>
+
         {/* Azure DevOps */}
         <IntegrationCard
           title='Azure DevOps'

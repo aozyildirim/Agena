@@ -41,6 +41,8 @@ async def create_task(
         status=task.status,
         pr_url=task.pr_url,
         created_at=task.created_at,
+        duration_sec=None,
+        total_tokens=None,
     )
 
 
@@ -51,18 +53,23 @@ async def list_tasks(
 ) -> list[TaskResponse]:
     service = TaskService(db)
     tasks = await service.list_tasks(tenant.organization_id)
-    return [
-        TaskResponse(
-            id=t.id,
-            title=t.title,
-            description=t.description,
-            source=t.source,
-            status=t.status,
-            pr_url=t.pr_url,
-            created_at=t.created_at,
+    response: list[TaskResponse] = []
+    for t in tasks:
+        duration_sec, total_tokens = await service.get_task_metrics(tenant.organization_id, t.id)
+        response.append(
+            TaskResponse(
+                id=t.id,
+                title=t.title,
+                description=t.description,
+                source=t.source,
+                status=t.status,
+                pr_url=t.pr_url,
+                created_at=t.created_at,
+                duration_sec=duration_sec,
+                total_tokens=total_tokens,
+            )
         )
-        for t in tasks
-    ]
+    return response
 
 
 @router.post('/import/azure', response_model=ImportTasksResponse)
@@ -124,6 +131,8 @@ async def get_task(
         status=task.status,
         pr_url=task.pr_url,
         created_at=task.created_at,
+        duration_sec=None,
+        total_tokens=None,
     )
 
 

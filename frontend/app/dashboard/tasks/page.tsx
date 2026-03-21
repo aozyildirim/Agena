@@ -12,6 +12,14 @@ function statusColor(s: string) {
   return m[s] ?? '#6b7280';
 }
 
+function fmtDuration(sec?: number | null): string {
+  if (sec === null || sec === undefined) return '—';
+  if (sec < 60) return `${Math.round(sec)}s`;
+  const min = Math.floor(sec / 60);
+  const rem = Math.round(sec % 60);
+  return `${min}m ${rem}s`;
+}
+
 export default function DashboardTasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [filter, setFilter] = useState('all');
@@ -142,8 +150,8 @@ export default function DashboardTasksPage() {
 
       {/* Task list */}
       <div style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px 160px', gap: 12 }}>
-          {['Task', 'Source', 'Status', 'PR', 'Actions'].map((h) => (
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: 'minmax(0,1.55fr) 88px 102px 90px 90px 86px minmax(180px,0.85fr)', gap: 10 }}>
+          {['Task', 'Source', 'Status', 'Time', 'Tokens', 'PR', 'Actions'].map((h) => (
             <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1 }}>{h}</span>
           ))}
         </div>
@@ -155,13 +163,22 @@ export default function DashboardTasksPage() {
         ) : (
           filtered.map((t) => (
             <div key={t.id} style={{
-              padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)',
-              display: 'grid', gridTemplateColumns: '1fr 100px 100px 80px 160px', gap: 12, alignItems: 'center',
+              padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+              display: 'grid', gridTemplateColumns: 'minmax(0,1.55fr) 88px 102px 90px 90px 86px minmax(180px,0.85fr)', gap: 10, alignItems: 'center',
               transition: 'background 0.2s',
             }}>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontSize: 14, marginBottom: 2 }}>{t.title}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                <div style={{
+                  fontSize: 12,
+                  color: 'rgba(255,255,255,0.3)',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  lineHeight: 1.35,
+                  maxHeight: 32,
+                }}>{t.description}</div>
               </div>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -180,21 +197,29 @@ export default function DashboardTasksPage() {
                 {t.status}
               </span>
               <div>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(t.duration_sec)}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>
+                  {t.total_tokens !== null && t.total_tokens !== undefined ? t.total_tokens.toLocaleString() : '—'}
+                </span>
+              </div>
+              <div>
                 {t.pr_url ? (
                   <a href={t.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>View PR ↗</a>
                 ) : (
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                 <button
                   className='button button-primary'
                   onClick={() => void onAssign(t.id)}
-                  style={{ padding: '6px 12px', fontSize: 12 }}
+                  style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap' }}
                 >
                   Assign AI
                 </button>
-                <Link href={`/tasks/${t.id}`} className='button button-outline' style={{ padding: '6px 12px', fontSize: 12 }}>
+                <Link href={`/tasks/${t.id}`} className='button button-outline' style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap' }}>
                   Details
                 </Link>
               </div>

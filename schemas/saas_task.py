@@ -16,6 +16,8 @@ class TaskResponse(BaseModel):
     status: str
     pr_url: str | None = None
     created_at: datetime
+    duration_sec: float | None = None
+    total_tokens: int | None = None
 
 
 class AssignTaskResponse(BaseModel):

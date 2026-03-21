@@ -8,6 +8,8 @@ export type TaskItem = {
   source: string;
   status: string;
   pr_url?: string | null;
+  duration_sec?: number | null;
+  total_tokens?: number | null;
 };
 
 type Props = {

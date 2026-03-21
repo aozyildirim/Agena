@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.azure_client import AzureDevOpsClient
 from integrations.jira_client import JiraClient
 from models.agent_log import AgentLog
+from models.run_record import RunRecord
 from models.task_record import TaskRecord
 from schemas.task import ExternalTask
 from services.integration_config_service import IntegrationConfigService
@@ -258,3 +261,41 @@ class TaskService:
             .order_by(AgentLog.created_at.asc())
         )
         return list(result.scalars().all())
+
+    async def get_task_metrics(self, organization_id: int, task_id: int) -> tuple[float | None, int | None]:
+        if self.db is None:
+            raise ValueError('DB session required')
+
+        run_result = await self.db.execute(
+            select(RunRecord)
+            .where(RunRecord.organization_id == organization_id, RunRecord.task_id == task_id)
+            .order_by(RunRecord.created_at.desc())
+            .limit(1)
+        )
+        run = run_result.scalar_one_or_none()
+        total_tokens = int(run.usage_total_tokens) if run is not None and run.usage_total_tokens is not None else None
+        if total_tokens is not None and total_tokens <= 0:
+            total_tokens = None
+
+        metrics_result = await self.db.execute(
+            select(AgentLog)
+            .where(
+                AgentLog.organization_id == organization_id,
+                AgentLog.task_id == task_id,
+                AgentLog.stage == 'run_metrics',
+            )
+            .order_by(AgentLog.created_at.desc())
+            .limit(1)
+        )
+        metrics_log = metrics_result.scalar_one_or_none()
+        duration = self._extract_duration(metrics_log.message) if metrics_log is not None else None
+        return duration, total_tokens
+
+    def _extract_duration(self, message: str) -> float | None:
+        match = re.search(r'DurationSec:\s*([0-9]+(?:\.[0-9]+)?)', message or '')
+        if not match:
+            return None
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
