@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ai_usage_event import AIUsageEvent
@@ -69,3 +69,91 @@ class AIUsageEventService:
         )
         return list(result.scalars().all())
 
+    async def list_events(
+        self,
+        *,
+        organization_id: int,
+        user_id: int | None = None,
+        operation_type: str | None = None,
+        provider: str | None = None,
+        task_id: int | None = None,
+        status: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[AIUsageEvent], int]:
+        filters = [AIUsageEvent.organization_id == organization_id]
+        if user_id is not None:
+            filters.append(AIUsageEvent.user_id == user_id)
+        if operation_type and operation_type != 'all':
+            filters.append(AIUsageEvent.operation_type == operation_type)
+        if provider and provider != 'all':
+            filters.append(AIUsageEvent.provider == provider)
+        if task_id is not None:
+            filters.append(AIUsageEvent.task_id == task_id)
+        if status and status != 'all':
+            filters.append(AIUsageEvent.status == status)
+        if created_from is not None:
+            filters.append(AIUsageEvent.created_at >= created_from)
+        if created_to is not None:
+            filters.append(AIUsageEvent.created_at <= created_to)
+
+        total_result = await self.db.execute(select(func.count(AIUsageEvent.id)).where(*filters))
+        total = int(total_result.scalar_one() or 0)
+        result = await self.db.execute(
+            select(AIUsageEvent)
+            .where(*filters)
+            .order_by(AIUsageEvent.created_at.desc())
+            .offset((max(1, int(page)) - 1) * max(1, int(page_size)))
+            .limit(max(1, min(int(page_size), 100)))
+        )
+        return list(result.scalars().all()), total
+
+    async def summary(
+        self,
+        *,
+        organization_id: int,
+        user_id: int | None = None,
+        operation_type: str | None = None,
+        provider: str | None = None,
+        task_id: int | None = None,
+        status: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+    ) -> dict[str, float | int]:
+        filters = [AIUsageEvent.organization_id == organization_id]
+        if user_id is not None:
+            filters.append(AIUsageEvent.user_id == user_id)
+        if operation_type and operation_type != 'all':
+            filters.append(AIUsageEvent.operation_type == operation_type)
+        if provider and provider != 'all':
+            filters.append(AIUsageEvent.provider == provider)
+        if task_id is not None:
+            filters.append(AIUsageEvent.task_id == task_id)
+        if status and status != 'all':
+            filters.append(AIUsageEvent.status == status)
+        if created_from is not None:
+            filters.append(AIUsageEvent.created_at >= created_from)
+        if created_to is not None:
+            filters.append(AIUsageEvent.created_at <= created_to)
+
+        result = await self.db.execute(
+            select(
+                func.count(AIUsageEvent.id),
+                func.coalesce(func.sum(AIUsageEvent.prompt_tokens), 0),
+                func.coalesce(func.sum(AIUsageEvent.completion_tokens), 0),
+                func.coalesce(func.sum(AIUsageEvent.total_tokens), 0),
+                func.coalesce(func.sum(AIUsageEvent.cost_usd), 0),
+                func.coalesce(func.avg(AIUsageEvent.duration_ms), 0),
+            ).where(*filters)
+        )
+        count, prompt, completion, total_tokens, cost, avg_duration = result.one()
+        return {
+            'count': int(count or 0),
+            'prompt_tokens': int(prompt or 0),
+            'completion_tokens': int(completion or 0),
+            'total_tokens': int(total_tokens or 0),
+            'cost_usd': float(cost or 0.0),
+            'avg_duration_ms': int(avg_duration or 0),
+        }

@@ -297,6 +297,42 @@ export interface NotificationListResponse {
   items: NotificationItem[];
 }
 
+export interface UsageEventItem {
+  id: number;
+  operation_type: string;
+  provider: string;
+  model: string | null;
+  status: string;
+  task_id: number | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  duration_ms: number | null;
+  cache_hit: boolean;
+  local_repo_path: string | null;
+  profile_version: number | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface UsageSummary {
+  count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  avg_duration_ms: number;
+}
+
+export interface UsageEventsResponse {
+  page: number;
+  page_size: number;
+  total: number;
+  summary: UsageSummary;
+  items: UsageEventItem[];
+}
+
 export async function listNotifications(
   limit = 12,
   onlyUnread = false,
@@ -311,6 +347,30 @@ export async function listNotifications(
     read_status: String(opts?.read_status ?? 'all'),
   });
   return apiFetch<NotificationListResponse>(`/notifications?${qs.toString()}`);
+}
+
+export async function listUsageEvents(params?: {
+  operation_type?: string;
+  provider?: string;
+  status?: string;
+  task_id?: number;
+  created_from?: string;
+  created_to?: string;
+  mine_only?: boolean;
+  page?: number;
+  page_size?: number;
+}): Promise<UsageEventsResponse> {
+  const qs = new URLSearchParams();
+  if (params?.operation_type) qs.set('operation_type', params.operation_type);
+  if (params?.provider) qs.set('provider', params.provider);
+  if (params?.status) qs.set('status', params.status);
+  if (params?.task_id !== undefined) qs.set('task_id', String(params.task_id));
+  if (params?.created_from) qs.set('created_from', params.created_from);
+  if (params?.created_to) qs.set('created_to', params.created_to);
+  if (params?.mine_only !== undefined) qs.set('mine_only', String(params.mine_only));
+  qs.set('page', String(params?.page ?? 1));
+  qs.set('page_size', String(params?.page_size ?? 20));
+  return await apiFetch<UsageEventsResponse>(`/usage-events?${qs.toString()}`);
 }
 
 export async function markNotificationRead(notificationId: number): Promise<void> {
