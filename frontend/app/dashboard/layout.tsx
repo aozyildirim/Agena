@@ -9,6 +9,7 @@ import WebPushBridge from '@/components/WebPushBridge';
 import { useLocale } from '@/lib/i18n';
 
 const NOTIF_EVENT = 'tiqr:notification';
+const NOTIF_SYNC_EVENT = 'tiqr:notification-sync';
 const LS_UNREAD_KEY = 'tiqr_notification_unread_count';
 const LS_SIDEBAR_COLLAPSED = 'tiqr_sidebar_collapsed';
 
@@ -173,6 +174,23 @@ function DashboardInner({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener(NOTIF_EVENT, onNotif as EventListener);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onSync = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ unread?: number }>).detail || {};
+      if (typeof detail.unread === 'number') {
+        const next = Math.max(0, detail.unread);
+        setUnreadCount(next);
+        localStorage.setItem(LS_UNREAD_KEY, String(next));
+        lastUnreadRef.current = next;
+      } else {
+        void refreshNotifications(8);
+      }
+    };
+    window.addEventListener(NOTIF_SYNC_EVENT, onSync as EventListener);
+    return () => window.removeEventListener(NOTIF_SYNC_EVENT, onSync as EventListener);
   }, []);
 
   useEffect(() => {

@@ -6,6 +6,8 @@ import { clearAllNotifications, listNotifications, markAllNotificationsRead, mar
 import { useLocale } from '@/lib/i18n';
 
 type GroupKey = 'tasks' | 'prs' | 'approvals' | 'integrations' | 'queue' | 'failures' | 'other';
+const NOTIF_SYNC_EVENT = 'tiqr:notification-sync';
+const LS_UNREAD_KEY = 'tiqr_notification_unread_count';
 
 const GROUP_META: Record<GroupKey, { color: string }> = {
   tasks: { color: '#39ff88' },
@@ -44,6 +46,13 @@ export default function NotificationsPage() {
   const [readStatus, setReadStatus] = useState<'all' | 'read' | 'unread'>('all');
   const [groupFilter, setGroupFilter] = useState<'all' | GroupKey>('all');
 
+  function syncUnread(unread: number) {
+    if (typeof window === 'undefined') return;
+    const safe = Math.max(0, unread);
+    localStorage.setItem(LS_UNREAD_KEY, String(safe));
+    window.dispatchEvent(new CustomEvent(NOTIF_SYNC_EVENT, { detail: { unread: safe } }));
+  }
+
   async function load() {
     setLoading(true);
     try {
@@ -55,7 +64,9 @@ export default function NotificationsPage() {
       });
       setItems(res.items || []);
       setTotal(res.total || 0);
-      setUnreadCount(res.unread_count || 0);
+      const nextUnread = res.unread_count || 0;
+      setUnreadCount(nextUnread);
+      syncUnread(nextUnread);
     } finally {
       setLoading(false);
     }
@@ -148,7 +159,12 @@ export default function NotificationsPage() {
             <option value='20' style={{ background: '#0b1220', color: '#e5e7eb' }}>20</option>
             <option value='50' style={{ background: '#0b1220', color: '#e5e7eb' }}>50</option>
           </select>
-          <button className='button button-outline' onClick={() => void markAllNotificationsRead().then(load)}>{t('notifications.markAllRead')}</button>
+          <button className='button button-outline' onClick={() => {
+            setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+            setUnreadCount(0);
+            syncUnread(0);
+            void markAllNotificationsRead().then(load);
+          }}>{t('notifications.markAllRead')}</button>
           <button
             className='button button-outline'
             onClick={() => {
@@ -156,6 +172,7 @@ export default function NotificationsPage() {
               setItems([]);
               setTotal(0);
               setUnreadCount(0);
+              syncUnread(0);
               setPage(1);
               void clearAllNotifications().then(load);
             }}
@@ -228,7 +245,14 @@ export default function NotificationsPage() {
                 <Link
                   key={n.id}
                   href={n.task_id ? `/tasks/${n.task_id}` : '/dashboard/tasks'}
-                  onClick={() => { if (!n.is_read) void markNotificationRead(n.id).then(load); }}
+                  onClick={() => {
+                    if (n.is_read) return;
+                    const next = Math.max(0, unreadCount - 1);
+                    setUnreadCount(next);
+                    syncUnread(next);
+                    setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+                    void markNotificationRead(n.id).then(load);
+                  }}
                   style={{
                     textDecoration: 'none',
                     display: 'grid',
