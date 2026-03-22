@@ -1235,6 +1235,20 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
   onClose: () => void;
 }) {
   const { t } = useLocale();
+  function getFeedbackFlags(run: FlowRunResult) {
+    const feedbackStep = run.steps.find((step) => {
+      const out = step.output;
+      if (!out || typeof out !== 'object') return false;
+      const o = out as Record<string, unknown>;
+      return o.mode === 'pr_feedback_loop' || Boolean(o.feedback_hash) || String(o.message ?? '').toLowerCase().includes('review comments');
+    });
+    if (!feedbackStep) return { found: false, rerun: false };
+    const out = (feedbackStep.output || {}) as Record<string, unknown>;
+    return {
+      found: true,
+      rerun: Boolean(out.new_pr_url),
+    };
+  }
 
   function fmt(iso: string) {
     const d = new Date(iso);
@@ -1265,6 +1279,16 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[selected.status] ?? '#fff', padding: '2px 8px', borderRadius: 999, background: (STATUS_COLOR[selected.status] ?? '#fff') + '18', border: '1px solid ' + (STATUS_COLOR[selected.status] ?? '#fff') + '40' }}>{selected.status}</span>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{fmt(selected.started_at)}</span>
+            {getFeedbackFlags(selected).found && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', padding: '2px 8px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.35)' }}>
+                PR feedback bulundu
+              </span>
+            )}
+            {getFeedbackFlags(selected).rerun && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.35)' }}>
+                Developer rerun tetiklendi
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {selected.steps.map((step) => (
@@ -1298,6 +1322,18 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
                 <span style={{ fontSize: 10, fontWeight: 700, color: STATUS_COLOR[run.status] ?? '#fff' }}>{run.status}</span>
               </div>
               {run.task_title && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.task_title}</div>}
+              {getFeedbackFlags(run).found && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', padding: '2px 7px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.35)' }}>
+                    PR feedback bulundu
+                  </span>
+                  {getFeedbackFlags(run).rerun && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.35)' }}>
+                      Developer rerun tetiklendi
+                    </span>
+                  )}
+                </div>
+              )}
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>{fmt(run.started_at)} · {run.steps.length} adım</div>
             </button>
           ))}
