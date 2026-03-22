@@ -452,10 +452,11 @@ export default function DashboardTasksPage() {
               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                 <button
                   className='button button-primary'
+                  disabled={task.status === 'queued' || task.status === 'running'}
                   onClick={() => void onAssign(task.id)}
-                  style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap', minHeight: 32 }}
+                  style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap', minHeight: 32, opacity: task.status === 'queued' || task.status === 'running' ? 0.6 : 1, cursor: task.status === 'queued' || task.status === 'running' ? 'not-allowed' : 'pointer' }}
                 >
-                  {t('tasks.assignAi')}
+                  {task.status === 'queued' || task.status === 'running' ? statusLabel(task.status, t) : t('tasks.assignAi')}
                 </button>
                 <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap', minHeight: 32 }}>
                   {t('tasks.details')}
