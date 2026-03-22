@@ -11,6 +11,7 @@ const USER_CACHE_KEYS = [
   'tiqr_agent_configs',
   'tiqr_flows',
   'tiqr_repo_mappings',
+  'tiqr_profile_settings',
 ] as const;
 
 function resolveApiBase(): string {
@@ -112,6 +113,7 @@ export interface UserPrefs {
   agents: Record<string, unknown>[];
   flows: Record<string, unknown>[];
   repo_mappings: RepoMapping[];
+  profile_settings: Record<string, unknown>;
 }
 
 const LS_PROJECT = 'tiqr_sprint_project';
@@ -130,6 +132,7 @@ export async function loadPrefs(): Promise<UserPrefs> {
   if (prefs.agents?.length)    localStorage.setItem('tiqr_agent_configs', JSON.stringify(prefs.agents));
   if (prefs.flows?.length)     localStorage.setItem('tiqr_flows', JSON.stringify(prefs.flows));
   if (prefs.repo_mappings)     localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(prefs.repo_mappings));
+  if (prefs.profile_settings)  localStorage.setItem('tiqr_profile_settings', JSON.stringify(prefs.profile_settings));
   return prefs;
 }
 
@@ -142,6 +145,7 @@ export async function savePrefs(partial: Partial<{
   agents: Record<string, unknown>[];
   flows: Record<string, unknown>[];
   repo_mappings: RepoMapping[];
+  profile_settings: Record<string, unknown>;
 }>): Promise<void> {
   if (partial.azure_project !== undefined)     localStorage.setItem(LS_PROJECT, partial.azure_project);
   if (partial.azure_team !== undefined)        localStorage.setItem(LS_TEAM,    partial.azure_team);
@@ -150,6 +154,7 @@ export async function savePrefs(partial: Partial<{
   if (partial.agents !== undefined)            localStorage.setItem('tiqr_agent_configs', JSON.stringify(partial.agents));
   if (partial.flows !== undefined)             localStorage.setItem('tiqr_flows', JSON.stringify(partial.flows));
   if (partial.repo_mappings !== undefined)     localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(partial.repo_mappings));
+  if (partial.profile_settings !== undefined)  localStorage.setItem('tiqr_profile_settings', JSON.stringify(partial.profile_settings));
   await apiFetch('/preferences', {
     method: 'PUT',
     body: JSON.stringify({
@@ -160,6 +165,7 @@ export async function savePrefs(partial: Partial<{
       agents:            partial.agents            ?? null,
       flows:             partial.flows             ?? null,
       repo_mappings:     partial.repo_mappings     ?? null,
+      profile_settings:  partial.profile_settings  ?? null,
     }),
   });
 }

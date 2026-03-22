@@ -21,6 +21,7 @@ class PreferencePayload(BaseModel):
     agents: list[dict[str, Any]] | None = None
     flows: list[dict[str, Any]] | None = None
     repo_mappings: list[dict[str, Any]] | None = None
+    profile_settings: dict[str, Any] | None = None
 
 
 class PreferenceResponse(BaseModel):
@@ -31,11 +32,22 @@ class PreferenceResponse(BaseModel):
     agents: list[dict[str, Any]]
     flows: list[dict[str, Any]]
     repo_mappings: list[dict[str, Any]]
+    profile_settings: dict[str, Any]
 
 
 def _parse_json(val: str | None) -> list[dict[str, Any]]:
     if not val:
         return []
+
+
+def _parse_json_obj(val: str | None) -> dict[str, Any]:
+    if not val:
+        return {}
+    try:
+        parsed = json.loads(val)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
     try:
         return json.loads(val)  # type: ignore[return-value]
     except Exception:
@@ -54,7 +66,7 @@ async def get_preferences(
     if pref is None:
         return PreferenceResponse(
             azure_project=None, azure_team=None, azure_sprint_path=None,
-            my_team=[], agents=[], flows=[], repo_mappings=[],
+            my_team=[], agents=[], flows=[], repo_mappings=[], profile_settings={},
         )
     return PreferenceResponse(
         azure_project=pref.azure_project,
@@ -64,6 +76,7 @@ async def get_preferences(
         agents=_parse_json(pref.agents_json),
         flows=_parse_json(pref.flows_json),
         repo_mappings=_parse_json(pref.repo_mappings_json),
+        profile_settings=_parse_json_obj(pref.profile_settings_json),
     )
 
 
@@ -95,6 +108,8 @@ async def save_preferences(
         pref.flows_json = json.dumps(payload.flows, ensure_ascii=False)
     if payload.repo_mappings is not None:
         pref.repo_mappings_json = json.dumps(payload.repo_mappings, ensure_ascii=False)
+    if payload.profile_settings is not None:
+        pref.profile_settings_json = json.dumps(payload.profile_settings, ensure_ascii=False)
 
     await db.commit()
     await db.refresh(pref)
@@ -107,4 +122,5 @@ async def save_preferences(
         agents=_parse_json(pref.agents_json),
         flows=_parse_json(pref.flows_json),
         repo_mappings=_parse_json(pref.repo_mappings_json),
+        profile_settings=_parse_json_obj(pref.profile_settings_json),
     )

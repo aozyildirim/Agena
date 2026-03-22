@@ -24,4 +24,6 @@ class UserPreference(Base):
     flows_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Local repo mapping listesi (JSON array)
     repo_mappings_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Profil ayarlari (JSON object)
+    profile_settings_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

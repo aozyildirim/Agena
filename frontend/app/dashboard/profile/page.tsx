@@ -7,6 +7,15 @@ import { useLocale } from '@/lib/i18n';
 
 type Opt = { id: string; name: string; path?: string };
 type MeRes = { user_id: number; email: string; full_name: string; organization_id: number };
+type ProfileSettings = {
+  email_notifications: boolean;
+  daily_summary: boolean;
+  auto_assign_new_tasks: boolean;
+  default_create_pr: boolean;
+  preferred_provider: string;
+  preferred_model: string;
+  branch_prefix: string;
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -21,6 +30,15 @@ export default function ProfilePage() {
   const [sprint,   setSprint]   = useState('');
   const [ltm, setLtm] = useState(false);
   const [lsp, setLsp] = useState(false);
+  const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
+    email_notifications: true,
+    daily_summary: false,
+    auto_assign_new_tasks: false,
+    default_create_pr: true,
+    preferred_provider: 'openai',
+    preferred_model: 'gpt-5',
+    branch_prefix: 'ai/task',
+  });
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
   const [err, setErr] = useState('');
@@ -36,6 +54,17 @@ export default function ProfilePage() {
       const p = prefs.azure_project     || '';
       const t = prefs.azure_team        || '';
       const s = prefs.azure_sprint_path || '';
+      const rawSettings = (prefs.profile_settings || {}) as Record<string, unknown>;
+      setProfileSettings((prev) => ({
+        ...prev,
+        email_notifications: rawSettings.email_notifications !== false,
+        daily_summary: rawSettings.daily_summary === true,
+        auto_assign_new_tasks: rawSettings.auto_assign_new_tasks === true,
+        default_create_pr: rawSettings.default_create_pr !== false,
+        preferred_provider: typeof rawSettings.preferred_provider === 'string' ? rawSettings.preferred_provider : prev.preferred_provider,
+        preferred_model: typeof rawSettings.preferred_model === 'string' ? rawSettings.preferred_model : prev.preferred_model,
+        branch_prefix: typeof rawSettings.branch_prefix === 'string' ? rawSettings.branch_prefix : prev.branch_prefix,
+      }));
       if (!p) { initializing.current = false; return; }
       setProject(p);
       if (!t) { initializing.current = false; return; }
@@ -77,10 +106,15 @@ export default function ProfilePage() {
   async function save() {
     setSaving(true); setErr('');
     try {
-      await savePrefs({ azure_project: project, azure_team: team, azure_sprint_path: sprint });
+      await savePrefs({
+        azure_project: project,
+        azure_team: team,
+        azure_sprint_path: sprint,
+        profile_settings: profileSettings as unknown as Record<string, unknown>,
+      });
       setSaved(true);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız');
+      setErr(e instanceof Error ? e.message : t('profile.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -162,6 +196,57 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      <div style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 24, display: 'grid', gap: 14 }}>
+        <div>
+          <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>Workspace Preferences</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>These settings are stored per user in DB and used as defaults in task flows.</div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <ToggleRow
+            label='Email notifications'
+            checked={profileSettings.email_notifications}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, email_notifications: v })); setSaved(false); }}
+          />
+          <ToggleRow
+            label='Daily summary email'
+            checked={profileSettings.daily_summary}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, daily_summary: v })); setSaved(false); }}
+          />
+          <ToggleRow
+            label='Auto-assign new tasks'
+            checked={profileSettings.auto_assign_new_tasks}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, auto_assign_new_tasks: v })); setSaved(false); }}
+          />
+          <ToggleRow
+            label='Create PR by default'
+            checked={profileSettings.default_create_pr}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, default_create_pr: v })); setSaved(false); }}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <ProfileInput
+            label='Preferred provider'
+            value={profileSettings.preferred_provider}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, preferred_provider: v })); setSaved(false); }}
+            placeholder='openai | gemini | codex_cli'
+          />
+          <ProfileInput
+            label='Preferred model'
+            value={profileSettings.preferred_model}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, preferred_model: v })); setSaved(false); }}
+            placeholder='gpt-5'
+          />
+          <ProfileInput
+            label='Default branch prefix'
+            value={profileSettings.branch_prefix}
+            onChange={(v) => { setProfileSettings((p) => ({ ...p, branch_prefix: v })); setSaved(false); }}
+            placeholder='ai/task'
+          />
+        </div>
+      </div>
+
       <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{t('profile.integrations')}</div>
@@ -171,6 +256,31 @@ export default function ProfilePage() {
           {t('profile.settings')}
         </a>
       </div>
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' }}>
+      <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>{label}</span>
+      <input type='checkbox' checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
+  );
+}
+
+function ProfileInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <div>
+      <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: 6 }}>
+        {label}
+      </label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.9)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+      />
     </div>
   );
 }
