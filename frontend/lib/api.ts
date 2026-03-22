@@ -104,11 +104,15 @@ export type RepoMapping = {
   id: string;
   name: string;
   local_path: string;
+  provider?: 'azure' | 'github';
   notes?: string;
   repo_playbook?: string;
   azure_project?: string;
   azure_repo_url?: string;
   azure_repo_name?: string;
+  github_owner?: string;
+  github_repo?: string;
+  github_repo_full_name?: string;
 };
 
 export interface UserPrefs {

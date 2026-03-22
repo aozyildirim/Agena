@@ -7,6 +7,7 @@ import { useLocale } from '@/lib/i18n';
 const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
 type Opt = { id: string; name: string };
 type AzureRepo = { id: string; name: string; remote_url: string; web_url: string };
+type GithubRepo = { id: string; name: string; full_name: string; private: boolean };
 
 const fieldStyle: React.CSSProperties = {
   width: '100%',
@@ -43,11 +44,15 @@ function loadLocalMappings(): RepoMapping[] {
 export default function RepoMappingsPage() {
   const { t } = useLocale();
   const [items, setItems] = useState<RepoMapping[]>([]);
+  const [sourceProvider, setSourceProvider] = useState<'azure' | 'github'>('azure');
   const [projects, setProjects] = useState<Opt[]>([]);
   const [selProject, setSelProject] = useState('');
   const [repos, setRepos] = useState<AzureRepo[]>([]);
   const [selRepoUrl, setSelRepoUrl] = useState('');
   const [pendingRepoUrl, setPendingRepoUrl] = useState('');
+  const [githubOwner, setGithubOwner] = useState('');
+  const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
+  const [selGithubRepo, setSelGithubRepo] = useState('');
   const [path, setPath] = useState('');
   const [notes, setNotes] = useState('');
   const [repoPlaybook, setRepoPlaybook] = useState('');
@@ -57,6 +62,8 @@ export default function RepoMappingsPage() {
   const [err, setErr] = useState('');
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [loadingGithubRepos, setLoadingGithubRepos] = useState(false);
+  const [hasGithubIntegration, setHasGithubIntegration] = useState(false);
   const [repoProfiles, setRepoProfiles] = useState<Record<string, RepoProfileSummary>>({});
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -77,6 +84,14 @@ export default function RepoMappingsPage() {
       } catch {
         // local cache fallback
       }
+      try {
+        const integrations = await apiFetch<Array<{ provider: string; has_secret?: boolean; username?: string | null }>>('/integrations');
+        const github = integrations.find((c) => c.provider === 'github');
+        setHasGithubIntegration(Boolean(github?.has_secret));
+        if (github?.username) setGithubOwner(github.username);
+      } catch {
+        setHasGithubIntegration(false);
+      }
       setLoadingProjects(true);
       try {
         const ps = await apiFetch<Opt[]>('/tasks/azure/projects');
@@ -91,6 +106,7 @@ export default function RepoMappingsPage() {
   }, []);
 
   useEffect(() => {
+    if (sourceProvider !== 'azure') return;
     setRepos([]);
     setSelRepoUrl('');
     if (!selProject) return;
@@ -99,7 +115,20 @@ export default function RepoMappingsPage() {
       .then(setRepos)
       .catch(() => {})
       .finally(() => setLoadingRepos(false));
-  }, [selProject]);
+  }, [selProject, sourceProvider]);
+
+  useEffect(() => {
+    if (sourceProvider !== 'github') return;
+    setGithubRepos([]);
+    setSelGithubRepo('');
+    if (!githubOwner.trim()) return;
+    setLoadingGithubRepos(true);
+    const query = `?owner=${encodeURIComponent(githubOwner.trim())}`;
+    apiFetch<GithubRepo[]>(`/integrations/github/repos${query}`)
+      .then(setGithubRepos)
+      .catch(() => {})
+      .finally(() => setLoadingGithubRepos(false));
+  }, [sourceProvider, githubOwner]);
 
   useEffect(() => {
     if (!pendingRepoUrl) return;
@@ -128,6 +157,7 @@ export default function RepoMappingsPage() {
   function resetForm() {
     setSelRepoUrl('');
     setPendingRepoUrl('');
+    setSelGithubRepo('');
     setPath('');
     setNotes('');
     setRepoPlaybook('');
@@ -135,27 +165,50 @@ export default function RepoMappingsPage() {
   }
 
   function startEdit(item: RepoMapping) {
+    const provider = item.provider === 'github' ? 'github' : 'azure';
+    setSourceProvider(provider);
     setEditingId(item.id);
     setSelProject(item.azure_project || '');
     setPendingRepoUrl(item.azure_repo_url || '');
+    setGithubOwner(item.github_owner || githubOwner);
+    setSelGithubRepo(item.github_repo_full_name || (item.github_owner && item.github_repo ? `${item.github_owner}/${item.github_repo}` : ''));
     setPath(item.local_path || '');
     setNotes(item.notes || '');
     setRepoPlaybook(item.repo_playbook || '');
   }
 
   async function upsertMapping() {
-    const selectedRepo = repos.find((r) => r.remote_url === selRepoUrl);
-    if (!selProject || !selectedRepo || !path.trim()) return;
-    const mapping: RepoMapping = {
-      id: editingId || String(Date.now()),
-      name: selectedRepo.name,
-      local_path: path.trim(),
-      notes: notes.trim() || undefined,
-      repo_playbook: repoPlaybook.trim() || undefined,
-      azure_project: selProject,
-      azure_repo_url: selectedRepo.remote_url,
-      azure_repo_name: selectedRepo.name,
-    };
+    let mapping: RepoMapping;
+    if (sourceProvider === 'azure') {
+      const selectedRepo = repos.find((r) => r.remote_url === selRepoUrl);
+      if (!selProject || !selectedRepo || !path.trim()) return;
+      mapping = {
+        id: editingId || String(Date.now()),
+        provider: 'azure',
+        name: selectedRepo.name,
+        local_path: path.trim(),
+        notes: notes.trim() || undefined,
+        repo_playbook: repoPlaybook.trim() || undefined,
+        azure_project: selProject,
+        azure_repo_url: selectedRepo.remote_url,
+        azure_repo_name: selectedRepo.name,
+      };
+    } else {
+      const selectedRepo = githubRepos.find((r) => r.full_name === selGithubRepo);
+      if (!selectedRepo || !path.trim()) return;
+      const owner = selGithubRepo.split('/')[0] || githubOwner.trim();
+      mapping = {
+        id: editingId || String(Date.now()),
+        provider: 'github',
+        name: selectedRepo.name,
+        local_path: path.trim(),
+        notes: notes.trim() || undefined,
+        repo_playbook: repoPlaybook.trim() || undefined,
+        github_owner: owner,
+        github_repo: selectedRepo.name,
+        github_repo_full_name: selectedRepo.full_name,
+      };
+    }
     const next: RepoMapping[] = editingId
       ? items.map((m) => (m.id === editingId ? mapping : m))
       : [...items, mapping];
@@ -226,9 +279,12 @@ export default function RepoMappingsPage() {
 
   const empty = useMemo(() => items.length === 0, [items.length]);
   const selectedRepo = useMemo(() => repos.find((r) => r.remote_url === selRepoUrl), [repos, selRepoUrl]);
+  const selectedGithubRepo = useMemo(() => githubRepos.find((r) => r.full_name === selGithubRepo), [githubRepos, selGithubRepo]);
   const selectedRepoMappings = useMemo(
-    () => (selProject && selRepoUrl ? items.filter((m) => m.azure_project === selProject && m.azure_repo_url === selRepoUrl) : []),
-    [items, selProject, selRepoUrl],
+    () => sourceProvider === 'azure'
+      ? (selProject && selRepoUrl ? items.filter((m) => (m.provider || 'azure') === 'azure' && m.azure_project === selProject && m.azure_repo_url === selRepoUrl) : [])
+      : (selGithubRepo ? items.filter((m) => m.provider === 'github' && m.github_repo_full_name === selGithubRepo) : []),
+    [items, selProject, selRepoUrl, selGithubRepo, sourceProvider],
   );
 
   return (
@@ -250,25 +306,62 @@ export default function RepoMappingsPage() {
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{t('mappings.totalCount', { n: items.length })}</div>
           </div>
 
-          <div>
-            <div style={fieldLabelStyle}>{t('mappings.azureProject')}</div>
-            <select value={selProject} onChange={(e) => setSelProject(e.target.value)} style={fieldStyle}>
-              <option value='' style={{ background: '#0d1117' }}>{loadingProjects ? t('mappings.loadingProjects') : t('mappings.selectProject')}</option>
-              {projects.map((p) => <option key={p.id} value={p.name} style={{ background: '#0d1117' }}>{p.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={fieldLabelStyle}>{t('mappings.azureRepo')}</div>
-            <select value={selRepoUrl} onChange={(e) => setSelRepoUrl(e.target.value)} disabled={!selProject || loadingRepos} style={fieldStyle}>
-              <option value='' style={{ background: '#0d1117' }}>{loadingRepos ? t('mappings.loadingRepos') : t('mappings.selectRepo')}</option>
-              {repos.map((r) => <option key={r.id} value={r.remote_url} style={{ background: '#0d1117' }}>{r.name}</option>)}
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button type='button' onClick={() => setSourceProvider('azure')} className='button'
+              style={{ borderColor: sourceProvider === 'azure' ? 'rgba(56,189,248,0.45)' : 'rgba(255,255,255,0.12)', background: sourceProvider === 'azure' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)', color: sourceProvider === 'azure' ? '#7dd3fc' : 'rgba(255,255,255,0.58)' }}>
+              {t('mappings.providerAzure')}
+            </button>
+            <button type='button' onClick={() => setSourceProvider('github')} className='button'
+              style={{ borderColor: sourceProvider === 'github' ? 'rgba(167,139,250,0.45)' : 'rgba(255,255,255,0.12)', background: sourceProvider === 'github' ? 'rgba(167,139,250,0.12)' : 'rgba(255,255,255,0.03)', color: sourceProvider === 'github' ? '#c4b5fd' : 'rgba(255,255,255,0.58)' }}>
+              {t('mappings.providerGithub')}
+            </button>
           </div>
 
-          {selectedRepo && (
+          {sourceProvider === 'azure' ? (
+            <>
+              <div>
+                <div style={fieldLabelStyle}>{t('mappings.azureProject')}</div>
+                <select value={selProject} onChange={(e) => setSelProject(e.target.value)} style={fieldStyle}>
+                  <option value='' style={{ background: '#0d1117' }}>{loadingProjects ? t('mappings.loadingProjects') : t('mappings.selectProject')}</option>
+                  {projects.map((p) => <option key={p.id} value={p.name} style={{ background: '#0d1117' }}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={fieldLabelStyle}>{t('mappings.azureRepo')}</div>
+                <select value={selRepoUrl} onChange={(e) => setSelRepoUrl(e.target.value)} disabled={!selProject || loadingRepos} style={fieldStyle}>
+                  <option value='' style={{ background: '#0d1117' }}>{loadingRepos ? t('mappings.loadingRepos') : t('mappings.selectRepo')}</option>
+                  {repos.map((r) => <option key={r.id} value={r.remote_url} style={{ background: '#0d1117' }}>{r.name}</option>)}
+                </select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <div style={fieldLabelStyle}>{t('mappings.githubOwner')}</div>
+                <input value={githubOwner} onChange={(e) => setGithubOwner(e.target.value)} placeholder={t('mappings.githubOwnerPlaceholder')} style={fieldStyle} />
+              </div>
+              <div>
+                <div style={fieldLabelStyle}>{t('mappings.githubRepo')}</div>
+                <select value={selGithubRepo} onChange={(e) => setSelGithubRepo(e.target.value)} disabled={!githubOwner.trim() || loadingGithubRepos || !hasGithubIntegration} style={fieldStyle}>
+                  <option value='' style={{ background: '#0d1117' }}>
+                    {!hasGithubIntegration ? t('mappings.connectGithubFirst') : (loadingGithubRepos ? t('mappings.loadingGithubRepos') : t('mappings.selectGithubRepo'))}
+                  </option>
+                  {githubRepos.map((r) => <option key={r.id} value={r.full_name} style={{ background: '#0d1117' }}>{r.full_name}{r.private ? ' 🔒' : ''}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+
+          {sourceProvider === 'azure' && selectedRepo && (
             <div style={{ borderRadius: 10, border: '1px solid rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.08)', padding: '8px 10px', minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{selectedRepo.name}</div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2, wordBreak: 'break-all' }}>{selectedRepo.remote_url}</div>
+            </div>
+          )}
+          {sourceProvider === 'github' && selectedGithubRepo && (
+            <div style={{ borderRadius: 10, border: '1px solid rgba(167,139,250,0.3)', background: 'rgba(167,139,250,0.08)', padding: '8px 10px', minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#c4b5fd' }}>{selectedGithubRepo.full_name}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{selectedGithubRepo.private ? 'private' : 'public'}</div>
             </div>
           )}
 
@@ -297,7 +390,12 @@ export default function RepoMappingsPage() {
             />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minHeight: 38 }}>
-            <button onClick={() => void upsertMapping()} disabled={saving || !selProject || !selRepoUrl || !path.trim()} className='button button-primary' style={{ width: '100%' }}>
+            <button
+              onClick={() => void upsertMapping()}
+              disabled={saving || !path.trim() || (sourceProvider === 'azure' ? (!selProject || !selRepoUrl) : !selGithubRepo)}
+              className='button button-primary'
+              style={{ width: '100%' }}
+            >
               {saving ? t('mappings.saving') : editingId ? t('mappings.update') : t('mappings.add')}
             </button>
             {editingId ? (
@@ -316,7 +414,7 @@ export default function RepoMappingsPage() {
 
         <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '1fr 1.1fr 0.8fr 1fr 0.9fr 140px', gap: 12 }}>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{t('mappings.col.azure')}</span>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{t('mappings.col.source')}</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{t('mappings.col.localPath')}</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{t('mappings.col.notes')}</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{t('mappings.col.repoPlaybook')}</span>
@@ -332,8 +430,12 @@ export default function RepoMappingsPage() {
             items.map((m) => (
               <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1fr 1.1fr 0.8fr 1fr 0.9fr 140px', gap: 12, alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{m.azure_project || '-'}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>{m.azure_repo_name || m.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: (m.provider === 'github') ? '#c4b5fd' : '#7dd3fc' }}>
+                    {(m.provider === 'github') ? 'GitHub' : (m.azure_project || 'Azure')}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>
+                    {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
+                  </div>
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.58)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {m.local_path}
