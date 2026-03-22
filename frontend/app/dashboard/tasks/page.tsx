@@ -33,6 +33,10 @@ export default function DashboardTasksPage() {
   }[]>([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [storyContext, setStoryContext] = useState('');
@@ -118,8 +122,16 @@ export default function DashboardTasksPage() {
   const filtered = tasks.filter((t: TaskItem) => {
     const matchStatus = filter === 'all' || t.status === filter;
     const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchSearch;
+    const created = new Date(t.created_at).getTime();
+    const fromTs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const toTs = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
+    const matchFrom = fromTs === null || created >= fromTs;
+    const matchTo = toTs === null || created <= toTs;
+    return matchStatus && matchSearch && matchFrom && matchTo;
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
@@ -201,7 +213,7 @@ export default function DashboardTasksPage() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           value={search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
           placeholder='Search tasks...'
           style={{ width: 220, padding: '8px 14px', fontSize: 13 }}
         />
@@ -209,7 +221,7 @@ export default function DashboardTasksPage() {
           {STATUS_FILTERS.map((s) => (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              onClick={() => { setFilter(s); setPage(1); }}
               style={{
                 padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
                 border: filter === s ? `1px solid ${s === 'all' ? '#5eead4' : statusColor(s)}` : '1px solid rgba(255,255,255,0.1)',
@@ -222,6 +234,25 @@ export default function DashboardTasksPage() {
             </button>
           ))}
         </div>
+        <input
+          type='date'
+          value={dateFrom}
+          onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+          style={{ padding: '8px 10px', fontSize: 12 }}
+        />
+        <input
+          type='date'
+          value={dateTo}
+          onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+          style={{ padding: '8px 10px', fontSize: 12 }}
+        />
+        <button
+          className='button button-outline'
+          onClick={() => { setDateFrom(''); setDateTo(''); setSearch(''); setFilter('all'); setPage(1); }}
+          style={{ padding: '6px 10px', fontSize: 12 }}
+        >
+          Reset
+        </button>
       </div>
 
       {/* Notification */}
@@ -284,7 +315,7 @@ export default function DashboardTasksPage() {
             No tasks found.
           </div>
         ) : (
-          filtered.map((t) => (
+          paged.map((t) => (
             <div key={t.id} style={{
               padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)',
               display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10, alignItems: 'center',
@@ -355,6 +386,32 @@ export default function DashboardTasksPage() {
             </div>
           ))
         )}
+      </div>
+
+      {/* Pagination */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+          Showing {(currentPage - 1) * pageSize + (paged.length > 0 ? 1 : 0)}-{(currentPage - 1) * pageSize + paged.length} of {filtered.length}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className='button button-outline'
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            style={{ padding: '6px 10px', fontSize: 12, opacity: currentPage <= 1 ? 0.5 : 1 }}
+          >
+            Prev
+          </button>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Page {currentPage} / {totalPages}</span>
+          <button
+            className='button button-outline'
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            style={{ padding: '6px 10px', fontSize: 12, opacity: currentPage >= totalPages ? 0.5 : 1 }}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
