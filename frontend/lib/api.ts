@@ -122,6 +122,20 @@ export interface UserPrefs {
   profile_settings: Record<string, unknown>;
 }
 
+export interface RepoProfileSummary {
+  mapping_name: string;
+  azure_repo_name?: string | null;
+  local_path: string;
+  stack: string[];
+  package_manager?: string | null;
+  suggested_test_commands: string[];
+  suggested_lint_commands: string[];
+  top_directories: string[];
+  top_files: string[];
+  profile_version: number;
+  scanned_at: string;
+}
+
 const LS_PROJECT = 'tiqr_sprint_project';
 const LS_TEAM    = 'tiqr_sprint_team';
 const LS_SPRINT  = 'tiqr_sprint_path';
@@ -172,6 +186,18 @@ export async function savePrefs(partial: Partial<{
       flows:             partial.flows             ?? null,
       repo_mappings:     partial.repo_mappings     ?? null,
       profile_settings:  partial.profile_settings  ?? null,
+    }),
+  });
+}
+
+export async function scanRepoProfile(mapping: RepoMapping): Promise<{ mapping_id: string; profile: RepoProfileSummary }> {
+  return await apiFetch<{ mapping_id: string; profile: RepoProfileSummary }>('/preferences/repo-profile/scan', {
+    method: 'POST',
+    body: JSON.stringify({
+      mapping_id: mapping.id,
+      mapping_name: mapping.name,
+      local_path: mapping.local_path,
+      azure_repo_name: mapping.azure_repo_name ?? null,
     }),
   });
 }

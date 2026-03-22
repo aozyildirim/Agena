@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { apiFetch, loadPrefs, RepoMapping, savePrefs } from '@/lib/api';
+import { apiFetch, loadPrefs, RepoMapping, RepoProfileSummary, savePrefs, scanRepoProfile } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
@@ -57,6 +57,8 @@ export default function RepoMappingsPage() {
   const [err, setErr] = useState('');
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [repoProfiles, setRepoProfiles] = useState<Record<string, RepoProfileSummary>>({});
+  const [scanningId, setScanningId] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -64,6 +66,8 @@ export default function RepoMappingsPage() {
       try {
         const prefs = await loadPrefs();
         setItems(prefs.repo_mappings ?? []);
+        const fromSettings = (prefs.profile_settings?.repo_profiles ?? {}) as Record<string, RepoProfileSummary>;
+        setRepoProfiles(fromSettings && typeof fromSettings === 'object' ? fromSettings : {});
       } catch {
         // local cache fallback
       }
@@ -151,7 +155,28 @@ export default function RepoMappingsPage() {
       : [...items, mapping];
     await persist(next);
     setMsg(editingId ? t('mappings.updated') : t('mappings.saved'));
+    await runProfileScan(mapping, { silentSuccess: true });
     resetForm();
+  }
+
+  async function runProfileScan(mapping: RepoMapping, opts?: { silentSuccess?: boolean }) {
+    setScanningId(mapping.id);
+    setErr('');
+    try {
+      const res = await scanRepoProfile(mapping);
+      setRepoProfiles((prev) => ({ ...prev, [mapping.id]: res.profile }));
+      const prefs = await loadPrefs();
+      const fromSettings = (prefs.profile_settings?.repo_profiles ?? {}) as Record<string, RepoProfileSummary>;
+      setRepoProfiles(fromSettings && typeof fromSettings === 'object' ? fromSettings : {});
+      if (!opts?.silentSuccess) setMsg('Repo profile scanned');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Repo scan failed');
+    } finally {
+      setScanningId(null);
+      if (!opts?.silentSuccess) {
+        setTimeout(() => setMsg(''), 1800);
+      }
+    }
   }
 
   async function removeMapping(id: string) {
@@ -249,11 +274,12 @@ export default function RepoMappingsPage() {
         </div>
 
         <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 0.9fr 1.1fr 140px', gap: 12 }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'grid', gridTemplateColumns: '1fr 1.1fr 0.8fr 1fr 0.9fr 140px', gap: 12 }}>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Azure</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Local Path</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Notes</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Repo Playbook</span>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Repo Profile</span>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Action</span>
           </div>
 
@@ -263,7 +289,7 @@ export default function RepoMappingsPage() {
             </div>
           ) : (
             items.map((m) => (
-              <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1.1fr 1.2fr 0.9fr 1.1fr 140px', gap: 12, alignItems: 'center' }}>
+              <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1fr 1.1fr 0.8fr 1fr 0.9fr 140px', gap: 12, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{m.azure_project || '-'}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>{m.azure_repo_name || m.name}</div>
@@ -276,6 +302,36 @@ export default function RepoMappingsPage() {
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.45 }}>
                   {m.repo_playbook ? (m.repo_playbook.length > 110 ? m.repo_playbook.slice(0, 110).trimEnd() + '…' : m.repo_playbook) : '-'}
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {repoProfiles[m.id] ? (
+                    <>
+                      <div style={{ fontSize: 11, color: '#86efac', fontWeight: 700, lineHeight: 1.3 }}>
+                        {(repoProfiles[m.id].stack || []).slice(0, 2).join(', ') || 'Profile ready'}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)' }}>
+                        {new Date(repoProfiles[m.id].scanned_at).toLocaleString()}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Not scanned</div>
+                  )}
+                  <button
+                    onClick={() => void runProfileScan(m)}
+                    disabled={scanningId === m.id}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(34,197,94,0.35)',
+                      background: 'rgba(34,197,94,0.12)',
+                      color: '#86efac',
+                      fontSize: 11,
+                      cursor: scanningId === m.id ? 'not-allowed' : 'pointer',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {scanningId === m.id ? 'Scanning…' : 'Scan'}
+                  </button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   <button onClick={() => startEdit(m)} style={{ padding: '6px 0', width: '100%', borderRadius: 8, border: '1px solid rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.12)', color: '#7dd3fc', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
