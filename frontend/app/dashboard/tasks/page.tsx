@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch, loadPrefs } from '@/lib/api';
 import { TaskItem } from '@/components/TaskTable';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 const STATUS_FILTERS = ['all', 'queued', 'running', 'completed', 'failed'];
 
@@ -20,7 +21,12 @@ function fmtDuration(sec?: number | null): string {
   return `${min}m ${rem}s`;
 }
 
+function statusLabel(s: string, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
+  return t(`tasks.status.${s}` as TranslationKey);
+}
+
 export default function DashboardTasksPage() {
+  const { t } = useLocale();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [total, setTotal] = useState(0);
   const [queueItems, setQueueItems] = useState<{
@@ -99,7 +105,7 @@ export default function DashboardTasksPage() {
         const filteredLegacy = legacyData.filter((t) => {
           const matchStatus = filter === 'all' || t.status === filter;
           const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase());
-          const created = new Date(t.created_at).getTime();
+          const created = new Date((t as TaskItem & { created_at?: string }).created_at ?? '').getTime();
           const matchFrom = fromTs === null || created >= fromTs;
           const matchTo = toTs === null || created <= toTs;
           return matchStatus && matchSearch && matchFrom && matchTo;
@@ -110,9 +116,9 @@ export default function DashboardTasksPage() {
         setQueueItems(queueData);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Load failed');
+      setError(e instanceof Error ? e.message : t('tasks.loadFailed'));
     }
-  }, [dateFrom, dateTo, filter, page, search]);
+  }, [dateFrom, dateTo, filter, page, search, t]);
 
   useEffect(() => {
     loadPrefs().then((prefs) => {
@@ -154,24 +160,24 @@ export default function DashboardTasksPage() {
       setMaxTokens('');
       setMaxCostUsd('');
       setShowCreate(false);
-      setMsg('Task created'); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : 'Create failed'); }
+      setMsg(t('tasks.created')); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : t('tasks.createFailed')); }
   }
 
   async function onAssign(id: number) {
     try {
       await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr }) });
-      setMsg('Assigned to AI'); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : 'Assign failed'); }
+      setMsg(t('tasks.assigned')); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 
   async function onRemoveFromQueue(id: number) {
     try {
       await apiFetch('/tasks/' + id + '/cancel', { method: 'POST' });
-      setMsg('Removed from queue');
+      setMsg(t('tasks.removedFromQueue'));
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Remove failed');
+      setError(e instanceof Error ? e.message : t('tasks.removeFailed'));
     }
   }
 
@@ -191,18 +197,18 @@ export default function DashboardTasksPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <div className='section-label'>Tasks</div>
+          <div className='section-label'>{t('nav.tasks')}</div>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 8, marginBottom: 4 }}>
-            Agent Task Feed
+            {t('tasks.title')}
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>{total.toLocaleString()} total tasks</p>
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>{t('tasks.total', { n: total.toLocaleString() })}</p>
         </div>
         <button
           className='button button-primary'
           onClick={() => setShowCreate(!showCreate)}
           style={{ alignSelf: 'flex-start' }}
         >
-          + New Task
+          + {t('tasks.new')}
         </button>
       </div>
 
@@ -214,26 +220,26 @@ export default function DashboardTasksPage() {
           position: 'relative', overflow: 'hidden',
         }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.6), transparent)' }} />
-          <h3 style={{ color: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 16 }}>Create New Task</h3>
+          <h3 style={{ color: 'rgba(255,255,255,0.9)', marginTop: 0, marginBottom: 16 }}>{t('tasks.createTitle')}</h3>
           <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder='Task title' required />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder='Description' rows={3} required />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tasks.titlePlaceholder')} required />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPlaceholder')} rows={3} required />
             <textarea
               value={storyContext}
               onChange={(e) => setStoryContext(e.target.value)}
-              placeholder='Story context (business intent, users, expected value)'
+              placeholder={t('tasks.storyContextPlaceholder')}
               rows={2}
             />
             <textarea
               value={acceptanceCriteria}
               onChange={(e) => setAcceptanceCriteria(e.target.value)}
-              placeholder='Acceptance criteria'
+              placeholder={t('tasks.acceptancePlaceholder')}
               rows={2}
             />
             <textarea
               value={edgeCases}
               onChange={(e) => setEdgeCases(e.target.value)}
-              placeholder='Edge cases / constraints'
+              placeholder={t('tasks.edgeCasesPlaceholder')}
               rows={2}
             />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -243,7 +249,7 @@ export default function DashboardTasksPage() {
                 step='1'
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(e.target.value)}
-                placeholder='Max tokens (guardrail)'
+                placeholder={t('tasks.maxTokensPlaceholder')}
               />
               <input
                 type='number'
@@ -251,12 +257,12 @@ export default function DashboardTasksPage() {
                 step='0.0001'
                 value={maxCostUsd}
                 onChange={(e) => setMaxCostUsd(e.target.value)}
-                placeholder='Max cost USD (guardrail)'
+                placeholder={t('tasks.maxCostPlaceholder')}
               />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type='submit' className='button button-primary'>Create Task</button>
-              <button type='button' className='button button-outline' onClick={() => setShowCreate(false)}>Cancel</button>
+              <button type='submit' className='button button-primary'>{t('tasks.create')}</button>
+              <button type='button' className='button button-outline' onClick={() => setShowCreate(false)}>{t('tasks.cancel')}</button>
             </div>
           </form>
         </div>
@@ -267,7 +273,7 @@ export default function DashboardTasksPage() {
         <input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
-          placeholder='Search tasks...'
+          placeholder={t('tasks.searchPlaceholder')}
           style={{ width: 220, padding: '8px 14px', fontSize: 13 }}
         />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -283,7 +289,7 @@ export default function DashboardTasksPage() {
                 cursor: 'pointer', textTransform: 'capitalize',
               }}
             >
-              {s}
+              {statusLabel(s, t)}
             </button>
           ))}
         </div>
@@ -295,12 +301,12 @@ export default function DashboardTasksPage() {
               onClick={() => applyRange(d)}
               style={{ padding: '5px 8px', fontSize: 11 }}
             >
-              Last {d}d
+              {t('tasks.lastDays', { d })}
             </button>
           ))}
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>From</span>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{t('tasks.from')}</span>
         <input
           type='date'
           value={dateFrom}
@@ -309,7 +315,7 @@ export default function DashboardTasksPage() {
         />
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>To</span>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{t('tasks.to')}</span>
         <input
           type='date'
           value={dateTo}
@@ -322,7 +328,7 @@ export default function DashboardTasksPage() {
           onClick={() => { setDateFrom(''); setDateTo(''); setSearch(''); setFilter('all'); setPage(1); }}
           style={{ padding: '6px 10px', fontSize: 11 }}
         >
-          Reset
+          {t('tasks.reset')}
         </button>
       </div>
 
@@ -344,12 +350,12 @@ export default function DashboardTasksPage() {
       <div style={{ borderRadius: 16, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.06)', overflow: 'hidden' }}>
         <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(245,158,11,0.22)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#f59e0b' }}>
-            Queue
+            {t('tasks.col.queue')}
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{queueItems.length} waiting</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{t('tasks.waiting', { n: queueItems.length })}</div>
         </div>
         {queueItems.length === 0 ? (
-          <div style={{ padding: '12px 14px', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No queued tasks.</div>
+          <div style={{ padding: '12px 14px', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{t('tasks.noQueued')}</div>
         ) : (
           queueItems.map((q) => (
             <div key={q.task_id} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) auto auto', gap: 10, alignItems: 'center' }}>
@@ -359,14 +365,14 @@ export default function DashboardTasksPage() {
                   {q.title}
                 </div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
-                  Task #{q.task_id} • {q.source}
+                  {t('tasks.taskWithId', { id: q.task_id })} • {q.source}
                 </div>
               </div>
               <Link href={`/tasks/${q.task_id}`} className='button button-outline' style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap' }}>
-                Open
+                {t('tasks.open')}
               </Link>
               <button className='button button-outline' onClick={() => void onRemoveFromQueue(q.task_id)} style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap', borderColor: 'rgba(248,113,113,0.35)', color: '#f87171' }}>
-                Remove
+                {t('tasks.remove')}
               </button>
             </div>
           ))
@@ -376,24 +382,24 @@ export default function DashboardTasksPage() {
       {/* Task list */}
       <div style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10 }}>
-          {['Task', 'Source', 'Status', 'Run', 'Queue', 'Retry', 'Tokens', 'PR', 'Actions'].map((h) => (
+          {[t('tasks.col.task'), t('tasks.col.source'), t('tasks.col.status'), t('tasks.col.run'), t('tasks.col.queue'), t('tasks.col.retry'), t('tasks.col.tokens'), t('tasks.col.pr'), t('tasks.col.actions')].map((h) => (
             <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: 1 }}>{h}</span>
           ))}
         </div>
 
         {tasks.length === 0 ? (
           <div style={{ padding: '40px 24px', textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 14 }}>
-            No tasks found.
+            {t('tasks.empty')}
           </div>
         ) : (
-          tasks.map((t) => (
-            <div key={t.id} style={{
+          tasks.map((task) => (
+            <div key={task.id} style={{
               padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)',
               display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10, alignItems: 'center',
               transition: 'background 0.2s',
             }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontSize: 14, marginBottom: 2 }}>{t.title}</div>
+                <div style={{ fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontSize: 14, marginBottom: 2 }}>{task.title}</div>
                 <div style={{
                   fontSize: 12,
                   color: 'rgba(255,255,255,0.3)',
@@ -403,41 +409,41 @@ export default function DashboardTasksPage() {
                   WebkitBoxOrient: 'vertical',
                   lineHeight: 1.35,
                   maxHeight: 32,
-                }}>{t.description}</div>
+                }}>{task.description}</div>
               </div>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
                 background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)',
                 textTransform: 'capitalize', width: 'fit-content',
-              }}>{t.source}</span>
+              }}>{task.source}</span>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                background: `${statusColor(t.status)}18`,
-                border: `1px solid ${statusColor(t.status)}40`,
-                color: statusColor(t.status), width: 'fit-content', textTransform: 'capitalize',
+                background: `${statusColor(task.status)}18`,
+                border: `1px solid ${statusColor(task.status)}40`,
+                color: statusColor(task.status), width: 'fit-content', textTransform: 'capitalize',
               }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(t.status), animation: t.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
-                {t.status}
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(task.status), animation: task.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
+                {task.status}
               </span>
               <div>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(t.run_duration_sec ?? t.duration_sec)}</span>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(task.run_duration_sec ?? task.duration_sec)}</span>
               </div>
               <div>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(t.queue_wait_sec)}</span>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{fmtDuration(task.queue_wait_sec)}</span>
               </div>
               <div>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{t.retry_count ?? 0}</span>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{task.retry_count ?? 0}</span>
               </div>
               <div>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>
-                  {t.total_tokens !== null && t.total_tokens !== undefined ? t.total_tokens.toLocaleString() : '—'}
+                  {task.total_tokens !== null && task.total_tokens !== undefined ? task.total_tokens.toLocaleString() : '—'}
                 </span>
               </div>
               <div>
-                {t.pr_url ? (
-                  <a href={t.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>View PR ↗</a>
+                {task.pr_url ? (
+                  <a href={task.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
                 ) : (
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>—</span>
                 )}
@@ -445,13 +451,13 @@ export default function DashboardTasksPage() {
               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                 <button
                   className='button button-primary'
-                  onClick={() => void onAssign(t.id)}
+                  onClick={() => void onAssign(task.id)}
                   style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap' }}
                 >
-                  Assign AI
+                  {t('tasks.assignAi')}
                 </button>
-                <Link href={`/tasks/${t.id}`} className='button button-outline' style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap' }}>
-                  Details
+                <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  {t('tasks.details')}
                 </Link>
               </div>
             </div>
@@ -462,7 +468,7 @@ export default function DashboardTasksPage() {
       {/* Pagination */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-          Showing {(currentPage - 1) * pageSize + (tasks.length > 0 ? 1 : 0)}-{(currentPage - 1) * pageSize + tasks.length} of {total}
+          {t('tasks.showing', { from: (currentPage - 1) * pageSize + (tasks.length > 0 ? 1 : 0), to: (currentPage - 1) * pageSize + tasks.length, total })}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -471,16 +477,16 @@ export default function DashboardTasksPage() {
             disabled={currentPage <= 1}
             style={{ padding: '6px 10px', fontSize: 12, opacity: currentPage <= 1 ? 0.5 : 1 }}
           >
-            Prev
+            {t('tasks.prev')}
           </button>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Page {currentPage} / {totalPages}</span>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{t('tasks.page')} {currentPage} / {totalPages}</span>
           <button
             className='button button-outline'
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage >= totalPages}
             style={{ padding: '6px 10px', fontSize: 12, opacity: currentPage >= totalPages ? 0.5 : 1 }}
           >
-            Next
+            {t('tasks.next')}
           </button>
         </div>
       </div>

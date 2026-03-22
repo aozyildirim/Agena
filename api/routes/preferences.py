@@ -294,9 +294,26 @@ def _build_agents_md_from_profile(profile: dict[str, Any]) -> str:
     ])
 
 
-def _build_managed_agents_path(organization_id: int, mapping_id: str, scan_id: str) -> Path:
-    app_root = Path(__file__).resolve().parents[2]
+def _build_managed_agents_path(
+    organization_id: int,
+    mapping_id: str,
+    scan_id: str,
+    local_path: str | None = None,
+) -> Path:
     safe_mapping = ''.join(ch if ch.isalnum() or ch in {'-', '_'} else '_' for ch in mapping_id)[:80] or 'mapping'
+    if local_path:
+        try:
+            root = Path(local_path).expanduser().resolve()
+            if root.exists() and root.is_dir():
+                # Primary storage: keep AGENTS docs inside mapped repo (durable and editable by user).
+                out_dir = root / '.tiqr' / 'agents' / safe_mapping
+                out_dir.mkdir(parents=True, exist_ok=True)
+                return out_dir / f'{scan_id}.md'
+        except Exception:
+            pass
+
+    # Fallback storage (legacy): app-local managed data directory.
+    app_root = Path(__file__).resolve().parents[2]
     out_dir = app_root / 'data' / 'repo_agents' / f'org_{organization_id}' / safe_mapping
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir / f'{scan_id}.md'
@@ -322,6 +339,22 @@ async def _get_profile_by_mapping_id(db: AsyncSession, user_id: int, mapping_id:
     if not isinstance(profile, dict):
         raise HTTPException(status_code=404, detail='Repo profile not found')
     return profile
+
+
+async def _get_pref_settings_profile(
+    db: AsyncSession,
+    user_id: int,
+    mapping_id: str,
+) -> tuple[UserPreference, dict[str, Any], dict[str, Any], dict[str, Any]]:
+    pref = await _get_or_create_pref(db, user_id)
+    settings = _parse_json_obj(pref.profile_settings_json)
+    repo_profiles = settings.get('repo_profiles')
+    if not isinstance(repo_profiles, dict):
+        raise HTTPException(status_code=404, detail='Repo profile not found')
+    profile = repo_profiles.get(mapping_id)
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=404, detail='Repo profile not found')
+    return pref, settings, repo_profiles, profile
 
 
 @router.get('', response_model=PreferenceResponse)
@@ -504,10 +537,16 @@ async def scan_repo_profile(
         agents_md_content = _build_agents_md_from_profile(profile)
 
     scan_id = str(uuid4())
-    agents_file = _build_managed_agents_path(tenant.organization_id, payload.mapping_id, scan_id)
+    agents_file = _build_managed_agents_path(
+        tenant.organization_id,
+        payload.mapping_id,
+        scan_id,
+        local_path=payload.local_path,
+    )
     agents_file.write_text(agents_md_content, encoding='utf-8')
     profile['scan_id'] = scan_id
     profile['agents_md_path'] = str(agents_file)
+    profile['agents_md_last_content'] = agents_md_content
     profile['scanned_by_provider'] = llm_provider
     profile['scanned_model'] = used_model
 
@@ -561,13 +600,29 @@ async def get_repo_agents_doc(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> RepoAgentsDocResponse:
-    profile = await _get_profile_by_mapping_id(db, tenant.user_id, mapping_id)
+    pref, settings, repo_profiles, profile = await _get_pref_settings_profile(db, tenant.user_id, mapping_id)
     agents_md_path = str(profile.get('agents_md_path') or '').strip()
-    if not agents_md_path:
-        raise HTTPException(status_code=404, detail='AGENTS.md path is missing for this mapping')
-    p = Path(agents_md_path).expanduser()
-    if not p.exists() or not p.is_file():
-        raise HTTPException(status_code=404, detail='AGENTS.md file not found')
+    p = Path(agents_md_path).expanduser() if agents_md_path else None
+    if p is None or not p.exists() or not p.is_file():
+        content = str(profile.get('agents_md_last_content') or '').strip()
+        if not content:
+            content = _build_agents_md_from_profile(profile)
+        scan_id = str(profile.get('scan_id') or uuid4())
+        rebuilt = _build_managed_agents_path(
+            tenant.organization_id,
+            mapping_id,
+            scan_id,
+            local_path=str(profile.get('local_path') or ''),
+        )
+        rebuilt.write_text(content, encoding='utf-8')
+        profile['scan_id'] = scan_id
+        profile['agents_md_path'] = str(rebuilt)
+        profile['agents_md_last_content'] = content
+        repo_profiles[mapping_id] = profile
+        settings['repo_profiles'] = repo_profiles
+        pref.profile_settings_json = json.dumps(settings, ensure_ascii=False)
+        await db.commit()
+        p = rebuilt
     content = p.read_text(encoding='utf-8', errors='ignore')
     return RepoAgentsDocResponse(mapping_id=mapping_id, agents_md_path=str(p), content=content)
 
@@ -579,12 +634,24 @@ async def save_repo_agents_doc(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> RepoAgentsDocResponse:
-    profile = await _get_profile_by_mapping_id(db, tenant.user_id, mapping_id)
+    pref, settings, repo_profiles, profile = await _get_pref_settings_profile(db, tenant.user_id, mapping_id)
     agents_md_path = str(profile.get('agents_md_path') or '').strip()
-    if not agents_md_path:
-        raise HTTPException(status_code=404, detail='AGENTS.md path is missing for this mapping')
-    p = Path(agents_md_path).expanduser()
-    if not p.exists() or not p.is_file():
-        raise HTTPException(status_code=404, detail='AGENTS.md file not found')
-    p.write_text(payload.content or '', encoding='utf-8')
-    return RepoAgentsDocResponse(mapping_id=mapping_id, agents_md_path=str(p), content=payload.content or '')
+    p = Path(agents_md_path).expanduser() if agents_md_path else None
+    if p is None or (not p.exists()) or (not p.is_file()):
+        scan_id = str(profile.get('scan_id') or uuid4())
+        p = _build_managed_agents_path(
+            tenant.organization_id,
+            mapping_id,
+            scan_id,
+            local_path=str(profile.get('local_path') or ''),
+        )
+        profile['scan_id'] = scan_id
+        profile['agents_md_path'] = str(p)
+    content = payload.content or ''
+    p.write_text(content, encoding='utf-8')
+    profile['agents_md_last_content'] = content
+    repo_profiles[mapping_id] = profile
+    settings['repo_profiles'] = repo_profiles
+    pref.profile_settings_json = json.dumps(settings, ensure_ascii=False)
+    await db.commit()
+    return RepoAgentsDocResponse(mapping_id=mapping_id, agents_md_path=str(p), content=content)

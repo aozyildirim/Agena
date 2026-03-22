@@ -49,11 +49,11 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     label: 'Manager',
     icon: '👔',
     color: '#f59e0b',
-    description: 'Projeyi yönetir, öncelikleri belirler, ekibi koordine eder',
+    description: 'Manages project execution, priorities, and team coordination',
     provider: '',
     model: '',
     custom_model: '',
-    system_prompt: 'Sen bir proje yöneticisisin. İş kalemlerini analiz et, önceliklendirme yap ve ekibe görev dağılımı öner.',
+    system_prompt: 'You are a project manager. Analyze work items, prioritize them, and suggest ownership.',
     enabled: true,
   },
   {
@@ -61,11 +61,11 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     label: 'Product Manager',
     icon: '📋',
     color: '#a78bfa',
-    description: 'Ürün gereksinimlerini analiz eder, user story yazar, kabul kriterleri belirler',
+    description: 'Analyzes product requirements, writes user stories, and defines acceptance criteria',
     provider: '',
     model: '',
     custom_model: '',
-    system_prompt: 'Sen bir ürün yöneticisisin. İş kalemlerini kullanıcı perspektifinden analiz et, acceptance criteria yaz.',
+    system_prompt: 'You are a product manager. Analyze work from the user perspective and define acceptance criteria.',
     enabled: true,
   },
   {
@@ -73,11 +73,11 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     label: 'Lead Developer',
     icon: '🧑‍💻',
     color: '#38bdf8',
-    description: 'Teknik analiz yapar, mimari kararlar alır, kod review eder',
+    description: 'Performs technical analysis, architecture decisions, and code review guidance',
     provider: '',
     model: '',
     custom_model: '',
-    system_prompt: 'Sen bir lead developer\'sın. İş kalemlerini teknik açıdan analiz et, implementasyon planı çıkar, potansiyel riskleri belirt.',
+    system_prompt: 'You are a lead developer. Analyze tasks technically, propose implementation plans, and identify risks.',
     enabled: true,
   },
   {
@@ -85,11 +85,11 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     label: 'Developer',
     icon: '⚡',
     color: '#22c55e',
-    description: 'Kodu yazar, PR açar, implementasyonu gerçekleştirir',
+    description: 'Implements code changes and prepares pull request outputs',
     provider: '',
     model: '',
     custom_model: '',
-    system_prompt: 'Sen bir yazılım geliştiricisisin. Verilen iş kalemini implement et, kod yaz, PR açmak için gerekli adımları belirt.',
+    system_prompt: 'You are a software developer. Implement the task and prepare changes suitable for a PR.',
     enabled: true,
   },
   {
@@ -97,11 +97,11 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     label: 'QA Engineer',
     icon: '🔍',
     color: '#f472b6',
-    description: 'Test senaryoları yazar, bug\'ları tespit eder, kalite güvencesi sağlar',
+    description: 'Designs test scenarios, finds bugs, and improves quality confidence',
     provider: '',
     model: '',
     custom_model: '',
-    system_prompt: 'Sen bir QA mühendisisin. İş kalemini test et, test senaryoları yaz, edge case\'leri belirle.',
+    system_prompt: 'You are a QA engineer. Test the work item, define scenarios, and cover edge cases.',
     enabled: true,
   },
 ];
@@ -280,7 +280,7 @@ export default function AgentsPage() {
         </p>
         </div>
         <button onClick={openNewAgentPopup} className='button button-outline' style={{ whiteSpace: 'nowrap', height: 36, padding: '0 14px' }}>
-          + New Agent
+          + {t('agents.new')}
         </button>
       </div>
 
@@ -352,29 +352,29 @@ export default function AgentsPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(2,6,23,0.75)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ width: 'min(640px, 100%)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(7,13,24,0.98)', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', padding: 16, display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.92)' }}>Create Agent</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.92)' }}>{t('agents.createTitle')}</div>
               <button onClick={() => setShowNewAgent(false)} style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.45)', fontSize: 18, cursor: 'pointer' }}>×</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder='Label (e.g. Codex CLI Agent)' />
-              <input value={draft.role} onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))} placeholder='Role id (optional)' />
-              <input value={draft.icon} onChange={(e) => setDraft((d) => ({ ...d, icon: e.target.value }))} placeholder='Icon (e.g. 🤖)' />
-              <input value={draft.color} onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))} placeholder='Color (e.g. #38bdf8)' />
+              <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder={t('agents.newLabelPlaceholder')} />
+              <input value={draft.role} onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))} placeholder={t('agents.newRolePlaceholder')} />
+              <input value={draft.icon} onChange={(e) => setDraft((d) => ({ ...d, icon: e.target.value }))} placeholder={t('agents.newIconPlaceholder')} />
+              <input value={draft.color} onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))} placeholder={t('agents.newColorPlaceholder')} />
             </div>
-            <textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={2} placeholder='Short description' />
+            <textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={2} placeholder={t('agents.newDescriptionPlaceholder')} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <select value={draft.provider} onChange={(e) => setDraft((d) => ({ ...d, provider: e.target.value as AgentConfig['provider'] }))}>
-                <option value='custom'>Custom</option>
+                <option value='custom'>{t('agents.providerCustom')}</option>
                 <option value='codex_cli'>Codex CLI</option>
                 <option value='openai'>OpenAI</option>
                 <option value='gemini'>Gemini</option>
               </select>
-              <input value={draft.model} onChange={(e) => setDraft((d) => ({ ...d, model: e.target.value, custom_model: e.target.value }))} placeholder='Model (e.g. clicodex)' />
+              <input value={draft.model} onChange={(e) => setDraft((d) => ({ ...d, model: e.target.value, custom_model: e.target.value }))} placeholder={t('agents.newModelPlaceholder')} />
             </div>
-            <textarea value={draft.system_prompt} onChange={(e) => setDraft((d) => ({ ...d, system_prompt: e.target.value }))} rows={3} placeholder='System prompt (optional)' />
+            <textarea value={draft.system_prompt} onChange={(e) => setDraft((d) => ({ ...d, system_prompt: e.target.value }))} rows={3} placeholder={t('agents.newPromptPlaceholder')} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setShowNewAgent(false)} className='button button-outline'>Cancel</button>
-              <button onClick={createNewAgent} disabled={!draft.label.trim() || !(draft.model.trim() || draft.custom_model.trim())} className='button button-primary'>Create</button>
+              <button onClick={() => setShowNewAgent(false)} className='button button-outline'>{t('agents.cancel')}</button>
+              <button onClick={createNewAgent} disabled={!draft.label.trim() || !(draft.model.trim() || draft.custom_model.trim())} className='button button-primary'>{t('agents.create')}</button>
             </div>
           </div>
         </div>
@@ -458,11 +458,11 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
           {/* Custom model input */}
           {(agent.provider === 'custom' || agent.provider === 'codex_cli') && (
             <div>
-              <label style={labelStyle}>Model Adı</label>
+              <label style={labelStyle}>{t('agents.modelName')}</label>
               <input
                 value={agent.custom_model}
                 onChange={(e) => onUpdate({ custom_model: e.target.value, model: e.target.value })}
-                placeholder="örn: claude-3-5-sonnet, llama-3.3-70b..."
+                placeholder={t('agents.modelNamePlaceholder')}
                 style={inputStyle}
               />
             </div>
@@ -470,7 +470,7 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
 
           {/* System prompt */}
           <div>
-            <label style={labelStyle}>System Prompt</label>
+            <label style={labelStyle}>{t('agents.systemPrompt')}</label>
             <textarea
               value={agent.system_prompt}
               onChange={(e) => onUpdate({ system_prompt: e.target.value })}

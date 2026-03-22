@@ -254,7 +254,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
       }}>
         <button
           onClick={toggleSidebar}
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? t('notifications.expandSidebar') : t('notifications.collapseSidebar')}
           style={{
             alignSelf: sidebarCollapsed ? 'center' : 'flex-end',
             width: 28,
@@ -360,7 +360,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             onClick={openNotifications}
-            title='Notifications'
+            title={t('notifications.section')}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
@@ -393,13 +393,13 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 </span>
               )}
             </span>
-            {!sidebarCollapsed && 'Notifications'}
+            {!sidebarCollapsed && t('notifications.section')}
           </button>
           {notifOpen && !sidebarCollapsed && (
             <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(2,6,23,0.92)', borderRadius: 12, padding: 10, display: 'grid', gap: 8, maxHeight: 250, overflow: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>Recent</span>
-                <button onClick={() => void markAllReadAndRefresh()} style={{ border: 'none', background: 'transparent', color: '#5eead4', fontSize: 11, cursor: 'pointer' }}>Mark all read</button>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>{t('notifications.recent')}</span>
+                <button onClick={() => void markAllReadAndRefresh()} style={{ border: 'none', background: 'transparent', color: '#5eead4', fontSize: 11, cursor: 'pointer' }}>{t('notifications.markAllRead')}</button>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
@@ -414,7 +414,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
                     cursor: 'pointer',
                   }}
                 >
-                  All
+                  {t('notifications.all')}
                 </button>
                 <button
                   onClick={() => setNotifFilter('failed')}
@@ -428,13 +428,13 @@ function DashboardInner({ children }: { children: ReactNode }) {
                     cursor: 'pointer',
                   }}
                 >
-                  Failed
+                  {t('notifications.group.failures')}
                 </button>
               </div>
               {notifLoading ? (
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Loading...</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{t('notifications.loading')}</div>
               ) : notifications.filter((n) => notifFilter === 'all' || n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed')).length === 0 ? (
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>No notifications yet.</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{t('notifications.emptyShort')}</div>
               ) : notifications
                 .filter((n) => notifFilter === 'all' || n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed'))
                 .map((n) => (
@@ -460,13 +460,13 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 </Link>
               ))}
               <Link href='/dashboard/notifications' style={{ textDecoration: 'none', textAlign: 'center', padding: '7px 8px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', color: '#39ff88', fontSize: 12, fontWeight: 700 }}>
-                View all notifications
+                {t('notifications.viewAll')}
               </Link>
             </div>
           )}
           <button
             onClick={() => void toggleBrowserNotifications()}
-            title='Browser notifications'
+            title={t('notifications.browserTitle')}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
@@ -477,7 +477,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
               cursor: 'pointer', width: '100%',
             }}
           >
-            {sidebarCollapsed ? '🔔' : (webPushEnabled ? 'Browser Notifications: On' : 'Browser Notifications: Off')}
+            {sidebarCollapsed ? '🔔' : (webPushEnabled ? t('notifications.browserOn') : t('notifications.browserOff'))}
           </button>
           <button onClick={logout} title={t('nav.logout')} style={{
             display: 'flex', alignItems: 'center', gap: 8,

@@ -3,17 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { clearAllNotifications, listNotifications, markAllNotificationsRead, markNotificationRead, type NotificationItem } from '@/lib/api';
+import { useLocale } from '@/lib/i18n';
 
 type GroupKey = 'tasks' | 'prs' | 'approvals' | 'integrations' | 'queue' | 'failures' | 'other';
 
-const GROUP_META: Record<GroupKey, { label: string; color: string }> = {
-  tasks: { label: 'Tasks', color: '#39ff88' },
-  prs: { label: 'PRs', color: '#38bdf8' },
-  approvals: { label: 'Approvals', color: '#a78bfa' },
-  integrations: { label: 'Integrations', color: '#f59e0b' },
-  queue: { label: 'Queue', color: '#22d3ee' },
-  failures: { label: 'Failures', color: '#ef4444' },
-  other: { label: 'Other', color: '#94a3b8' },
+const GROUP_META: Record<GroupKey, { color: string }> = {
+  tasks: { color: '#39ff88' },
+  prs: { color: '#38bdf8' },
+  approvals: { color: '#a78bfa' },
+  integrations: { color: '#f59e0b' },
+  queue: { color: '#22d3ee' },
+  failures: { color: '#ef4444' },
+  other: { color: '#94a3b8' },
 };
 
 function getGroup(n: NotificationItem): GroupKey {
@@ -33,6 +34,7 @@ function eventColor(n: NotificationItem): string {
 }
 
 export default function NotificationsPage() {
+  const { t } = useLocale();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -93,12 +95,22 @@ export default function NotificationsPage() {
     return buckets;
   }, [visibleItems]);
 
+  const groupLabel = (g: GroupKey): string => {
+    if (g === 'tasks') return t('notifications.group.tasks');
+    if (g === 'prs') return t('notifications.group.prs');
+    if (g === 'approvals') return t('notifications.group.approvals');
+    if (g === 'integrations') return t('notifications.group.integrations');
+    if (g === 'queue') return t('notifications.group.queue');
+    if (g === 'failures') return t('notifications.group.failures');
+    return t('notifications.group.other');
+  };
+
   return (
     <div style={{ display: 'grid', gap: 14 }}>
       <div>
-        <div className='section-label'>Notifications</div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'rgba(255,255,255,0.95)', margin: '6px 0 4px' }}>All Notifications</h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Unread: {unreadCount} • Total: {total}</p>
+        <div className='section-label'>{t('notifications.section')}</div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'rgba(255,255,255,0.95)', margin: '6px 0 4px' }}>{t('notifications.title')}</h1>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{t('notifications.unread')}: {unreadCount} • {t('notifications.total')}: {total}</p>
       </div>
 
       <div style={{ display: 'grid', gap: 10, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
@@ -117,7 +129,7 @@ export default function NotificationsPage() {
                   cursor: 'pointer',
                 }}
               >
-                {s[0].toUpperCase() + s.slice(1)}
+                {s === 'all' ? t('notifications.all') : s === 'unread' ? t('notifications.unreadOnly') : t('notifications.readOnly')}
               </button>
             ))}
           </div>
@@ -136,11 +148,11 @@ export default function NotificationsPage() {
             <option value='20' style={{ background: '#0b1220', color: '#e5e7eb' }}>20</option>
             <option value='50' style={{ background: '#0b1220', color: '#e5e7eb' }}>50</option>
           </select>
-          <button className='button button-outline' onClick={() => void markAllNotificationsRead().then(load)}>Mark all read</button>
+          <button className='button button-outline' onClick={() => void markAllNotificationsRead().then(load)}>{t('notifications.markAllRead')}</button>
           <button
             className='button button-outline'
             onClick={() => {
-              if (typeof window !== 'undefined' && !window.confirm('Delete all notifications?')) return;
+              if (typeof window !== 'undefined' && !window.confirm(t('notifications.confirmDeleteAll'))) return;
               setItems([]);
               setTotal(0);
               setUnreadCount(0);
@@ -149,7 +161,7 @@ export default function NotificationsPage() {
             }}
             style={{ borderColor: 'rgba(239,68,68,0.35)', color: '#ef4444' }}
           >
-            Clear all
+            {t('notifications.clearAll')}
           </button>
         </div>
 
@@ -157,7 +169,7 @@ export default function NotificationsPage() {
           {(['all', 'tasks', 'prs', 'approvals', 'integrations', 'queue', 'failures'] as const).map((g) => {
             const selected = groupFilter === g;
             const color = g === 'all' ? '#5eead4' : GROUP_META[g].color;
-            const label = g === 'all' ? 'All' : GROUP_META[g].label;
+            const label = g === 'all' ? t('notifications.all') : groupLabel(g);
             const count = g === 'all' ? total : groupCounts[g];
             return (
               <button
@@ -199,9 +211,9 @@ export default function NotificationsPage() {
 
       <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
         {loading ? (
-          <div style={{ padding: 20, color: 'rgba(255,255,255,0.5)' }}>Loading…</div>
+          <div style={{ padding: 20, color: 'rgba(255,255,255,0.5)' }}>{t('notifications.loading')}</div>
         ) : visibleItems.length === 0 ? (
-          <div style={{ padding: 20, color: 'rgba(255,255,255,0.5)' }}>No notifications.</div>
+          <div style={{ padding: 20, color: 'rgba(255,255,255,0.5)' }}>{t('notifications.empty')}</div>
         ) : (Object.keys(GROUP_META) as GroupKey[]).map((groupKey) => {
           const groupItems = grouped[groupKey];
           if (!groupItems.length) return null;
@@ -209,7 +221,7 @@ export default function NotificationsPage() {
           return (
             <div key={groupKey}>
               <div style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.06)', color: meta.color, fontSize: 11, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between' }}>
-                <span>{meta.label}</span>
+                <span>{groupLabel(groupKey)}</span>
                 <span>{groupItems.length}</span>
               </div>
               {groupItems.map((n) => (
@@ -239,9 +251,9 @@ export default function NotificationsPage() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button className='button button-outline' onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Prev</button>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Page {page} / {pages}</div>
-        <button className='button button-outline' onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages}>Next</button>
+        <button className='button button-outline' onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>{t('notifications.prev')}</button>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('notifications.page')} {page} / {pages}</div>
+        <button className='button button-outline' onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages}>{t('notifications.next')}</button>
       </div>
     </div>
   );

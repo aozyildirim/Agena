@@ -1201,7 +1201,7 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
                 </div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: step.output ? 6 : 0 }}>{step.node_type}</div>
                 {step.error_msg && <div style={{ fontSize: 11, color: '#f87171', marginTop: 4 }}>{step.error_msg}</div>}
-                {step.output && typeof step.output === 'object' && (step.output as Record<string, unknown>).output && (
+                {Boolean(step.output) && typeof step.output === 'object' && Boolean((step.output as Record<string, unknown>).output) && (
                   <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 80, overflow: 'hidden' }}>
                     {String((step.output as Record<string, unknown>).output).slice(0, 200)}
                   </div>

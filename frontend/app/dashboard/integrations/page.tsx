@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useLocale } from '@/lib/i18n';
 
 type IntegrationConfig = {
   provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'playbook';
@@ -39,6 +40,7 @@ function saveSecretPreview(provider: string, preview: string) {
 }
 
 export default function IntegrationsPage() {
+  const { t } = useLocale();
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraSecret, setJiraSecret] = useState('');
@@ -105,8 +107,8 @@ export default function IntegrationsPage() {
         setJiraTokenPreview(preview);
         saveSecretPreview('jira', preview);
       }
-      setJiraSecret(''); setMsg('Jira integration saved');
-    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+      setJiraSecret(''); setMsg(t('integrations.savedJira'));
+    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
   }
 
   async function saveAzure() {
@@ -122,8 +124,8 @@ export default function IntegrationsPage() {
         setAzurePatPreview(preview);
         saveSecretPreview('azure', preview);
       }
-      setAzurePat(''); setMsg('Azure integration saved');
-    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+      setAzurePat(''); setMsg(t('integrations.savedAzure'));
+    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
   }
 
   async function saveOpenAI() {
@@ -140,8 +142,8 @@ export default function IntegrationsPage() {
         saveSecretPreview('openai', preview);
       }
       setOpenaiKey('');
-      setMsg('OpenAI integration saved');
-    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+      setMsg(t('integrations.savedOpenai'));
+    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
   }
 
   async function saveGemini() {
@@ -158,8 +160,8 @@ export default function IntegrationsPage() {
         saveSecretPreview('gemini', preview);
       }
       setGeminiKey('');
-      setMsg('Gemini integration saved');
-    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+      setMsg(t('integrations.savedGemini'));
+    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
   }
 
   async function savePlaybook() {
@@ -171,8 +173,8 @@ export default function IntegrationsPage() {
       });
       await loadIntegrationState();
       setError('');
-      setMsg('Tenant playbook saved to DB');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
+      setMsg(t('integrations.savedPlaybook'));
+    } catch (e) { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); }
     finally { setIsPlaybookSaving(false); }
   }
 
@@ -186,12 +188,12 @@ export default function IntegrationsPage() {
     <div style={{ display: 'grid', gap: 28 }}>
       {/* Header */}
       <div>
-        <div className='section-label'>Integrations</div>
+        <div className='section-label'>{t('integrations.section')}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 8, marginBottom: 4 }}>
-          Integration Settings
+          {t('integrations.title')}
         </h1>
         <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>
-          Connect your project management tools to enable AI-powered task import
+          {t('integrations.subtitle')}
         </p>
       </div>
 
@@ -218,19 +220,19 @@ export default function IntegrationsPage() {
           connected={openaiConfig?.has_secret ?? false}
           updatedAt={openaiConfig?.updated_at}
         >
-          <FieldGroup label='Base URL'>
+          <FieldGroup label={t('integrations.baseUrl')}>
             <input value={openaiBaseUrl} onChange={(e) => setOpenaiBaseUrl(e.target.value)} placeholder='https://api.openai.com/v1' />
           </FieldGroup>
-          <FieldGroup label='API Key'>
+          <FieldGroup label={t('integrations.apiKey')}>
             <input
               type='password'
               value={openaiKey}
               onChange={(e) => setOpenaiKey(e.target.value)}
-              placeholder={openaiConfig?.has_secret ? `${openaiConfig?.secret_preview || openaiKeyPreview || '****'} (leave empty to keep)` : 'Paste your OpenAI API key'}
+              placeholder={openaiConfig?.has_secret ? `${openaiConfig?.secret_preview || openaiKeyPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.openaiKeyPlaceholder')}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-            Save OpenAI Config
+            {t('integrations.saveOpenai')}
           </button>
         </IntegrationCard>
 
@@ -242,19 +244,19 @@ export default function IntegrationsPage() {
           connected={geminiConfig?.has_secret ?? false}
           updatedAt={geminiConfig?.updated_at}
         >
-          <FieldGroup label='Base URL'>
+          <FieldGroup label={t('integrations.baseUrl')}>
             <input value={geminiBaseUrl} onChange={(e) => setGeminiBaseUrl(e.target.value)} placeholder='https://generativelanguage.googleapis.com' />
           </FieldGroup>
-          <FieldGroup label='API Key'>
+          <FieldGroup label={t('integrations.apiKey')}>
             <input
               type='password'
               value={geminiKey}
               onChange={(e) => setGeminiKey(e.target.value)}
-              placeholder={geminiConfig?.has_secret ? `${geminiConfig?.secret_preview || geminiKeyPreview || '****'} (leave empty to keep)` : 'Paste your Gemini API key'}
+              placeholder={geminiConfig?.has_secret ? `${geminiConfig?.secret_preview || geminiKeyPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.geminiKeyPlaceholder')}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveGemini()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-            Save Gemini Config
+            {t('integrations.saveGemini')}
           </button>
         </IntegrationCard>
 
@@ -266,22 +268,22 @@ export default function IntegrationsPage() {
           connected={azureConfig?.has_secret ?? false}
           updatedAt={azureConfig?.updated_at}
         >
-          <FieldGroup label='Organization URL'>
+          <FieldGroup label={t('integrations.azureOrgUrl')}>
             <input value={azureOrgUrl} onChange={(e) => setAzureOrgUrl(e.target.value)} placeholder='https://dev.azure.com/your-org' />
           </FieldGroup>
-          <FieldGroup label='Project'>
-            <input value={azureProject} onChange={(e) => setAzureProject(e.target.value)} placeholder='e.g. MyProject' />
+          <FieldGroup label={t('integrations.project')}>
+            <input value={azureProject} onChange={(e) => setAzureProject(e.target.value)} placeholder={t('integrations.projectPlaceholder')} />
           </FieldGroup>
-          <FieldGroup label='Personal Access Token (PAT)'>
+          <FieldGroup label={t('integrations.pat')}>
             <input
               type='password'
               value={azurePat}
               onChange={(e) => setAzurePat(e.target.value)}
-              placeholder={azureConfig?.has_secret ? `${azureConfig?.secret_preview || azurePatPreview || '****'} (leave empty to keep)` : 'Paste your PAT here'}
+              placeholder={azureConfig?.has_secret ? `${azureConfig?.secret_preview || azurePatPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.patPlaceholder')}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveAzure()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-            Save Azure Config
+            {t('integrations.saveAzure')}
           </button>
         </IntegrationCard>
 
@@ -293,22 +295,22 @@ export default function IntegrationsPage() {
           connected={jiraConfig?.has_secret ?? false}
           updatedAt={jiraConfig?.updated_at}
         >
-          <FieldGroup label='Base URL'>
+          <FieldGroup label={t('integrations.baseUrl')}>
             <input value={jiraBaseUrl} onChange={(e) => setJiraBaseUrl(e.target.value)} placeholder='https://your-company.atlassian.net' />
           </FieldGroup>
-          <FieldGroup label='Email'>
+          <FieldGroup label={t('integrations.email')}>
             <input value={jiraEmail} onChange={(e) => setJiraEmail(e.target.value)} placeholder='you@company.com' />
           </FieldGroup>
-          <FieldGroup label='API Token'>
+          <FieldGroup label={t('integrations.apiToken')}>
             <input
               type='password'
               value={jiraSecret}
               onChange={(e) => setJiraSecret(e.target.value)}
-              placeholder={jiraConfig?.has_secret ? `${jiraConfig?.secret_preview || jiraTokenPreview || '****'} (leave empty to keep)` : 'Paste your API token'}
+              placeholder={jiraConfig?.has_secret ? `${jiraConfig?.secret_preview || jiraTokenPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.apiTokenPlaceholder')}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveJira()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-            Save Jira Config
+            {t('integrations.saveJira')}
           </button>
         </IntegrationCard>
 
@@ -320,19 +322,19 @@ export default function IntegrationsPage() {
           connected={playbookConfig?.has_secret ?? false}
           updatedAt={playbookConfig?.updated_at}
         >
-          <FieldGroup label='Coding Rules'>
+          <FieldGroup label={t('integrations.codingRules')}>
             <textarea
               value={playbookText}
               onChange={(e) => setPlaybookText(e.target.value)}
               rows={8}
-              placeholder={'Example:\n- Always write tests for new API paths\n- Never edit payment modules without approval\n- Prefer TypeScript strict mode'}
+              placeholder={t('integrations.playbookPlaceholder')}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void savePlaybook()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-            {isPlaybookSaving ? 'Saving...' : 'Save Tenant Playbook'}
+            {isPlaybookSaving ? t('integrations.saving') : t('integrations.savePlaybook')}
           </button>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>
-            Stored per organization in DB ({playbookConfig?.updated_at ? `updated ${new Date(playbookConfig.updated_at).toLocaleString()}` : 'not saved yet'}).
+            {t('integrations.playbookStored')} ({playbookConfig?.updated_at ? `${t('integrations.updated')} ${new Date(playbookConfig.updated_at).toLocaleString()}` : t('integrations.notSavedYet')}).
           </div>
         </IntegrationCard>
       </div>
@@ -356,6 +358,7 @@ function IntegrationCard({
 }: {
   title: string; icon: string; color: string; connected: boolean; updatedAt?: string; children: React.ReactNode;
 }) {
+  const { t } = useLocale();
   const borderColor = connected ? 'rgba(34,197,94,0.72)' : `${color}20`;
   const bgColor = connected ? 'rgba(34,197,94,0.08)' : `${color}06`;
   const glow = connected ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 28px rgba(34,197,94,0.22), inset 0 0 22px rgba(34,197,94,0.08)' : 'none';
@@ -380,7 +383,7 @@ function IntegrationCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
             <span className={connected ? 'connected-dot' : ''} style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
             <span style={{ fontSize: 11, color: connected ? '#22c55e' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
-              {connected ? 'Connected' : 'Not configured'}
+              {connected ? t('integrations.connected') : t('integrations.notConfigured')}
             </span>
           </div>
         </div>

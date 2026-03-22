@@ -56,9 +56,9 @@ export default function TeamPage() {
     // DB'den tercihleri çek
     loadPrefs().then((prefs) => {
       const p = prefs.azure_project    || localStorage.getItem(LS_PROJECT) || '';
-      const t = prefs.azure_team       || localStorage.getItem(LS_TEAM)    || '';
+      const teamName = prefs.azure_team || localStorage.getItem(LS_TEAM) || '';
       const s = prefs.azure_sprint_path || localStorage.getItem(LS_SPRINT) || '';
-      setProject(p); setTeam(t); setSprintPath(s);
+      setProject(p); setTeam(teamName); setSprintPath(s);
       if (prefs.my_team?.length) {
         setMyTeam(prefs.my_team as AzureMember[]);
       } else {

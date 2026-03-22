@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 type Opt = {
   id: string;
@@ -23,6 +23,10 @@ type WorkItem = {
 type AgentRole = 'lead_developer' | 'pm' | 'qa' | 'manager' | 'developer';
 interface AgentConfig { role: AgentRole; label: string; icon: string; provider: string; model: string; custom_model: string; enabled: boolean; }
 type TaskRecord = { id: number };
+type IntegrationConfig = {
+  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'playbook';
+  base_url: string;
+};
 const LS_AGENTS = 'tiqr_agent_configs';
 function loadAgentConfigs(): AgentConfig[] {
   if (typeof window === 'undefined') return [];
@@ -61,9 +65,9 @@ function elapsed(from?: string, to?: string): string | null {
   const diff  = Math.max(0, end - start);
   const days  = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);
-  if (days > 0) return days + 'g ' + hours + 's';
-  if (hours > 0) return hours + 's';
-  return Math.floor(diff / 60000) + 'd';
+  if (days > 0) return days + 'd ' + hours + 'h';
+  if (hours > 0) return hours + 'h';
+  return Math.floor(diff / 60000) + 'm';
 }
 
 function shortName(full?: string): string {
@@ -133,6 +137,7 @@ export default function SprintsPage() {
   const [aiResult, setAiResult] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<AgentConfig[]>([]);
   const [repoMappings, setRepoMappings] = useState<RepoMapping[]>([]);
+  const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
   const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
   const [flowRunning, setFlowRunning] = useState(false);
   const [flowResult, setFlowResult] = useState<FlowRunResult | null>(null);
@@ -161,6 +166,12 @@ export default function SprintsPage() {
         }
         setRepoMappings(prefs.repo_mappings ?? []);
       } catch { /* localStorage fallback */ }
+      try {
+        const cfgs = await apiFetch<IntegrationConfig[]>('/integrations');
+        setIntegrations(cfgs ?? []);
+      } catch {
+        setIntegrations([]);
+      }
       setPreferredSprint(savedSprint);
 
       setLpj(true);
@@ -261,7 +272,7 @@ export default function SprintsPage() {
     apiFetch<ImportRes>('/tasks/import/azure', {
       method: 'POST',
       body: JSON.stringify({ project: project || undefined, team: team || undefined, sprint_path: sprint || undefined, state }),
-    }).then((r) => setMsg('"' + state + '" — ' + String(r.imported) + ' import edildi, ' + String(r.skipped) + ' atlandı'))
+    }).then((r) => setMsg(t('sprints.importSuccess', { state, imported: r.imported, skipped: r.skipped })))
       .catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.importFailed')))
       .finally(() => setImp(''));
   }
@@ -271,7 +282,7 @@ export default function SprintsPage() {
     try {
       let taskId = taskMapByExternalId[item.id];
       if (!taskId) {
-        const desc = toPlainText(item.description) || 'No description';
+        const desc = toPlainText(item.description) || t('sprints.noDescription');
         const ctxParts = [
           `External Source: Azure #${item.id}`,
           options?.project ? `Project: ${options.project}` : '',
@@ -297,7 +308,7 @@ export default function SprintsPage() {
       await apiFetch('/tasks/' + String(taskId) + '/assign', { method: 'POST' });
       setAiResult(t('sprints.aiAssigned'));
     } catch (e) {
-      setAiResult(t('sprints.aiAssignFailed') + (e instanceof Error ? e.message : 'Hata'));
+      setAiResult(t('sprints.aiAssignFailed') + (e instanceof Error ? e.message : t('sprints.errorDefault')));
     } finally {
       setAiLoading(false);
     }
@@ -334,9 +345,9 @@ export default function SprintsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%' }}>
       {/* Header */}
       <div>
-        <div className="section-label">Sprints</div>
+        <div className="section-label">{t('sprints.section')}</div>
         <h1 style={{ fontSize: 26, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 6, marginBottom: 4 }}>
-          Sprint Board
+          {t('sprints.title')}
         </h1>
         {!hasAzure && !lpj ? (
           <p style={{ fontSize: 13, color: '#fbbf24', margin: 0 }}>
@@ -398,7 +409,7 @@ export default function SprintsPage() {
                     {!lbd && col.length > 0 ? (
                       <button onClick={() => doImport(state)} disabled={imp === state}
                         style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: s.color + '18', border: '1px solid ' + s.color + '40', color: s.color, cursor: imp === state ? 'not-allowed' : 'pointer' }}>
-                        {imp === state ? '…' : 'Import'}
+                        {imp === state ? '…' : t('sprints.import')}
                       </button>
                     ) : null}
                   </div>
@@ -426,6 +437,8 @@ export default function SprintsPage() {
         {selected && (
           <DetailPanel
             item={selected}
+            project={project}
+            integrations={integrations}
             repoMappings={repoMappings}
             agentConfigs={agentConfigs}
             savedFlows={savedFlows}
@@ -511,8 +524,10 @@ function BoardCard({ item, stateColor, selected, onClick }: {
   );
 }
 
-function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappings, agentConfigs, savedFlows, flowRunning, flowResult, onRunFlow }: {
+function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult, onAssignAI, repoMappings, agentConfigs, savedFlows, flowRunning, flowResult, onRunFlow }: {
   item: WorkItem; onClose: () => void;
+  project: string;
+  integrations: IntegrationConfig[];
   aiLoading: boolean; aiResult: string; onAssignAI: (options: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string }) => void;
   repoMappings: RepoMapping[]; agentConfigs: AgentConfig[];
   savedFlows: { id: string; name: string }[];
@@ -520,6 +535,7 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
   flowResult: FlowRunResult | null;
   onRunFlow: (flowId: string) => void;
 }) {
+  const { t, lang } = useLocale();
   const stateInfo = STATE_COLORS[item.state ?? ''] ?? { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' };
   const openDuration  = elapsed(item.created_date);
   const toActiveDuration = item.activated_date ? elapsed(item.created_date, item.activated_date) : null;
@@ -533,6 +549,20 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
   const enabledAgents = agentConfigs.filter((a) => a.enabled && (a.model || a.custom_model));
   const selectedLocalMapping = repoMappings.find((m) => m.id === selLocalRepoMappingId);
   const selectedAgent = enabledAgents.find((a) => a.role === selAgent);
+  const externalUrl = (() => {
+    const rawSource = (item.source || '').trim();
+    if (!rawSource) return '';
+    if (rawSource.startsWith('http://') || rawSource.startsWith('https://')) return rawSource;
+    if (rawSource === 'azure') {
+      const azureBase = integrations.find((c) => c.provider === 'azure')?.base_url?.trim().replace(/\/$/, '');
+      if (azureBase && project && item.id) return `${azureBase}/${encodeURIComponent(project)}/_workitems/edit/${encodeURIComponent(item.id)}`;
+    }
+    if (rawSource === 'jira') {
+      const jiraBase = integrations.find((c) => c.provider === 'jira')?.base_url?.trim().replace(/\/$/, '');
+      if (jiraBase && item.id) return `${jiraBase}/browse/${encodeURIComponent(item.id)}`;
+    }
+    return '';
+  })();
 
   return (
     <div style={{
@@ -557,66 +587,91 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>{item.title}</div>
         </div>
+        {externalUrl && (
+          <a
+            href={externalUrl}
+            target='_blank'
+            rel='noreferrer'
+            title={t('sprints.openExternal')}
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: '50%',
+              border: '1px solid rgba(94,234,212,0.35)',
+              background: 'rgba(13,148,136,0.12)',
+              color: '#5eead4',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            ↗
+          </a>
+        )}
         <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>×</button>
       </div>
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <DetailRow icon="👤" label="Atanan">{item.assigned_to || '—'}</DetailRow>
+        <DetailRow icon="👤" label={t('sprints.assignee')}>{item.assigned_to || '—'}</DetailRow>
 
         {item.created_date && (
-          <DetailRow icon="📅" label="Açılış">
-            {new Date(item.created_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
-            {openDuration && <span style={{ marginLeft: 6, fontSize: 10, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 999 }}>{openDuration} önce</span>}
+          <DetailRow icon="📅" label={t('sprints.opened')}>
+            {new Date(item.created_date).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {openDuration && <span style={{ marginLeft: 6, fontSize: 10, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 999 }}>{openDuration} {t('sprints.ago')}</span>}
           </DetailRow>
         )}
-        {toActiveDuration && <DetailRow icon="⚡" label="Açılıştan In Progress'e"><span style={{ color: '#38bdf8', fontWeight: 700 }}>{toActiveDuration}</span></DetailRow>}
-        {!toActiveDuration && item.created_date && <DetailRow icon="⏳" label="Açık süre"><span style={{ color: '#f59e0b', fontWeight: 700 }}>{openDuration}</span></DetailRow>}
+        {toActiveDuration && <DetailRow icon="⚡" label={t('sprints.openToInProgress')}><span style={{ color: '#38bdf8', fontWeight: 700 }}>{toActiveDuration}</span></DetailRow>}
+        {!toActiveDuration && item.created_date && <DetailRow icon="⏳" label={t('sprints.openDuration')}><span style={{ color: '#f59e0b', fontWeight: 700 }}>{openDuration}</span></DetailRow>}
 
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 6 }}>Açıklama</div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: 6 }}>{t('sprints.description')}</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            {plainDescription || 'Açıklama bulunamadı'}
+            {plainDescription || t('sprints.noDescriptionFound')}
           </div>
         </div>
 
         {/* ── AI Ayarları ── */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>AI Atama Ayarları</div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>{t('sprints.aiAssignSettings')}</div>
 
           {/* Repo Mapping */}
           <div>
-            <label style={dpLabelStyle}>Repo Mapping</label>
+            <label style={dpLabelStyle}>{t('sprints.repoMapping')}</label>
             {repoMappings.length > 0 ? (
               <select value={selLocalRepoMappingId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelLocalRepoMappingId(e.target.value)}
                 style={{ ...dpSelectStyle, marginBottom: 6 }}>
-                <option value="" style={{ background: '#0d1117' }}>Mapping seç...</option>
+                <option value="" style={{ background: '#0d1117' }}>{t('sprints.selectMapping')}</option>
                 {repoMappings.map((m) => <option key={m.id} value={m.id} style={{ background: '#0d1117' }}>{m.azure_project} · {m.azure_repo_name || m.name}</option>)}
               </select>
             ) : (
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)' }}>Henüz mapping yok.</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)' }}>{t('sprints.noMappingYet')}</div>
             )}
             {selectedLocalMapping && (
               <div style={{ marginTop: 4, fontSize: 10, color: 'rgba(255,255,255,0.25)', lineHeight: 1.5 }}>
-                <div>Azure: {selectedLocalMapping.azure_project || '-'} · {selectedLocalMapping.azure_repo_name || selectedLocalMapping.name}</div>
-                <div style={{ wordBreak: 'break-all' }}>Local: {selectedLocalMapping.local_path}</div>
+                <div>{t('sprints.azure')}: {selectedLocalMapping.azure_project || '-'} · {selectedLocalMapping.azure_repo_name || selectedLocalMapping.name}</div>
+                <div style={{ wordBreak: 'break-all' }}>{t('sprints.local')}: {selectedLocalMapping.local_path}</div>
                 {selectedLocalMapping.repo_playbook && (
                   <div style={{ marginTop: 5, color: 'rgba(255,255,255,0.4)' }}>
-                    Playbook: {selectedLocalMapping.repo_playbook.length > 140 ? selectedLocalMapping.repo_playbook.slice(0, 140).trimEnd() + '…' : selectedLocalMapping.repo_playbook}
+                    {t('sprints.playbook')}: {selectedLocalMapping.repo_playbook.length > 140 ? selectedLocalMapping.repo_playbook.slice(0, 140).trimEnd() + '…' : selectedLocalMapping.repo_playbook}
                   </div>
                 )}
               </div>
             )}
             <Link href='/dashboard/mappings' style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#38bdf8', textDecoration: 'none' }}>
-              + Mapping yönet →
+              + {t('sprints.manageMapping')} →
             </Link>
           </div>
 
           {/* Agent seçimi */}
           <div>
-            <label style={dpLabelStyle}>Agent</label>
+            <label style={dpLabelStyle}>{t('sprints.agent')}</label>
             {enabledAgents.length === 0 ? (
-              <a href="/dashboard/agents" style={{ fontSize: 12, color: '#f59e0b', textDecoration: 'none' }}>⚠ Agents sayfasından model seç →</a>
+              <a href="/dashboard/agents" style={{ fontSize: 12, color: '#f59e0b', textDecoration: 'none' }}>⚠ {t('sprints.selectAgentModel')} →</a>
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {enabledAgents.map((a) => (
@@ -635,11 +690,11 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
           </div>
 
           <div>
-            <label style={dpLabelStyle}>Ek Prompt</label>
+            <label style={dpLabelStyle}>{t('sprints.extraPrompt')}</label>
             <textarea
               value={executionPrompt}
               onChange={(e) => setExecutionPrompt(e.target.value)}
-              placeholder="Bu işte özellikle dikkat edilmesi gereken detayları yaz..."
+              placeholder={t('sprints.extraPromptPlaceholder')}
               rows={4}
               style={{
                 width: '100%',
@@ -666,14 +721,14 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
         {/* ── Flow Çalıştır ── */}
         {savedFlows.length > 0 && (
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>Flow Çalıştır</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)' }}>{t('sprints.runFlow')}</div>
             <select value={selFlow} onChange={(e) => setSelFlow(e.target.value)} style={dpSelectStyle}>
-              <option value="" style={{ background: '#0d1117' }}>Flow seç...</option>
+              <option value="" style={{ background: '#0d1117' }}>{t('sprints.selectFlow')}</option>
               {savedFlows.map((f) => <option key={f.id} value={f.id} style={{ background: '#0d1117' }}>{f.name}</option>)}
             </select>
             {flowResult && (
               <div style={{ padding: '8px 10px', borderRadius: 9, background: flowResult.status === 'completed' ? 'rgba(34,197,94,0.08)' : 'rgba(248,113,113,0.08)', border: '1px solid ' + (flowResult.status === 'completed' ? 'rgba(34,197,94,0.25)' : 'rgba(248,113,113,0.25)'), fontSize: 11, color: flowResult.status === 'completed' ? '#22c55e' : '#f87171' }}>
-                {flowResult.status === 'completed' ? '✓' : '✗'} {flowResult.status} · {flowResult.steps.length} adım
+                {flowResult.status === 'completed' ? '✓' : '✗'} {flowResult.status} · {flowResult.steps.length} {t('sprints.steps')}
               </div>
             )}
           </div>
@@ -685,14 +740,14 @@ function DetailPanel({ item, onClose, aiLoading, aiResult, onAssignAI, repoMappi
         {savedFlows.length > 0 && (
           <button onClick={() => selFlow && onRunFlow(selFlow)} disabled={flowRunning || !selFlow}
             style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none', background: flowRunning ? 'rgba(167,139,250,0.3)' : selFlow ? 'linear-gradient(135deg, #7c3aed, #a78bfa)' : 'rgba(255,255,255,0.06)', color: selFlow ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: flowRunning || !selFlow ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> Flow çalışıyor…</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? 'Flow Çalıştır' : 'Flow seç'}</>}
+            {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.flowRunning')}</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? t('sprints.runFlow') : t('sprints.selectFlow')}</>}
           </button>
         )}
         <button onClick={() => onAssignAI({ project: selectedLocalMapping?.azure_project, azureRepo: selectedLocalMapping?.azure_repo_url, localRepoMapping: selectedLocalMapping?.name, localRepoPath: selectedLocalMapping?.local_path, repoPlaybook: selectedLocalMapping?.repo_playbook, agentRole: selAgent || undefined, agentProvider: selectedAgent?.provider, agentModel: selectedAgent?.custom_model || selectedAgent?.model, executionPrompt: executionPrompt.trim() || undefined })} disabled={aiLoading || !selAgent || !selectedLocalMapping}
           style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(13,148,136,0.3)' : selAgent ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'rgba(255,255,255,0.06)', color: selAgent ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> AI çalışıyor…</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? (selectedLocalMapping ? 'Assign AI' : 'Mapping seç') : 'Agent seç'}</>}
+          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? (selectedLocalMapping ? t('sprints.assignAi') : t('sprints.selectMappingShort')) : t('sprints.selectAgent')}</>}
         </button>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>AI bu işi analiz edip otomatik atar</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{t('sprints.aiHint')}</div>
       </div>
     </div>
   );
@@ -722,7 +777,7 @@ function DetailRow({ icon, label, children }: { icon: string; label: string; chi
 
 function Sel({ step, t, label, value, onChange, options, loading, placeholder, active }: {
   step: number; label: string; value: string; onChange: (v: string) => void;
-  t: (key: 'sprints.loadingShort') => string;
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
   options: Opt[]; loading: boolean; placeholder: string; active: boolean;
 }) {
   return (
@@ -735,14 +790,14 @@ function Sel({ step, t, label, value, onChange, options, loading, placeholder, a
       <select value={value} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)} disabled={!active || loading}
         style={{ width: '100%', border: '1px solid ' + (value ? 'rgba(13,148,136,0.4)' : 'rgba(255,255,255,0.1)'), borderRadius: 10, padding: '9px 12px', font: 'inherit', fontSize: 12, background: value ? 'rgba(13,148,136,0.08)' : 'rgba(255,255,255,0.04)', color: value ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', cursor: active && !loading ? 'pointer' : 'not-allowed', appearance: 'none', outline: 'none' }}>
         <option value="" style={{ background: '#0d1117' }}>{placeholder}</option>
-        {options.map((o) => (
+      {options.map((o) => (
           <option key={o.id} value={o.id} style={{ background: '#0d1117' }}>
-            {o.is_current ? `● ${o.name} (Current)` : o.name}
+            {o.is_current ? `● ${o.name} (${t('sprints.current')})` : o.name}
           </option>
         ))}
       </select>
       {options.find((o) => o.id === value)?.is_current ? (
-        <div style={{ marginTop: 6, fontSize: 10, color: '#5eead4', fontWeight: 700 }}>Current sprint selected</div>
+        <div style={{ marginTop: 6, fontSize: 10, color: '#5eead4', fontWeight: 700 }}>{t('sprints.currentSelected')}</div>
       ) : null}
     </div>
   );
