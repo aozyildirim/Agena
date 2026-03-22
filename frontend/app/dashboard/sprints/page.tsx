@@ -109,6 +109,8 @@ export default function SprintsPage() {
   const [flowRunning, setFlowRunning] = useState(false);
   const [flowResult, setFlowResult] = useState<FlowRunResult | null>(null);
   const [taskMapByExternalId, setTaskMapByExternalId] = useState<Record<string, number>>({});
+  const [hydrating, setHydrating] = useState(true);
+  const [preferredSprint, setPreferredSprint] = useState('');
 
   const setProject = useCallback((v: string) => { setProjectRaw(v); localStorage.setItem(LS_PROJECT, v); }, []);
   const setTeam    = useCallback((v: string) => { setTeamRaw(v);    localStorage.setItem(LS_TEAM, v);    }, []);
@@ -131,6 +133,7 @@ export default function SprintsPage() {
         }
         setRepoMappings(prefs.repo_mappings ?? []);
       } catch { /* localStorage fallback */ }
+      setPreferredSprint(savedSprint);
 
       setLpj(true);
       try {
@@ -145,14 +148,20 @@ export default function SprintsPage() {
         const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(savedProject) + '&team=' + encodeURIComponent(savedTeam));
         setSprints(sps);
         if (!savedSprint) return;
-        setSprintRaw(savedSprint);
+        const matched = sps.find((sp) => (sp.path ?? sp.name) === savedSprint || sp.name === savedSprint);
+        if (matched) {
+          setSprintRaw(matched.path ?? matched.name);
+        } else {
+          setSprintRaw(savedSprint);
+        }
       } catch { setHasAzure(false); }
-      finally { setLpj(false); }
+      finally { setLpj(false); setHydrating(false); }
     };
     void init();
   }, []);
 
   useEffect(() => {
+    if (hydrating) return;
     setTeamRaw(''); setTeams([]); setSprintRaw(''); setSprints([]); setItems([]); setStates([]);
     if (!project) return;
     setLtm(true);
@@ -162,6 +171,7 @@ export default function SprintsPage() {
   }, [project]);
 
   useEffect(() => {
+    if (hydrating) return;
     setSprintRaw(''); setSprints([]); setItems([]);
     if (!project || !team) return;
     setLsp(true);
@@ -169,6 +179,12 @@ export default function SprintsPage() {
       .then(setSprints).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.sprintsError')))
       .finally(() => setLsp(false));
   }, [project, team]);
+
+  useEffect(() => {
+    if (!preferredSprint || sprint || sprints.length === 0) return;
+    const matched = sprints.find((sp) => (sp.path ?? sp.name) === preferredSprint || sp.name === preferredSprint);
+    if (matched) setSprintRaw(matched.path ?? matched.name);
+  }, [preferredSprint, sprint, sprints]);
 
   useEffect(() => {
     setItems([]); setStates([]); setSelected(null);
