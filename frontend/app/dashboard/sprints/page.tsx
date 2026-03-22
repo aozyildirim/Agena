@@ -34,6 +34,7 @@ type TaskRecord = { id: number };
 type IntegrationConfig = {
   provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'playbook';
   base_url: string;
+  username?: string;
   has_secret?: boolean;
 };
 const LS_AGENTS = 'tiqr_agent_configs';
@@ -183,8 +184,14 @@ export default function SprintsPage() {
       try {
         const cfgs = await apiFetch<IntegrationConfig[]>('/integrations');
         setIntegrations(cfgs ?? []);
-        const azureConnected = Boolean(cfgs.find((c) => c.provider === 'azure')?.has_secret);
-        const jiraConnected = Boolean(cfgs.find((c) => c.provider === 'jira')?.has_secret);
+        const azureCfg = cfgs.find((c) => c.provider === 'azure');
+        const jiraCfg = cfgs.find((c) => c.provider === 'jira');
+        const azureConnected = Boolean(
+          azureCfg && (azureCfg.has_secret || (azureCfg.base_url || '').trim().length > 0),
+        );
+        const jiraConnected = Boolean(
+          jiraCfg && (jiraCfg.has_secret || (jiraCfg.base_url || '').trim().length > 0 || (jiraCfg.username || '').trim().length > 0),
+        );
         setHasAzure(azureConnected);
         setHasJira(jiraConnected);
         if (savedProvider === 'azure' && !azureConnected && jiraConnected) savedProvider = 'jira';
@@ -457,42 +464,46 @@ export default function SprintsPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => setProvider('azure')}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 999,
-            border: provider === 'azure' ? '1px solid rgba(56,189,248,0.45)' : '1px solid rgba(255,255,255,0.12)',
-            background: provider === 'azure' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)',
-            color: provider === 'azure' ? '#7dd3fc' : 'rgba(255,255,255,0.58)',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Azure
-        </button>
-        <button
-          onClick={() => setProvider('jira')}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 999,
-            border: provider === 'jira' ? '1px solid rgba(129,140,248,0.45)' : '1px solid rgba(255,255,255,0.12)',
-            background: provider === 'jira' ? 'rgba(129,140,248,0.12)' : 'rgba(255,255,255,0.03)',
-            color: provider === 'jira' ? '#a5b4fc' : 'rgba(255,255,255,0.58)',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Jira
-        </button>
+        {(hasAzure || !hasJira) && (
+          <button
+            onClick={() => setProvider('azure')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 999,
+              border: provider === 'azure' ? '1px solid rgba(56,189,248,0.45)' : '1px solid rgba(255,255,255,0.12)',
+              background: provider === 'azure' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)',
+              color: provider === 'azure' ? '#7dd3fc' : 'rgba(255,255,255,0.58)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Azure
+          </button>
+        )}
+        {(hasJira || !hasAzure) && (
+          <button
+            onClick={() => setProvider('jira')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 999,
+              border: provider === 'jira' ? '1px solid rgba(129,140,248,0.45)' : '1px solid rgba(255,255,255,0.12)',
+              background: provider === 'jira' ? 'rgba(129,140,248,0.12)' : 'rgba(255,255,255,0.03)',
+              color: provider === 'jira' ? '#a5b4fc' : 'rgba(255,255,255,0.58)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Jira
+          </button>
+        )}
       </div>
 
       {/* Selectors */}
       <div style={{ position: 'sticky', top: 72, zIndex: 40, borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(3,7,18,0.92)', backdropFilter: 'blur(24px)', padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         <Sel step={1} t={t} label={t('sprints.projectLabel')} value={project} onChange={setProject}
-          options={projects.map((p: Opt) => ({ id: p.name, name: p.name }))}
+          options={projects.map((p: Opt) => ({ id: provider === 'jira' ? (p.id ?? p.name) : p.name, name: p.name }))}
           loading={lpj} placeholder={t('sprints.selectProject')} active={true} />
         <Sel step={2} t={t} label={provider === 'jira' ? t('sprints.boardLabel') : t('sprints.teamLabel')} value={team} onChange={setTeam}
           options={teams.map((item: Opt) => ({ id: provider === 'jira' ? item.id : item.name, name: item.name }))}
