@@ -19,7 +19,6 @@ const PRIMARY_NAV_KEYS = [
   { href: '/dashboard/team', key: 'nav.team', icon: '👥' },
   { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
   { href: '/dashboard/flows', key: 'nav.flows', icon: '🧠' },
-  { href: '/dashboard/templates', key: 'nav.templates', icon: '🧩' },
   { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🔗' },
   { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌' },
 ] as const;
