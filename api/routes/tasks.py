@@ -9,6 +9,7 @@ from api.dependencies import CurrentTenant, get_current_tenant
 from core.database import get_db_session
 from schemas.task import TaskListResponse
 from services.integration_config_service import IntegrationConfigService
+from services.notification_service import NotificationService
 from services.task_service import TaskService
 
 router = APIRouter(prefix='/tasks', tags=['external-tasks'])
@@ -25,6 +26,23 @@ def _norm_iteration(v: str | None) -> str:
     return str(v).strip().replace('/', '\\').lower()
 
 
+async def _notify_integration_auth_expired(
+    db: AsyncSession,
+    tenant: CurrentTenant,
+    provider: str,
+    detail: str,
+) -> None:
+    notifier = NotificationService(db)
+    await notifier.notify_event(
+        organization_id=tenant.organization_id,
+        user_id=tenant.user_id,
+        event_type='integration_auth_expired',
+        title=f'{provider} authorization expired',
+        message=detail,
+        severity='error',
+    )
+
+
 @router.get('/azure/projects')
 async def list_azure_projects(
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -36,8 +54,14 @@ async def list_azure_projects(
         raise HTTPException(status_code=400, detail='Azure integration not configured')
     url = f"{config.base_url.rstrip('/')}/_apis/projects?api-version=7.1-preview.4"
     async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(url, headers=_azure_headers(config.secret))
-        r.raise_for_status()
+        try:
+            r = await client.get(url, headers=_azure_headers(config.secret))
+            r.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401:
+                await _notify_integration_auth_expired(db, tenant, 'Azure DevOps', 'Please update your Azure PAT in Integrations.')
+                raise HTTPException(status_code=401, detail='Azure PAT is invalid or expired') from exc
+            raise
     return [{'id': p['id'], 'name': p['name']} for p in r.json().get('value', [])]
 
 
@@ -54,8 +78,14 @@ async def list_azure_teams(
     # correct Azure DevOps teams endpoint
     url = f"{config.base_url.rstrip('/')}/_apis/projects/{project}/teams?api-version=7.1-preview.3"
     async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(url, headers=_azure_headers(config.secret))
-        r.raise_for_status()
+        try:
+            r = await client.get(url, headers=_azure_headers(config.secret))
+            r.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401:
+                await _notify_integration_auth_expired(db, tenant, 'Azure DevOps', 'Please update your Azure PAT in Integrations.')
+                raise HTTPException(status_code=401, detail='Azure PAT is invalid or expired') from exc
+            raise
     return [{'id': t['id'], 'name': t['name']} for t in r.json().get('value', [])]
 
 
@@ -79,8 +109,14 @@ async def list_azure_sprints(
         f'/_apis/work/teamsettings/iterations?$timeframe=current&api-version=7.1-preview.1'
     )
     async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(url, headers=_azure_headers(config.secret))
-        r.raise_for_status()
+        try:
+            r = await client.get(url, headers=_azure_headers(config.secret))
+            r.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401:
+                await _notify_integration_auth_expired(db, tenant, 'Azure DevOps', 'Please update your Azure PAT in Integrations.')
+                raise HTTPException(status_code=401, detail='Azure PAT is invalid or expired') from exc
+            raise
         current_paths: set[str] = set()
         current_ids: set[str] = set()
         current_names: set[str] = set()

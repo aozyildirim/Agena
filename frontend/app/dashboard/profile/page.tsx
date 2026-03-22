@@ -16,6 +16,21 @@ type ProfileSettings = {
   preferred_provider: string;
   preferred_model: string;
   branch_prefix: string;
+  queue_warn_threshold: number;
+  notification_preferences: Record<string, { in_app: boolean; email: boolean; web_push: boolean }>;
+};
+
+const EVENT_PREF_DEFAULTS: Record<string, { in_app: boolean; email: boolean; web_push: boolean }> = {
+  task_queued: { in_app: true, email: false, web_push: false },
+  task_running: { in_app: true, email: false, web_push: false },
+  task_completed: { in_app: true, email: true, web_push: true },
+  task_failed: { in_app: true, email: true, web_push: true },
+  pr_created: { in_app: true, email: false, web_push: true },
+  pr_failed: { in_app: true, email: true, web_push: true },
+  approval_required: { in_app: true, email: false, web_push: true },
+  approval_decision: { in_app: true, email: false, web_push: true },
+  integration_auth_expired: { in_app: true, email: true, web_push: true },
+  queue_backlog_warning: { in_app: true, email: false, web_push: true },
 };
 
 export default function ProfilePage() {
@@ -40,6 +55,8 @@ export default function ProfilePage() {
     preferred_provider: 'openai',
     preferred_model: 'gpt-5',
     branch_prefix: 'ai/task',
+    queue_warn_threshold: 5,
+    notification_preferences: EVENT_PREF_DEFAULTS,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -64,6 +81,13 @@ export default function ProfilePage() {
         preferred_provider: typeof rawSettings.preferred_provider === 'string' ? rawSettings.preferred_provider : prev.preferred_provider,
         preferred_model: typeof rawSettings.preferred_model === 'string' ? rawSettings.preferred_model : prev.preferred_model,
         branch_prefix: typeof rawSettings.branch_prefix === 'string' ? rawSettings.branch_prefix : prev.branch_prefix,
+        queue_warn_threshold: typeof rawSettings.queue_warn_threshold === 'number' ? Math.max(1, Math.floor(rawSettings.queue_warn_threshold)) : prev.queue_warn_threshold,
+        notification_preferences: (typeof rawSettings.notification_preferences === 'object' && rawSettings.notification_preferences)
+          ? {
+            ...EVENT_PREF_DEFAULTS,
+            ...(rawSettings.notification_preferences as Record<string, { in_app: boolean; email: boolean; web_push: boolean }>),
+          }
+          : prev.notification_preferences,
       }));
 
       if (!p) return;
@@ -167,8 +191,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
-        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14, alignItems: 'start' }}>
+        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 12, height: 520, overflow: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>◎</div>
             <div style={{ minWidth: 0 }}>
@@ -198,7 +222,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 10 }}>
+        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 10, height: 520, overflow: 'auto' }}>
           <div>
             <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>Workspace Preferences</div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>DB-backed defaults used during AI assignment.</div>
@@ -232,6 +256,33 @@ export default function ProfilePage() {
             onChange={(v) => { setProfileSettings((p) => ({ ...p, branch_prefix: v })); setSaved(false); }}
             placeholder='ai/task'
           />
+          <ProfileInput
+            label='Queue warning threshold'
+            value={String(profileSettings.queue_warn_threshold)}
+            onChange={(v) => {
+              const n = Number(v);
+              setProfileSettings((p) => ({ ...p, queue_warn_threshold: Number.isFinite(n) ? Math.max(1, Math.floor(n)) : p.queue_warn_threshold }));
+              setSaved(false);
+            }}
+            placeholder='5'
+          />
+          <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 700, marginBottom: 8 }}>Event Notification Matrix</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.6fr 0.6fr 0.7fr', gap: 8, fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
+              <div>Event</div><div>In-App</div><div>Email</div><div>Web Push</div>
+            </div>
+            {Object.keys(EVENT_PREF_DEFAULTS).map((eventKey) => {
+              const channels = profileSettings.notification_preferences[eventKey] || EVENT_PREF_DEFAULTS[eventKey];
+              return (
+                <div key={eventKey} style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.6fr 0.6fr 0.7fr', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>{eventKey.replace(/_/g, ' ')}</div>
+                  <MiniToggle checked={channels.in_app} onChange={(v) => { setProfileSettings((p) => ({ ...p, notification_preferences: { ...p.notification_preferences, [eventKey]: { ...channels, in_app: v } } })); setSaved(false); }} />
+                  <MiniToggle checked={channels.email} onChange={(v) => { setProfileSettings((p) => ({ ...p, notification_preferences: { ...p.notification_preferences, [eventKey]: { ...channels, email: v } } })); setSaved(false); }} />
+                  <MiniToggle checked={channels.web_push} onChange={(v) => { setProfileSettings((p) => ({ ...p, notification_preferences: { ...p.notification_preferences, [eventKey]: { ...channels, web_push: v } } })); setSaved(false); }} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -285,6 +336,15 @@ function ProfileInput({ label, value, onChange, placeholder }: { label: string; 
         style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.9)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
       />
     </div>
+  );
+}
+
+function MiniToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type='button' onClick={() => onChange(!checked)}
+      style={{ width: 34, height: 18, borderRadius: 999, background: checked ? 'rgba(13,148,136,0.9)' : 'rgba(255,255,255,0.2)', padding: 2, border: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: checked ? 'flex-end' : 'flex-start', cursor: 'pointer' }}>
+      <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff' }} />
+    </button>
   );
 }
 

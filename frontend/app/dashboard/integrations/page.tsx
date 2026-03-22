@@ -336,6 +336,17 @@ export default function IntegrationsPage() {
           </div>
         </IntegrationCard>
       </div>
+      <style jsx>{`
+        .connected-dot {
+          animation: connectedPulse 1.8s ease-out infinite;
+          box-shadow: 0 0 0 rgba(34, 197, 94, 0.55);
+        }
+        @keyframes connectedPulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+          70% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -345,13 +356,19 @@ function IntegrationCard({
 }: {
   title: string; icon: string; color: string; connected: boolean; updatedAt?: string; children: React.ReactNode;
 }) {
+  const borderColor = connected ? 'rgba(34,197,94,0.72)' : `${color}20`;
+  const bgColor = connected ? 'rgba(34,197,94,0.08)' : `${color}06`;
+  const glow = connected ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 28px rgba(34,197,94,0.22), inset 0 0 22px rgba(34,197,94,0.08)' : 'none';
+  const topLine = connected ? 'linear-gradient(90deg, transparent, rgba(34,197,94,0.9), transparent)' : `linear-gradient(90deg, transparent, ${color}60, transparent)`;
+
   return (
     <div style={{
-      borderRadius: 20, border: `1px solid ${color}20`,
-      background: `${color}06`, padding: 28,
+      borderRadius: 20, border: `1px solid ${borderColor}`,
+      background: bgColor, padding: 28,
       position: 'relative', overflow: 'hidden',
+      boxShadow: glow,
     }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${color}60, transparent)` }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: topLine }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <div style={{
           width: 44, height: 44, borderRadius: 12, fontSize: 22,
@@ -361,7 +378,7 @@ function IntegrationCard({
         <div>
           <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 16 }}>{title}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
+            <span className={connected ? 'connected-dot' : ''} style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
             <span style={{ fontSize: 11, color: connected ? '#22c55e' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
               {connected ? 'Connected' : 'Not configured'}
             </span>

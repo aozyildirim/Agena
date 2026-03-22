@@ -38,6 +38,11 @@ class PreferenceResponse(BaseModel):
 def _parse_json(val: str | None) -> list[dict[str, Any]]:
     if not val:
         return []
+    try:
+        parsed = json.loads(val)
+        return parsed if isinstance(parsed, list) else []
+    except Exception:
+        return []
 
 
 def _parse_json_obj(val: str | None) -> dict[str, Any]:
@@ -48,10 +53,6 @@ def _parse_json_obj(val: str | None) -> dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
         return {}
-    try:
-        return json.loads(val)  # type: ignore[return-value]
-    except Exception:
-        return []
 
 
 @router.get('', response_model=PreferenceResponse)

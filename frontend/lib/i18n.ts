@@ -16,6 +16,7 @@ const translations = {
     // Sidebar items
     'nav.overview': 'Genel Bakış',
     'nav.tasks': 'Görevler',
+    'nav.notifications': 'Bildirimler',
     'nav.sprints': 'Sprintler',
     'nav.team': 'Takım',
     'nav.agents': 'Agentlar',
@@ -353,6 +354,7 @@ const translations = {
     // Sidebar items
     'nav.overview': 'Overview',
     'nav.tasks': 'Tasks',
+    'nav.notifications': 'Notifications',
     'nav.sprints': 'Sprints',
     'nav.team': 'Team',
     'nav.agents': 'Agents',

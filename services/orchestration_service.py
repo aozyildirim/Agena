@@ -81,6 +81,15 @@ class OrchestrationService:
             'running',
             f'Agent pipeline started at {run_started_at.isoformat()}Z',
         )
+        await notification_service.notify_event(
+            organization_id=organization_id,
+            user_id=task.created_by_user_id,
+            event_type='task_running',
+            title=f'Task #{task.id} started',
+            message=task.title,
+            severity='info',
+            task_id=task.id,
+        )
 
         routing = self._extract_task_routing(task)
         tenant_playbook = await self._load_tenant_playbook(organization_id)
@@ -236,16 +245,38 @@ class OrchestrationService:
 
                 if create_pr and has_changes:
                     if routing.effective_source == 'azure' and routing.azure_project and routing.azure_repo_url:
-                        pr_url = await self.azure_pr_service.create_pr(
-                            organization_id,
-                            project=routing.azure_project,
-                            repo_url=routing.azure_repo_url,
-                            source_branch=branch_name,
-                            target_branch=pr_payload.base_branch,
-                            title=pr_payload.title,
-                            description=pr_payload.body,
-                        )
+                        try:
+                            pr_url = await self.azure_pr_service.create_pr(
+                                organization_id,
+                                project=routing.azure_project,
+                                repo_url=routing.azure_repo_url,
+                                source_branch=branch_name,
+                                target_branch=pr_payload.base_branch,
+                                title=pr_payload.title,
+                                description=pr_payload.body,
+                            )
+                        except Exception as pr_exc:
+                            await notification_service.notify_event(
+                                organization_id=organization_id,
+                                user_id=task.created_by_user_id,
+                                event_type='pr_failed',
+                                title=f'PR failed for task #{task.id}',
+                                message=str(pr_exc)[:240],
+                                severity='error',
+                                task_id=task.id,
+                            )
+                            raise
                         await task_service.add_log(task.id, organization_id, 'pr', f'Azure PR created: {pr_url}')
+                        await notification_service.notify_event(
+                            organization_id=organization_id,
+                            user_id=task.created_by_user_id,
+                            event_type='pr_created',
+                            title=f'PR created for task #{task.id}',
+                            message=pr_url or 'Azure PR created',
+                            severity='success',
+                            task_id=task.id,
+                            payload={'pr_url': pr_url},
+                        )
                     else:
                         await task_service.add_log(
                             task.id,
@@ -255,10 +286,41 @@ class OrchestrationService:
                         )
             elif create_pr and self._can_create_github_pr():
                 branch_name = pr_payload.branch_name
-                pr_url = await self.github_service.create_pr(pr_payload)
+                try:
+                    pr_url = await self.github_service.create_pr(pr_payload)
+                except Exception as pr_exc:
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_failed',
+                        title=f'PR failed for task #{task.id}',
+                        message=str(pr_exc)[:240],
+                        severity='error',
+                        task_id=task.id,
+                    )
+                    raise
                 await task_service.add_log(task.id, organization_id, 'pr', f'GitHub PR created: {pr_url}')
+                await notification_service.notify_event(
+                    organization_id=organization_id,
+                    user_id=task.created_by_user_id,
+                    event_type='pr_created',
+                    title=f'PR created for task #{task.id}',
+                    message=pr_url or 'GitHub PR created',
+                    severity='success',
+                    task_id=task.id,
+                    payload={'pr_url': pr_url},
+                )
             elif create_pr:
                 await task_service.add_log(task.id, organization_id, 'pr', 'PR skipped because provider configuration is missing')
+                await notification_service.notify_event(
+                    organization_id=organization_id,
+                    user_id=task.created_by_user_id,
+                    event_type='pr_failed',
+                    title=f'PR skipped for task #{task.id}',
+                    message='Provider configuration is missing.',
+                    severity='warning',
+                    task_id=task.id,
+                )
 
             run = RunRecord(
                 task_id=task.id,
@@ -296,6 +358,7 @@ class OrchestrationService:
             )
             await task_service.add_log(task.id, organization_id, 'completed', 'Task completed successfully')
             notified = await notification_service.notify_task_result(
+                organization_id=organization_id,
                 user_id=task.created_by_user_id,
                 task_id=task.id,
                 task_title=task.title,
@@ -333,6 +396,7 @@ class OrchestrationService:
             )
             await task_service.add_log(task.id, organization_id, 'failed', str(exc))
             notified = await notification_service.notify_task_result(
+                organization_id=organization_id,
                 user_id=task.created_by_user_id,
                 task_id=task.id,
                 task_title=task.title,

@@ -3,6 +3,7 @@ from models.flow_assets import AgentAnalyticsSnapshot, FlowTemplate, FlowVersion
 from models.flow_run import FlowRun, FlowRunStep
 from models.integration_config import IntegrationConfig
 from models.invite import Invite
+from models.notification_record import NotificationRecord
 from models.organization import Organization
 from models.organization_member import OrganizationMember
 from models.payment_record import PaymentRecord
@@ -32,5 +33,6 @@ __all__ = [
     'FlowRunStep',
     'Invite',
     'IntegrationConfig',
+    'NotificationRecord',
     'UserPreference',
 ]

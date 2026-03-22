@@ -231,6 +231,65 @@ export interface AgentAnalyticsResponse {
   }>;
 }
 
+export interface NotificationItem {
+  id: number;
+  task_id: number | null;
+  event_type: string;
+  title: string;
+  message: string;
+  severity: 'info' | 'success' | 'warning' | 'error' | string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  unread_count: number;
+  total: number;
+  page: number;
+  page_size: number;
+  items: NotificationItem[];
+}
+
+export async function listNotifications(
+  limit = 12,
+  onlyUnread = false,
+  opts?: { page?: number; page_size?: number; event_type?: string; read_status?: 'all' | 'read' | 'unread' },
+): Promise<NotificationListResponse> {
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    only_unread: String(onlyUnread),
+    page: String(opts?.page ?? 1),
+    page_size: String(opts?.page_size ?? limit),
+    event_type: String(opts?.event_type ?? 'all'),
+    read_status: String(opts?.read_status ?? 'all'),
+  });
+  return apiFetch<NotificationListResponse>(`/notifications?${qs.toString()}`);
+}
+
+export async function markNotificationRead(notificationId: number): Promise<void> {
+  await apiFetch(`/notifications/${notificationId}/read`, { method: 'POST' });
+}
+
+export async function markAllNotificationsRead(): Promise<number> {
+  const res = await apiFetch<{ updated: number }>('/notifications/read-all', { method: 'POST' });
+  return res.updated;
+}
+
+export async function clearAllNotifications(): Promise<number> {
+  const res = await apiFetch<{ deleted: number }>('/notifications', { method: 'DELETE' });
+  return res.deleted;
+}
+
+export async function createNotificationEvent(payload: {
+  event_type: string;
+  title: string;
+  message: string;
+  severity?: string;
+  task_id?: number | null;
+}): Promise<void> {
+  await apiFetch('/notifications/event', { method: 'POST', body: JSON.stringify(payload) });
+}
+
 export async function runFlow(
   flow_id: string,
   task: Record<string, unknown>,

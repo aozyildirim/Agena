@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions } from '@/lib/api';
+import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -382,7 +382,16 @@ export default function FlowsPage() {
           <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{t('flows.approvalGates')}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {current.nodes.filter((n) => n.waitForApproval).map((n) => (
-              <button key={n.id} onClick={() => setGateApprovals((prev) => ({ ...prev, [n.id]: !prev[n.id] }))}
+              <button key={n.id} onClick={() => {
+                const nextApproved = !gateApprovals[n.id];
+                setGateApprovals((prev) => ({ ...prev, [n.id]: nextApproved }));
+                void createNotificationEvent({
+                  event_type: nextApproved ? 'approval_decision' : 'approval_required',
+                  title: nextApproved ? 'Approval gate approved' : 'Approval gate pending',
+                  message: `${current.name} / ${n.label}`,
+                  severity: nextApproved ? 'success' : 'warning',
+                });
+              }}
                 style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid ' + (gateApprovals[n.id] ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.35)'), background: gateApprovals[n.id] ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: gateApprovals[n.id] ? '#22c55e' : '#f59e0b', fontSize: 12, cursor: 'pointer' }}>
                 {gateApprovals[n.id] ? t('flows.approved') : t('flows.pending')}: {n.label}
               </button>

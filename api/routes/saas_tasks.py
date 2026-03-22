@@ -18,6 +18,7 @@ from schemas.saas_task import (
     TaskLogItem,
     TaskResponse,
 )
+from services.notification_service import NotificationService
 from services.task_service import TaskService
 
 router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
@@ -162,6 +163,17 @@ async def import_azure_tasks(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            notifier = NotificationService(db)
+            await notifier.notify_event(
+                organization_id=tenant.organization_id,
+                user_id=tenant.user_id,
+                event_type='integration_auth_expired',
+                title='Azure DevOps authorization expired',
+                message='Please update your Azure PAT in Integrations.',
+                severity='error',
+            )
+            raise HTTPException(status_code=401, detail='Azure PAT is invalid or expired') from exc
         raise HTTPException(
             status_code=502,
             detail=f'Azure request failed ({exc.response.status_code}). Check org URL/project/team/sprint settings.',
@@ -181,6 +193,19 @@ async def import_jira_tasks(
         imported, skipped = await service.import_from_jira(tenant.organization_id, tenant.user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            notifier = NotificationService(db)
+            await notifier.notify_event(
+                organization_id=tenant.organization_id,
+                user_id=tenant.user_id,
+                event_type='integration_auth_expired',
+                title='Jira authorization expired',
+                message='Please update your Jira token in Integrations.',
+                severity='error',
+            )
+            raise HTTPException(status_code=401, detail='Jira API token is invalid or expired') from exc
+        raise HTTPException(status_code=502, detail=f'Jira request failed ({exc.response.status_code})') from exc
     return ImportTasksResponse(imported=imported, skipped=skipped)
 
 
