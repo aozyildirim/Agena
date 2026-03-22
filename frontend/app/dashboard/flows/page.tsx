@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, FlowTemplate, listFlowTemplates, createFlowTemplate } from '@/lib/api';
+import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -126,25 +127,6 @@ const PRESET_FLOWS: Flow[] = [
   },
 ];
 
-const STARTER_TEMPLATES: Array<{ name: string; description: string; flow: Record<string, unknown> }> = [
-  {
-    name: 'Task to PR Review Loop',
-    description: 'Task intake -> developer implementation -> GitHub PR creation -> reviewer approval.',
-    flow: {
-      id: 'template-pr-review-loop',
-      name: 'Task to PR Review Loop',
-      createdAt: new Date().toISOString(),
-      nodes: [
-        { id: 'p1', type: 'trigger', role: 'trigger', label: 'Task Intake', icon: '🧾', color: '#f59e0b', action: 'Receive task from board', waitForApproval: false, x: 60, y: 150 },
-        { id: 'p2', type: 'agent', role: 'developer', label: 'Developer Build', icon: '⚡', color: '#22c55e', action: 'Implement task and prepare changes', execute_task_pipeline: true, create_pr: true, waitForApproval: false, x: 280, y: 150 },
-        { id: 'p3', type: 'github', role: 'github', label: 'Open PR', icon: '🐙', color: '#6e40c9', action: 'Create pull request', github_action: 'create_pr', pr_title: 'AI: {{title}}', waitForApproval: false, x: 500, y: 150 },
-        { id: 'p4', type: 'agent', role: 'lead_developer', label: 'PR Review', icon: '🧑‍💻', color: '#38bdf8', action: 'Review PR and approve or request changes', waitForApproval: true, x: 720, y: 150 },
-      ],
-      edges: [{ from: 'p1', to: 'p2' }, { from: 'p2', to: 'p3' }, { from: 'p3', to: 'p4' }],
-    },
-  },
-];
-
 const LS_FLOWS = 'tiqr_flows';
 
 function loadFlows(): Flow[] {
@@ -168,11 +150,6 @@ export default function FlowsPage() {
   const { t } = useLocale();
   const [flows, setFlows] = useState<Flow[]>(PRESET_FLOWS);
   const [activeFlow, setActiveFlow] = useState<string>('full-cycle');
-  const [templates, setTemplates] = useState<FlowTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [templateLoading, setTemplateLoading] = useState(false);
-  const [templateNotice, setTemplateNotice] = useState('');
-  const [templateError, setTemplateError] = useState('');
   const [creating, setCreating] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
   const [showRuns, setShowRuns] = useState(false);
@@ -205,22 +182,6 @@ export default function FlowsPage() {
       }
     }).catch(() => {});
   }, []);
-
-  async function loadTemplates() {
-    setTemplateLoading(true);
-    setTemplateError('');
-    try {
-      const rows = await listFlowTemplates();
-      setTemplates(rows);
-      if (!selectedTemplateId && rows.length) setSelectedTemplateId(String(rows[0].id));
-    } catch (e) {
-      setTemplateError(e instanceof Error ? e.message : 'Template load failed');
-    } finally {
-      setTemplateLoading(false);
-    }
-  }
-
-  useEffect(() => { void loadTemplates(); }, []);
 
   useEffect(() => {
     if (!activeFlow) return;
@@ -263,55 +224,6 @@ export default function FlowsPage() {
   async function persist(next: Flow[]) {
     setFlows(next); saveFlowsLS(next);
     try { await savePrefs({ flows: next as unknown as Record<string, unknown>[] }); } catch { /* ok */ }
-  }
-
-  async function installStarterTemplates() {
-    setTemplateError('');
-    setTemplateNotice('');
-    try {
-      for (const s of STARTER_TEMPLATES) {
-        await createFlowTemplate({ name: s.name, description: s.description, flow: s.flow });
-      }
-      await loadTemplates();
-      setTemplateNotice(t('flows.templatesInstalled'));
-    } catch (e) {
-      setTemplateError(e instanceof Error ? e.message : 'Install failed');
-    }
-  }
-
-  async function importSelectedTemplate() {
-    setTemplateError('');
-    setTemplateNotice('');
-    const selected = templates.find((tp) => String(tp.id) === selectedTemplateId);
-    if (!selected) {
-      setTemplateError('Please select a template');
-      return;
-    }
-    const raw = selected.flow as {
-      nodes?: Array<Record<string, unknown>>;
-      edges?: Array<Record<string, unknown>>;
-    };
-    const flowId = String(Date.now());
-    const oldNodes = raw.nodes ?? [];
-    const nodes = oldNodes.map((n, i) => ({ ...n, id: `n_${flowId}_${i}` }));
-    const edges = (raw.edges ?? []).map((e) => {
-      const from = String(e.from ?? '');
-      const to = String(e.to ?? '');
-      const fromIdx = oldNodes.findIndex((n) => String(n.id ?? '') === from);
-      const toIdx = oldNodes.findIndex((n) => String(n.id ?? '') === to);
-      return { from: `n_${flowId}_${fromIdx}`, to: `n_${flowId}_${toIdx}` };
-    });
-    const imported: Flow = {
-      id: flowId,
-      name: selected.name,
-      createdAt: new Date().toISOString(),
-      nodes: nodes as FlowNode[],
-      edges: edges as FlowEdge[],
-    };
-    const next = [...flows, imported];
-    await persist(next);
-    setActiveFlow(imported.id);
-    setTemplateNotice(`${t('flows.templatesImported')}: ${selected.name}`);
   }
 
   function createFlow() {
@@ -429,31 +341,6 @@ export default function FlowsPage() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="section-label">{t('nav.flows')}</div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'rgba(255,255,255,0.95)', margin: '4px 0 0' }}>{t('flows.title')}</h1>
-          <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8' }}>{t('flows.templateMarketplace')}</span>
-            <button onClick={() => void installStarterTemplates()} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-              {t('flows.templatesInstallStarter')}
-            </button>
-            <select value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.8)', fontSize: 12, minWidth: 200 }}>
-              {!templates.length && <option value=''>{templateLoading ? 'Loading...' : t('flows.templatesEmpty')}</option>}
-              {templates.map((tp) => (
-                <option key={tp.id} value={String(tp.id)} style={{ background: '#0b1020' }}>{tp.name}</option>
-              ))}
-            </select>
-            <button onClick={() => void importSelectedTemplate()} disabled={!templates.length}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontSize: 12, cursor: templates.length ? 'pointer' : 'not-allowed', fontWeight: 700 }}>
-              {t('flows.importTemplate')}
-            </button>
-            <button onClick={() => void loadTemplates()} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>
-              {t('flows.templatesRefresh')}
-            </button>
-          </div>
-          {(templateNotice || templateError) && (
-            <div style={{ marginTop: 8, fontSize: 12, color: templateError ? '#f87171' : '#22c55e' }}>
-              {templateError || templateNotice}
-            </div>
-          )}
         </div>
         {/* Flow tabs */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -488,6 +375,10 @@ export default function FlowsPage() {
             style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid ' + (showRuns ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.1)'), background: showRuns ? 'rgba(167,139,250,0.12)' : 'rgba(255,255,255,0.03)', color: showRuns ? '#a78bfa' : 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer', fontWeight: showRuns ? 700 : 400 }}>
             {t('flows.runHistory')}
           </button>
+          <Link href='/dashboard/templates'
+            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(56,189,248,0.08)', color: '#38bdf8', fontSize: 13, textDecoration: 'none' }}>
+            {t('flows.templates')}
+          </Link>
           <button onClick={saveManualVersion}
             style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>
             {t('flows.saveVersion')}
