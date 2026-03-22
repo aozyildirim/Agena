@@ -19,7 +19,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isLoggedIn()) router.replace('/dashboard/tasks');
+    if (isLoggedIn()) router.replace('/dashboard');
   }, [router]);
 
   function resolveNextUrl(): string {
