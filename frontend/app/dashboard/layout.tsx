@@ -10,19 +10,23 @@ import { useLocale } from '@/lib/i18n';
 
 const NOTIF_EVENT = 'tiqr:notification';
 const LS_UNREAD_KEY = 'tiqr_notification_unread_count';
+const LS_SIDEBAR_COLLAPSED = 'tiqr_sidebar_collapsed';
 
-const NAV_KEYS = [
-  { href: '/dashboard', key: 'nav.overview', icon: '⬡' },
-  { href: '/dashboard/tasks', key: 'nav.tasks', icon: '◈' },
-  { href: '/dashboard/notifications', key: 'nav.notifications', icon: '🔔' },
-  { href: '/dashboard/sprints', key: 'nav.sprints', icon: '◎' },
-  { href: '/dashboard/team', key: 'nav.team', icon: '◉' },
+const PRIMARY_NAV_KEYS = [
+  { href: '/dashboard', key: 'nav.overview', icon: '🧭' },
+  { href: '/dashboard/tasks', key: 'nav.tasks', icon: '✅' },
+  { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂' },
+  { href: '/dashboard/team', key: 'nav.team', icon: '👥' },
   { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
-  { href: '/dashboard/flows', key: 'nav.flows', icon: '⟳' },
-  { href: '/dashboard/templates', key: 'nav.templates', icon: '◧' },
-  { href: '/dashboard/mappings', key: 'nav.mappings', icon: '⌘' },
-  { href: '/dashboard/integrations', key: 'nav.integrations', icon: '⬡' },
-  { href: '/dashboard/profile', key: 'nav.profile', icon: '◐' },
+  { href: '/dashboard/flows', key: 'nav.flows', icon: '🧠' },
+  { href: '/dashboard/templates', key: 'nav.templates', icon: '🧩' },
+  { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🔗' },
+  { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌' },
+] as const;
+
+const SECONDARY_NAV_KEYS = [
+  { href: '/dashboard/notifications', key: 'nav.notifications', icon: '🔔' },
+  { href: '/dashboard/profile', key: 'nav.profile', icon: '👤' },
 ] as const;
 
 function DashboardInner({ children }: { children: ReactNode }) {
@@ -41,8 +45,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'failed'>('all');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const shouldOpenOnboarding = searchParams.get('onboarding') === '1' || searchParams.get('welcome') === '1';
   const lastUnreadRef = useRef<number | null>(null);
+  const sidebarWidth = sidebarCollapsed ? 76 : 220;
 
   function playNotifyTone() {
     if (typeof window === 'undefined' || !webPushEnabled) return;
@@ -121,6 +127,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
         setWebPushEnabled(true);
       }
       if (typeof window !== 'undefined') {
+        setSidebarCollapsed(localStorage.getItem(LS_SIDEBAR_COLLAPSED) === '1');
         const raw = localStorage.getItem(LS_UNREAD_KEY);
         const parsed = raw ? parseInt(raw, 10) : 0;
         setUnreadCount(Number.isFinite(parsed) ? Math.max(0, parsed) : 0);
@@ -177,6 +184,15 @@ function DashboardInner({ children }: { children: ReactNode }) {
     router.push('/');
   }
 
+  function toggleSidebar() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') localStorage.setItem(LS_SIDEBAR_COLLAPSED, next ? '1' : '0');
+      if (next) setNotifOpen(false);
+      return next;
+    });
+  }
+
   async function toggleBrowserNotifications() {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     const next = !webPushEnabled;
@@ -226,62 +242,128 @@ function DashboardInner({ children }: { children: ReactNode }) {
     <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 72 }}>
       {/* Sidebar */}
       <aside style={{
-        width: 220, flexShrink: 0,
+        width: sidebarWidth, flexShrink: 0,
         borderRight: '1px solid rgba(255,255,255,0.06)',
         background: 'rgba(3,7,18,0.6)', backdropFilter: 'blur(20px)',
         position: 'fixed', top: 72, bottom: 0, left: 0,
         display: 'flex', flexDirection: 'column',
         padding: '24px 12px', zIndex: 50,
+        overflowY: 'auto', overflowX: 'hidden',
+        transition: 'width 0.2s ease',
       }}>
+        <button
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{
+            alignSelf: sidebarCollapsed ? 'center' : 'flex-end',
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(255,255,255,0.03)',
+            color: 'rgba(255,255,255,0.7)',
+            cursor: 'pointer',
+            marginBottom: 10,
+          }}
+        >
+          {sidebarCollapsed ? '→' : '←'}
+        </button>
         {/* User info */}
         {userName && (
-          <a href="/dashboard/profile" style={{ textDecoration: 'none', padding: '10px 12px', marginBottom: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', display: 'block', transition: 'border-color 0.2s' }}
+          <a href="/dashboard/profile" title={userName}
+            style={{ textDecoration: 'none', padding: sidebarCollapsed ? '8px 6px' : '10px 12px', marginBottom: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', display: 'block', transition: 'border-color 0.2s' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(139,92,246,0.3)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : 10, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
                 {userName[0]?.toUpperCase()}
               </div>
-              <div style={{ minWidth: 0 }}>
+              {!sidebarCollapsed && <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>{t('nav.profileHint')}</div>
-              </div>
+              </div>}
             </div>
           </a>
         )}
 
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', padding: '0 12px', marginBottom: 8 }}>
+        {!sidebarCollapsed && <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', padding: '0 12px', marginBottom: 8 }}>
           {t('nav.workspace')}
-        </div>
+        </div>}
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {NAV_KEYS.map((item) => {
+          {PRIMARY_NAV_KEYS.map((item) => {
             const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (
-              <Link key={item.href} href={item.href} style={{
+              <Link key={item.href} href={item.href} title={t(item.key)} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 12px', borderRadius: 10, fontSize: 14,
+                padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
                 fontWeight: active ? 600 : 400,
                 color: active ? '#5eead4' : 'rgba(255,255,255,0.45)',
                 background: active ? 'rgba(13,148,136,0.12)' : 'transparent',
                 border: active ? '1px solid rgba(13,148,136,0.2)' : '1px solid transparent',
-                transition: 'all 0.2s', textDecoration: 'none',
+                transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
               }}>
                 <span style={{ fontSize: 16, opacity: active ? 1 : 0.5 }}>{item.icon}</span>
-                {t(item.key)}
-                {active && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#5eead4' }} />}
+                {!sidebarCollapsed && t(item.key)}
+                {active && !sidebarCollapsed && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#5eead4' }} />}
               </Link>
             );
           })}
         </nav>
 
+        <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {SECONDARY_NAV_KEYS.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(item.href);
+            const isNotificationItem = item.href === '/dashboard/notifications';
+            const hasUnread = isNotificationItem && unreadCount > 0;
+            const itemColor = hasUnread ? '#ef4444' : (active ? '#5eead4' : 'rgba(255,255,255,0.45)');
+            return (
+              <Link key={item.href} href={item.href} title={t(item.key)} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
+                fontWeight: active ? 600 : 400,
+                color: itemColor,
+                background: hasUnread ? 'rgba(239,68,68,0.12)' : (active ? 'rgba(13,148,136,0.12)' : 'transparent'),
+                border: hasUnread ? '1px solid rgba(239,68,68,0.28)' : (active ? '1px solid rgba(13,148,136,0.2)' : '1px solid transparent'),
+                transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              }}>
+                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18 }}>
+                  <span style={{ fontSize: 16, opacity: active || hasUnread ? 1 : 0.5 }}>{item.icon}</span>
+                  {hasUnread && (
+                    <span style={{
+                      position: 'absolute',
+                      right: -8,
+                      top: -8,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 999,
+                      background: '#ef4444',
+                      color: '#fff',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      lineHeight: '16px',
+                      textAlign: 'center',
+                      padding: '0 4px',
+                    }}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+                {!sidebarCollapsed && t(item.key)}
+              </Link>
+            );
+          })}
+        </div>
+
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             onClick={openNotifications}
+            title='Notifications'
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', borderRadius: 10, fontSize: 13,
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              padding: sidebarCollapsed ? '8px 8px' : '8px 12px', borderRadius: 10, fontSize: 13,
               background: notifPermission === 'granted' ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.03)',
               border: notifPermission === 'granted' ? '1px solid rgba(34,197,94,0.28)' : '1px solid rgba(255,255,255,0.06)',
               color: notifPermission === 'granted' ? '#22c55e' : 'rgba(255,255,255,0.65)',
@@ -310,9 +392,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 </span>
               )}
             </span>
-            Notifications
+            {!sidebarCollapsed && 'Notifications'}
           </button>
-          {notifOpen && (
+          {notifOpen && !sidebarCollapsed && (
             <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(2,6,23,0.92)', borderRadius: 12, padding: 10, display: 'grid', gap: 8, maxHeight: 250, overflow: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>Recent</span>
@@ -383,30 +465,33 @@ function DashboardInner({ children }: { children: ReactNode }) {
           )}
           <button
             onClick={() => void toggleBrowserNotifications()}
+            title='Browser notifications'
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', borderRadius: 10, fontSize: 13,
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              padding: sidebarCollapsed ? '8px 8px' : '8px 12px', borderRadius: 10, fontSize: 13,
               background: webPushEnabled ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.03)',
               border: webPushEnabled ? '1px solid rgba(34,197,94,0.28)' : '1px solid rgba(255,255,255,0.06)',
               color: webPushEnabled ? '#22c55e' : 'rgba(255,255,255,0.65)',
               cursor: 'pointer', width: '100%',
             }}
           >
-            {webPushEnabled ? 'Browser Notifications: On' : 'Browser Notifications: Off'}
+            {sidebarCollapsed ? '🔔' : (webPushEnabled ? 'Browser Notifications: On' : 'Browser Notifications: Off')}
           </button>
-          <button onClick={logout} style={{
+          <button onClick={logout} title={t('nav.logout')} style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 12px', borderRadius: 10, fontSize: 13,
+            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+            padding: sidebarCollapsed ? '8px 8px' : '8px 12px', borderRadius: 10, fontSize: 13,
             background: 'transparent', border: '1px solid rgba(255,255,255,0.06)',
             color: 'rgba(255,255,255,0.3)', cursor: 'pointer', width: '100%',
           }}>
-            {t('nav.logout')}
+            {sidebarCollapsed ? '↩' : t('nav.logout')}
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, marginLeft: 220, padding: '32px 40px', minWidth: 0 }}>
+      <main style={{ flex: 1, marginLeft: sidebarWidth, padding: '32px 40px', minWidth: 0, transition: 'margin-left 0.2s ease' }}>
         {children}
       </main>
 

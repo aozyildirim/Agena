@@ -267,39 +267,39 @@ export default function AgentsPage() {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 28, maxWidth: 900 }}>
+    <div style={{ display: 'grid', gap: 14, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
         <div className="section-label">{t('agents.section')}</div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 8, marginBottom: 4 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'rgba(255,255,255,0.95)', marginTop: 6, marginBottom: 2, lineHeight: 1.15 }}>
           {t('agents.title')}
         </h1>
-        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
           {t('agents.subtitle')}
         </p>
         </div>
-        <button onClick={openNewAgentPopup} className='button button-outline' style={{ whiteSpace: 'nowrap' }}>
+        <button onClick={openNewAgentPopup} className='button button-outline' style={{ whiteSpace: 'nowrap', height: 36, padding: '0 14px' }}>
           + New Agent
         </button>
       </div>
 
       {/* Agent Cards */}
-      <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', padding: 16 }}>
+      <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.07)', background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))', padding: 10 }}>
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
           {t('agents.analyticsTitle')}
         </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
           {t('agents.analyticsDesc')}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))', gap: 8 }}>
           {agents.map((a) => {
             const m = analytics[a.role] ?? { coveragePct: 0, activityPct: 0, latencySec: 0, successPct: 0 };
             return (
-              <div key={a.role} style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div key={a.role} style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                   <span>{a.icon}</span>
-                  <span style={{ fontWeight: 700, color: 'rgba(255,255,255,0.88)', fontSize: 13 }}>{a.label}</span>
+                  <span style={{ fontWeight: 700, color: 'rgba(255,255,255,0.88)', fontSize: 12 }}>{a.label}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 11 }}>
                   <MetricChip label={t('agents.analyticsCoverage')} value={`${m.coveragePct}%`} />
@@ -313,33 +313,37 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 12 }}>
-        {agents.map((agent) => (
-          <AgentCard
-            key={agent.role}
-            agent={agent}
-            isEditing={editing === agent.role}
-            onEdit={() => setEditing(editing === agent.role ? null : agent.role)}
-            onUpdate={(patch) => updateAgent(agent.role, patch)}
-          />
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8 }}>
+        {agents.map((agent) => {
+          const isEditing = editing === agent.role;
+          return (
+            <div key={agent.role} style={{ gridColumn: isEditing ? '1 / -1' : 'auto' }}>
+              <AgentCard
+                agent={agent}
+                isEditing={isEditing}
+                onEdit={() => setEditing(isEditing ? null : agent.role)}
+                onUpdate={(patch) => updateAgent(agent.role, patch)}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Save button */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={() => void handleSave()} disabled={saving}
-          style={{ padding: '12px 28px', borderRadius: 12, border: 'none', background: saved ? 'rgba(34,197,94,0.3)' : saving ? 'rgba(13,148,136,0.4)' : 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.3s' }}>
+          style={{ height: 38, padding: '0 18px', borderRadius: 10, border: 'none', background: saved ? 'rgba(34,197,94,0.3)' : saving ? 'rgba(13,148,136,0.4)' : 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.3s' }}>
           {saved ? t('agents.saved') : saving ? t('agents.saving') : t('agents.save')}
         </button>
       </div>
 
       {/* CLI hint */}
-      <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '16px 20px' }}>
+      <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>{t('agents.cliUsage')}</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
           {t('agents.cliDesc')}
         </div>
-        <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'monospace', fontSize: 12, color: '#5eead4' }}>
+        <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'monospace', fontSize: 11, color: '#5eead4', overflowX: 'auto' }}>
           tiqr agent run --role lead_developer --task &lt;task-id&gt; --model {agents.find(a => a.role === 'lead_developer')?.model || 'gpt-4o'}
         </div>
       </div>
@@ -390,45 +394,45 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
   const models = agent.provider === 'openai' ? OPENAI_MODELS : agent.provider === 'gemini' ? GEMINI_MODELS : [];
 
   return (
-    <div style={{ borderRadius: 18, border: '1px solid ' + (isEditing ? agent.color + '40' : 'rgba(255,255,255,0.07)'), background: isEditing ? agent.color + '06' : 'rgba(255,255,255,0.02)', overflow: 'hidden', transition: 'all 0.2s' }}>
+    <div style={{ width: '100%', minWidth: 0, borderRadius: 14, border: '1px solid ' + (isEditing ? agent.color + '40' : 'rgba(255,255,255,0.07)'), background: isEditing ? agent.color + '08' : 'rgba(255,255,255,0.02)', overflow: 'hidden', transition: 'all 0.2s' }}>
       {/* Card header */}
-      <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }} onClick={onEdit}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: agent.color + '18', border: '1px solid ' + agent.color + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+      <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: agent.color + '18', border: '1px solid ' + agent.color + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
           {agent.icon}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
-            <span style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.9)' }}>{agent.label}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, minWidth: 0, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.9)' }}>{agent.label}</span>
             {agent.provider && agent.model ? (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: agent.color + '18', border: '1px solid ' + agent.color + '35', color: agent.color }}>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: agent.color + '18', border: '1px solid ' + agent.color + '35', color: agent.color, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {agent.provider === 'openai' ? '⚡' : agent.provider === 'gemini' ? '✦' : agent.provider === 'codex_cli' ? '⌘' : '✎'} {agent.model || agent.custom_model}
               </span>
             ) : (
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.3)' }}>
+              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.3)' }}>
                 {t('agents.noModel')}
               </span>
             )}
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(255,255,255,0.2)', transform: isEditing ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>⌄</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(255,255,255,0.2)', transform: isEditing ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block', flexShrink: 0 }}>⌄</span>
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{agent.description}</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.35 }}>{agent.description}</div>
         </div>
         {/* Toggle */}
         <div onClick={(e) => { e.stopPropagation(); onUpdate({ enabled: !agent.enabled }); }}
-          style={{ width: 36, height: 20, borderRadius: 999, background: agent.enabled ? agent.color : 'rgba(255,255,255,0.1)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-          <div style={{ position: 'absolute', top: 2, left: agent.enabled ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+          style={{ width: 34, height: 18, borderRadius: 999, background: agent.enabled ? agent.color : 'rgba(255,255,255,0.1)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+          <div style={{ position: 'absolute', top: 2, left: agent.enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
         </div>
       </div>
 
       {/* Expanded editor */}
       {isEditing && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '20px 20px 24px', display: 'grid', gap: 16 }}>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px 12px', display: 'grid', gap: 10 }}>
           {/* Provider seçimi */}
           <div>
             <label style={labelStyle}>{t('agents.provider')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
               {(['openai', 'gemini', 'custom', 'codex_cli'] as const).map((p) => (
                 <button key={p} onClick={() => onUpdate({ provider: p, model: '', custom_model: '' })}
-                  style={{ padding: '10px', borderRadius: 10, border: '1px solid ' + (agent.provider === p ? agent.color + '60' : 'rgba(255,255,255,0.08)'), background: agent.provider === p ? agent.color + '12' : 'rgba(255,255,255,0.02)', color: agent.provider === p ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', fontWeight: agent.provider === p ? 700 : 400, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
+                  style={{ padding: '8px 9px', borderRadius: 10, border: '1px solid ' + (agent.provider === p ? agent.color + '60' : 'rgba(255,255,255,0.08)'), background: agent.provider === p ? agent.color + '12' : 'rgba(255,255,255,0.02)', color: agent.provider === p ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', fontWeight: agent.provider === p ? 700 : 500, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }}>
                   {p === 'openai' ? '⚡ OpenAI' : p === 'gemini' ? '✦ Gemini' : p === 'codex_cli' ? '⌘ Codex CLI' : '✎ Custom'}
                 </button>
               ))}
@@ -439,10 +443,10 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
           {(agent.provider === 'openai' || agent.provider === 'gemini') && (
             <div>
               <label style={labelStyle}>{t('agents.model')}</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
                 {models.map((m) => (
                   <button key={m.id} onClick={() => onUpdate({ model: m.id })}
-                    style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid ' + (agent.model === m.id ? agent.color + '60' : 'rgba(255,255,255,0.08)'), background: agent.model === m.id ? agent.color + '12' : 'rgba(255,255,255,0.02)', color: agent.model === m.id ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', fontWeight: agent.model === m.id ? 700 : 400, fontSize: 12, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                    style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid ' + (agent.model === m.id ? agent.color + '60' : 'rgba(255,255,255,0.08)'), background: agent.model === m.id ? agent.color + '12' : 'rgba(255,255,255,0.02)', color: agent.model === m.id ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', fontWeight: agent.model === m.id ? 700 : 500, fontSize: 12, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                     {agent.model === m.id && <span style={{ color: agent.color, marginRight: 6 }}>✓</span>}
                     {m.name}
                   </button>
@@ -482,21 +486,21 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase',
-  color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: 8,
+  color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: 6,
 };
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 14px', borderRadius: 10,
+  width: '100%', padding: '9px 11px', borderRadius: 10,
   border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
-  color: 'rgba(255,255,255,0.9)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  color: 'rgba(255,255,255,0.9)', fontSize: 12, outline: 'none', boxSizing: 'border-box',
   fontFamily: 'inherit',
 };
 
 function MetricChip({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)', padding: '6px 8px' }}>
-      <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>{label}</div>
-      <div style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>{value}</div>
+    <div style={{ borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)', padding: '5px 7px' }}>
+      <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontSize: 10 }}>{label}</div>
+      <div style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 700, fontSize: 11 }}>{value}</div>
     </div>
   );
 }
