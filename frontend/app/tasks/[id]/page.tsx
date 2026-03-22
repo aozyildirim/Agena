@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
+import { useLocale } from '@/lib/i18n';
 
 type TaskDetail = {
   id: number;
@@ -125,14 +126,14 @@ function parseCodePreview(logs: TaskLog[]): CodeFile[] {
   return files;
 }
 
-function classifyFailure(text: string): { label: string; detail: string } {
+function classifyFailure(text: string): { labelKey: string; detailKey: string } {
   const t = text.toLowerCase();
-  if (!t) return { label: 'No failure', detail: 'Task has no failure message.' };
-  if (t.includes('timeout')) return { label: 'Timeout', detail: 'Execution timed out before completion.' };
-  if (t.includes('insufficient permissions') || t.includes('missing scopes')) return { label: 'Permissions', detail: 'Provider key/account lacks required scopes or roles.' };
-  if (t.includes('git checkout') || t.includes('worktree') || t.includes('local changes')) return { label: 'Git workspace', detail: 'Local repository state blocked branch/file operations.' };
-  if (t.includes('401') || t.includes('unauthorized')) return { label: 'Auth', detail: 'Authentication failed for provider or API endpoint.' };
-  return { label: 'Execution error', detail: 'Unhandled runtime error in agent execution pipeline.' };
+  if (!t) return { labelKey: 'taskDetail.failure.noneLabel', detailKey: 'taskDetail.failure.noneDetail' };
+  if (t.includes('timeout')) return { labelKey: 'taskDetail.failure.timeoutLabel', detailKey: 'taskDetail.failure.timeoutDetail' };
+  if (t.includes('insufficient permissions') || t.includes('missing scopes')) return { labelKey: 'taskDetail.failure.permissionsLabel', detailKey: 'taskDetail.failure.permissionsDetail' };
+  if (t.includes('git checkout') || t.includes('worktree') || t.includes('local changes')) return { labelKey: 'taskDetail.failure.gitLabel', detailKey: 'taskDetail.failure.gitDetail' };
+  if (t.includes('401') || t.includes('unauthorized')) return { labelKey: 'taskDetail.failure.authLabel', detailKey: 'taskDetail.failure.authDetail' };
+  return { labelKey: 'taskDetail.failure.execLabel', detailKey: 'taskDetail.failure.execDetail' };
 }
 
 function fmtEta(sec?: number | null): string {
@@ -152,6 +153,7 @@ function fmtAgo(iso: string | null, nowMs: number): string {
 }
 
 export default function TaskDetailPage() {
+  const { t } = useLocale();
   const params = useParams<{ id: string }>();
   const taskId = params.id;
   const liveStripRef = useRef<HTMLDivElement | null>(null);
@@ -189,7 +191,7 @@ export default function TaskDetailPage() {
       setSelectedDependencyIds(d.depends_on_task_ids || []);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load task');
+      setError(err instanceof Error ? err.message : t('taskDetail.errorLoad'));
     }
   }
 
@@ -353,49 +355,49 @@ export default function TaskDetailPage() {
 
   const currentActivity = useMemo(() => {
     const fallback = {
-      title: 'Waiting for logs',
-      detail: 'Task has no live stage signal yet.',
+      title: t('taskDetail.waitingLogsTitle'),
+      detail: t('taskDetail.waitingLogsDesc'),
       color: 'rgba(255,255,255,0.65)',
       pulse: false,
     };
     if (!task) return fallback;
     if (task.status === 'queued') {
       return {
-        title: 'Queued',
-        detail: `Queue position ${task.queue_position ? `#${task.queue_position}` : 'unknown'} • ETA ${fmtEta(task.estimated_start_sec)}`,
+        title: t('taskDetail.queued'),
+        detail: `${t('taskDetail.queuePosition')} ${task.queue_position ? `#${task.queue_position}` : t('taskDetail.unknown')} • ETA ${fmtEta(task.estimated_start_sec)}`,
         color: '#f59e0b',
         pulse: false,
       };
     }
     if (task.status === 'running') {
-      const stage = latestLog?.stage || 'running';
+      const stage = latestLog?.stage || t('taskDetail.running');
       return {
-        title: `Running: ${stage}`,
-        detail: latestLog?.message || 'Agent is processing current stage.',
+        title: `${t('taskDetail.running')}: ${stage}`,
+        detail: latestLog?.message || t('taskDetail.agentProcessing'),
         color: stageColor(stage),
         pulse: true,
       };
     }
     if (task.status === 'completed') {
       return {
-        title: 'Completed',
-        detail: 'Execution finished successfully.',
+        title: t('taskDetail.completed'),
+        detail: t('taskDetail.executionDone'),
         color: '#22c55e',
         pulse: false,
       };
     }
     if (task.status === 'failed') {
       return {
-        title: 'Failed',
-        detail: latestFailure || 'Execution failed with no detail.',
+        title: t('taskDetail.failed'),
+        detail: latestFailure || t('taskDetail.executionFailedNoDetail'),
         color: '#f87171',
         pulse: false,
       };
     }
     if (task.status === 'cancelled') {
       return {
-        title: 'Cancelled',
-        detail: 'Execution was stopped before completion.',
+        title: t('taskDetail.cancelled'),
+        detail: t('taskDetail.executionStopped'),
         color: '#f87171',
         pulse: false,
       };
@@ -410,7 +412,7 @@ export default function TaskDetailPage() {
       await apiFetch('/tasks/' + taskId + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr }) });
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to re-run task');
+      setError(err instanceof Error ? err.message : t('taskDetail.errorRerun'));
     } finally {
       setIsRerunBusy(false);
     }
@@ -423,7 +425,7 @@ export default function TaskDetailPage() {
       await apiFetch('/tasks/' + taskId + '/cancel', { method: 'POST' });
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel task');
+      setError(err instanceof Error ? err.message : t('taskDetail.errorCancel'));
     } finally {
       setIsCancelBusy(false);
     }
@@ -442,7 +444,7 @@ export default function TaskDetailPage() {
       setSelectedDependencyIds(updated.depends_on_task_ids || []);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update dependencies');
+      setError(err instanceof Error ? err.message : t('taskDetail.errorDeps'));
     } finally {
       setIsDepsBusy(false);
     }
@@ -456,7 +458,7 @@ export default function TaskDetailPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `task-${taskId}-logs.txt`;
+    a.download = `${t('taskDetail.task').toLowerCase()}-${taskId}-logs.txt`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -502,21 +504,21 @@ export default function TaskDetailPage() {
         }}
       >
         {[
-          ['Status', task?.status ?? '—'],
-          ['Source', task?.source ?? '—'],
-          ['Duration', fmtEta(task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null))],
-          ['Queue Wait', fmtEta(task?.queue_wait_sec ?? queueWaitSec)],
-          ['Retries', String(task?.retry_count ?? 0)],
-          ['Queue Pos', task?.queue_position !== null && task?.queue_position !== undefined ? `#${task.queue_position}` : '—'],
-          ['ETA', fmtEta(task?.estimated_start_sec)],
-          ['Tokens', task?.total_tokens !== null && task?.total_tokens !== undefined ? String(task.total_tokens) : metrics?.totalTokens || '—'],
-          ['Last Stage', latestLog?.stage ?? '—'],
-          ['Last Update', latestLog ? new Date(latestLog.created_at).toLocaleTimeString() : '—'],
-          ['Logs', String(logs.length)],
+          [t('taskDetail.status'), task?.status ?? '—'],
+          [t('taskDetail.source'), task?.source ?? '—'],
+          [t('taskDetail.duration'), fmtEta(task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null))],
+          [t('taskDetail.queueWait'), fmtEta(task?.queue_wait_sec ?? queueWaitSec)],
+          [t('taskDetail.retries'), String(task?.retry_count ?? 0)],
+          [t('taskDetail.queuePos'), task?.queue_position !== null && task?.queue_position !== undefined ? `#${task.queue_position}` : '—'],
+          [t('taskDetail.eta'), fmtEta(task?.estimated_start_sec)],
+          [t('taskDetail.tokens'), task?.total_tokens !== null && task?.total_tokens !== undefined ? String(task.total_tokens) : metrics?.totalTokens || '—'],
+          [t('taskDetail.lastStage'), latestLog?.stage ?? '—'],
+          [t('taskDetail.lastUpdate'), latestLog ? new Date(latestLog.created_at).toLocaleTimeString() : '—'],
+          [t('taskDetail.logs'), String(logs.length)],
         ].map(([k, v]) => (
           <div key={k} style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 10px' }}>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>{k}</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 700, textTransform: k === 'Source' ? 'capitalize' : 'none' }}>{v}</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 700, textTransform: k === t('taskDetail.source') ? 'capitalize' : 'none' }}>{v}</div>
           </div>
         ))}
       </section>
@@ -526,7 +528,7 @@ export default function TaskDetailPage() {
           className='card'
           style={{ position: isMobile ? 'static' : 'sticky', top: 92, maxHeight: isMobile ? 'none' : 'calc(100vh - 120px)', overflowY: 'auto', borderRadius: 16 }}
         >
-          <h1 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, lineHeight: 1.35 }}>{task?.title ?? 'Task'}</h1>
+          <h1 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, lineHeight: 1.35 }}>{task?.title ?? t('taskDetail.task')}</h1>
           {task ? (
             <>
               <p style={{ marginTop: 0, color: 'rgba(255,255,255,0.78)', fontSize: 13, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -534,50 +536,50 @@ export default function TaskDetailPage() {
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 <StatusBadge status={task.status} />
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textTransform: 'capitalize' }}>Source: {task.source}</span>
+                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textTransform: 'capitalize' }}>{t('taskDetail.source')}: {task.source}</span>
               </div>
               <div style={{ display: 'grid', gap: 7, marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Created: {new Date(task.created_at).toLocaleString()}</div>
-                {metrics?.startedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Run Start: {new Date(metrics.startedAt).toLocaleString()}</div> : null}
-                {metrics?.finishedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Run End: {new Date(metrics.finishedAt).toLocaleString()}</div> : null}
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('taskDetail.created')}: {new Date(task.created_at).toLocaleString()}</div>
+                {metrics?.startedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('taskDetail.runStart')}: {new Date(metrics.startedAt).toLocaleString()}</div> : null}
+                {metrics?.finishedAt ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('taskDetail.runEnd')}: {new Date(metrics.finishedAt).toLocaleString()}</div> : null}
               </div>
               {(task.story_context || task.acceptance_criteria || task.edge_cases || task.max_tokens || task.max_cost_usd) ? (
                 <div style={{ border: '1px solid rgba(56,189,248,0.25)', borderRadius: 10, background: 'rgba(56,189,248,0.06)', padding: '9px 10px', marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 5 }}>Story + Guardrails</div>
-                  {task.story_context ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', marginBottom: 4 }}><b>Context:</b> {task.story_context}</div> : null}
-                  {task.acceptance_criteria ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 4 }}><b>Acceptance:</b> {task.acceptance_criteria}</div> : null}
-                  {task.edge_cases ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 4 }}><b>Edge Cases:</b> {task.edge_cases}</div> : null}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7dd3fc', textTransform: 'uppercase', marginBottom: 5 }}>{t('taskDetail.storyGuardrails')}</div>
+                  {task.story_context ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', marginBottom: 4 }}><b>{t('taskDetail.context')}:</b> {task.story_context}</div> : null}
+                  {task.acceptance_criteria ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 4 }}><b>{t('taskDetail.acceptance')}:</b> {task.acceptance_criteria}</div> : null}
+                  {task.edge_cases ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 4 }}><b>{t('taskDetail.edgeCases')}:</b> {task.edge_cases}</div> : null}
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
-                    Guardrails: max_tokens={task.max_tokens ?? '—'} | max_cost_usd={task.max_cost_usd ?? '—'}
+                    {t('taskDetail.guardrails')}: max_tokens={task.max_tokens ?? '—'} | max_cost_usd={task.max_cost_usd ?? '—'}
                   </div>
                 </div>
               ) : null}
               {(task.lock_scope || task.blocked_by_task_id || (task.queue_position !== null && task.queue_position !== undefined)) ? (
                 <div style={{ border: '1px solid rgba(94,234,212,0.25)', borderRadius: 10, background: 'rgba(94,234,212,0.06)', padding: '9px 10px', marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', marginBottom: 5 }}>Queue Insight</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', marginBottom: 5 }}>{t('taskDetail.queueInsight')}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>
-                    {task.queue_position !== null && task.queue_position !== undefined ? `Position: #${task.queue_position} | ` : ''}
+                    {task.queue_position !== null && task.queue_position !== undefined ? `${t('taskDetail.position')}: #${task.queue_position} | ` : ''}
                     ETA: {fmtEta(task.estimated_start_sec)}
                   </div>
                   {task.blocked_by_task_id ? (
                     <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-                      Blocked by task #{task.blocked_by_task_id}{task.blocked_by_task_title ? ` — ${task.blocked_by_task_title}` : ''}
+                      {t('taskDetail.blockedBy')} #{task.blocked_by_task_id}{task.blocked_by_task_title ? ` — ${task.blocked_by_task_title}` : ''}
                     </div>
                   ) : null}
                   {task.lock_scope ? (
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4, wordBreak: 'break-all' }}>
-                      Lock scope: {task.lock_scope}
+                      {t('taskDetail.lockScope')}: {task.lock_scope}
                     </div>
                   ) : null}
                 </div>
               ) : null}
               <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '9px 10px', marginBottom: 12, background: 'rgba(255,255,255,0.015)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.72)', textTransform: 'uppercase', marginBottom: 6 }}>Dependencies</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.72)', textTransform: 'uppercase', marginBottom: 6 }}>{t('taskDetail.dependencies')}</div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', marginBottom: 8 }}>
-                  Blockers: {(depsData?.blocker_task_ids || []).length > 0 ? depsData?.blocker_task_ids?.join(', ') : 'none'}
+                  {t('taskDetail.blockers')}: {(depsData?.blocker_task_ids || []).length > 0 ? depsData?.blocker_task_ids?.join(', ') : t('taskDetail.none')}
                 </div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', marginBottom: 6 }}>
-                  Selected dependencies: {selectedDependencyIds.length}
+                  {t('taskDetail.selectedDependencies')}: {selectedDependencyIds.length}
                 </div>
                 <div
                   style={{
@@ -592,7 +594,7 @@ export default function TaskDetailPage() {
                   }}
                 >
                   {dependencyCandidates.length === 0 ? (
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', padding: '4px 2px' }}>No other tasks found.</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', padding: '4px 2px' }}>{t('taskDetail.noOtherTasks')}</div>
                   ) : (
                     dependencyCandidates.map((candidate) => {
                       const checked = selectedDependencyIds.includes(candidate.id);
@@ -623,17 +625,17 @@ export default function TaskDetailPage() {
                   type='button'
                   style={{ marginTop: 8 }}
                 >
-                  Clear Selection
+                  {t('taskDetail.clearSelection')}
                 </button>
                 <button className='button button-outline' onClick={() => void saveDependencies()} disabled={isDepsBusy} style={{ marginTop: 8 }}>
-                  {isDepsBusy ? 'Saving...' : 'Save Dependencies'}
+                  {isDepsBusy ? t('taskDetail.saving') : t('taskDetail.saveDependencies')}
                 </button>
               </div>
               {(task.pr_risk_score !== null && task.pr_risk_score !== undefined) ? (
                 <div style={{ border: '1px solid rgba(245,158,11,0.28)', borderRadius: 10, padding: '9px 10px', marginBottom: 12, background: 'rgba(245,158,11,0.08)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 4 }}>PR Risk</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 4 }}>{t('taskDetail.prRisk')}</div>
                   <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)' }}>
-                    Score: <b>{task.pr_risk_score}</b> / 100 ({task.pr_risk_level || 'unknown'})
+                    {t('taskDetail.score')}: <b>{task.pr_risk_score}</b> / 100 ({task.pr_risk_level || t('taskDetail.unknown')})
                   </div>
                   {task.pr_risk_reason ? <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.68)', marginTop: 3 }}>{task.pr_risk_reason}</div> : null}
                 </div>
@@ -641,20 +643,20 @@ export default function TaskDetailPage() {
 
               <div style={{ display: 'grid', gap: 8 }}>
                 <button className='button button-primary' onClick={() => void rerunTask()} disabled={isRerunBusy}>
-                  {isRerunBusy ? 'Re-running...' : 'Re-run Task'}
+                  {isRerunBusy ? t('taskDetail.rerunning') : t('taskDetail.rerunTask')}
                 </button>
                 <button
                   className='button button-outline'
                   onClick={() => void cancelTask()}
                   disabled={isCancelBusy || !(task.status === 'queued' || task.status === 'running')}
                 >
-                  {isCancelBusy ? 'Stopping...' : 'Stop Task'}
+                  {isCancelBusy ? t('taskDetail.stopping') : t('taskDetail.stopTask')}
                 </button>
-                <button className='button button-outline' onClick={downloadLogs}>Download Logs</button>
-                {task.pr_url ? <a href={task.pr_url} target='_blank' rel='noreferrer' className='button button-outline'>Open Pull Request</a> : null}
+                <button className='button button-outline' onClick={downloadLogs}>{t('taskDetail.downloadLogs')}</button>
+                {task.pr_url ? <a href={task.pr_url} target='_blank' rel='noreferrer' className='button button-outline'>{t('taskDetail.openPullRequest')}</a> : null}
                 {task.branch_name ? (
                   <button className='button button-outline' onClick={() => navigator.clipboard.writeText(task.branch_name || '')}>
-                    Copy Branch Name
+                    {t('taskDetail.copyBranch')}
                   </button>
                 ) : null}
               </div>
@@ -665,7 +667,7 @@ export default function TaskDetailPage() {
 
         <section style={{ display: 'grid', gap: 12 }}>
           <section style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 10, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>Execution Steps</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 10, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>{t('taskDetail.executionSteps')}</h3>
             <div style={{ border: `1px solid ${currentActivity.color}66`, background: `${currentActivity.color}18`, borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -683,7 +685,7 @@ export default function TaskDetailPage() {
                   </span>
                 </div>
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.42)' }}>
-                  {latestLog ? `Updated ${fmtAgo(latestLog.created_at, clockMs)}` : 'Auto refresh 5s'}
+                  {latestLog ? `${t('taskDetail.updated')} ${fmtAgo(latestLog.created_at, clockMs)}` : t('taskDetail.autoRefresh')}
                 </span>
               </div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45, marginBottom: 6, whiteSpace: 'pre-wrap' }}>
@@ -700,7 +702,7 @@ export default function TaskDetailPage() {
                 />
               </div>
               <div style={{ marginTop: 5, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
-                Progress: {executionProgress.doneCount}/{executionProgress.total} steps ({executionProgress.percent}%)
+                {t('taskDetail.progress')}: {executionProgress.doneCount}/{executionProgress.total} {t('taskDetail.steps')} ({executionProgress.percent}%)
               </div>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
@@ -711,14 +713,14 @@ export default function TaskDetailPage() {
                 return (
                   <div key={step} style={{ display: 'grid', gridTemplateColumns: '110px 1fr auto', gap: 10, alignItems: 'center', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '8px 10px' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color }}>{step}</span>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item?.message || 'pending'}</span>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item?.message || t('taskDetail.pending')}</span>
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.42)' }}>{item ? new Date(item.created_at).toLocaleTimeString() : '—'}</span>
                   </div>
                 );
               })}
               {stepMap.failed ? (
                 <div style={{ border: '1px solid rgba(248,113,113,0.5)', borderRadius: 10, padding: '8px 10px', background: 'rgba(248,113,113,0.08)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', marginBottom: 4 }}>failed</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', textTransform: 'uppercase', marginBottom: 4 }}>{t('taskDetail.failed')}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)', whiteSpace: 'pre-wrap' }}>{stepMap.failed.message}</div>
                 </div>
               ) : null}
@@ -726,9 +728,9 @@ export default function TaskDetailPage() {
           </section>
 
           <section style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 10, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>Code Diff Preview</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 10, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>{t('taskDetail.codeDiffPreview')}</h3>
             {codeFiles.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>No generated code yet.</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('taskDetail.noGeneratedCode')}</div>
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
@@ -765,17 +767,17 @@ export default function TaskDetailPage() {
           <section style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', overflow: 'hidden', minHeight: 380, display: 'grid', gridTemplateRows: 'auto 1fr' }}>
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px 8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <h3 style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>Live Logs</h3>
+                <h3 style={{ margin: 0, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>{t('taskDetail.liveLogs')}</h3>
                 <span style={{ fontSize: 12, color: streamState === 'live' ? '#22c55e' : streamState === 'reconnecting' ? '#f59e0b' : 'rgba(255,255,255,0.35)' }}>
-                  {streamState === 'live' ? 'Live stream on' : streamState === 'reconnecting' ? 'Reconnecting…' : 'Offline'}
+                  {streamState === 'live' ? t('taskDetail.liveOn') : streamState === 'reconnecting' ? t('taskDetail.reconnecting') : t('taskDetail.offline')}
                   {latestLog ? ` • ${latestLog.stage} • ${new Date(latestLog.created_at).toLocaleTimeString()}` : ''}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                 {[
-                  { key: 'all', label: 'All' },
-                  { key: 'errors', label: 'Errors' },
-                  { key: 'code', label: 'Code Preview' },
+                  { key: 'all', label: t('taskDetail.filterAll') },
+                  { key: 'errors', label: t('taskDetail.filterErrors') },
+                  { key: 'code', label: t('taskDetail.filterCode') },
                 ].map((f) => (
                   <button
                     key={f.key}
@@ -797,7 +799,7 @@ export default function TaskDetailPage() {
               </div>
               <div ref={liveStripRef} style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'thin' }}>
                 {liveLogs.length === 0 ? (
-                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>No live logs yet.</div>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>{t('taskDetail.noLiveLogs')}</div>
                 ) : (
                   liveLogs.map((log, idx) => {
                     const color = stageColor(log.stage);
@@ -815,11 +817,11 @@ export default function TaskDetailPage() {
 
             <div style={{ overflowY: 'auto', padding: 10 }}>
               <div style={{ border: `1px solid ${latestFailure ? 'rgba(248,113,113,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 10, padding: '8px 10px', marginBottom: 10, background: latestFailure ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.015)' }}>
-                <div style={{ fontSize: 11, color: latestFailure ? '#f87171' : 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase' }}>Failure Analysis: {failure.label}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{failure.detail}</div>
+                <div style={{ fontSize: 11, color: latestFailure ? '#f87171' : 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase' }}>{t('taskDetail.failureAnalysis')}: {t(failure.labelKey as never)}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{t(failure.detailKey as never)}</div>
               </div>
               {logHistory.length === 0 ? (
-                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, margin: 0 }}>No logs yet.</p>
+                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, margin: 0 }}>{t('taskDetail.noLogs')}</p>
               ) : (
                 <div style={{ display: 'grid', gap: 8 }}>
                   {logHistory.map((log, idx) => {

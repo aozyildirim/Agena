@@ -170,7 +170,16 @@ async def run_flow_endpoint(
         organization_id=tenant.organization_id,
         db=db,
     )
-    return _run_out(flow_run)
+    # Reload with eager-loaded steps to avoid async lazy-load during response serialization.
+    run_result = await db.execute(
+        select(FlowRun)
+        .where(FlowRun.id == flow_run.id, FlowRun.user_id == tenant.user_id)
+        .options(selectinload(FlowRun.steps))
+    )
+    run_row = run_result.scalar_one_or_none()
+    if not run_row:
+        raise HTTPException(status_code=404, detail='Run bulunamadı')
+    return _run_out(run_row)
 
 
 @router.get('/runs', response_model=list[RunOut])

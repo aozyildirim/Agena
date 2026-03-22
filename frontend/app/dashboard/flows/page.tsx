@@ -148,6 +148,7 @@ export default function FlowsPage() {
   const [dryRunSummary, setDryRunSummary] = useState('');
   const [gateApprovals, setGateApprovals] = useState<Record<string, boolean>>({});
   const [runningDryRun, setRunningDryRun] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState<Flow | null>(null);
 
   useEffect(() => {
     const local = loadFlows();
@@ -232,6 +233,16 @@ export default function FlowsPage() {
       return copy;
     });
     setActiveFlow(next[0]?.id ?? '');
+  }
+
+  function requestDeleteFlow(flow: Flow) {
+    setDeleteCandidate(flow);
+  }
+
+  function confirmDeleteFlow() {
+    if (!deleteCandidate) return;
+    deleteFlow(deleteCandidate.id);
+    setDeleteCandidate(null);
   }
 
   function updateFlow(updated: Flow) {
@@ -325,7 +336,7 @@ export default function FlowsPage() {
                 {f.name}
               </button>
               {activeFlow === f.id && (
-                <button onClick={() => deleteFlow(f.id)}
+                <button onClick={() => requestDeleteFlow(f)} title={t('flows.deleteFlow')}
                   style={{ padding: '7px 8px', borderRadius: '0 10px 10px 0', border: '1px solid rgba(248,113,113,0.25)', borderLeft: 'none', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 12, cursor: 'pointer' }}>×</button>
               )}
             </div>
@@ -416,6 +427,34 @@ export default function FlowsPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {deleteCandidate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(2,6,23,0.7)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(500px, 100%)', borderRadius: 16, border: '1px solid rgba(248,113,113,0.28)', background: 'linear-gradient(180deg, rgba(15,23,42,0.97), rgba(2,6,23,0.97))', boxShadow: '0 30px 80px rgba(0,0,0,0.55)', overflow: 'hidden' }}>
+            <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(248,113,113,0.9), transparent)' }} />
+            <div style={{ padding: 18, display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.95)' }}>{t('flows.deleteConfirmTitle')}</div>
+                <button onClick={() => setDeleteCandidate(null)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', cursor: 'pointer', fontSize: 13 }}>×</button>
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.58)', lineHeight: 1.6 }}>
+                {t('flows.deleteConfirmDesc')}
+              </div>
+              <div style={{ borderRadius: 10, border: '1px solid rgba(248,113,113,0.28)', background: 'rgba(248,113,113,0.08)', color: '#fecaca', padding: '8px 10px', fontSize: 12, fontWeight: 700 }}>
+                {deleteCandidate.name}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 2 }}>
+                <button onClick={() => setDeleteCandidate(null)} className='button button-outline' style={{ minWidth: 110, justifyContent: 'center' }}>
+                  {t('flows.cancel')}
+                </button>
+                <button onClick={confirmDeleteFlow} className='button button-outline' style={{ minWidth: 140, justifyContent: 'center', borderColor: 'rgba(248,113,113,0.45)', color: '#f87171', background: 'rgba(248,113,113,0.1)' }}>
+                  {t('flows.deleteNow')}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
