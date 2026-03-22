@@ -10,6 +10,7 @@ type TaskLite = {
 };
 
 const LS_STATUS_KEY = 'tiqr_last_task_status_map';
+const NOTIF_EVENT = 'tiqr:notification';
 
 function loadLastMap(): Record<string, string> {
   try {
@@ -21,6 +22,30 @@ function loadLastMap(): Record<string, string> {
 
 function saveLastMap(map: Record<string, string>): void {
   localStorage.setItem(LS_STATUS_KEY, JSON.stringify(map));
+}
+
+function playNotificationTone(): void {
+  if (typeof window === 'undefined') return;
+  const AudioCtx = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+  if (!AudioCtx) return;
+  try {
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.value = 0.0001;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const now = ctx.currentTime;
+    gain.gain.exponentialRampToValueAtTime(0.06, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    osc.start(now);
+    osc.stop(now + 0.24);
+    window.setTimeout(() => void ctx.close(), 320);
+  } catch {
+    // no-op
+  }
 }
 
 export default function WebPushBridge() {
@@ -54,6 +79,10 @@ export default function WebPushBridge() {
           if (!initialized.current) continue;
           if (old === t.status) continue;
           if (t.status !== 'completed' && t.status !== 'failed') continue;
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(NOTIF_EVENT, { detail: { taskId: t.id, status: t.status, title: t.title } }));
+          }
+          playNotificationTone();
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             const prefix = t.status === 'completed' ? 'Completed' : 'Failed';
             new Notification(`Task ${prefix}`, { body: `#${t.id} ${t.title}` });

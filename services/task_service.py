@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 
@@ -13,8 +14,10 @@ from models.agent_log import AgentLog
 from models.run_record import RunRecord
 from models.task_dependency import TaskDependency
 from models.task_record import TaskRecord
+from models.user_preference import UserPreference
 from schemas.task import ExternalTask
 from services.integration_config_service import IntegrationConfigService
+from services.notification_service import NotificationService
 from services.queue_service import QueueService
 from services.usage_service import UsageService
 
@@ -422,6 +425,44 @@ class TaskService:
             await self.add_log(task.id, organization_id, 'queued', 'Task re-queued for AI processing')
         else:
             await self.add_log(task.id, organization_id, 'queued', 'Task queued for AI processing')
+
+        notifier = NotificationService(self.db)
+        await notifier.notify_event(
+            organization_id=organization_id,
+            user_id=task.created_by_user_id,
+            event_type='task_queued',
+            title=f'Task #{task.id} queued',
+            message=task.title,
+            severity='info',
+            task_id=task.id,
+            payload={'create_pr': create_pr},
+        )
+
+        payloads = await self.queue_service.list_payloads()
+        org_queued = sum(1 for p in payloads if int(p.get('organization_id', 0) or 0) == organization_id)
+        warn_threshold = 5
+        pref_result = await self.db.execute(select(UserPreference).where(UserPreference.user_id == task.created_by_user_id))
+        pref = pref_result.scalar_one_or_none()
+        if pref is not None and pref.profile_settings_json:
+            try:
+                settings = json.loads(pref.profile_settings_json)
+                if isinstance(settings, dict):
+                    raw = settings.get('queue_warn_threshold')
+                    if isinstance(raw, int) and raw > 0:
+                        warn_threshold = raw
+            except Exception:
+                pass
+        if org_queued >= warn_threshold:
+            await notifier.notify_event(
+                organization_id=organization_id,
+                user_id=task.created_by_user_id,
+                event_type='queue_backlog_warning',
+                title='Queue backlog warning',
+                message=f'{org_queued} tasks are waiting in queue.',
+                severity='warning',
+                task_id=task.id,
+                payload={'queued_count': org_queued},
+            )
         return queue_key
 
     async def cancel_task(self, organization_id: int, task_id: int) -> TaskRecord:
