@@ -1,6 +1,7 @@
 """Flow executor — node tipine göre adımları sırayla çalıştırır."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.flow_run import FlowRun, FlowRunStep
 from models.task_record import TaskRecord
+from services.azure_pr_service import AzurePRService
 from services.integration_config_service import IntegrationConfigService
 from services.orchestration_service import OrchestrationService
 
@@ -113,6 +115,16 @@ async def _run_agent_node(
             'usage': usage,
             'message': 'Task pipeline executed from flow agent node',
         }
+
+    if str(role).strip().lower() == 'lead_developer' and (
+        'review pr' in action_text or _bool_val(node.get('review_pr'), False)
+    ):
+        return await _run_lead_pr_review_node(
+            node=node,
+            context=context,
+            db=db,
+            organization_id=organization_id,
+        )
 
     # TODO: gerçek LLM çağrısı buraya
     result = (
@@ -281,6 +293,115 @@ async def _resolve_or_create_task_id(
     await db.commit()
     await db.refresh(created)
     return int(created.id)
+
+
+async def _run_lead_pr_review_node(
+    *,
+    node: dict[str, Any],
+    context: dict[str, Any],
+    db: AsyncSession,
+    organization_id: int,
+) -> dict[str, Any]:
+    task = context.get('task', {})
+    task_id = await _resolve_or_create_task_id(
+        task=task,
+        context=context,
+        db=db,
+        organization_id=organization_id,
+    )
+    if task_id is None:
+        return {'status': 'error', 'message': 'Task could not be resolved for PR review node'}
+
+    task_row = await db.get(TaskRecord, task_id)
+    if task_row is None or task_row.organization_id != organization_id:
+        return {'status': 'error', 'message': f'Task not found for organization: {task_id}'}
+
+    pr_url = ''
+    outputs = context.get('outputs', {})
+    for output in outputs.values():
+        if isinstance(output, dict) and output.get('pr_url'):
+            pr_url = str(output.get('pr_url') or '').strip()
+            break
+    if not pr_url:
+        pr_url = str(task_row.pr_url or '').strip()
+    if not pr_url:
+        return {'status': 'ok', 'warning': True, 'message': 'PR not found yet; review node skipped'}
+
+    azure = AzurePRService(db)
+    try:
+        comments = await azure.list_pr_comments(organization_id, pr_url=pr_url)
+    except Exception as exc:
+        return {'status': 'error', 'message': f'PR comments could not be fetched: {exc}'}
+
+    actionable = [
+        c for c in comments
+        if c.get('content')
+        and '[Tiqr PR Review]' not in c.get('content', '')
+        and 'tiqr' not in c.get('author', '').lower()
+    ]
+    if not actionable:
+        return {'status': 'ok', 'pr_url': pr_url, 'message': 'No actionable PR review comments found'}
+
+    lines = [f"- {c.get('author', 'Reviewer')}: {c.get('content', '').replace(chr(10), ' ').strip()}" for c in actionable[:8]]
+    feedback_blob = '\n'.join(lines).strip()
+    feedback_hash = hashlib.sha1(feedback_blob.encode('utf-8')).hexdigest()[:12]
+    marker = f'Handled PR Feedback Hash: {feedback_hash}'
+    current_desc = str(task_row.description or '')
+    if marker in current_desc:
+        return {
+            'status': 'ok',
+            'pr_url': pr_url,
+            'feedback_hash': feedback_hash,
+            'message': 'PR comments already handled for this feedback set',
+        }
+
+    task_row.description = (
+        current_desc.strip()
+        + '\n\n---\n'
+        + 'Execution Prompt: Address the following PR review comments exactly and update code accordingly.\n'
+        + feedback_blob
+        + f'\n{marker}'
+    ).strip()
+    await db.commit()
+
+    auto_fix = _bool_val(node.get('auto_fix_from_comments'), True)
+    if not auto_fix:
+        thread_id = await azure.post_pr_comment(
+            organization_id,
+            pr_url=pr_url,
+            comment='[Tiqr PR Review] Review comments captured. Auto-fix is disabled for this node.',
+        )
+        return {
+            'status': 'ok',
+            'pr_url': pr_url,
+            'feedback_hash': feedback_hash,
+            'thread_id': thread_id,
+            'message': 'Review comments captured; auto-fix disabled',
+        }
+
+    rerun = await OrchestrationService(db).run_task_record(
+        organization_id=organization_id,
+        task_id=task_id,
+        create_pr=True,
+    )
+    thread_id = await azure.post_pr_comment(
+        organization_id,
+        pr_url=pr_url,
+        comment=(
+            '[Tiqr PR Review] Reviewer feedback detected. '
+            f'Auto-fix run completed. New PR: {rerun.pr_url or "n/a"}'
+        ),
+    )
+    return {
+        'status': 'ok',
+        'mode': 'pr_feedback_loop',
+        'task_id': task_id,
+        'pr_url': pr_url,
+        'new_pr_url': rerun.pr_url,
+        'feedback_hash': feedback_hash,
+        'thread_id': thread_id,
+        'message': 'PR feedback processed and developer auto-fix run executed',
+    }
 
 
 async def _run_azure_update_node(
