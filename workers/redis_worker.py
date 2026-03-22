@@ -44,6 +44,45 @@ async def _fail_stale_running_tasks() -> None:
         logger.warning('Marked %s stale running task(s) as failed', len(stale_tasks))
 
 
+async def _cleanup_stale_repo_locks() -> None:
+    """Best-effort cleanup for leaked repo locks from crashed/interrupted workers."""
+    queue_service = QueueService()
+    keys = await queue_service.client.keys('queue_lock:*')
+    if not keys:
+        return
+
+    removed = 0
+    async with SessionLocal() as session:
+        for full_key in keys:
+            lock_key = full_key.replace('queue_lock:', '', 1)
+            owner = await queue_service.get_lock_owner(lock_key)
+            if not owner:
+                await queue_service.force_delete_lock(lock_key)
+                removed += 1
+                continue
+
+            # We currently store lock owners as "task:<id>".
+            if not owner.startswith('task:'):
+                await queue_service.force_delete_lock(lock_key)
+                removed += 1
+                continue
+
+            try:
+                owner_task_id = int(owner.split(':', 1)[1])
+            except Exception:
+                await queue_service.force_delete_lock(lock_key)
+                removed += 1
+                continue
+
+            owner_task = await session.get(TaskRecord, owner_task_id)
+            if owner_task is None or owner_task.status != 'running':
+                await queue_service.force_delete_lock(lock_key)
+                removed += 1
+
+    if removed > 0:
+        logger.warning('Cleaned %s stale repo lock(s)', removed)
+
+
 async def _run_single_task(payload: dict) -> None:
     organization_id = int(payload.get('organization_id', 0) or 0)
     task_id = int(payload.get('task_id', 0) or 0)
@@ -132,6 +171,7 @@ async def process_queue() -> None:
         now = asyncio.get_running_loop().time()
         if now - last_health_check >= 30:
             await _fail_stale_running_tasks()
+            await _cleanup_stale_repo_locks()
             last_health_check = now
 
         queue_size = await queue_service.queue_size()
