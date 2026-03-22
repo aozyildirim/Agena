@@ -179,6 +179,12 @@ class OrchestrationService:
             else:
                 orchestrator = await self._build_orchestrator(organization_id, routing)
                 state = await orchestrator.run(payload)
+            await task_service.add_log(
+                task.id,
+                organization_id,
+                'memory_impact',
+                self._build_memory_impact_message(state),
+            )
             if self._is_mock_run(state):
                 raise RuntimeError(
                     'AI pipeline is running in mock mode (OPENAI_API_KEY is missing/placeholder). '
@@ -640,6 +646,45 @@ class OrchestrationService:
         if len(files) > 3:
             lines.append(f'\n...and {len(files) - 3} more file(s).')
         return '\n'.join(lines)
+
+    def _build_memory_impact_message(self, state: dict[str, Any]) -> str:
+        memory_context = state.get('memory_context') or []
+        memory_status = state.get('memory_status') or {}
+        mode = str(memory_status.get('embedding_mode') or 'unknown')
+        hits = int(len(memory_context))
+        scores: list[float] = []
+        samples: list[dict[str, Any]] = []
+        for row in memory_context[:5]:
+            if not isinstance(row, dict):
+                continue
+            score_raw = row.get('_score')
+            score_val: float | None = None
+            if score_raw is not None:
+                try:
+                    score_val = float(score_raw)
+                    scores.append(score_val)
+                except Exception:
+                    score_val = None
+            input_preview = str(row.get('input') or '').strip()
+            first_line = input_preview.splitlines()[0][:90] if input_preview else ''
+            samples.append(
+                {
+                    'key': str(row.get('key') or ''),
+                    'score': score_val,
+                    'preview': first_line,
+                }
+            )
+
+        best = max(scores) if scores else None
+        avg = (sum(scores) / len(scores)) if scores else None
+        payload = {
+            'mode': mode,
+            'hits': hits,
+            'best_score': round(best, 6) if best is not None else None,
+            'avg_score': round(avg, 6) if avg is not None else None,
+            'top_matches': samples,
+        }
+        return f'MemoryImpactJSON: {json.dumps(payload, ensure_ascii=False)}'
 
     def _is_mock_run(self, state: dict[str, Any]) -> bool:
         model_usage = state.get('model_usage') or []

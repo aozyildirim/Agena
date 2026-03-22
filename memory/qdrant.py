@@ -123,7 +123,20 @@ class QdrantMemoryStore(MemoryStore):
             limit=limit,
             query_filter=query_filter,
         )
-        return [result.payload for result in results if result.payload]
+        rows: list[dict[str, Any]] = []
+        for result in results:
+            payload = result.payload
+            if not payload:
+                continue
+            row = dict(payload)
+            score = getattr(result, 'score', None)
+            if score is not None:
+                try:
+                    row['_score'] = float(score)
+                except Exception:
+                    pass
+            rows.append(row)
+        return rows
 
     async def get_status(self) -> dict[str, Any]:
         mode = self._embedding_mode_label()

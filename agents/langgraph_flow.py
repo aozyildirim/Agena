@@ -8,6 +8,7 @@ from langgraph.graph import END, StateGraph
 class OrchestrationState(TypedDict, total=False):
     task: dict
     memory_context: list[dict]
+    memory_status: dict
     context_summary: str
     spec: dict
     generated_code: str

@@ -51,6 +51,14 @@ type CodeFile = {
   isDiff?: boolean;
 };
 
+type MemoryImpact = {
+  mode: string;
+  hits: number;
+  best_score: number | null;
+  avg_score: number | null;
+  top_matches: Array<{ key: string; score: number | null; preview: string }>;
+};
+
 type TaskDeps = {
   depends_on_task_ids: number[];
   dependent_task_ids: number[];
@@ -70,6 +78,7 @@ function stageColor(stage: string): string {
     queued: '#a3a3a3',
     running: '#38bdf8',
     agent: '#5eead4',
+    memory_impact: '#5eead4',
     code_ready: '#60a5fa',
     code_preview: '#f97316',
     code_diff: '#10b981',
@@ -124,6 +133,33 @@ function parseCodePreview(logs: TaskLog[]): CodeFile[] {
     }
   }
   return files;
+}
+
+function parseMemoryImpact(logs: TaskLog[]): MemoryImpact | null {
+  const item = [...logs].reverse().find((l) => l.stage === 'memory_impact');
+  if (!item) return null;
+  const marker = 'MemoryImpactJSON:';
+  const idx = item.message.indexOf(marker);
+  if (idx < 0) return null;
+  const raw = item.message.slice(idx + marker.length).trim();
+  try {
+    const parsed = JSON.parse(raw) as MemoryImpact;
+    return {
+      mode: String(parsed.mode || 'unknown'),
+      hits: Number.isFinite(parsed.hits) ? Number(parsed.hits) : 0,
+      best_score: parsed.best_score === null || parsed.best_score === undefined ? null : Number(parsed.best_score),
+      avg_score: parsed.avg_score === null || parsed.avg_score === undefined ? null : Number(parsed.avg_score),
+      top_matches: Array.isArray(parsed.top_matches)
+        ? parsed.top_matches.map((row) => ({
+          key: String(row?.key || ''),
+          score: row?.score === null || row?.score === undefined ? null : Number(row.score),
+          preview: String(row?.preview || ''),
+        }))
+        : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 function classifyFailure(text: string): { labelKey: string; detailKey: string } {
@@ -319,6 +355,7 @@ export default function TaskDetailPage() {
   const latestLog = logs.length > 0 ? logs[logs.length - 1] : null;
   const metrics = useMemo(() => parseRunMetrics(logs), [logs]);
   const codeFiles = useMemo(() => parseCodePreview(logs), [logs]);
+  const memoryImpact = useMemo(() => parseMemoryImpact(logs), [logs]);
   const latestFailure = useMemo(() => {
     const failedLog = [...logs].reverse().find((l) => l.stage === 'failed');
     return task?.failure_reason || failedLog?.message || '';
@@ -730,6 +767,53 @@ export default function TaskDetailPage() {
                 </div>
               ) : null}
             </div>
+          </section>
+
+          <section style={{ borderRadius: 16, border: '1px solid rgba(94,234,212,0.18)', background: 'rgba(10,20,32,0.46)', padding: 12 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 10, color: '#5eead4', fontSize: 15 }}>{t('taskDetail.memoryImpact')}</h3>
+            {!memoryImpact ? (
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('taskDetail.memoryImpactEmpty')}</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0,1fr))', gap: 8 }}>
+                  <div style={{ border: '1px solid rgba(94,234,212,0.25)', borderRadius: 10, padding: '8px 10px', background: 'rgba(94,234,212,0.08)' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{t('taskDetail.memoryMode')}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#5eead4' }}>{memoryImpact.mode}</div>
+                  </div>
+                  <div style={{ border: '1px solid rgba(56,189,248,0.25)', borderRadius: 10, padding: '8px 10px', background: 'rgba(56,189,248,0.08)' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{t('taskDetail.memoryHits')}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{memoryImpact.hits}</div>
+                  </div>
+                  <div style={{ border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, padding: '8px 10px', background: 'rgba(34,197,94,0.08)' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{t('taskDetail.memoryBestScore')}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#86efac' }}>{memoryImpact.best_score !== null ? memoryImpact.best_score.toFixed(3) : '—'}</div>
+                  </div>
+                  <div style={{ border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '8px 10px', background: 'rgba(245,158,11,0.08)' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>{t('taskDetail.memoryAvgScore')}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>{memoryImpact.avg_score !== null ? memoryImpact.avg_score.toFixed(3) : '—'}</div>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', fontSize: 11, color: 'rgba(255,255,255,0.58)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    {t('taskDetail.memoryTopMatches')}
+                  </div>
+                  {memoryImpact.top_matches.length === 0 ? (
+                    <div style={{ padding: '10px', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{t('taskDetail.memoryNoMatch')}</div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 0 }}>
+                      {memoryImpact.top_matches.map((m, idx) => (
+                        <div key={`${m.key}-${idx}`} style={{ padding: '9px 10px', borderTop: idx === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '120px 100px 1fr', gap: 8 }}>
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>key: <b>{m.key || '—'}</b></div>
+                          <div style={{ fontSize: 12, color: '#7dd3fc' }}>score: {m.score !== null ? m.score.toFixed(3) : '—'}</div>
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.preview || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
 
           <section style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>

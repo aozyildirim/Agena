@@ -324,6 +324,26 @@ curl http://localhost:8010/tasks/1/logs -H "Authorization: Bearer $TOKEN"
 - Updated memory schema docs to reflect real embedding mode + fallback behavior:
   - `api/routes/memory.py`
 
+### Memory Impact Observability
+
+- Added per-task memory impact logging during orchestration:
+  - `services/orchestration_service.py`
+  - new `memory_impact` stage log includes:
+    - embedding mode
+    - hit count
+    - best/average similarity score
+    - top matched memory keys and previews
+- Added retrieval score propagation from Qdrant:
+  - `memory/qdrant.py`
+  - each retrieved payload now includes `_score` when available
+- Extended orchestration state to carry memory backend status:
+  - `agents/langgraph_flow.py`
+  - `agents/orchestrator.py`
+- Added Task Detail UI panel to visualize memory effect for each run:
+  - `frontend/app/tasks/[id]/page.tsx`
+  - shows mode, hits, best/avg score, and top matches
+  - fully localized via `frontend/lib/i18n.ts`
+
 ### PR Feedback / Review Flow Hardening
 
 - Added PR comment webhook entrypoint:
