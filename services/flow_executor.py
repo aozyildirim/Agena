@@ -69,6 +69,22 @@ def _bool_val(raw: Any, default: bool = False) -> bool:
     return default
 
 
+def _extract_handled_pr_comment_ids(description: str) -> set[str]:
+    handled: set[str] = set()
+    for line in (description or '').splitlines():
+        s = line.strip()
+        if not s.startswith('Handled PR Comment IDs:'):
+            continue
+        raw = s.split(':', 1)[1].strip()
+        if not raw:
+            continue
+        for part in raw.split(','):
+            cid = part.strip()
+            if cid:
+                handled.add(cid)
+    return handled
+
+
 async def _run_agent_node(
     node: dict[str, Any],
     context: dict[str, Any],
@@ -238,6 +254,7 @@ async def _resolve_or_create_task_id(
     context: dict[str, Any],
     db: AsyncSession,
     organization_id: int,
+    create_if_missing: bool = True,
 ) -> int | None:
     """Flow task payload'ını mevcut TaskRecord ile eşleştirir; yoksa yeni kayıt açar."""
     raw_task_id = task.get('id')
@@ -266,7 +283,19 @@ async def _resolve_or_create_task_id(
     description = str(task.get('description') or '').strip()
     external_id = str(raw_task_id or '').strip() or f'flow-{int(datetime.now(timezone.utc).timestamp())}'
     user_id = int(context.get('user_id') or 0)
-    if user_id <= 0:
+    if external_id:
+        same_external_result = await db.execute(
+            select(TaskRecord.id).where(
+                TaskRecord.organization_id == organization_id,
+                TaskRecord.source == source,
+                TaskRecord.external_id == external_id,
+            ).order_by(TaskRecord.id.desc())
+        )
+        same_external_id = same_external_result.scalars().first()
+        if same_external_id is not None:
+            return int(same_external_id)
+
+    if not create_if_missing or user_id <= 0:
         return None
 
     metadata_lines: list[str] = []
@@ -311,9 +340,10 @@ async def _run_lead_pr_review_node(
         context=context,
         db=db,
         organization_id=organization_id,
+        create_if_missing=False,
     )
     if task_id is None:
-        return {'status': 'error', 'message': 'Task could not be resolved for PR review node'}
+        return {'status': 'ok', 'warning': True, 'message': 'Task could not be resolved for PR review node; skipped'}
 
     task_row = await db.get(TaskRecord, task_id)
     if task_row is None or task_row.organization_id != organization_id:
@@ -343,20 +373,33 @@ async def _run_lead_pr_review_node(
     except Exception as exc:
         return {'status': 'error', 'message': f'PR comments could not be fetched: {exc}'}
 
+    current_desc = str(task_row.description or '')
+    handled_ids = _extract_handled_pr_comment_ids(current_desc)
+
     actionable = [
         c for c in comments
         if c.get('content')
+        and str(c.get('id') or '') not in handled_ids
         and '[Tiqr PR Review]' not in c.get('content', '')
         and 'tiqr' not in c.get('author', '').lower()
     ]
     if not actionable:
-        return {'status': 'ok', 'pr_url': pr_url, 'message': 'No actionable PR review comments found'}
+        return {'status': 'ok', 'pr_url': pr_url, 'message': 'No new actionable PR review comments found'}
 
     lines = [f"- {c.get('author', 'Reviewer')}: {c.get('content', '').replace(chr(10), ' ').strip()}" for c in actionable[:8]]
     feedback_blob = '\n'.join(lines).strip()
     feedback_hash = hashlib.sha1(feedback_blob.encode('utf-8')).hexdigest()[:12]
     marker = f'Handled PR Feedback Hash: {feedback_hash}'
-    current_desc = str(task_row.description or '')
+    handled_comment_ids = [
+        str(c.get('id') or '').strip()
+        for c in actionable
+        if str(c.get('id') or '').strip()
+    ]
+    ids_marker = (
+        f"Handled PR Comment IDs: {','.join(handled_comment_ids)}"
+        if handled_comment_ids else
+        ''
+    )
     if marker in current_desc:
         return {
             'status': 'ok',
@@ -365,12 +408,16 @@ async def _run_lead_pr_review_node(
             'message': 'PR comments already handled for this feedback set',
         }
 
+    extra_markers = f'\n{marker}'
+    if ids_marker:
+        extra_markers += f'\n{ids_marker}'
+
     task_row.description = (
         current_desc.strip()
         + '\n\n---\n'
         + 'Execution Prompt: Address the following PR review comments exactly and update code accordingly.\n'
         + feedback_blob
-        + f'\n{marker}'
+        + extra_markers
     ).strip()
     await db.commit()
 
