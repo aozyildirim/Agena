@@ -99,6 +99,7 @@ function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
 
 export default function HomePage() {
   const { t } = useLocale();
+  const flowWords = t('landing.flowShowcaseWords').split(' ');
 
   return (
     <>
@@ -202,6 +203,34 @@ export default function HomePage() {
               height: 1,
               background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.6), rgba(139,92,246,0.4), transparent)',
             }} />
+          </div>
+        </section>
+
+        {/* ── FLOW SHOWCASE ── */}
+        <section style={{ padding: '26px 0 52px' }}>
+          <div className='flow-showcase'>
+            <div className='flow-showcase-image-wrap'>
+              <img src='/media/flow.png' alt='Flow Diagram' className='flow-showcase-image' loading='lazy' />
+            </div>
+            <div className='flow-showcase-content'>
+              <div className='section-label'>{t('landing.flowShowcaseLabel')}</div>
+              <h2 className='flow-showcase-title'>
+                {flowWords.map((w, i) => (
+                  <span key={`${w}-${i}`} className='flow-word' style={{ animationDelay: `${i * 0.08}s` }}>
+                    {w}
+                  </span>
+                ))}
+              </h2>
+              <p className='flow-showcase-subtitle'>{t('landing.flowShowcaseDesc')}</p>
+              <div className='flow-showcase-points'>
+                {[t('landing.flowShowcasePoint1'), t('landing.flowShowcasePoint2'), t('landing.flowShowcasePoint3')].map((item, i) => (
+                  <div key={item} className='flow-showcase-point' style={{ animationDelay: `${0.2 + i * 0.1}s` }}>
+                    <span className='flow-showcase-dot' />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
