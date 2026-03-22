@@ -372,8 +372,6 @@ class TaskService:
         task = await self.get_task(organization_id, task_id)
         if task is None:
             raise ValueError('Task not found')
-        if task.status == 'cancelled':
-            raise ValueError('Task is cancelled')
         if task.status == 'running':
             raise ValueError('Task is already running')
         blockers = await self.get_dependency_blockers(organization_id, task.id)
@@ -405,7 +403,7 @@ class TaskService:
             create_pr = False
 
         was_queued = task.status == 'queued'
-        was_terminal = task.status in {'failed', 'completed'}
+        was_terminal = task.status in {'failed', 'completed', 'cancelled'}
         if was_queued:
             await self.queue_service.remove_task(
                 organization_id=organization_id,
