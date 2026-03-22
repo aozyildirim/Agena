@@ -1,9 +1,9 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch, setToken } from '@/lib/api';
+import { apiFetch, isLoggedIn, setToken } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import LangToggle from '@/components/LangToggle';
 
@@ -17,6 +17,10 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isLoggedIn()) router.replace('/dashboard/tasks');
+  }, [router]);
 
   function resolveNextUrl(): string {
     const raw = searchParams.get('next') || '';
