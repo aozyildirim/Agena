@@ -429,15 +429,23 @@ async def _resolve_or_create_task_id(
     user_id = int(context.get('user_id') or 0)
     if external_id:
         same_external_result = await db.execute(
-            select(TaskRecord.id).where(
+            select(TaskRecord).where(
                 TaskRecord.organization_id == organization_id,
                 TaskRecord.source == source,
                 TaskRecord.external_id == external_id,
-            ).order_by(TaskRecord.id.desc())
+            ).order_by(TaskRecord.id.asc())
         )
-        same_external_id = same_external_result.scalars().first()
-        if same_external_id is not None:
-            return int(same_external_id)
+        same_external_rows = list(same_external_result.scalars().all())
+        if same_external_rows:
+            # Keep one canonical task per external source id.
+            canonical = same_external_rows[0]
+            for dup in same_external_rows[1:]:
+                if dup.status in {'queued', 'running'}:
+                    dup.status = 'cancelled'
+                    dup.failure_reason = f'Merged into canonical task #{canonical.id}'
+            if len(same_external_rows) > 1:
+                await db.commit()
+            return int(canonical.id)
 
     if not create_if_missing or user_id <= 0:
         return None
@@ -687,6 +695,7 @@ async def _run_lead_pr_review_node(
     await db.commit()
 
     auto_fix = _bool_val(node.get('auto_fix_from_comments'), True)
+    require_explicit_fix_trigger = _bool_val(node.get('require_explicit_fix_trigger'), False)
     fix_requested = any(_is_fix_request_comment(str(c.get('content') or '')) for c in actionable)
 
     if not auto_fix:
@@ -709,7 +718,7 @@ async def _run_lead_pr_review_node(
             'message': 'Review comments captured; auto-fix disabled',
         }
 
-    if not fix_requested:
+    if require_explicit_fix_trigger and not fix_requested:
         if is_azure:
             comment_ref = await AzurePRService(db).post_pr_comment(
                 organization_id,
