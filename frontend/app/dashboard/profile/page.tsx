@@ -44,8 +44,16 @@ export default function ProfilePage() {
   const [project, setProject] = useState('');
   const [team, setTeam] = useState('');
   const [sprint, setSprint] = useState('');
+  const [jiraProjects, setJiraProjects] = useState<Opt[]>([]);
+  const [jiraBoards, setJiraBoards] = useState<Opt[]>([]);
+  const [jiraSprints, setJiraSprints] = useState<Opt[]>([]);
+  const [jiraProject, setJiraProject] = useState('');
+  const [jiraBoard, setJiraBoard] = useState('');
+  const [jiraSprint, setJiraSprint] = useState('');
   const [ltm, setLtm] = useState(false);
   const [lsp, setLsp] = useState(false);
+  const [jlb, setJlb] = useState(false);
+  const [jls, setJls] = useState(false);
   const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
     email_notifications: true,
     web_push_notifications: true,
@@ -65,12 +73,16 @@ export default function ProfilePage() {
   useEffect(() => {
     apiFetch<MeRes>('/auth/me').then(setUser).catch(() => {});
     apiFetch<Opt[]>('/tasks/azure/projects').then(setProjects).catch(() => {});
+    apiFetch<Opt[]>('/tasks/jira/projects').then(setJiraProjects).catch(() => {});
 
     loadPrefs().then(async (prefs) => {
       const p = prefs.azure_project || '';
       const t2 = prefs.azure_team || '';
       const s = prefs.azure_sprint_path || '';
       const rawSettings = (prefs.profile_settings || {}) as Record<string, unknown>;
+      const jp = typeof rawSettings.jira_project === 'string' ? rawSettings.jira_project : '';
+      const jb = typeof rawSettings.jira_board === 'string' ? rawSettings.jira_board : '';
+      const js = typeof rawSettings.jira_sprint_id === 'string' ? rawSettings.jira_sprint_id : '';
       setProfileSettings((prev) => ({
         ...prev,
         email_notifications: rawSettings.email_notifications !== false,
@@ -90,16 +102,33 @@ export default function ProfilePage() {
           : prev.notification_preferences,
       }));
 
-      if (!p) return;
-      setProject(p);
-      if (!t2) return;
-      const tms = await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
-      setTeams(tms);
-      setTeam(t2);
-      if (!s) return;
-      const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(p) + '&team=' + encodeURIComponent(t2)).catch(() => [] as Opt[]);
-      setSprints(sps);
-      setSprint(s);
+      if (p) {
+        setProject(p);
+        if (t2) {
+          const tms = await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
+          setTeams(tms);
+          setTeam(t2);
+          if (s) {
+            const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(p) + '&team=' + encodeURIComponent(t2)).catch(() => [] as Opt[]);
+            setSprints(sps);
+            setSprint(s);
+          }
+        }
+      }
+
+      if (jp) {
+        setJiraProject(jp);
+        if (jb) {
+          const boards = await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(jp)).catch(() => [] as Opt[]);
+          setJiraBoards(boards);
+          setJiraBoard(jb);
+          if (js) {
+            const jsps = await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(jb)).catch(() => [] as Opt[]);
+            setJiraSprints(jsps);
+            setJiraSprint(js);
+          }
+        }
+      }
     }).catch(() => {});
   }, []);
 
@@ -136,6 +165,39 @@ export default function ProfilePage() {
     setSaved(false);
   }, []);
 
+  const onJiraProjectChange = useCallback((v: string) => {
+    setJiraProject(v);
+    setJiraBoard('');
+    setJiraBoards([]);
+    setJiraSprint('');
+    setJiraSprints([]);
+    setSaved(false);
+    if (!v) return;
+    setJlb(true);
+    apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(v))
+      .then(setJiraBoards)
+      .catch(() => {})
+      .finally(() => setJlb(false));
+  }, []);
+
+  const onJiraBoardChange = useCallback((v: string) => {
+    setJiraBoard(v);
+    setJiraSprint('');
+    setJiraSprints([]);
+    setSaved(false);
+    if (!v) return;
+    setJls(true);
+    apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(v))
+      .then(setJiraSprints)
+      .catch(() => {})
+      .finally(() => setJls(false));
+  }, []);
+
+  const onJiraSprintChange = useCallback((v: string) => {
+    setJiraSprint(v);
+    setSaved(false);
+  }, []);
+
   async function save() {
     setSaving(true);
     setErr('');
@@ -144,7 +206,12 @@ export default function ProfilePage() {
         azure_project: project,
         azure_team: team,
         azure_sprint_path: sprint,
-        profile_settings: profileSettings as unknown as Record<string, unknown>,
+        profile_settings: {
+          ...(profileSettings as unknown as Record<string, unknown>),
+          jira_project: jiraProject,
+          jira_board: jiraBoard,
+          jira_sprint_id: jiraSprint,
+        },
       });
       setSaved(true);
     } catch (e) {
@@ -160,6 +227,7 @@ export default function ProfilePage() {
   }
 
   const selS = sprints.find((s) => (s.path ?? s.name) === sprint);
+  const selJs = jiraSprints.find((s) => (s.path ?? s.name) === jiraSprint);
 
   return (
     <div style={{ display: 'grid', gap: 18, maxWidth: 1100 }}>
@@ -204,19 +272,41 @@ export default function ProfilePage() {
             {sprint && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e' }}>{t('profile.active')}</span>}
           </div>
 
-          <ProfileSel label='Project' value={project} onChange={onProjectChange}
+          <ProfileSel label={t('profile.azureProject')} value={project} onChange={onProjectChange}
             options={projects.map((p) => ({ id: p.name, name: p.name }))}
             placeholder={t('profile.selectProject')} loading={false} disabled={false} />
-          <ProfileSel label='Team' value={team} onChange={onTeamChange}
+          <ProfileSel label={t('profile.azureTeam')} value={team} onChange={onTeamChange}
             options={teams.map((t2) => ({ id: t2.name, name: t2.name }))}
             placeholder={project ? t('profile.selectTeam') : t('profile.selectTeamFirst')} loading={ltm} disabled={!project} />
-          <ProfileSel label='Sprint' value={sprint} onChange={onSprintChange}
+          <ProfileSel label={t('profile.azureSprint')} value={sprint} onChange={onSprintChange}
             options={sprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
             placeholder={team ? t('profile.selectSprint') : t('profile.selectSprintFirst')} loading={lsp} disabled={!team} />
 
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: 6, paddingTop: 10 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>◉</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>{t('profile.jiraActiveSprint')}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {jiraSprint && selJs ? selJs.name : jiraSprint || t('profile.noSprint')}
+              </div>
+            </div>
+            {jiraSprint && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>{t('profile.active')}</span>}
+          </div>
+
+          <ProfileSel label={t('profile.jiraProject')} value={jiraProject} onChange={onJiraProjectChange}
+            options={jiraProjects.map((p) => ({ id: p.id ?? p.name, name: p.name }))}
+            placeholder={t('profile.selectProject')} loading={false} disabled={false} />
+          <ProfileSel label={t('profile.jiraBoard')} value={jiraBoard} onChange={onJiraBoardChange}
+            options={jiraBoards.map((b) => ({ id: b.id ?? b.name, name: b.name }))}
+            placeholder={jiraProject ? t('profile.selectBoard') : t('profile.selectTeamFirst')} loading={jlb} disabled={!jiraProject} />
+          <ProfileSel label={t('profile.jiraSprint')} value={jiraSprint} onChange={onJiraSprintChange}
+            options={jiraSprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
+            placeholder={jiraBoard ? t('profile.selectSprint') : t('profile.selectBoardFirst')} loading={jls} disabled={!jiraBoard} />
+
           <div style={{ marginTop: 2 }}>
-            <button onClick={() => router.push('/dashboard/sprints')} disabled={!sprint}
-              style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.08)', color: sprint ? '#5eead4' : 'rgba(255,255,255,0.2)', fontWeight: 700, fontSize: 12, cursor: sprint ? 'pointer' : 'not-allowed' }}>
+            <button onClick={() => router.push('/dashboard/sprints')} disabled={!sprint && !jiraSprint}
+              style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.08)', color: (sprint || jiraSprint) ? '#5eead4' : 'rgba(255,255,255,0.2)', fontWeight: 700, fontSize: 12, cursor: (sprint || jiraSprint) ? 'pointer' : 'not-allowed' }}>
               {t('profile.sprintBoard')}
             </button>
           </div>
