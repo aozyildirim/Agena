@@ -410,16 +410,23 @@ class TaskService:
                 task_id=task.id,
             )
 
-        queue_key = await self.queue_service.enqueue(
-            {
-                'organization_id': organization_id,
-                'task_id': task.id,
-                'create_pr': create_pr,
-            }
-        )
         task.status = 'queued'
         task.failure_reason = None
         await self.db.commit()
+        try:
+            queue_key = await self.queue_service.enqueue(
+                {
+                    'organization_id': organization_id,
+                    'task_id': task.id,
+                    'create_pr': create_pr,
+                }
+            )
+        except Exception as exc:
+            task.status = 'failed'
+            task.failure_reason = f'Queue enqueue failed: {str(exc)[:240]}'
+            await self.db.commit()
+            await self.add_log(task.id, organization_id, 'failed', task.failure_reason)
+            raise
         if was_queued or was_terminal:
             await self.add_log(task.id, organization_id, 'queued', 'Task re-queued for AI processing')
         else:
