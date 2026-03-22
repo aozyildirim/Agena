@@ -357,7 +357,14 @@ export default function SprintsPage() {
           options={teams.map((t: Opt) => ({ id: t.name, name: t.name }))}
           loading={ltm} placeholder={project ? t('sprints.selectTeam') : t('sprints.selectTeamFirst')} active={!!project} />
         <Sel step={3} t={t} label={t('sprints.sprintLabel')} value={sprint} onChange={setSprint}
-          options={sprints.map((s: Opt) => ({ id: s.path ?? s.name, name: s.name }))}
+          options={sprints.map((s: Opt) => ({
+            id: s.path ?? s.name,
+            name: s.name,
+            is_current: s.is_current,
+            timeframe: s.timeframe,
+            start_date: s.start_date,
+            finish_date: s.finish_date,
+          }))}
           loading={lsp} placeholder={team ? t('sprints.selectSprint') : t('sprints.selectSprintFirst')} active={!!team} />
       </div>
 
@@ -729,9 +736,14 @@ function Sel({ step, t, label, value, onChange, options, loading, placeholder, a
         style={{ width: '100%', border: '1px solid ' + (value ? 'rgba(13,148,136,0.4)' : 'rgba(255,255,255,0.1)'), borderRadius: 10, padding: '9px 12px', font: 'inherit', fontSize: 12, background: value ? 'rgba(13,148,136,0.08)' : 'rgba(255,255,255,0.04)', color: value ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)', cursor: active && !loading ? 'pointer' : 'not-allowed', appearance: 'none', outline: 'none' }}>
         <option value="" style={{ background: '#0d1117' }}>{placeholder}</option>
         {options.map((o) => (
-          <option key={o.id} value={o.id} style={{ background: '#0d1117' }}>{o.name}</option>
+          <option key={o.id} value={o.id} style={{ background: '#0d1117' }}>
+            {o.is_current ? `● ${o.name} (Current)` : o.name}
+          </option>
         ))}
       </select>
+      {options.find((o) => o.id === value)?.is_current ? (
+        <div style={{ marginTop: 6, fontSize: 10, color: '#5eead4', fontWeight: 700 }}>Current sprint selected</div>
+      ) : null}
     </div>
   );
 }
