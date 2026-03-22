@@ -74,7 +74,8 @@ export default function TeamPage() {
         .then(setAllMembers)
         .catch((e: unknown) => setErr(e instanceof Error ? e.message : t('team.membersError')))
         .finally(() => setLoadingAll(false));
-    }).catch(() => {
+    }).catch((e: unknown) => {
+      if (e instanceof Error && e.message.toLowerCase().includes('invalid token')) return;
       const p = localStorage.getItem(LS_PROJECT) || '';
       const t2 = localStorage.getItem(LS_TEAM)    || '';
       const s = localStorage.getItem(LS_SPRINT)  || '';

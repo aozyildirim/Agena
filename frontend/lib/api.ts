@@ -3,6 +3,15 @@
 const TOKEN_KEY = 'tiqr_token';
 const TOKEN_EXP_KEY = 'tiqr_token_exp';
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+const USER_CACHE_KEYS = [
+  'tiqr_sprint_project',
+  'tiqr_sprint_team',
+  'tiqr_sprint_path',
+  'tiqr_my_team',
+  'tiqr_agent_configs',
+  'tiqr_flows',
+  'tiqr_repo_mappings',
+] as const;
 
 function resolveApiBase(): string {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -34,6 +43,7 @@ export function removeToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(TOKEN_EXP_KEY);
+  USER_CACHE_KEYS.forEach((k) => localStorage.removeItem(k));
 }
 
 export function isLoggedIn(): boolean {
@@ -58,9 +68,23 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
     cache: 'no-store',
   });
 
+  if (response.status === 401 && auth) {
+    removeToken();
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/signin') && !window.location.pathname.startsWith('/signup')) {
+      const next = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/signin?next=${encodeURIComponent(next)}`);
+    }
+    throw new Error('Invalid token');
+  }
+
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
+    let message = text || `Request failed: ${response.status}`;
+    try {
+      const parsed = JSON.parse(text) as { detail?: string };
+      if (parsed.detail) message = parsed.detail;
+    } catch {}
+    throw new Error(message);
   }
 
   return (await response.json()) as T;
