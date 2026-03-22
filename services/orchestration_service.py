@@ -294,6 +294,22 @@ class OrchestrationService:
                             'pr',
                             'Local push completed but PR target was not resolved from task mapping',
                         )
+            elif create_pr and routing.effective_source == 'azure':
+                await task_service.add_log(
+                    task.id,
+                    organization_id,
+                    'pr',
+                    'Azure source detected but Azure PR target is missing (project/repo/mapping). GitHub fallback skipped.',
+                )
+                await notification_service.notify_event(
+                    organization_id=organization_id,
+                    user_id=task.created_by_user_id,
+                    event_type='pr_failed',
+                    title=f'PR skipped for task #{task.id}',
+                    message='Azure task requires Azure project/repo mapping before PR creation.',
+                    severity='warning',
+                    task_id=task.id,
+                )
             elif create_pr and self._can_create_github_pr():
                 branch_name = pr_payload.branch_name
                 try:

@@ -84,11 +84,14 @@ async def _run_agent_node(
     create_pr = _bool_val(node.get('create_pr'), True)
 
     if execute_task_pipeline:
-        raw_task_id = task.get('id')
-        try:
-            task_id = int(str(raw_task_id))
-        except Exception:
-            return {'status': 'error', 'message': f'Invalid task id for pipeline execution: {raw_task_id!r}'}
+        task_id = await _resolve_or_create_task_id(
+            task=task,
+            context=context,
+            db=db,
+            organization_id=organization_id,
+        )
+        if task_id is None:
+            return {'status': 'error', 'message': 'Task id could not be resolved for pipeline execution'}
 
         service = OrchestrationService(db)
         result = await service.run_task_record(
@@ -204,13 +207,80 @@ async def _run_github_node(
             }
 
     return {
-        'status': 'error',
+        'status': 'ok',
         'action': action,
+        'warning': True,
         'message': (
             'PR URL not found. Run a developer node with execute_task_pipeline=true '
             'and create_pr=true before this step.'
         ),
     }
+
+
+async def _resolve_or_create_task_id(
+    *,
+    task: dict[str, Any],
+    context: dict[str, Any],
+    db: AsyncSession,
+    organization_id: int,
+) -> int | None:
+    """Flow task payload'ını mevcut TaskRecord ile eşleştirir; yoksa yeni kayıt açar."""
+    raw_task_id = task.get('id')
+    parsed_task_id: int | None = None
+    try:
+        parsed_task_id = int(str(raw_task_id))
+    except Exception:
+        parsed_task_id = None
+
+    if parsed_task_id is not None:
+        existing_result = await db.execute(
+            select(TaskRecord.id).where(
+                TaskRecord.id == parsed_task_id,
+                TaskRecord.organization_id == organization_id,
+            )
+        )
+        existing_id = existing_result.scalar_one_or_none()
+        if existing_id is not None:
+            return int(existing_id)
+
+    source = str(task.get('source') or task.get('external_source') or 'internal').strip().lower()
+    if source not in {'azure', 'jira', 'internal'}:
+        source = 'internal'
+
+    title = str(task.get('title') or '').strip() or f'Flow Task {raw_task_id or ""}'.strip()
+    description = str(task.get('description') or '').strip()
+    external_id = str(raw_task_id or '').strip() or f'flow-{int(datetime.now(timezone.utc).timestamp())}'
+    user_id = int(context.get('user_id') or 0)
+    if user_id <= 0:
+        return None
+
+    metadata_lines: list[str] = []
+    for key, label in (
+        ('external_source', 'External Source'),
+        ('project', 'Project'),
+        ('azure_repo', 'Azure Repo'),
+        ('local_repo_mapping', 'Local Repo Mapping'),
+        ('local_repo_path', 'Local Repo Path'),
+    ):
+        value = task.get(key)
+        if value:
+            metadata_lines.append(f'{label}: {value}')
+    if metadata_lines:
+        description = (description + '\n\n---\n' + '\n'.join(metadata_lines)).strip()
+
+    created = TaskRecord(
+        organization_id=organization_id,
+        created_by_user_id=user_id,
+        source=source,
+        external_id=external_id,
+        title=title,
+        description=description,
+        status='queued',
+    )
+    db.add(created)
+    await db.commit()
+    await db.refresh(created)
+    return int(created.id)
 
 
 async def _run_azure_update_node(
@@ -316,7 +386,7 @@ async def run_flow(
     # Execution order: topological sort (basit — edge sırasına göre)
     ordered = _topo_sort(nodes, edges)
 
-    context: dict[str, Any] = {'task': task, 'outputs': {}}
+    context: dict[str, Any] = {'task': task, 'outputs': {}, 'user_id': user_id}
     overall_status = 'completed'
 
     for node in ordered:
