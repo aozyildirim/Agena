@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { apiFetch, loadPrefs, RepoMapping, RepoProfileSummary, savePrefs, scanRepoProfile } from '@/lib/api';
+import { apiFetch, getRepoAgentsDoc, loadPrefs, RepoMapping, RepoProfileSummary, savePrefs, saveRepoAgentsDoc, scanRepoProfile } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
@@ -59,6 +59,12 @@ export default function RepoMappingsPage() {
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [repoProfiles, setRepoProfiles] = useState<Record<string, RepoProfileSummary>>({});
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMappingId, setEditorMappingId] = useState<string | null>(null);
+  const [editorPath, setEditorPath] = useState('');
+  const [editorContent, setEditorContent] = useState('');
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorSaving, setEditorSaving] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -181,6 +187,41 @@ export default function RepoMappingsPage() {
 
   async function removeMapping(id: string) {
     await persist(items.filter((m) => m.id !== id));
+  }
+
+  async function openAgentsEditor(mapping: RepoMapping) {
+    setEditorOpen(true);
+    setEditorMappingId(mapping.id);
+    setEditorContent('');
+    setEditorPath('');
+    setEditorLoading(true);
+    try {
+      const res = await getRepoAgentsDoc(mapping.id);
+      setEditorPath(res.agents_md_path);
+      setEditorContent(res.content || '');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'AGENTS.md load failed');
+      setEditorOpen(false);
+      setEditorMappingId(null);
+    } finally {
+      setEditorLoading(false);
+    }
+  }
+
+  async function saveAgentsEditor() {
+    if (!editorMappingId) return;
+    setEditorSaving(true);
+    setErr('');
+    try {
+      const res = await saveRepoAgentsDoc(editorMappingId, editorContent);
+      setEditorPath(res.agents_md_path);
+      setMsg('AGENTS.md saved');
+      setTimeout(() => setMsg(''), 1800);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'AGENTS.md save failed');
+    } finally {
+      setEditorSaving(false);
+    }
   }
 
   const empty = useMemo(() => items.length === 0, [items.length]);
@@ -318,6 +359,21 @@ export default function RepoMappingsPage() {
                           {repoProfiles[m.id].agents_md_path}
                         </div>
                       )}
+                      <button
+                        onClick={() => void openAgentsEditor(m)}
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: 8,
+                          border: '1px solid rgba(56,189,248,0.35)',
+                          background: 'rgba(56,189,248,0.12)',
+                          color: '#7dd3fc',
+                          fontSize: 11,
+                          cursor: 'pointer',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Open AGENTS.md
+                      </button>
                       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)' }}>
                         {new Date(repoProfiles[m.id].scanned_at).toLocaleString()}
                       </div>
@@ -359,6 +415,57 @@ export default function RepoMappingsPage() {
       {(msg || err) && (
         <div style={{ borderRadius: 10, padding: '10px 12px', border: '1px solid ' + (err ? 'rgba(248,113,113,0.35)' : 'rgba(34,197,94,0.3)'), background: err ? 'rgba(248,113,113,0.08)' : 'rgba(34,197,94,0.08)', color: err ? '#f87171' : '#22c55e', fontSize: 13 }}>
           {err || msg}
+        </div>
+      )}
+
+      {editorOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(2,6,23,0.75)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(980px, 100%)', maxHeight: '86vh', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(7,13,24,0.98)', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: 10, padding: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.9)' }}>AGENTS.md Editor</div>
+              <button onClick={() => { setEditorOpen(false); setEditorMappingId(null); }} style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 18, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {editorPath || (editorLoading ? 'Loading...' : '')}
+            </div>
+            <textarea
+              value={editorContent}
+              onChange={(e) => setEditorContent(e.target.value)}
+              disabled={editorLoading || editorSaving}
+              style={{
+                width: '100%',
+                minHeight: 380,
+                height: '100%',
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.03)',
+                color: 'rgba(255,255,255,0.92)',
+                padding: 12,
+                fontSize: 12,
+                lineHeight: 1.5,
+                resize: 'none',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => { setEditorOpen(false); setEditorMappingId(null); }}
+                className='button button-outline'
+                style={{ minWidth: 120 }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => void saveAgentsEditor()}
+                disabled={editorLoading || editorSaving || !editorMappingId}
+                className='button button-primary'
+                style={{ minWidth: 140 }}
+              >
+                {editorSaving ? 'Saving...' : 'Save AGENTS.md'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

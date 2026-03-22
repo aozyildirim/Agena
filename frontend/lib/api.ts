@@ -207,6 +207,22 @@ export async function scanRepoProfile(mapping: RepoMapping): Promise<{ mapping_i
   });
 }
 
+export async function getRepoAgentsDoc(mappingId: string): Promise<{ mapping_id: string; agents_md_path: string; content: string }> {
+  return await apiFetch<{ mapping_id: string; agents_md_path: string; content: string }>(
+    `/preferences/repo-profile/agents/${encodeURIComponent(mappingId)}`,
+  );
+}
+
+export async function saveRepoAgentsDoc(mappingId: string, content: string): Promise<{ mapping_id: string; agents_md_path: string; content: string }> {
+  return await apiFetch<{ mapping_id: string; agents_md_path: string; content: string }>(
+    `/preferences/repo-profile/agents/${encodeURIComponent(mappingId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
 // ── Flow Run helpers ─────────────────────────────────────────────────────────
 
 export interface FlowRunStep {

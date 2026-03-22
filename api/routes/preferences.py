@@ -58,6 +58,16 @@ class RepoProfileScanResponse(BaseModel):
     profile: dict[str, Any]
 
 
+class RepoAgentsDocResponse(BaseModel):
+    mapping_id: str
+    agents_md_path: str
+    content: str
+
+
+class RepoAgentsDocUpdateRequest(BaseModel):
+    content: str
+
+
 def _parse_json(val: str | None) -> list[dict[str, Any]]:
     if not val:
         return []
@@ -302,6 +312,18 @@ async def _get_or_create_pref(db: AsyncSession, user_id: int) -> UserPreference:
     return pref
 
 
+async def _get_profile_by_mapping_id(db: AsyncSession, user_id: int, mapping_id: str) -> dict[str, Any]:
+    pref = await _get_or_create_pref(db, user_id)
+    settings = _parse_json_obj(pref.profile_settings_json)
+    repo_profiles = settings.get('repo_profiles')
+    if not isinstance(repo_profiles, dict):
+        raise HTTPException(status_code=404, detail='Repo profile not found')
+    profile = repo_profiles.get(mapping_id)
+    if not isinstance(profile, dict):
+        raise HTTPException(status_code=404, detail='Repo profile not found')
+    return profile
+
+
 @router.get('', response_model=PreferenceResponse)
 async def get_preferences(
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -413,25 +435,44 @@ async def scan_repo_profile(
     agents_md_content = ''
     if llm is not None:
         system_prompt = (
-            'You are a senior repository analyst. Return STRICT JSON object only.\n'
-            'Keys: stack (array), package_manager (string|null), '
-            'suggested_test_commands (array), suggested_lint_commands (array), '
-            'top_directories (array), top_files (array), '
-            'repo_rules (array), agents_md (string markdown).\n'
-            'Keep it concise and practical.'
+            'You are a principal software architect and technical writer.\n'
+            'Analyze repository snapshot and return STRICT JSON object only.\n'
+            'Return keys:\n'
+            '- stack: string[]\n'
+            '- package_manager: string|null\n'
+            '- suggested_test_commands: string[]\n'
+            '- suggested_lint_commands: string[]\n'
+            '- top_directories: string[]\n'
+            '- top_files: string[]\n'
+            '- repo_rules: string[]\n'
+            '- agents_md: string (full markdown)\n\n'
+            'agents_md must be detailed and actionable, minimum ~1800 words,\n'
+            'with these sections in exact order:\n'
+            '1) System Overview\n'
+            '2) Services & Responsibilities\n'
+            '3) Data Flow\n'
+            '4) Deployment Notes\n'
+            '5) Key Decisions\n'
+            '6) Future Improvements\n\n'
+            'Rules:\n'
+            '- No placeholders, no "etc", no "..."\n'
+            '- Include concrete file/path references wherever possible\n'
+            '- If uncertain, write "Assumption:" with rationale\n'
+            '- Make AGENTS.md production-grade for engineers'
         )
         user_prompt = (
             f"Mapping Name: {payload.mapping_name}\n"
             f"Azure Repo: {payload.azure_repo_name or ''}\n"
             f"Local Path: {root}\n\n"
-            f"{_build_repo_snapshot_text(root)}"
+            f"{_build_repo_snapshot_text(root)}\n\n"
+            "Generate comprehensive AGENTS.md based on repository evidence."
         )
         try:
             output, usage_meta, model, _ = await llm.generate(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                complexity_hint='normal',
-                max_output_tokens=1800,
+                complexity_hint='high',
+                max_output_tokens=4500,
             )
             used_model = model
             prompt_tokens = int(usage_meta.get('prompt_tokens', 0))
@@ -512,3 +553,38 @@ async def scan_repo_profile(
         details_json={'mapping_id': payload.mapping_id, 'mapping_name': payload.mapping_name},
     )
     return RepoProfileScanResponse(mapping_id=payload.mapping_id, profile=profile)
+
+
+@router.get('/repo-profile/agents/{mapping_id}', response_model=RepoAgentsDocResponse)
+async def get_repo_agents_doc(
+    mapping_id: str,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> RepoAgentsDocResponse:
+    profile = await _get_profile_by_mapping_id(db, tenant.user_id, mapping_id)
+    agents_md_path = str(profile.get('agents_md_path') or '').strip()
+    if not agents_md_path:
+        raise HTTPException(status_code=404, detail='AGENTS.md path is missing for this mapping')
+    p = Path(agents_md_path).expanduser()
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail='AGENTS.md file not found')
+    content = p.read_text(encoding='utf-8', errors='ignore')
+    return RepoAgentsDocResponse(mapping_id=mapping_id, agents_md_path=str(p), content=content)
+
+
+@router.put('/repo-profile/agents/{mapping_id}', response_model=RepoAgentsDocResponse)
+async def save_repo_agents_doc(
+    mapping_id: str,
+    payload: RepoAgentsDocUpdateRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> RepoAgentsDocResponse:
+    profile = await _get_profile_by_mapping_id(db, tenant.user_id, mapping_id)
+    agents_md_path = str(profile.get('agents_md_path') or '').strip()
+    if not agents_md_path:
+        raise HTTPException(status_code=404, detail='AGENTS.md path is missing for this mapping')
+    p = Path(agents_md_path).expanduser()
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail='AGENTS.md file not found')
+    p.write_text(payload.content or '', encoding='utf-8')
+    return RepoAgentsDocResponse(mapping_id=mapping_id, agents_md_path=str(p), content=payload.content or '')
