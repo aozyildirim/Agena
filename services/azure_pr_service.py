@@ -134,10 +134,14 @@ class AzurePRService:
             return m_web.group(1), m_web.group(2), m_web.group(3)
 
         m_api = re.search(
-            r'^([^/]+)/_apis/git/repositories/([^/]+)/pullRequests/(\d+)$',
+            r'^(.+?)/_apis/git/repositories/([^/]+)/pullRequests/(\d+)$',
             path,
             flags=re.IGNORECASE,
         )
         if m_api:
-            return m_api.group(1), m_api.group(2), m_api.group(3)
+            # Azure API URLs may include org segment before project:
+            # /{org}/{project}/_apis/git/repositories/{repo}/pullRequests/{id}
+            # Keep only the last segment as project key.
+            project = m_api.group(1).split('/')[-1].strip()
+            return project, m_api.group(2), m_api.group(3)
         return None
