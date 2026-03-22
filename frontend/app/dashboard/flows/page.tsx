@@ -640,12 +640,31 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
     setPanStart({ mx: e.clientX, my: e.clientY, ox: canvasOffset.x, oy: canvasOffset.y });
   }, [connecting, canvasOffset]);
 
+  function getNextNodePosition() {
+    const viewW = Math.max(420, (canvasRef.current?.clientWidth ?? 980));
+    const viewH = Math.max(260, (canvasRef.current?.clientHeight ?? 560));
+    const left = Math.max(24, -canvasOffset.x + 24);
+    const top = Math.max(24, -canvasOffset.y + 24);
+    const horizontalGap = NODE_W + 36;
+    const verticalGap = NODE_H + 28;
+    const cols = Math.max(1, Math.floor((viewW - 48) / horizontalGap));
+    const rowCapacity = Math.max(1, Math.floor((viewH - 48) / verticalGap));
+    const index = flow.nodes.length;
+    const row = Math.floor(index / cols) % rowCapacity;
+    const col = index % cols;
+    return {
+      x: left + col * horizontalGap,
+      y: top + row * verticalGap,
+    };
+  }
+
   function addNode(preset: typeof AGENT_PRESETS[0]) {
     const id = 'n' + Date.now();
+    const pos = getNextNodePosition();
     const node: FlowNode = {
       id, type: 'agent', role: preset.role, label: preset.label, icon: preset.icon,
       color: preset.color, action: '', waitForApproval: false,
-      x: 80 + flow.nodes.length * 220, y: 160,
+      x: pos.x, y: pos.y,
     };
     onChange({ ...flow, nodes: [...flow.nodes, node] });
     setShowPicker(false);
@@ -653,10 +672,11 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
 
   function addTypeNode(preset: typeof NODE_TYPE_PRESETS[0]) {
     const id = 'n' + Date.now();
+    const pos = getNextNodePosition();
     const node: FlowNode = {
       id, type: preset.type, role: preset.type, label: preset.label, icon: preset.icon,
       color: preset.color, action: '', waitForApproval: false,
-      x: 80 + flow.nodes.length * 220, y: 160,
+      x: pos.x, y: pos.y,
     };
     onChange({ ...flow, nodes: [...flow.nodes, node] });
     setShowPicker(false);
@@ -665,10 +685,11 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
 
   function addCustomNode() {
     const id = 'n' + Date.now();
+    const pos = getNextNodePosition();
     const node: FlowNode = {
       id, type: 'agent', role: 'custom', label: 'Yeni Agent', icon: '🤖', color: '#5eead4',
       action: '', waitForApproval: false,
-      x: 80 + flow.nodes.length * 220, y: 160,
+      x: pos.x, y: pos.y,
     };
     onChange({ ...flow, nodes: [...flow.nodes, node] });
     setShowPicker(false);
@@ -686,6 +707,16 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
 
   function deleteEdge(from: string, to: string) {
     onChange({ ...flow, edges: flow.edges.filter((e) => !(e.from === from && e.to === to)) });
+  }
+
+  function handleDeleteEdgeEvent(
+    e: React.MouseEvent<SVGPathElement | SVGCircleElement | SVGTextElement>,
+    from: string,
+    to: string,
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteEdge(from, to);
   }
 
   function updateNode(patch: Partial<FlowNode>) {
@@ -719,7 +750,7 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
       </div>
 
       {/* Canvas */}
-      <div ref={canvasRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: connecting ? 'crosshair' : panStart ? 'grabbing' : 'grab' }}
+      <div ref={canvasRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', cursor: connecting ? 'crosshair' : panStart ? 'grabbing' : 'default' }}
         onMouseDown={onCanvasMouseDown}>
 
         {/* Grid dots */}
@@ -758,12 +789,25 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
                   {/* invisible wider hit area */}
                   <path d={edgePath(from, to)} fill="none" stroke="transparent" strokeWidth={12}
                     style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
-                    onMouseDown={(e) => { e.stopPropagation(); deleteEdge(edge.from, edge.to); }} />
+                    onMouseDown={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
+                    onClick={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)} />
                   {/* delete dot */}
-                  <circle cx={midX} cy={midY} r={10} fill="rgba(8,14,30,0.9)" stroke="rgba(248,113,113,0.5)" strokeWidth={1.5}
+                  <circle cx={midX} cy={midY} r={12} fill="rgba(8,14,30,0.92)" stroke="rgba(248,113,113,0.58)" strokeWidth={1.6}
                     style={{ cursor: 'pointer', pointerEvents: 'all' }}
-                    onMouseDown={(e) => { e.stopPropagation(); deleteEdge(edge.from, edge.to); }} />
-                  <text x={midX} y={midY + 4} textAnchor="middle" fontSize={11} fill="#f87171" style={{ pointerEvents: 'none', userSelect: 'none' }}>×</text>
+                    onMouseDown={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
+                    onClick={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)} />
+                  <text
+                    x={midX}
+                    y={midY + 4}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fill="#f87171"
+                    style={{ pointerEvents: 'all', userSelect: 'none', cursor: 'pointer' }}
+                    onMouseDown={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
+                    onClick={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
+                  >
+                    ×
+                  </text>
                 </g>
               );
             })}
@@ -793,7 +837,7 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
         </svg>
 
         {/* Nodes */}
-        <div style={{ position: 'absolute', inset: 0, transform: `translate(${canvasOffset.x}px,${canvasOffset.y}px)` }}>
+        <div style={{ position: 'absolute', inset: 0, transform: `translate(${canvasOffset.x}px,${canvasOffset.y}px)`, pointerEvents: 'none' }}>
           {flow.nodes.map((node, idx) => (
             <FlowNodeCard
               key={node.id}
@@ -905,6 +949,7 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
         userSelect: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s, background 0.15s',
         overflow: 'visible',
+        pointerEvents: 'all',
       }}
       onMouseDown={onMouseDown}
       onMouseEnter={() => { setHovered(true); }}
