@@ -153,7 +153,14 @@ export default function IntegrationsPage() {
       }
       setGithubToken('');
       setMsg(t('integrations.savedGithub'));
-    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
+    }).catch((e) => {
+      const message = e instanceof Error ? e.message : t('integrations.saveFailed');
+      if (message.includes('Unsupported provider: github')) {
+        setError('Backend henüz yeni kodla çalışmıyor. Lütfen backend servisini restart et.');
+        return;
+      }
+      setError(message);
+    });
   }
 
   async function saveOpenAI() {
@@ -240,7 +247,7 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+      <div className='integrations-grid'>
         {/* OpenAI */}
         <IntegrationCard
           title='OpenAI'
@@ -395,6 +402,18 @@ export default function IntegrationsPage() {
         </IntegrationCard>
       </div>
       <style jsx>{`
+        .integrations-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+          align-items: stretch;
+        }
+        @media (max-width: 1320px) {
+          .integrations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 860px) {
+          .integrations-grid { grid-template-columns: 1fr; }
+        }
         .connected-dot {
           animation: connectedPulse 1.8s ease-out infinite;
           box-shadow: 0 0 0 rgba(34, 197, 94, 0.55);
@@ -426,6 +445,9 @@ function IntegrationCard({
       background: bgColor, padding: 18,
       position: 'relative', overflow: 'hidden',
       boxShadow: glow,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: topLine }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -449,7 +471,7 @@ function IntegrationCard({
           </span>
         )}
       </div>
-      <div style={{ display: 'grid', gap: 10 }}>{children}</div>
+      <div style={{ display: 'grid', gap: 10, flex: 1 }}>{children}</div>
     </div>
   );
 }
