@@ -332,11 +332,11 @@ body::before {
 
 @keyframes chart-bob {
   0%, 100% {
-    transform: translateY(0) scaleY(1);
+    transform: scaleY(1);
     filter: brightness(1);
   }
   50% {
-    transform: translateY(-7px) scaleY(1.08);
+    transform: scaleY(1.08);
     filter: brightness(1.12);
   }
 }
