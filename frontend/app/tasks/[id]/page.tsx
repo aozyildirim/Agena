@@ -348,9 +348,14 @@ export default function TaskDetailPage() {
   }, [logs]);
 
   const executionProgress = useMemo(() => {
-    const doneCount = STEP_ORDER.filter((step) => Boolean(stepMap[step])).length;
-    const percent = Math.round((doneCount / STEP_ORDER.length) * 100);
-    return { doneCount, total: STEP_ORDER.length, percent };
+    const hasQueued = Boolean(stepMap.queued);
+    const hasRunning = Boolean(stepMap.running);
+    const effectiveSteps = !hasQueued && hasRunning
+      ? STEP_ORDER.filter((step) => step !== 'queued')
+      : STEP_ORDER;
+    const doneCount = effectiveSteps.filter((step) => Boolean(stepMap[step])).length;
+    const percent = Math.round((doneCount / effectiveSteps.length) * 100);
+    return { doneCount, total: effectiveSteps.length, percent, effectiveSteps };
   }, [stepMap]);
 
   const currentActivity = useMemo(() => {
@@ -706,7 +711,7 @@ export default function TaskDetailPage() {
               </div>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
-              {STEP_ORDER.map((step) => {
+              {executionProgress.effectiveSteps.map((step) => {
                 const item = stepMap[step];
                 const done = Boolean(item);
                 const color = done ? stageColor(step) : 'rgba(255,255,255,0.25)';
