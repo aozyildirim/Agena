@@ -142,6 +142,14 @@ function fmtEta(sec?: number | null): string {
   return `${min}m ${rem}s`;
 }
 
+function fmtAgo(iso: string | null, nowMs: number): string {
+  if (!iso) return '—';
+  const diff = Math.max(0, Math.floor((nowMs - new Date(iso).getTime()) / 1000));
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
   const taskId = params.id;
@@ -156,6 +164,7 @@ export default function TaskDetailPage() {
   const [dependencyCandidates, setDependencyCandidates] = useState<DependencyTaskOption[]>([]);
   const [depsData, setDepsData] = useState<TaskDeps | null>(null);
   const [defaultCreatePr, setDefaultCreatePr] = useState(true);
+  const [clockMs, setClockMs] = useState(() => Date.now());
 
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [logs, setLogs] = useState<TaskLog[]>([]);
@@ -207,6 +216,11 @@ export default function TaskDetailPage() {
     liveStripRef.current.scrollTo({ left: liveStripRef.current.scrollWidth, behavior: 'smooth' });
   }, [logs, logFilter]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const filteredLogs = useMemo(() => {
     if (logFilter === 'errors') return logs.filter((item) => item.stage === 'failed' || /error|failed|timeout/i.test(item.message));
     if (logFilter === 'code') return logs.filter((item) => item.stage === 'code_preview' || item.stage === 'code_ready' || item.stage === 'code_diff');
@@ -239,6 +253,64 @@ export default function TaskDetailPage() {
     if (!map.completed) map.failed = logs.find((l) => l.stage === 'failed');
     return map;
   }, [logs]);
+
+  const executionProgress = useMemo(() => {
+    const doneCount = STEP_ORDER.filter((step) => Boolean(stepMap[step])).length;
+    const percent = Math.round((doneCount / STEP_ORDER.length) * 100);
+    return { doneCount, total: STEP_ORDER.length, percent };
+  }, [stepMap]);
+
+  const currentActivity = useMemo(() => {
+    const fallback = {
+      title: 'Waiting for logs',
+      detail: 'Task has no live stage signal yet.',
+      color: 'rgba(255,255,255,0.65)',
+      pulse: false,
+    };
+    if (!task) return fallback;
+    if (task.status === 'queued') {
+      return {
+        title: 'Queued',
+        detail: `Queue position ${task.queue_position ? `#${task.queue_position}` : 'unknown'} • ETA ${fmtEta(task.estimated_start_sec)}`,
+        color: '#f59e0b',
+        pulse: false,
+      };
+    }
+    if (task.status === 'running') {
+      const stage = latestLog?.stage || 'running';
+      return {
+        title: `Running: ${stage}`,
+        detail: latestLog?.message || 'Agent is processing current stage.',
+        color: stageColor(stage),
+        pulse: true,
+      };
+    }
+    if (task.status === 'completed') {
+      return {
+        title: 'Completed',
+        detail: 'Execution finished successfully.',
+        color: '#22c55e',
+        pulse: false,
+      };
+    }
+    if (task.status === 'failed') {
+      return {
+        title: 'Failed',
+        detail: latestFailure || 'Execution failed with no detail.',
+        color: '#f87171',
+        pulse: false,
+      };
+    }
+    if (task.status === 'cancelled') {
+      return {
+        title: 'Cancelled',
+        detail: 'Execution was stopped before completion.',
+        color: '#f87171',
+        pulse: false,
+      };
+    }
+    return fallback;
+  }, [task, latestLog, latestFailure]);
 
   async function rerunTask() {
     if (!taskId) return;
@@ -503,6 +575,43 @@ export default function TaskDetailPage() {
         <section style={{ display: 'grid', gap: 12 }}>
           <section style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
             <h3 style={{ marginTop: 0, marginBottom: 10, color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>Execution Steps</h3>
+            <div style={{ border: `1px solid ${currentActivity.color}66`, background: `${currentActivity.color}18`, borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: currentActivity.color,
+                      boxShadow: currentActivity.pulse ? `0 0 0 4px ${currentActivity.color}33` : 'none',
+                    }}
+                  />
+                  <span style={{ color: currentActivity.color, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                    {currentActivity.title}
+                  </span>
+                </div>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.42)' }}>
+                  {latestLog ? `Updated ${fmtAgo(latestLog.created_at, clockMs)}` : 'Auto refresh 5s'}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45, marginBottom: 6, whiteSpace: 'pre-wrap' }}>
+                {currentActivity.detail}
+              </div>
+              <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${executionProgress.percent}%`,
+                    height: '100%',
+                    background: currentActivity.color,
+                    transition: 'width .35s ease',
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: 5, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                Progress: {executionProgress.doneCount}/{executionProgress.total} steps ({executionProgress.percent}%)
+              </div>
+            </div>
             <div style={{ display: 'grid', gap: 8 }}>
               {STEP_ORDER.map((step) => {
                 const item = stepMap[step];

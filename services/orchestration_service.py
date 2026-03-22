@@ -502,6 +502,14 @@ class OrchestrationService:
             clean_path = path.strip().strip('`').strip()
             if not clean_path:
                 continue
+            # Safety guard: allow only repo-relative paths.
+            normalized = clean_path.replace('\\', '/')
+            if normalized.startswith('/'):
+                continue
+            if re.match(r'^[A-Za-z]:/', normalized):
+                continue
+            if '/..' in f'/{normalized}' or normalized.startswith('..'):
+                continue
             files.append(GitHubFileChange(path=clean_path, content=content.rstrip() + '\n'))
         return files
 
@@ -817,6 +825,8 @@ class OrchestrationService:
                 except Exception:
                     pass
             lines.append('Instruction: prioritize editing existing project files; avoid placeholder markdown-only outputs.')
+            lines.append('Hard Rule: keep repository language/framework; do not rewrite feature in a different stack.')
+            lines.append('Hard Rule: return repository-relative file paths only; never absolute paths.')
             return '\n'.join(lines)
         except Exception as exc:
             return f'Repo context unavailable for {repo_path}: {str(exc)[:180]}'

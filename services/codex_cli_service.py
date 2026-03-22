@@ -34,11 +34,16 @@ class CodexCLIService:
             raise ValueError(f'Local repo path does not exist: {repo_path}')
 
         prompt = (
-            'Implement the task and return ONLY markdown file blocks in this format:\n'
+            'Implement the task in the CURRENT repository and return ONLY markdown file blocks in this format:\n'
             '**File: relative/path.ext**\n'
             '```language\n'
             '...content...\n'
             '```\n\n'
+            'Hard rules:\n'
+            '- Use ONLY repository-relative file paths (never absolute paths like /Users/... or C:\\...).\n'
+            '- Prefer editing existing files; do not invent a new framework/stack unless task explicitly requires it.\n'
+            '- Keep changes minimal and directly tied to the task title/description.\n'
+            '- Do not output explanations, only file blocks.\n\n'
             f'Task title: {task_title}\n'
             f'Task description:\n{task_description}\n'
         )
