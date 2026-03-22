@@ -304,6 +304,26 @@ curl http://localhost:8010/tasks/1/logs -H "Authorization: Bearer $TOKEN"
   - `GIT_TERMINAL_PROMPT=0`
   - command timeout support (`GIT_COMMAND_TIMEOUT_SEC`, default 300s)
 
+### Qdrant Memory Upgrade (Real Embeddings)
+
+- Replaced deterministic-only memory baseline with provider-backed embeddings (with safe fallback):
+  - `memory/qdrant.py`
+  - supports OpenAI and Gemini embedding generation
+  - preserves 1536-dimensional vector contract for Qdrant collection compatibility
+  - keeps deterministic placeholder fallback when provider key/model call is unavailable
+- Wired memory embedding runtime to tenant-selected LLM integration at orchestration time:
+  - `services/orchestration_service.py`
+  - `agents/orchestrator.py`
+  - memory now uses org runtime provider/key/base where available (OpenAI/Gemini)
+- Added embedding config env knobs:
+  - `core/settings.py`, `.env.example`
+  - `QDRANT_EMBEDDING_PROVIDER`
+  - `QDRANT_OPENAI_EMBEDDING_MODEL`
+  - `QDRANT_GEMINI_EMBEDDING_MODEL`
+  - `QDRANT_EMBEDDING_TIMEOUT_SEC`
+- Updated memory schema docs to reflect real embedding mode + fallback behavior:
+  - `api/routes/memory.py`
+
 ### PR Feedback / Review Flow Hardening
 
 - Added PR comment webhook entrypoint:

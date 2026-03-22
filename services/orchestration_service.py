@@ -671,8 +671,30 @@ class OrchestrationService:
 
     async def _build_orchestrator(self, organization_id: int, routing: TaskRouting) -> AgentOrchestrator:
         llm_runtime = await self._resolve_llm_runtime(organization_id, routing)
+        memory_provider = None
+        memory_api_key = None
+        memory_base_url = None
+        memory_model = None
+        if llm_runtime is not None:
+            memory_provider = llm_runtime.provider
+            memory_api_key = llm_runtime.api_key
+            memory_base_url = llm_runtime.base_url
+            memory_model = llm_runtime.model
+
+        if not (memory_api_key or '').strip():
+            openai_key = (self.settings.openai_api_key or '').strip()
+            if openai_key and not openai_key.startswith('your_'):
+                memory_provider = 'openai'
+                memory_api_key = openai_key
+                memory_base_url = (self.settings.openai_base_url or '').strip()
+
         if llm_runtime is None:
-            return AgentOrchestrator()
+            return AgentOrchestrator(
+                memory_provider=memory_provider,
+                memory_api_key=memory_api_key,
+                memory_base_url=memory_base_url,
+                memory_model=memory_model,
+            )
         from services.llm.provider import LLMProvider
         llm = LLMProvider(
             provider=llm_runtime.provider,
@@ -681,7 +703,13 @@ class OrchestrationService:
             small_model=llm_runtime.model,
             large_model=llm_runtime.model,
         )
-        return AgentOrchestrator(llm_provider=llm)
+        return AgentOrchestrator(
+            llm_provider=llm,
+            memory_provider=memory_provider,
+            memory_api_key=memory_api_key,
+            memory_base_url=memory_base_url,
+            memory_model=memory_model,
+        )
 
     async def _resolve_llm_runtime(self, organization_id: int, routing: TaskRouting) -> LLMRuntimeConfig | None:
         provider = (routing.preferred_agent_provider or '').strip().lower()

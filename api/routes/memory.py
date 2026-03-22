@@ -79,10 +79,9 @@ async def memory_schema(
             'Memories summarized and injected into analyze/generate/review flow',
         ],
         constraints=[
-            'Current embedding mode is deterministic placeholder (non-semantic baseline).',
+            'Embedding mode depends on configured provider key (OpenAI/Gemini); placeholder mode is fallback.',
             'Vector size fixed at 1536, cosine distance.',
             'Memory can be disabled globally with QDRANT_ENABLED=false.',
         ],
         privacy_scope='Organization-scoped retrieval via organization_id payload filtering.',
     )
-

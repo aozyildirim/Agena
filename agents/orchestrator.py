@@ -9,9 +9,22 @@ from services.llm.provider import LLMProvider
 
 
 class AgentOrchestrator:
-    def __init__(self, llm_provider: LLMProvider | None = None) -> None:
+    def __init__(
+        self,
+        llm_provider: LLMProvider | None = None,
+        *,
+        memory_provider: str | None = None,
+        memory_api_key: str | None = None,
+        memory_base_url: str | None = None,
+        memory_model: str | None = None,
+    ) -> None:
         self.agents = CrewAIAgentRunner(llm_provider=llm_provider)
-        self.memory_store = QdrantMemoryStore()
+        self.memory_store = QdrantMemoryStore(
+            embedding_provider=memory_provider,
+            embedding_api_key=memory_api_key,
+            embedding_base_url=memory_base_url,
+            embedding_model=memory_model,
+        )
         self.graph = build_graph(self)
 
     async def run(self, task: dict[str, Any]) -> OrchestrationState:
