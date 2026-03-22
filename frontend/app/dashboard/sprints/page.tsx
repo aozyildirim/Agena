@@ -19,6 +19,14 @@ type WorkItem = {
   id: string; title: string; description: string; source: string; state?: string;
   assigned_to?: string; created_date?: string; activated_date?: string;
 };
+type FlowRunOptions = {
+  project?: string;
+  azureRepo?: string;
+  localRepoMapping?: string;
+  localRepoPath?: string;
+  repoPlaybook?: string;
+  executionPrompt?: string;
+};
 
 type AgentRole = 'lead_developer' | 'pm' | 'qa' | 'manager' | 'developer';
 interface AgentConfig { role: AgentRole; label: string; icon: string; provider: string; model: string; custom_model: string; enabled: boolean; }
@@ -314,12 +322,20 @@ export default function SprintsPage() {
     }
   }
 
-  async function handleRunFlow(flowId: string, item: WorkItem) {
+  async function handleRunFlow(flowId: string, item: WorkItem, options?: FlowRunOptions) {
     setFlowRunning(true); setFlowResult(null);
     try {
       const result = await runFlow(flowId, {
         id: item.id, title: item.title, state: item.state ?? '',
         description: item.description, assigned_to: item.assigned_to ?? '',
+        source: (item.source || '').toLowerCase().includes('jira') ? 'jira' : 'azure',
+        external_source: (item.source || '').toLowerCase().includes('jira') ? `Jira #${item.id}` : `Azure #${item.id}`,
+        project: options?.project ?? '',
+        azure_repo: options?.azureRepo ?? '',
+        local_repo_mapping: options?.localRepoMapping ?? '',
+        local_repo_path: options?.localRepoPath ?? '',
+        repo_playbook: options?.repoPlaybook ?? '',
+        execution_prompt: options?.executionPrompt ?? '',
       });
       setFlowResult(result);
     } catch (e) {
@@ -444,7 +460,7 @@ export default function SprintsPage() {
             savedFlows={savedFlows}
             flowRunning={flowRunning}
             flowResult={flowResult}
-            onRunFlow={(flowId) => void handleRunFlow(flowId, selected)}
+            onRunFlow={(flowId, options) => void handleRunFlow(flowId, selected, options)}
             onClose={() => { setSelected(null); setFlowResult(null); }}
             aiLoading={aiLoading}
             aiResult={aiResult}
@@ -533,7 +549,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   savedFlows: { id: string; name: string }[];
   flowRunning: boolean;
   flowResult: FlowRunResult | null;
-  onRunFlow: (flowId: string) => void;
+  onRunFlow: (flowId: string, options?: FlowRunOptions) => void;
 }) {
   const { t, lang } = useLocale();
   const stateInfo = STATE_COLORS[item.state ?? ''] ?? { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' };
@@ -738,7 +754,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
       {/* Footer */}
       <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {savedFlows.length > 0 && (
-          <button onClick={() => selFlow && onRunFlow(selFlow)} disabled={flowRunning || !selFlow}
+          <button onClick={() => selFlow && onRunFlow(selFlow, { project: selectedLocalMapping?.azure_project || project || undefined, azureRepo: selectedLocalMapping?.azure_repo_url || undefined, localRepoMapping: selectedLocalMapping?.name || undefined, localRepoPath: selectedLocalMapping?.local_path || undefined, repoPlaybook: selectedLocalMapping?.repo_playbook || undefined, executionPrompt: executionPrompt.trim() || undefined })} disabled={flowRunning || !selFlow}
             style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none', background: flowRunning ? 'rgba(167,139,250,0.3)' : selFlow ? 'linear-gradient(135deg, #7c3aed, #a78bfa)' : 'rgba(255,255,255,0.06)', color: selFlow ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 13, cursor: flowRunning || !selFlow ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.flowRunning')}</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? t('sprints.runFlow') : t('sprints.selectFlow')}</>}
           </button>
