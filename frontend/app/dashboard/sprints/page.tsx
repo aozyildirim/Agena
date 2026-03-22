@@ -173,9 +173,19 @@ export default function SprintsPage() {
       let savedProvider = (localStorage.getItem(LS_PROVIDER) || 'azure') as 'azure' | 'jira';
       try {
         const prefs = await loadPrefs();
-        if (prefs.azure_project)     savedProject = prefs.azure_project;
-        if (prefs.azure_team)        savedTeam    = prefs.azure_team;
-        if (prefs.azure_sprint_path) savedSprint  = prefs.azure_sprint_path;
+        const rawSettings = (prefs.profile_settings || {}) as Record<string, unknown>;
+        const jiraProject = typeof rawSettings.jira_project === 'string' ? rawSettings.jira_project : '';
+        const jiraBoard = typeof rawSettings.jira_board === 'string' ? rawSettings.jira_board : '';
+        const jiraSprint = typeof rawSettings.jira_sprint_id === 'string' ? rawSettings.jira_sprint_id : '';
+        if (savedProvider === 'jira') {
+          if (jiraProject) savedProject = jiraProject;
+          if (jiraBoard) savedTeam = jiraBoard;
+          if (jiraSprint) savedSprint = jiraSprint;
+        } else {
+          if (prefs.azure_project) savedProject = prefs.azure_project;
+          if (prefs.azure_team) savedTeam = prefs.azure_team;
+          if (prefs.azure_sprint_path) savedSprint = prefs.azure_sprint_path;
+        }
         if (prefs.flows?.length) {
           setSavedFlows((prefs.flows as unknown as { id: string; name: string }[]).map((f) => ({ id: f.id, name: f.name })));
         }
