@@ -18,6 +18,16 @@ Production-ready, multi-tenant AI agent orchestration platform built with FastAP
 - Optional vector memory (`memory/base.py`, `memory/qdrant.py`)
 - Next.js frontend routes for landing, pricing, auth, tasks, and task timeline
 
+## Documentation
+
+- Full feature inventory: `docs/FEATURES.md`
+- Generated OpenAPI schema (Swagger source): `docs/openapi.json`
+- Regenerate OpenAPI schema:
+
+```bash
+PYTHONPATH=. python3 scripts/export_openapi.py
+```
+
 ## Feature Catalog (Current)
 
 ### Core Delivery
