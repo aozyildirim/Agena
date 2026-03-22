@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.flow_run import FlowRun, FlowRunStep
 from models.task_record import TaskRecord
 from services.azure_pr_service import AzurePRService
+from services.github_service import GitHubService
 from services.integration_config_service import IntegrationConfigService
 from services.orchestration_service import OrchestrationService
 
@@ -117,7 +118,9 @@ async def _run_agent_node(
         }
 
     if str(role).strip().lower() == 'lead_developer' and (
-        'review pr' in action_text or _bool_val(node.get('review_pr'), False)
+        'review pr' in action_text
+        or _bool_val(node.get('review_pr'), False)
+        or _bool_val(node.get('review_only'), False)
     ):
         return await _run_lead_pr_review_node(
             node=node,
@@ -327,9 +330,16 @@ async def _run_lead_pr_review_node(
     if not pr_url:
         return {'status': 'ok', 'warning': True, 'message': 'PR not found yet; review node skipped'}
 
-    azure = AzurePRService(db)
+    is_azure = 'dev.azure.com' in pr_url or '/_apis/git/repositories/' in pr_url
+    is_github = 'github.com' in pr_url or 'api.github.com' in pr_url
+    if not is_azure and not is_github:
+        return {'status': 'ok', 'warning': True, 'pr_url': pr_url, 'message': 'PR provider not recognized for review loop'}
+
     try:
-        comments = await azure.list_pr_comments(organization_id, pr_url=pr_url)
+        if is_azure:
+            comments = await AzurePRService(db).list_pr_comments(organization_id, pr_url=pr_url)
+        else:
+            comments = await GitHubService().list_pr_comments(pr_url=pr_url)
     except Exception as exc:
         return {'status': 'error', 'message': f'PR comments could not be fetched: {exc}'}
 
@@ -366,16 +376,22 @@ async def _run_lead_pr_review_node(
 
     auto_fix = _bool_val(node.get('auto_fix_from_comments'), True)
     if not auto_fix:
-        thread_id = await azure.post_pr_comment(
-            organization_id,
-            pr_url=pr_url,
-            comment='[Tiqr PR Review] Review comments captured. Auto-fix is disabled for this node.',
-        )
+        if is_azure:
+            comment_ref = await AzurePRService(db).post_pr_comment(
+                organization_id,
+                pr_url=pr_url,
+                comment='[Tiqr PR Review] Review comments captured. Auto-fix is disabled for this node.',
+            )
+        else:
+            comment_ref = await GitHubService().post_pr_comment(
+                pr_url=pr_url,
+                comment='[Tiqr PR Review] Review comments captured. Auto-fix is disabled for this node.',
+            )
         return {
             'status': 'ok',
             'pr_url': pr_url,
             'feedback_hash': feedback_hash,
-            'thread_id': thread_id,
+            'comment_ref': comment_ref,
             'message': 'Review comments captured; auto-fix disabled',
         }
 
@@ -384,14 +400,23 @@ async def _run_lead_pr_review_node(
         task_id=task_id,
         create_pr=True,
     )
-    thread_id = await azure.post_pr_comment(
-        organization_id,
-        pr_url=pr_url,
-        comment=(
-            '[Tiqr PR Review] Reviewer feedback detected. '
-            f'Auto-fix run completed. New PR: {rerun.pr_url or "n/a"}'
-        ),
-    )
+    if is_azure:
+        comment_ref = await AzurePRService(db).post_pr_comment(
+            organization_id,
+            pr_url=pr_url,
+            comment=(
+                '[Tiqr PR Review] Reviewer feedback detected. '
+                f'Auto-fix run completed. New PR: {rerun.pr_url or "n/a"}'
+            ),
+        )
+    else:
+        comment_ref = await GitHubService().post_pr_comment(
+            pr_url=pr_url,
+            comment=(
+                '[Tiqr PR Review] Reviewer feedback detected. '
+                f'Auto-fix run completed. New PR: {rerun.pr_url or "n/a"}'
+            ),
+        )
     return {
         'status': 'ok',
         'mode': 'pr_feedback_loop',
@@ -399,7 +424,7 @@ async def _run_lead_pr_review_node(
         'pr_url': pr_url,
         'new_pr_url': rerun.pr_url,
         'feedback_hash': feedback_hash,
-        'thread_id': thread_id,
+        'comment_ref': comment_ref,
         'message': 'PR feedback processed and developer auto-fix run executed',
     }
 

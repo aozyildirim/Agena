@@ -80,6 +80,23 @@ class GitHubClient:
         )
         return await self.create_pull_request(payload)
 
+    async def list_pr_issue_comments(self, owner: str, repo: str, pr_number: int) -> list[dict[str, Any]]:
+        url = f'https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments'
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(url, headers=self._headers())
+            response.raise_for_status()
+            data = response.json()
+        if not isinstance(data, list):
+            return []
+        return data
+
+    async def post_pr_issue_comment(self, owner: str, repo: str, pr_number: int, body: str) -> dict[str, Any]:
+        url = f'https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments'
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(url, headers=self._headers(), json={'body': body})
+            response.raise_for_status()
+            return response.json()
+
     async def _request_json(self, client: httpx.AsyncClient, method: str, path: str) -> dict[str, Any]:
         response = await client.request(method, f'{self.base_url}{path}', headers=self._headers())
         response.raise_for_status()

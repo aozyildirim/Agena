@@ -33,6 +33,8 @@ interface FlowNode {
   // agent execution options
   execute_task_pipeline?: boolean;
   create_pr?: boolean;
+  review_only?: boolean;
+  auto_fix_from_comments?: boolean;
   // azure_update node
   new_state?: string;
   comment?: string;
@@ -98,7 +100,7 @@ const PRESET_FLOWS: Flow[] = [
       { id: 'p1', type: 'trigger', role: 'trigger', label: 'Task Intake', icon: '🧾', color: '#f59e0b', action: 'Receive task from board', waitForApproval: false, x: 60, y: 160 },
       { id: 'p2', type: 'agent', role: 'developer', label: 'Developer Build', icon: '⚡', color: '#22c55e', action: 'Implement task and prepare changes', execute_task_pipeline: true, create_pr: true, waitForApproval: false, x: 280, y: 160 },
       { id: 'p3', type: 'github', role: 'github', label: 'Open PR', icon: '🐙', color: '#6e40c9', action: 'Create pull request', github_action: 'create_pr', pr_title: 'AI: {{title}}', waitForApproval: false, x: 500, y: 160 },
-      { id: 'p4', type: 'agent', role: 'lead_developer', label: 'PR Review', icon: '🧑‍💻', color: '#38bdf8', action: 'Review PR and approve or request changes', waitForApproval: true, x: 720, y: 160 },
+      { id: 'p4', type: 'agent', role: 'lead_developer', label: 'PR Review', icon: '🧑‍💻', color: '#38bdf8', action: 'Review PR and approve or request changes', review_only: true, auto_fix_from_comments: true, waitForApproval: true, x: 720, y: 160 },
     ],
     edges: [{ from: 'p1', to: 'p2' }, { from: 'p2', to: 'p3' }, { from: 'p3', to: 'p4' }],
   },
@@ -1055,6 +1057,24 @@ function NodeEditPanel({ node, onChange, onClose }: {
             </div>
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Onay bekle</span>
           </label>
+          {String(node.role || '').trim().toLowerCase() === 'lead_developer' && (
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <div onClick={() => onChange({ review_only: !node.review_only })}
+                  style={{ width: 36, height: 20, borderRadius: 999, background: node.review_only ? '#38bdf8' : 'rgba(255,255,255,0.1)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 2, left: node.review_only ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                </div>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Review only</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <div onClick={() => onChange({ auto_fix_from_comments: !node.auto_fix_from_comments })}
+                  style={{ width: 36, height: 20, borderRadius: 999, background: node.auto_fix_from_comments !== false ? '#22c55e' : 'rgba(255,255,255,0.1)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 2, left: node.auto_fix_from_comments !== false ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                </div>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Auto-fix from PR comments</span>
+              </label>
+            </>
+          )}
         </>)}
 
         {/* TRIGGER */}
