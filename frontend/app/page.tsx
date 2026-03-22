@@ -221,12 +221,16 @@ export default function HomePage() {
                   </span>
                 ))}
               </h2>
-              <p className='flow-showcase-subtitle flow-typing-line'>{t('landing.flowShowcaseDesc')}</p>
+              <p className='flow-showcase-subtitle flow-typing-line' style={{ animationDelay: '0.12s, 0.12s' }}>
+                {t('landing.flowShowcaseDesc')}
+              </p>
               <div className='flow-showcase-points'>
                 {[t('landing.flowShowcasePoint1'), t('landing.flowShowcasePoint2'), t('landing.flowShowcasePoint3')].map((item, i) => (
-                  <div key={item} className='flow-showcase-point' style={{ animationDelay: `${0.2 + i * 0.1}s` }}>
+                  <div key={item} className='flow-showcase-point' style={{ animationDelay: `${1.08 + i * 0.92}s` }}>
                     <span className='flow-showcase-dot' />
-                    <span className='flow-typing-line' style={{ animationDelay: `${0.8 + i * 0.16}s` }}>{item}</span>
+                    <span className='flow-typing-line' style={{ animationDelay: `${1.16 + i * 0.92}s, ${1.16 + i * 0.92}s` }}>
+                      {item}
+                    </span>
                   </div>
                 ))}
               </div>

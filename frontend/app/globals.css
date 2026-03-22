@@ -246,8 +246,10 @@ body::before {
 .flow-typing-line {
   display: inline-block;
   max-width: 100%;
+  opacity: 0;
+  transform: translateY(-8px);
   clip-path: inset(0 100% 0 0);
-  animation: flow-typing-reveal 1.1s steps(28, end) forwards;
+  animation: flow-line-drop 0.28s ease forwards, flow-typing-reveal 0.72s steps(24, end) forwards;
 }
 
 .flow-showcase-points {
@@ -267,7 +269,7 @@ body::before {
   align-items: center;
   gap: 9px;
   opacity: 0;
-  transform: translateX(-6px);
+  transform: translateY(-8px);
   animation: flow-point-in 0.45s ease forwards;
 }
 
@@ -1290,13 +1292,18 @@ input:focus, textarea:focus {
 }
 
 @keyframes flow-point-in {
-  from { opacity: 0; transform: translateX(-6px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes flow-image-float {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.02); }
+}
+
+@keyframes flow-line-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes flow-typing-reveal {
