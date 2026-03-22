@@ -68,13 +68,46 @@ async def list_azure_sprints(
         f"{config.base_url.rstrip('/')}/{project}/{team}"
         f'/_apis/work/teamsettings/iterations?api-version=7.1-preview.1'
     )
+    current_url = (
+        f"{config.base_url.rstrip('/')}/{project}/{team}"
+        f'/_apis/work/teamsettings/iterations?$timeframe=current&api-version=7.1-preview.1'
+    )
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.get(url, headers=_azure_headers(config.secret))
         r.raise_for_status()
-    return [
-        {'id': s['id'], 'name': s['name'], 'path': s.get('path', s['name'])}
-        for s in r.json().get('value', [])
-    ]
+        current_paths: set[str] = set()
+        current_ids: set[str] = set()
+        try:
+            rc = await client.get(current_url, headers=_azure_headers(config.secret))
+            if rc.status_code == 200:
+                for c in rc.json().get('value', []):
+                    if c.get('path'):
+                        current_paths.add(str(c.get('path')))
+                    if c.get('id'):
+                        current_ids.add(str(c.get('id')))
+        except Exception:
+            # Fallback silently if current sprint endpoint is unavailable
+            pass
+
+    rows: list[dict[str, Any]] = []
+    for s in r.json().get('value', []):
+        attrs = s.get('attributes') or {}
+        path = s.get('path', s['name'])
+        sid = str(s.get('id', ''))
+        timeframe = str(attrs.get('timeFrame') or '').lower()
+        is_current = sid in current_ids or str(path) in current_paths or timeframe == 'current'
+        rows.append(
+            {
+                'id': s['id'],
+                'name': s['name'],
+                'path': path,
+                'is_current': is_current,
+                'timeframe': timeframe or None,
+                'start_date': attrs.get('startDate'),
+                'finish_date': attrs.get('finishDate'),
+            }
+        )
+    return rows
 
 
 @router.get('/azure/sprint/members')

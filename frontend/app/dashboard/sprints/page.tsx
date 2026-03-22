@@ -6,7 +6,15 @@ import Link from 'next/link';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
-type Opt = { id: string; name: string; path?: string };
+type Opt = {
+  id: string;
+  name: string;
+  path?: string;
+  is_current?: boolean;
+  timeframe?: string | null;
+  start_date?: string | null;
+  finish_date?: string | null;
+};
 type WorkItem = {
   id: string; title: string; description: string; source: string; state?: string;
   assigned_to?: string; created_date?: string; activated_date?: string;
@@ -82,6 +90,19 @@ function truncateText(input: string, max = 110): string {
   return input.slice(0, max - 1).trimEnd() + '…';
 }
 
+function pickCurrentSprint(list: Opt[]): Opt | null {
+  const byFlag = list.find((s) => s.is_current || (s.timeframe || '').toLowerCase() === 'current');
+  if (byFlag) return byFlag;
+  const now = Date.now();
+  const byDate = list.find((s) => {
+    if (!s.start_date || !s.finish_date) return false;
+    const start = new Date(s.start_date).getTime();
+    const finish = new Date(s.finish_date).getTime();
+    return Number.isFinite(start) && Number.isFinite(finish) && start <= now && now <= finish;
+  });
+  return byDate || null;
+}
+
 export default function SprintsPage() {
   const { t } = useLocale();
   const [projects, setProjects] = useState<Opt[]>([]);
@@ -147,13 +168,14 @@ export default function SprintsPage() {
         setTeamRaw(savedTeam);
         const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(savedProject) + '&team=' + encodeURIComponent(savedTeam));
         setSprints(sps);
+        const current = pickCurrentSprint(sps);
+        if (current) {
+          setSprintRaw(current.path ?? current.name);
+          return;
+        }
         if (!savedSprint) return;
         const matched = sps.find((sp) => (sp.path ?? sp.name) === savedSprint || sp.name === savedSprint);
-        if (matched) {
-          setSprintRaw(matched.path ?? matched.name);
-        } else {
-          setSprintRaw(savedSprint);
-        }
+        setSprintRaw((matched?.path ?? matched?.name ?? savedSprint));
       } catch { setHasAzure(false); }
       finally { setLpj(false); setHydrating(false); }
     };
@@ -176,9 +198,24 @@ export default function SprintsPage() {
     if (!project || !team) return;
     setLsp(true);
     apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(project) + '&team=' + encodeURIComponent(team))
-      .then(setSprints).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.sprintsError')))
+      .then((list) => {
+        setSprints(list);
+        const current = pickCurrentSprint(list);
+        if (current) {
+          setSprintRaw(current.path ?? current.name);
+          return;
+        }
+        if (preferredSprint) {
+          const matched = list.find((sp) => (sp.path ?? sp.name) === preferredSprint || sp.name === preferredSprint);
+          if (matched) {
+            setSprintRaw(matched.path ?? matched.name);
+            return;
+          }
+        }
+        if (list.length > 0) setSprintRaw(list[0].path ?? list[0].name);
+      }).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.sprintsError')))
       .finally(() => setLsp(false));
-  }, [project, team]);
+  }, [project, team, preferredSprint, t]);
 
   useEffect(() => {
     if (!preferredSprint || sprint || sprints.length === 0) return;
