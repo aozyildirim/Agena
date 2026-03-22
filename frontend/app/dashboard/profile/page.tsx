@@ -259,12 +259,13 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14, alignItems: 'start' }}>
-        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 12, height: 520, overflow: 'auto' }}>
+      <div style={{ display: 'grid', gap: 14, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14, alignItems: 'start' }}>
+          <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>◎</div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>{t('profile.activeSprint')}</div>
+              <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>{t('profile.azureActiveSprint')}</div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {sprint && selS ? selS.name : sprint ? sprint.split('\\').pop() : t('profile.noSprint')}
               </div>
@@ -282,7 +283,15 @@ export default function ProfilePage() {
             options={sprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
             placeholder={team ? t('profile.selectSprint') : t('profile.selectSprintFirst')} loading={lsp} disabled={!team} />
 
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: 6, paddingTop: 10 }} />
+          <div style={{ marginTop: 2 }}>
+            <button onClick={() => router.push('/dashboard/sprints')} disabled={!sprint}
+              style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.08)', color: sprint ? '#5eead4' : 'rgba(255,255,255,0.2)', fontWeight: 700, fontSize: 12, cursor: sprint ? 'pointer' : 'not-allowed' }}>
+              {t('profile.sprintBoard')}
+            </button>
+          </div>
+        </div>
+
+          <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>◉</div>
             <div style={{ minWidth: 0 }}>
@@ -305,14 +314,15 @@ export default function ProfilePage() {
             placeholder={jiraBoard ? t('profile.selectSprint') : t('profile.selectBoardFirst')} loading={jls} disabled={!jiraBoard} />
 
           <div style={{ marginTop: 2 }}>
-            <button onClick={() => router.push('/dashboard/sprints')} disabled={!sprint && !jiraSprint}
-              style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.08)', color: (sprint || jiraSprint) ? '#5eead4' : 'rgba(255,255,255,0.2)', fontWeight: 700, fontSize: 12, cursor: (sprint || jiraSprint) ? 'pointer' : 'not-allowed' }}>
+            <button onClick={() => router.push('/dashboard/sprints')} disabled={!jiraSprint}
+              style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.08)', color: jiraSprint ? '#a5b4fc' : 'rgba(255,255,255,0.2)', fontWeight: 700, fontSize: 12, cursor: jiraSprint ? 'pointer' : 'not-allowed' }}>
               {t('profile.sprintBoard')}
             </button>
           </div>
         </div>
+        </div>
 
-        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 10, height: 520, overflow: 'auto' }}>
+        <div style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 18, display: 'grid', gap: 10 }}>
           <div>
             <div style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>Workspace Preferences</div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>DB-backed defaults used during AI assignment.</div>
