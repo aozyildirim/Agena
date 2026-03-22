@@ -29,6 +29,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [userName, setUserName] = useState('');
   const [checked, setChecked] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<'default' | 'granted' | 'denied'>('default');
   const shouldOpenOnboarding = searchParams.get('onboarding') === '1' || searchParams.get('welcome') === '1';
 
   useEffect(() => {
@@ -48,6 +49,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
         if (!active) return;
         setUserName(u.full_name || u.email);
       }).catch(() => {});
+
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setNotifPermission(Notification.permission);
+      }
 
       if (!shouldOpenOnboarding) {
         setShowOnboarding(false);
@@ -76,6 +81,12 @@ function DashboardInner({ children }: { children: ReactNode }) {
   function logout() {
     removeToken();
     router.push('/');
+  }
+
+  async function enableNotifications() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    const p = await Notification.requestPermission();
+    setNotifPermission(p);
   }
 
   if (!checked) return null;
@@ -135,6 +146,20 @@ function DashboardInner({ children }: { children: ReactNode }) {
         </nav>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <button
+            onClick={() => void enableNotifications()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 10, fontSize: 13,
+              background: notifPermission === 'granted' ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.03)',
+              border: notifPermission === 'granted' ? '1px solid rgba(34,197,94,0.28)' : '1px solid rgba(255,255,255,0.06)',
+              color: notifPermission === 'granted' ? '#22c55e' : 'rgba(255,255,255,0.65)',
+              cursor: 'pointer', width: '100%',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>🔔</span>
+            {notifPermission === 'granted' ? 'Notifications On' : 'Enable Notifications'}
+          </button>
           <Link href='/dashboard/tasks?new=1' style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 12px', borderRadius: 10, fontSize: 13,
