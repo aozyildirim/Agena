@@ -129,9 +129,10 @@ class AzurePRService:
         parsed = urlparse(pr_url)
         path = (parsed.path or '').strip('/')
 
-        m_web = re.search(r'^([^/]+)/_git/([^/]+)/pullrequest/(\d+)$', path, flags=re.IGNORECASE)
+        m_web = re.search(r'^(.+?)/_git/([^/]+)/pullrequest/(\d+)$', path, flags=re.IGNORECASE)
         if m_web:
-            return m_web.group(1), m_web.group(2), m_web.group(3)
+            project = m_web.group(1).split('/')[-1].strip()
+            return project, m_web.group(2), m_web.group(3)
 
         m_api = re.search(
             r'^(.+?)/_apis/git/repositories/([^/]+)/pullRequests/(\d+)$',
