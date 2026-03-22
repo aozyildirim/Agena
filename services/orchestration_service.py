@@ -121,6 +121,7 @@ class OrchestrationService:
             'title': task.title,
             'description': effective_description,
             'source': routing.effective_source,
+            'organization_id': organization_id,
         }
 
         state: dict[str, Any] = {}

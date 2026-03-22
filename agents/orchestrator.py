@@ -24,9 +24,11 @@ class AgentOrchestrator:
 
     async def fetch_context_node(self, state: OrchestrationState) -> OrchestrationState:
         task = state['task']
+        org_id = int(task.get('organization_id', 0) or 0) or None
         memory_context = await self.memory_store.search_similar(
             query=f"{task.get('title', '')}\n{task.get('description', '')}",
             limit=3,
+            organization_id=org_id,
         )
         context_summary, usage, model = await self.agents.fetch_context(task_payload=task, memory_context=memory_context)
         self._merge_usage(state, usage)
@@ -76,6 +78,7 @@ class AgentOrchestrator:
             key=str(task.get('id', '')),
             input_text=f"{task.get('title', '')}\n{task.get('description', '')}",
             output_text=final_code,
+            organization_id=int(task.get('organization_id', 0) or 0) or None,
         )
         return state
 

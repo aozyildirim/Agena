@@ -30,6 +30,25 @@ PYTHONPATH=. python3 scripts/export_openapi.py
 
 ## Feature Catalog (Current)
 
+### Vector Memory (Qdrant)
+- Dockerized Qdrant backend is included in local stack (`qdrant` service).
+- Memory is used during orchestration `fetch_context` stage for similarity retrieval.
+- Stored payload fields:
+  - `key`: task identifier
+  - `organization_id`: tenant filter key
+  - `input`: task title + effective description snapshot
+  - `output`: finalized generated code snapshot
+- Retrieval behavior:
+  - query vector is built from current task title/description
+  - top similar memories are fetched from Qdrant
+  - results are injected into context summary before `analyze -> generate_code`
+- API (Swagger-visible):
+  - `GET /memory/status` (backend/collection/vector status)
+  - `GET /memory/schema` (what is stored and how it is used)
+- Important:
+  - current embedding mode is deterministic placeholder (baseline mode)
+  - set `QDRANT_ENABLED=true` to activate memory lookups
+
 ### Core Delivery
 - AI assignment from internal, Jira, and Azure sourced tasks
 - Redis-based queue worker with dynamic concurrency

@@ -186,8 +186,44 @@ All of the above are merged into the final prompt context before `analyze -> gen
   - Frontend
   - MySQL
   - Redis
+  - Qdrant (vector memory backend)
 
-## 13) Internationalization
+## 13) Vector Memory (Qdrant)
+
+- Qdrant-backed memory store is integrated into orchestration.
+- Activation is environment-driven:
+  - `QDRANT_ENABLED=true`
+  - `QDRANT_URL=http://qdrant:6333`
+  - `QDRANT_COLLECTION=task_memory`
+
+### What is stored per memory point
+
+- `key`: task identifier
+- `organization_id`: tenant scope key used for retrieval filtering
+- `input`: task title + effective description snapshot
+- `output`: finalized generated code snapshot
+
+### How it is used at runtime
+
+1. `fetch_context` stage starts.
+2. Current task title+description is vectorized.
+3. Similar memories are searched from Qdrant with `organization_id` filter.
+4. Retrieved memories are summarized and passed into PM/Dev/Reviewer flow.
+5. On finalize, new memory point is upserted.
+
+### Swagger/API visibility
+
+- `GET /memory/status`
+  - reports memory backend availability, collection, vector size, and counts.
+- `GET /memory/schema`
+  - documents memory payload schema and retrieval flow.
+
+### Current limitation
+
+- Embedding mode is currently deterministic placeholder (baseline mode).
+- A real embedding provider can be introduced later for stronger semantic recall quality.
+
+## 14) Internationalization
 
 - Dashboard and user-facing UI supports multi-language key-based translations.
 - Project rule enforced for new strings:

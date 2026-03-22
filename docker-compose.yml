@@ -15,6 +15,7 @@ services:
       - ./alembic:/app/alembic
       - ./services:/app/services
       - ./agents:/app/agents
+      - ./memory:/app/memory
       - ./integrations:/app/integrations
       - ./models:/app/models
       - ./schemas:/app/schemas
@@ -37,6 +38,7 @@ services:
       - ./alembic:/app/alembic
       - ./services:/app/services
       - ./agents:/app/agents
+      - ./memory:/app/memory
       - ./integrations:/app/integrations
       - ./models:/app/models
       - ./schemas:/app/schemas
