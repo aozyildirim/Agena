@@ -12,6 +12,7 @@ services:
       - '8010:8010'
     volumes:
       - ./api:/app/api
+      - ./alembic:/app/alembic
       - ./services:/app/services
       - ./agents:/app/agents
       - ./integrations:/app/integrations
@@ -32,6 +33,7 @@ services:
       - .env
     volumes:
       - ./api:/app/api
+      - ./alembic:/app/alembic
       - ./services:/app/services
       - ./agents:/app/agents
       - ./integrations:/app/integrations
