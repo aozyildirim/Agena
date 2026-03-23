@@ -53,6 +53,7 @@ export default function RepoMappingsPage() {
   const [githubOwner, setGithubOwner] = useState('');
   const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
   const [selGithubRepo, setSelGithubRepo] = useState('');
+  const [manualGithubRepo, setManualGithubRepo] = useState('');
   const [githubRepoCount, setGithubRepoCount] = useState(0);
   const [githubRepoError, setGithubRepoError] = useState('');
   const [path, setPath] = useState('');
@@ -122,6 +123,7 @@ export default function RepoMappingsPage() {
     if (sourceProvider !== 'github') return;
     setGithubRepos([]);
     setSelGithubRepo('');
+    setManualGithubRepo('');
     setGithubRepoCount(0);
     setGithubRepoError('');
     setLoadingGithubRepos(true);
@@ -182,6 +184,7 @@ export default function RepoMappingsPage() {
     setPendingRepoUrl(item.azure_repo_url || '');
     setGithubOwner(item.github_owner || githubOwner);
     setSelGithubRepo(item.github_repo_full_name || (item.github_owner && item.github_repo ? `${item.github_owner}/${item.github_repo}` : ''));
+    setManualGithubRepo(item.github_repo_full_name || '');
     setPath(item.local_path || '');
     setNotes(item.notes || '');
     setRepoPlaybook(item.repo_playbook || '');
@@ -205,18 +208,22 @@ export default function RepoMappingsPage() {
       };
     } else {
       const selectedRepo = githubRepos.find((r) => r.full_name === selGithubRepo);
-      if (!selectedRepo || !path.trim()) return;
-      const owner = selGithubRepo.split('/')[0] || githubOwner.trim();
+      const normalizedManual = manualGithubRepo.trim();
+      const manualFull = normalizedManual.includes('/') ? normalizedManual : (normalizedManual ? `${(githubOwner || '').trim()}/${normalizedManual}` : '');
+      const fullName = selectedRepo?.full_name || selGithubRepo || manualFull;
+      if (!fullName || !path.trim()) return;
+      const repoName = selectedRepo?.name || fullName.split('/').pop() || '';
+      const owner = fullName.split('/')[0] || githubOwner.trim();
       mapping = {
         id: editingId || String(Date.now()),
         provider: 'github',
-        name: selectedRepo.name,
+        name: repoName,
         local_path: path.trim(),
         notes: notes.trim() || undefined,
         repo_playbook: repoPlaybook.trim() || undefined,
         github_owner: owner,
-        github_repo: selectedRepo.name,
-        github_repo_full_name: selectedRepo.full_name,
+        github_repo: repoName,
+        github_repo_full_name: fullName,
       };
     }
     const next: RepoMapping[] = editingId
@@ -363,6 +370,15 @@ export default function RepoMappingsPage() {
                   {githubRepoError || `${t('mappings.githubRepoCount')}: ${githubRepoCount}`}
                 </div>
               </div>
+              <div>
+                <div style={fieldLabelStyle}>{t('mappings.githubRepoManual')}</div>
+                <input
+                  value={manualGithubRepo}
+                  onChange={(e) => setManualGithubRepo(e.target.value)}
+                  placeholder={t('mappings.githubRepoManualPlaceholder')}
+                  style={fieldStyle}
+                />
+              </div>
             </>
           )}
 
@@ -406,7 +422,7 @@ export default function RepoMappingsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minHeight: 38 }}>
             <button
               onClick={() => void upsertMapping()}
-              disabled={saving || !path.trim() || (sourceProvider === 'azure' ? (!selProject || !selRepoUrl) : !selGithubRepo)}
+              disabled={saving || !path.trim() || (sourceProvider === 'azure' ? (!selProject || !selRepoUrl) : (!selGithubRepo && !manualGithubRepo.trim()))}
               className='button button-primary'
               style={{ width: '100%' }}
             >
