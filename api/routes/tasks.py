@@ -454,9 +454,15 @@ async def list_jira_projects(
         raise HTTPException(status_code=400, detail='Jira integration not configured')
 
     task_service = TaskService(db)
-    projects = await task_service.jira_client.fetch_projects(
-        {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
-    )
+    try:
+        projects = await task_service.jira_client.fetch_projects(
+            {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
+            raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
+        raise HTTPException(status_code=502, detail='Jira projects fetch failed') from exc
     return [{'id': p['key'], 'name': p['name']} for p in projects if p.get('key') and p.get('name')]
 
 
@@ -472,10 +478,16 @@ async def list_jira_boards(
         raise HTTPException(status_code=400, detail='Jira integration not configured')
 
     task_service = TaskService(db)
-    boards = await task_service.jira_client.fetch_boards(
-        {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret},
-        project_key=project_key,
-    )
+    try:
+        boards = await task_service.jira_client.fetch_boards(
+            {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret},
+            project_key=project_key,
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
+            raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
+        raise HTTPException(status_code=502, detail='Jira boards fetch failed') from exc
     return [{'id': b['id'], 'name': b['name']} for b in boards if b.get('id') and b.get('name')]
 
 
@@ -491,10 +503,16 @@ async def list_jira_sprints(
         raise HTTPException(status_code=400, detail='Jira integration not configured')
 
     task_service = TaskService(db)
-    sprints = await task_service.jira_client.fetch_sprints(
-        {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret},
-        board_id=board_id,
-    )
+    try:
+        sprints = await task_service.jira_client.fetch_sprints(
+            {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret},
+            board_id=board_id,
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
+            raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
+        raise HTTPException(status_code=502, detail='Jira sprints fetch failed') from exc
     return [
         {
             'id': s['id'],
