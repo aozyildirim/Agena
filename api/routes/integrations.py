@@ -41,14 +41,34 @@ async def list_github_repos(
     }
 
     async with httpx.AsyncClient(timeout=30) as client:
-        if resolved_owner:
-            org_url = f'{base}/orgs/{quote(resolved_owner, safe="")}/repos?per_page=100&sort=updated'
-            response = await client.get(org_url, headers=headers)
-            if response.status_code == 404:
-                user_url = f'{base}/users/{quote(resolved_owner, safe="")}/repos?per_page=100&sort=updated'
-                response = await client.get(user_url, headers=headers)
+        # user/repos returns repositories visible to this token (including private repos)
+        # and works better than users/{owner}/repos for authenticated private repositories.
+        response = await client.get(
+            f'{base}/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member',
+            headers=headers,
+        )
+
+        if resolved_owner and response.status_code < 400:
+            raw = response.json()
+            if isinstance(raw, list):
+                filtered = [item for item in raw if str(item.get('full_name', '')).lower().startswith(f'{resolved_owner.lower()}/')]
+                if filtered:
+                    data = filtered
+                else:
+                    # Fallbacks for org/user specific listing if token-visible list has no match.
+                    org_url = f'{base}/orgs/{quote(resolved_owner, safe="")}/repos?per_page=100&sort=updated'
+                    org_response = await client.get(org_url, headers=headers)
+                    if org_response.status_code == 404:
+                        user_url = f'{base}/users/{quote(resolved_owner, safe="")}/repos?per_page=100&sort=updated'
+                        response = await client.get(user_url, headers=headers)
+                        data = response.json() if response.status_code < 400 else []
+                    else:
+                        response = org_response
+                        data = response.json() if response.status_code < 400 else []
+            else:
+                data = []
         else:
-            response = await client.get(f'{base}/user/repos?per_page=100&sort=updated', headers=headers)
+            data = response.json() if response.status_code < 400 else []
 
     if response.status_code == 401:
         raise HTTPException(status_code=401, detail='Invalid GitHub token')
@@ -58,7 +78,6 @@ async def list_github_repos(
         raise HTTPException(status_code=404, detail='GitHub owner not found')
     response.raise_for_status()
 
-    data = response.json()
     if not isinstance(data, list):
         return []
 
