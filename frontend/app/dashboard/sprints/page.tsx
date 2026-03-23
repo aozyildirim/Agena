@@ -382,6 +382,10 @@ export default function SprintsPage() {
     if (hydrating) return;
     setTeamRaw(''); setTeams([]); setSprintRaw(''); setSprints([]); setItems([]); setStates([]);
     if (!project && provider !== 'jira') return;
+    if (provider === 'jira' && project) {
+      const validProject = projects.some((p) => (p.id ?? p.name) === project || p.name === project);
+      if (!validProject) return;
+    }
     const storedTeam = localStorage.getItem(provider === 'jira' ? LS_JIRA_BOARD : LS_TEAM) || '';
     setLtm(true);
     const url = provider === 'jira'
@@ -411,6 +415,10 @@ export default function SprintsPage() {
     if (hydrating) return;
     setSprintRaw(''); setSprints([]); setItems([]);
     if (!project || !team) return;
+    if (provider === 'jira') {
+      const validBoard = teams.some((t) => (t.id ?? t.name) === team || t.name === team);
+      if (!validBoard) return;
+    }
     setLsp(true);
     const url = provider === 'jira'
       ? '/tasks/jira/sprints?board_id=' + encodeURIComponent(team)
@@ -444,6 +452,11 @@ export default function SprintsPage() {
   useEffect(() => {
     setItems([]); setStates([]); setSelected(null);
     if (!sprint || !project) return;
+    if (provider === 'jira') {
+      const validBoard = teams.some((t) => (t.id ?? t.name) === team || t.name === team);
+      const validSprint = sprints.some((s) => (s.path ?? s.name) === sprint || s.name === sprint);
+      if (!validBoard || !validSprint) return;
+    }
     setLbd(true); setErr('');
     const statesUrl = provider === 'jira'
       ? '/tasks/jira/states?board_id=' + encodeURIComponent(team) + '&sprint_id=' + encodeURIComponent(sprint)
