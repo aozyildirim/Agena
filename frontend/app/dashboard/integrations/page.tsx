@@ -40,7 +40,7 @@ function saveSecretPreview(provider: string, preview: string) {
 }
 
 export default function IntegrationsPage() {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraSecret, setJiraSecret] = useState('');
@@ -64,6 +64,137 @@ export default function IntegrationsPage() {
   const [isPlaybookSaving, setIsPlaybookSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [help, setHelp] = useState<{ title: string; steps: string[]; link?: string; note?: string } | null>(null);
+
+  const helpByProvider: Record<IntegrationConfig['provider'], { title: string; steps: string[]; link?: string; note?: string }> = lang === 'tr'
+    ? {
+      jira: {
+        title: 'Jira Nasıl Bağlanır?',
+        steps: [
+          'Base URL: https://sirketin.atlassian.net',
+          'Email: Atlassian hesabınla giriş yaptığın e-mail',
+          'API Token oluştur: Atlassian Security > API tokens',
+          'Bu tokenı API Token alanına yapıştırıp Kaydet',
+          'Sonra Sprint ekranında Jira sekmesini aç',
+        ],
+        link: 'https://id.atlassian.com/manage-profile/security/api-tokens',
+        note: 'Not: Jira şifresi değil, API token gerekir.',
+      },
+      azure: {
+        title: 'Azure DevOps Nasıl Bağlanır?',
+        steps: [
+          'Organization URL gir: https://dev.azure.com/ORG_ADI',
+          'Project alanına Azure proje adını yaz',
+          'Personal Access Token (PAT) üret',
+          'PAT alanına yapıştırıp Kaydet',
+          'Sprint ekranında Azure Project/Team/Sprint seç',
+        ],
+        link: 'https://learn.microsoft.com/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate',
+      },
+      github: {
+        title: 'GitHub Nasıl Bağlanır?',
+        steps: [
+          'Base URL: https://api.github.com',
+          'Owner/Org alanına kullanıcı/organizasyon adını yaz',
+          'PAT oluştur (repo okuma/yazma yetkileri)',
+          'Token alanına yapıştırıp Kaydet',
+          'Repo Mapping ekranında repoları otomatik yükle',
+        ],
+        link: 'https://docs.github.com/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token',
+      },
+      openai: {
+        title: 'OpenAI Nasıl Bağlanır?',
+        steps: [
+          'Base URL: https://api.openai.com/v1',
+          'OpenAI API key oluştur',
+          'API key alanına yapıştırıp Kaydet',
+          'Agent/model ayarlarında OpenAI model seç',
+        ],
+        link: 'https://platform.openai.com/api-keys',
+      },
+      gemini: {
+        title: 'Gemini Nasıl Bağlanır?',
+        steps: [
+          'Base URL: https://generativelanguage.googleapis.com',
+          'Google AI Studio veya GCP üzerinden API key al',
+          'API key alanına yapıştırıp Kaydet',
+          'Agent ayarlarında provider olarak Gemini seç',
+        ],
+        link: 'https://ai.google.dev/gemini-api/docs/api-key',
+      },
+      playbook: {
+        title: 'Tenant Playbook Nedir?',
+        steps: [
+          'Repo/tenant bazında kod yazım kurallarını buraya yaz',
+          'AI task çalışırken bu kuralları prompt context olarak okur',
+          'Kısa, net ve maddeli kurallar yazman önerilir',
+        ],
+      },
+    }
+    : {
+      jira: {
+        title: 'How to Connect Jira',
+        steps: [
+          'Base URL: https://yourcompany.atlassian.net',
+          'Email: your Atlassian account email',
+          'Create API token from Atlassian Security',
+          'Paste token into API Token field and Save',
+          'Open Jira tab in Sprint screen',
+        ],
+        link: 'https://id.atlassian.com/manage-profile/security/api-tokens',
+        note: 'Note: Jira password is not enough; API token is required.',
+      },
+      azure: {
+        title: 'How to Connect Azure DevOps',
+        steps: [
+          'Enter Organization URL: https://dev.azure.com/ORG_NAME',
+          'Enter your Azure project name',
+          'Create a Personal Access Token (PAT)',
+          'Paste PAT and Save',
+          'Pick project/team/sprint on Sprint screen',
+        ],
+        link: 'https://learn.microsoft.com/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate',
+      },
+      github: {
+        title: 'How to Connect GitHub',
+        steps: [
+          'Base URL: https://api.github.com',
+          'Enter Owner/Org name',
+          'Create PAT (repo read/write scopes)',
+          'Paste token and Save',
+          'Load repos automatically in Repo Mapping',
+        ],
+        link: 'https://docs.github.com/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token',
+      },
+      openai: {
+        title: 'How to Connect OpenAI',
+        steps: [
+          'Base URL: https://api.openai.com/v1',
+          'Create OpenAI API key',
+          'Paste key and Save',
+          'Select OpenAI model in agent settings',
+        ],
+        link: 'https://platform.openai.com/api-keys',
+      },
+      gemini: {
+        title: 'How to Connect Gemini',
+        steps: [
+          'Base URL: https://generativelanguage.googleapis.com',
+          'Create API key in Google AI Studio / GCP',
+          'Paste key and Save',
+          'Select Gemini provider in agent settings',
+        ],
+        link: 'https://ai.google.dev/gemini-api/docs/api-key',
+      },
+      playbook: {
+        title: 'What is Tenant Playbook?',
+        steps: [
+          'Define tenant/repo-specific coding rules here',
+          'AI reads these rules while executing tasks',
+          'Keep rules short, concrete, and bullet-based',
+        ],
+      },
+    };
 
   async function loadIntegrationState() {
     const [data, playbook] = await Promise.all([
@@ -255,6 +386,7 @@ export default function IntegrationsPage() {
           color='#34d399'
           connected={openaiConfig?.has_secret ?? false}
           updatedAt={openaiConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.openai)}
         >
           <FieldGroup label={t('integrations.baseUrl')}>
             <input value={openaiBaseUrl} onChange={(e) => setOpenaiBaseUrl(e.target.value)} placeholder='https://api.openai.com/v1' />
@@ -279,6 +411,7 @@ export default function IntegrationsPage() {
           color='#22d3ee'
           connected={geminiConfig?.has_secret ?? false}
           updatedAt={geminiConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.gemini)}
         >
           <FieldGroup label={t('integrations.baseUrl')}>
             <input value={geminiBaseUrl} onChange={(e) => setGeminiBaseUrl(e.target.value)} placeholder='https://generativelanguage.googleapis.com' />
@@ -303,6 +436,7 @@ export default function IntegrationsPage() {
           color='#60a5fa'
           connected={azureConfig?.has_secret ?? false}
           updatedAt={azureConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.azure)}
         >
           <FieldGroup label={t('integrations.azureOrgUrl')}>
             <input value={azureOrgUrl} onChange={(e) => setAzureOrgUrl(e.target.value)} placeholder='https://dev.azure.com/your-org' />
@@ -330,6 +464,7 @@ export default function IntegrationsPage() {
           color='#a78bfa'
           connected={githubConfig?.has_secret ?? false}
           updatedAt={githubConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.github)}
         >
           <FieldGroup label={t('integrations.baseUrl')}>
             <input value={githubBaseUrl} onChange={(e) => setGithubBaseUrl(e.target.value)} placeholder='https://api.github.com' />
@@ -357,6 +492,7 @@ export default function IntegrationsPage() {
           color='#818cf8'
           connected={jiraConfig?.has_secret ?? false}
           updatedAt={jiraConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.jira)}
         >
           <FieldGroup label={t('integrations.baseUrl')}>
             <input value={jiraBaseUrl} onChange={(e) => setJiraBaseUrl(e.target.value)} placeholder='https://your-company.atlassian.net' />
@@ -384,6 +520,7 @@ export default function IntegrationsPage() {
           color='#f59e0b'
           connected={playbookConfig?.has_secret ?? false}
           updatedAt={playbookConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.playbook)}
         >
           <FieldGroup label={t('integrations.codingRules')}>
             <textarea
@@ -401,6 +538,62 @@ export default function IntegrationsPage() {
           </div>
         </IntegrationCard>
       </div>
+      {help && (
+        <div
+          onClick={() => setHelp(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(2,6,23,0.62)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(680px, 100%)',
+              borderRadius: 14,
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(15,23,42,0.95)',
+              padding: 18,
+              color: 'rgba(255,255,255,0.92)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{help.title}</div>
+              <button
+                onClick={() => setHelp(null)}
+                style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 18, cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              {help.steps.map((step, idx) => (
+                <div key={step} style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)' }}>
+                  {idx + 1}. {step}
+                </div>
+              ))}
+            </div>
+            {help.note && <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(251,191,36,0.92)' }}>{help.note}</div>}
+            {help.link && (
+              <a
+                href={help.link}
+                target='_blank'
+                rel='noreferrer'
+                style={{ display: 'inline-block', marginTop: 12, color: '#93c5fd', fontSize: 12, textDecoration: 'underline' }}
+              >
+                {lang === 'tr' ? 'Dokümantasyonu Aç' : 'Open Documentation'}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
       <style jsx>{`
         .integrations-grid {
           display: grid;
@@ -429,11 +622,11 @@ export default function IntegrationsPage() {
 }
 
 function IntegrationCard({
-  title, icon, color, connected, updatedAt, children,
+  title, icon, color, connected, updatedAt, children, onHelp,
 }: {
-  title: string; icon: string; color: string; connected: boolean; updatedAt?: string; children: React.ReactNode;
+  title: string; icon: string; color: string; connected: boolean; updatedAt?: string; children: React.ReactNode; onHelp?: () => void;
 }) {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const borderColor = connected ? 'rgba(34,197,94,0.72)' : `${color}20`;
   const bgColor = connected ? 'rgba(34,197,94,0.08)' : `${color}06`;
   const glow = connected ? '0 0 0 1px rgba(34,197,94,0.28), 0 0 28px rgba(34,197,94,0.22), inset 0 0 22px rgba(34,197,94,0.08)' : 'none';
@@ -465,8 +658,29 @@ function IntegrationCard({
             </span>
           </div>
         </div>
+        {onHelp && (
+          <button
+            type='button'
+            onClick={onHelp}
+            title={lang === 'tr' ? 'Yardım' : 'Help'}
+            style={{
+              marginLeft: 'auto',
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.06)',
+              color: 'rgba(255,255,255,0.88)',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            ?
+          </button>
+        )}
         {updatedAt && (
-          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
+          <span style={{ marginLeft: onHelp ? 0 : 'auto', fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
             {new Date(updatedAt).toLocaleDateString()}
           </span>
         )}
