@@ -309,6 +309,9 @@ export default function SprintsPage() {
 
   useEffect(() => {
     if (hydrating) return;
+    const storedProject = localStorage.getItem(provider === 'jira' ? LS_JIRA_PROJECT : LS_PROJECT) || '';
+    const storedSprint = localStorage.getItem(provider === 'jira' ? LS_JIRA_SPRINT : LS_SPRINT) || '';
+    setPreferredSprint(storedSprint);
     setProjectRaw('');
     setTeamRaw('');
     setSprintRaw('');
@@ -324,6 +327,20 @@ export default function SprintsPage() {
           ? await apiFetch<Opt[]>('/tasks/jira/projects')
           : await apiFetch<Opt[]>('/tasks/azure/projects');
         setProjects(list);
+        if (storedProject) {
+          if (provider === 'jira') {
+            let normalized = storedProject;
+            const byId = list.find((p) => (p.id ?? p.name) === normalized);
+            if (!byId) {
+              const byName = list.find((p) => p.name === normalized);
+              if (byName) normalized = byName.id ?? byName.name;
+            }
+            setProjectRaw(normalized);
+          } else {
+            setProjectRaw(storedProject);
+          }
+          return;
+        }
         if (provider === 'jira' && list.length === 0) {
           const boards = await apiFetch<Opt[]>('/tasks/jira/boards');
           setTeams(boards);
@@ -341,12 +358,28 @@ export default function SprintsPage() {
     if (hydrating) return;
     setTeamRaw(''); setTeams([]); setSprintRaw(''); setSprints([]); setItems([]); setStates([]);
     if (!project && provider !== 'jira') return;
+    const storedTeam = localStorage.getItem(provider === 'jira' ? LS_JIRA_BOARD : LS_TEAM) || '';
     setLtm(true);
     const url = provider === 'jira'
       ? (project ? '/tasks/jira/boards?project_key=' + encodeURIComponent(project) : '/tasks/jira/boards')
       : '/tasks/azure/teams?project=' + encodeURIComponent(project);
     apiFetch<Opt[]>(url)
-      .then(setTeams).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.teamsError')))
+      .then((list) => {
+        setTeams(list);
+        if (!storedTeam) return;
+        if (provider === 'jira') {
+          const byId = list.find((item) => (item.id ?? item.name) === storedTeam);
+          if (byId) {
+            setTeamRaw(byId.id ?? byId.name);
+            return;
+          }
+          const byName = list.find((item) => item.name === storedTeam);
+          if (byName) setTeamRaw(byName.id ?? byName.name);
+          return;
+        }
+        const byName = list.find((item) => item.name === storedTeam);
+        if (byName) setTeamRaw(byName.name);
+      }).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.teamsError')))
       .finally(() => setLtm(false));
   }, [project, provider, hydrating, t]);
 
