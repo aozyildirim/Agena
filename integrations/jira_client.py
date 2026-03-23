@@ -44,19 +44,31 @@ class JiraClient:
         base_url, email, api_token = self._resolve_config(cfg)
         if not base_url:
             return []
-        url = f"{base_url.rstrip('/')}/rest/api/3/project/search"
+        search_url = f"{base_url.rstrip('/')}/rest/api/3/project/search"
+        list_url = f"{base_url.rstrip('/')}/rest/api/3/project"
         params = {'maxResults': 100}
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.get(url, params=params, auth=(email, api_token))
+            response = await client.get(search_url, params=params, auth=(email, api_token))
             response.raise_for_status()
             data = response.json()
+            values = data.get('values', []) if isinstance(data, dict) else []
+            projects = self._normalize_projects(values)
+            if projects:
+                return projects
+            # Jira variants/fallback: some tenants return projects from /project directly.
+            fallback = await client.get(list_url, auth=(email, api_token))
+            fallback.raise_for_status()
+            fallback_data = fallback.json()
+        return self._normalize_projects(fallback_data if isinstance(fallback_data, list) else [])
+
+    def _normalize_projects(self, rows: list[dict[str, Any]]) -> list[dict[str, str]]:
         return [
             {
                 'id': str(p.get('id', '')),
                 'key': str(p.get('key', '')),
                 'name': str(p.get('name', '')),
             }
-            for p in data.get('values', [])
+            for p in rows
             if p.get('key') and p.get('name')
         ]
 

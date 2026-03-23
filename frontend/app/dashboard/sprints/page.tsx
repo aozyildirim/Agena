@@ -245,16 +245,22 @@ export default function SprintsPage() {
         if (savedProvider === 'jira') {
           const projs = await apiFetch<Opt[]>('/tasks/jira/projects');
           setProjects(projs);
+          let boards: Opt[] = [];
           if (savedProject) {
             const byId = projs.find((p) => (p.id ?? p.name) === savedProject);
             if (!byId) {
               const byName = projs.find((p) => p.name === savedProject);
               if (byName) savedProject = byName.id ?? byName.name;
             }
+            if (savedProject) {
+              setProjectRaw(savedProject);
+              boards = await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(savedProject));
+            }
+          } else {
+            // Some Jira tenants may return no projects for this account.
+            // In that case, allow board-first selection.
+            boards = await apiFetch<Opt[]>('/tasks/jira/boards');
           }
-          if (!savedProject) return;
-          setProjectRaw(savedProject);
-          const boards = await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(savedProject));
           setTeams(boards);
           if (!savedTeam) return;
           setTeamRaw(savedTeam);
@@ -311,6 +317,10 @@ export default function SprintsPage() {
           ? await apiFetch<Opt[]>('/tasks/jira/projects')
           : await apiFetch<Opt[]>('/tasks/azure/projects');
         setProjects(list);
+        if (provider === 'jira' && list.length === 0) {
+          const boards = await apiFetch<Opt[]>('/tasks/jira/boards');
+          setTeams(boards);
+        }
       } catch (e) {
         setErr(e instanceof Error ? e.message : t('sprints.boardError'));
       } finally {
@@ -323,10 +333,10 @@ export default function SprintsPage() {
   useEffect(() => {
     if (hydrating) return;
     setTeamRaw(''); setTeams([]); setSprintRaw(''); setSprints([]); setItems([]); setStates([]);
-    if (!project) return;
+    if (!project && provider !== 'jira') return;
     setLtm(true);
     const url = provider === 'jira'
-      ? '/tasks/jira/boards?project_key=' + encodeURIComponent(project)
+      ? (project ? '/tasks/jira/boards?project_key=' + encodeURIComponent(project) : '/tasks/jira/boards')
       : '/tasks/azure/teams?project=' + encodeURIComponent(project);
     apiFetch<Opt[]>(url)
       .then(setTeams).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.teamsError')))
@@ -549,7 +559,11 @@ export default function SprintsPage() {
           loading={lpj} placeholder={t('sprints.selectProject')} active={true} />
         <Sel step={2} t={t} label={provider === 'jira' ? t('sprints.boardLabel') : t('sprints.teamLabel')} value={team} onChange={setTeam}
           options={teams.map((item: Opt) => ({ id: provider === 'jira' ? item.id : item.name, name: item.name }))}
-          loading={ltm} placeholder={project ? (provider === 'jira' ? t('sprints.selectBoard') : t('sprints.selectTeam')) : t('sprints.selectTeamFirst')} active={!!project} />
+          loading={ltm}
+          placeholder={provider === 'jira'
+            ? (project ? t('sprints.selectBoard') : t('sprints.selectBoard'))
+            : (project ? t('sprints.selectTeam') : t('sprints.selectTeamFirst'))}
+          active={provider === 'jira' ? true : !!project} />
         <Sel step={3} t={t} label={t('sprints.sprintLabel')} value={sprint} onChange={setSprint}
           options={sprints.map((s: Opt) => ({
             id: s.path ?? s.name,
