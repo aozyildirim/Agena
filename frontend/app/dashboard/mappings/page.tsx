@@ -53,6 +53,8 @@ export default function RepoMappingsPage() {
   const [githubOwner, setGithubOwner] = useState('');
   const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
   const [selGithubRepo, setSelGithubRepo] = useState('');
+  const [githubRepoCount, setGithubRepoCount] = useState(0);
+  const [githubRepoError, setGithubRepoError] = useState('');
   const [path, setPath] = useState('');
   const [notes, setNotes] = useState('');
   const [repoPlaybook, setRepoPlaybook] = useState('');
@@ -120,12 +122,21 @@ export default function RepoMappingsPage() {
     if (sourceProvider !== 'github') return;
     setGithubRepos([]);
     setSelGithubRepo('');
+    setGithubRepoCount(0);
+    setGithubRepoError('');
     setLoadingGithubRepos(true);
     const owner = githubOwner.trim();
     const query = owner ? `?owner=${encodeURIComponent(owner)}` : '';
     apiFetch<GithubRepo[]>(`/integrations/github/repos${query}`)
-      .then(setGithubRepos)
-      .catch(() => {})
+      .then((list) => {
+        setGithubRepos(list);
+        setGithubRepoCount(Array.isArray(list) ? list.length : 0);
+      })
+      .catch((e: unknown) => {
+        setGithubRepos([]);
+        setGithubRepoCount(0);
+        setGithubRepoError(e instanceof Error ? e.message : 'GitHub repo list fetch failed');
+      })
       .finally(() => setLoadingGithubRepos(false));
   }, [sourceProvider, githubOwner]);
 
@@ -348,6 +359,9 @@ export default function RepoMappingsPage() {
                   </option>
                   {githubRepos.map((r) => <option key={r.id} value={r.full_name} style={{ background: '#0d1117' }}>{r.full_name}{r.private ? ' 🔒' : ''}</option>)}
                 </select>
+                <div style={{ fontSize: 10, color: githubRepoError ? '#fda4af' : 'rgba(255,255,255,0.45)', marginTop: 4 }}>
+                  {githubRepoError || `${t('mappings.githubRepoCount')}: ${githubRepoCount}`}
+                </div>
               </div>
             </>
           )}
