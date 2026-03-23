@@ -122,7 +122,6 @@ export default function RepoMappingsPage() {
     if (sourceProvider !== 'github') return;
     setGithubRepos([]);
     setSelGithubRepo('');
-    setManualGithubRepo('');
     setGithubRepoCount(0);
     setGithubRepoError('');
     setLoadingGithubRepos(true);
