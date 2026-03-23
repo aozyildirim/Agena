@@ -162,10 +162,33 @@ class JiraClient:
             params['jql'] = f'status = "{escaped}"'
 
         async with httpx.AsyncClient(timeout=40) as client:
-            response = await client.get(url, params=params, auth=(email, api_token))
-            response.raise_for_status()
-            data = response.json()
-        return [self._to_external_task(issue) for issue in data.get('issues', [])]
+            try:
+                response = await client.get(url, params=params, auth=(email, api_token))
+                response.raise_for_status()
+                data = response.json()
+            except httpx.HTTPStatusError as exc:
+                # Some Jira boards reject status-based JQL in this endpoint with 400.
+                # Fall back to plain board/sprint query and filter by issue status locally.
+                if state and exc.response is not None and exc.response.status_code == 400:
+                    logger.warning(
+                        'Jira board issue query rejected status JQL; falling back to local filtering. '
+                        'board_id=%s sprint_id=%s state=%s',
+                        board_id,
+                        sprint_id,
+                        state,
+                    )
+                    fallback_params = dict(params)
+                    fallback_params.pop('jql', None)
+                    fallback_response = await client.get(url, params=fallback_params, auth=(email, api_token))
+                    fallback_response.raise_for_status()
+                    data = fallback_response.json()
+                else:
+                    raise
+        items = [self._to_external_task(issue) for issue in data.get('issues', [])]
+        if state:
+            target = self._normalize_status(state)
+            return [item for item in items if self._normalize_status(item.state) == target]
+        return items
 
     def _resolve_config(self, cfg: dict[str, str] | None) -> tuple[str, str, str]:
         cfg = cfg or {}
@@ -199,3 +222,6 @@ class JiraClient:
                 if text:
                     parts.append(text)
         return '\n'.join(parts)
+
+    def _normalize_status(self, value: str | None) -> str:
+        return str(value or '').strip().casefold()

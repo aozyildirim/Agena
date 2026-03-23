@@ -7,10 +7,12 @@ from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from typing import Any
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.settings import get_settings
+from models.integration_config import IntegrationConfig
 from models.notification_record import NotificationRecord
 from models.user import User
 from models.user_preference import UserPreference
@@ -19,16 +21,16 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_EVENT_PREFS: dict[str, dict[str, bool]] = {
-    'task_queued': {'in_app': True, 'email': False, 'web_push': False},
-    'task_running': {'in_app': True, 'email': False, 'web_push': False},
-    'task_completed': {'in_app': True, 'email': True, 'web_push': True},
-    'task_failed': {'in_app': True, 'email': True, 'web_push': True},
-    'pr_created': {'in_app': True, 'email': False, 'web_push': True},
-    'pr_failed': {'in_app': True, 'email': True, 'web_push': True},
-    'approval_required': {'in_app': True, 'email': False, 'web_push': True},
-    'approval_decision': {'in_app': True, 'email': False, 'web_push': True},
-    'integration_auth_expired': {'in_app': True, 'email': True, 'web_push': True},
-    'queue_backlog_warning': {'in_app': True, 'email': False, 'web_push': True},
+    'task_queued': {'in_app': True, 'email': False, 'web_push': False, 'slack': False, 'teams': False},
+    'task_running': {'in_app': True, 'email': False, 'web_push': False, 'slack': False, 'teams': False},
+    'task_completed': {'in_app': True, 'email': True, 'web_push': True, 'slack': True, 'teams': True},
+    'task_failed': {'in_app': True, 'email': True, 'web_push': True, 'slack': True, 'teams': True},
+    'pr_created': {'in_app': True, 'email': False, 'web_push': True, 'slack': True, 'teams': True},
+    'pr_failed': {'in_app': True, 'email': True, 'web_push': True, 'slack': True, 'teams': True},
+    'approval_required': {'in_app': True, 'email': False, 'web_push': True, 'slack': False, 'teams': False},
+    'approval_decision': {'in_app': True, 'email': False, 'web_push': True, 'slack': False, 'teams': False},
+    'integration_auth_expired': {'in_app': True, 'email': True, 'web_push': True, 'slack': True, 'teams': True},
+    'queue_backlog_warning': {'in_app': True, 'email': False, 'web_push': True, 'slack': True, 'teams': True},
 }
 
 
@@ -97,6 +99,8 @@ class NotificationService:
         settings = await self._resolve_profile_settings(user_id)
         should_store_in_app = self._is_enabled(settings, event_type, 'in_app')
         should_email = self._is_enabled(settings, event_type, 'email')
+        should_slack = self._is_enabled(settings, event_type, 'slack')
+        should_teams = self._is_enabled(settings, event_type, 'teams')
 
         if should_store_in_app:
             self.db.add(
@@ -113,15 +117,37 @@ class NotificationService:
             )
             await self.db.commit()
 
-        if not should_email:
-            return False
+        sent_any = False
 
-        recipient = await self._resolve_recipient(user_id)
-        if not recipient:
-            return False
-        subject = email_subject or f"[Tiqr] {title}"
-        body = email_body or f"{title}\n\n{message}"
-        return self._send_email(recipient, subject, body)
+        if should_email:
+            recipient = await self._resolve_recipient(user_id)
+            if recipient:
+                subject = email_subject or f"[Tiqr] {title}"
+                body = email_body or f"{title}\n\n{message}"
+                sent_any = self._send_email(recipient, subject, body) or sent_any
+
+        if should_slack or should_teams:
+            hooks = await self._resolve_channel_webhooks(organization_id)
+            if should_slack and hooks.get('slack'):
+                sent_any = await self._send_slack_webhook(
+                    webhook_url=hooks['slack'],
+                    title=title,
+                    message=message,
+                    severity=severity,
+                    event_type=event_type,
+                    task_id=task_id,
+                ) or sent_any
+            if should_teams and hooks.get('teams'):
+                sent_any = await self._send_teams_webhook(
+                    webhook_url=hooks['teams'],
+                    title=title,
+                    message=message,
+                    severity=severity,
+                    event_type=event_type,
+                    task_id=task_id,
+                ) or sent_any
+
+        return sent_any
 
     async def list_for_user(
         self,
@@ -235,6 +261,10 @@ class NotificationService:
             return False
         if channel == 'web_push' and settings.get('web_push_notifications') is False:
             return False
+        if channel == 'slack' and settings.get('slack_notifications') is False:
+            return False
+        if channel == 'teams' and settings.get('teams_notifications') is False:
+            return False
 
         custom = settings.get('notification_preferences')
         if isinstance(custom, dict):
@@ -243,7 +273,102 @@ class NotificationService:
                 val = per_event.get(channel)
                 if isinstance(val, bool):
                     return val
-        return DEFAULT_EVENT_PREFS.get(event_type, {'in_app': True, 'email': False, 'web_push': False}).get(channel, False)
+        return DEFAULT_EVENT_PREFS.get(
+            event_type,
+            {'in_app': True, 'email': False, 'web_push': False, 'slack': False, 'teams': False},
+        ).get(channel, False)
+
+    async def _resolve_channel_webhooks(self, organization_id: int) -> dict[str, str]:
+        rows = (
+            await self.db.execute(
+                select(IntegrationConfig).where(
+                    IntegrationConfig.organization_id == organization_id,
+                    IntegrationConfig.provider.in_(['slack', 'teams']),
+                )
+            )
+        ).scalars().all()
+        result: dict[str, str] = {}
+        for row in rows:
+            url = (row.secret or '').strip()
+            if url:
+                result[row.provider] = url
+        return result
+
+    async def _send_slack_webhook(
+        self,
+        *,
+        webhook_url: str,
+        title: str,
+        message: str,
+        severity: str,
+        event_type: str,
+        task_id: int | None,
+    ) -> bool:
+        payload = {
+            'text': f"*{title}*\n{message}",
+            'attachments': [
+                {
+                    'color': self._severity_to_color(severity),
+                    'fields': [
+                        {'title': 'Event', 'value': event_type, 'short': True},
+                        {'title': 'Task', 'value': str(task_id) if task_id is not None else '-', 'short': True},
+                    ],
+                }
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(webhook_url, json=payload)
+                resp.raise_for_status()
+            return True
+        except Exception:
+            logger.exception('Failed to send Slack webhook notification')
+            return False
+
+    async def _send_teams_webhook(
+        self,
+        *,
+        webhook_url: str,
+        title: str,
+        message: str,
+        severity: str,
+        event_type: str,
+        task_id: int | None,
+    ) -> bool:
+        payload = {
+            '@type': 'MessageCard',
+            '@context': 'http://schema.org/extensions',
+            'summary': title,
+            'themeColor': self._severity_to_color(severity).lstrip('#'),
+            'title': title,
+            'text': message,
+            'sections': [
+                {
+                    'facts': [
+                        {'name': 'Event', 'value': event_type},
+                        {'name': 'Task', 'value': str(task_id) if task_id is not None else '-'},
+                    ]
+                }
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(webhook_url, json=payload)
+                resp.raise_for_status()
+            return True
+        except Exception:
+            logger.exception('Failed to send Teams webhook notification')
+            return False
+
+    def _severity_to_color(self, severity: str) -> str:
+        key = (severity or '').strip().lower()
+        if key in {'error', 'failed'}:
+            return '#ef4444'
+        if key in {'warning', 'warn'}:
+            return '#f59e0b'
+        if key in {'success', 'ok'}:
+            return '#22c55e'
+        return '#38bdf8'
 
     def _send_email(self, to_email: str, subject: str, body: str) -> bool:
         if not self.settings.smtp_host:

@@ -550,6 +550,9 @@ class OrchestrationService:
             effective_source = 'azure'
         elif external_source and external_source.lower().startswith('jira'):
             effective_source = 'jira'
+        # If Azure repository metadata exists, route PR flow to Azure even for Jira-imported tasks.
+        if meta.get('azure repo'):
+            effective_source = 'azure'
 
         return TaskRouting(
             effective_source=effective_source,

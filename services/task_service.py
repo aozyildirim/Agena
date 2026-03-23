@@ -418,6 +418,10 @@ class TaskService:
         # Legacy guard: external tasks without mapping should not auto-open PRs.
         # If mapping metadata exists, orchestration decides provider-specific PR flow.
         has_local_mapping = 'Local Repo Path:' in (task.description or '')
+        mapping_auto_attached = False
+        if task.source != 'internal' and not has_local_mapping:
+            mapping_auto_attached = await self._attach_default_repo_mapping(organization_id, task)
+            has_local_mapping = 'Local Repo Path:' in (task.description or '')
         if task.source != 'internal' and not has_local_mapping:
             create_pr = False
 
@@ -450,6 +454,10 @@ class TaskService:
             await self.add_log(task.id, organization_id, 'queued', 'Task re-queued for AI processing')
         else:
             await self.add_log(task.id, organization_id, 'queued', 'Task queued for AI processing')
+        if mapping_auto_attached:
+            await self.add_log(task.id, organization_id, 'repo_mapping', 'Default repo mapping auto-attached from preferences')
+        elif task.source != 'internal' and not has_local_mapping:
+            await self.add_log(task.id, organization_id, 'repo_mapping', 'No repo mapping found; PR auto-creation disabled')
 
         notifier = NotificationService(self.db)
         await notifier.notify_event(
@@ -796,6 +804,100 @@ class TaskService:
             if raw.lower().startswith('local repo path:'):
                 return raw.split(':', 1)[1].strip() or None
         return None
+
+    async def _attach_default_repo_mapping(self, organization_id: int, task: TaskRecord) -> bool:
+        if self.db is None:
+            return False
+
+        pref_result = await self.db.execute(
+            select(UserPreference).where(UserPreference.user_id == task.created_by_user_id)
+        )
+        pref = pref_result.scalar_one_or_none()
+        if pref is None or not pref.repo_mappings_json:
+            return False
+
+        try:
+            mappings = json.loads(pref.repo_mappings_json)
+        except Exception:
+            return False
+        if not isinstance(mappings, list):
+            return False
+
+        valid: list[dict] = []
+        for item in mappings:
+            if not isinstance(item, dict):
+                continue
+            local_path = str(item.get('local_path') or '').strip()
+            if not local_path:
+                continue
+            valid.append(item)
+        if not valid:
+            return False
+
+        source = (task.source or '').strip().lower()
+
+        def score(item: dict) -> tuple[int, int]:
+            provider = str(item.get('provider') or '').strip().lower()
+            has_azure_meta = int(bool((item.get('azure_repo_url') or '') and (item.get('azure_project') or '')))
+            has_github_meta = int(bool(item.get('github_repo_full_name') or item.get('github_repo')))
+            score_source = 0
+            if source == 'azure':
+                if provider == 'azure':
+                    score_source += 3
+                score_source += has_azure_meta * 2
+            elif source == 'jira':
+                # Jira taskleri genelde Azure repo'ya merge edilir; Azure metadata öncelikli.
+                score_source += has_azure_meta * 3
+                if provider == 'azure':
+                    score_source += 2
+                if provider == 'github':
+                    score_source += 1
+            elif source == 'github':
+                if provider == 'github':
+                    score_source += 3
+                score_source += has_github_meta * 2
+            else:
+                if provider:
+                    score_source += 1
+            return score_source, has_azure_meta + has_github_meta
+
+        chosen = sorted(valid, key=score, reverse=True)[0]
+
+        desc = (task.description or '').strip()
+        existing = {line.split(':', 1)[0].strip().lower() for line in desc.splitlines() if ':' in line}
+        lines: list[str] = []
+
+        if 'external source' not in existing and task.external_id:
+            if source == 'azure':
+                lines.append(f'External Source: Azure #{task.external_id}')
+            elif source == 'jira':
+                lines.append(f'External Source: Jira #{task.external_id}')
+            elif source == 'github':
+                lines.append(f'External Source: GitHub #{task.external_id}')
+
+        mapping_name = str(chosen.get('name') or '').strip()
+        local_path = str(chosen.get('local_path') or '').strip()
+        azure_project = str(chosen.get('azure_project') or '').strip()
+        azure_repo_url = str(chosen.get('azure_repo_url') or '').strip()
+        repo_playbook = str(chosen.get('repo_playbook') or '').replace('\n', ' ').strip()
+
+        if mapping_name and 'local repo mapping' not in existing:
+            lines.append(f'Local Repo Mapping: {mapping_name}')
+        if local_path and 'local repo path' not in existing:
+            lines.append(f'Local Repo Path: {local_path}')
+        if azure_project and 'project' not in existing:
+            lines.append(f'Project: {azure_project}')
+        if azure_repo_url and 'azure repo' not in existing:
+            lines.append(f'Azure Repo: {azure_repo_url}')
+        if repo_playbook and 'repo playbook' not in existing:
+            lines.append(f'Repo Playbook: {repo_playbook}')
+
+        if not lines:
+            return False
+
+        task.description = (desc + '\n\n---\n' + '\n'.join(lines)).strip() if desc else '\n'.join(lines)
+        await self.db.commit()
+        return True
 
     async def _would_create_cycle(self, organization_id: int, *, task_id: int, depends_on_task_id: int) -> bool:
         if self.db is None:

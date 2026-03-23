@@ -136,7 +136,7 @@ export default function RepoMappingsPage() {
             nextList = [
               {
                 id: `pending:${target}`,
-                name: pendingRepoName || target.split('/').pop() || 'Selected Repo',
+                name: pendingRepoName || target.split('/').pop() || t('mappings.selectedRepoFallback'),
                 remote_url: target,
                 web_url: '',
               },
@@ -191,7 +191,7 @@ export default function RepoMappingsPage() {
         if (reqId !== githubFetchRef.current) return;
         setGithubRepos([]);
         setGithubRepoCount(0);
-        setGithubRepoError(e instanceof Error ? e.message : 'GitHub repo list fetch failed');
+        setGithubRepoError(e instanceof Error ? e.message : t('mappings.githubRepoFetchFailed'));
       })
       .finally(() => {
         if (reqId !== githubFetchRef.current) return;
@@ -261,7 +261,11 @@ export default function RepoMappingsPage() {
       setSelGithubRepo('');
     } else {
       const owner = item.github_owner || githubOwner;
-      const targetGithubRepo = item.github_repo_full_name || (item.github_owner && item.github_repo ? `${item.github_owner}/${item.github_repo}` : '');
+      const fallbackRepo = item.github_repo || item.name || '';
+      const targetGithubRepo =
+        item.github_repo_full_name ||
+        (owner && fallbackRepo ? `${owner}/${fallbackRepo}` : '') ||
+        (item.name.includes('/') ? item.name : '');
       setGithubOwner(owner);
       setPendingGithubRepo(targetGithubRepo);
       setSelGithubRepo(targetGithubRepo);
@@ -276,6 +280,24 @@ export default function RepoMappingsPage() {
     setNotes(item.notes || '');
     setRepoPlaybook(item.repo_playbook || '');
   }
+
+  useEffect(() => {
+    if (sourceProvider !== 'github') return;
+    if (!editingId) return;
+    if (selGithubRepo) return;
+    const current = items.find((m) => m.id === editingId);
+    if (!current) return;
+    const owner = current.github_owner || githubOwner;
+    const fallbackRepo = current.github_repo || current.name || '';
+    const rebuilt =
+      current.github_repo_full_name ||
+      (owner && fallbackRepo ? `${owner}/${fallbackRepo}` : '') ||
+      (current.name.includes('/') ? current.name : '');
+    if (rebuilt) {
+      setPendingGithubRepo(rebuilt);
+      setSelGithubRepo(rebuilt);
+    }
+  }, [sourceProvider, editingId, selGithubRepo, items, githubOwner]);
 
   async function upsertMapping() {
     const currentEditing = editingId ? items.find((m) => m.id === editingId) : undefined;
@@ -495,7 +517,7 @@ export default function RepoMappingsPage() {
           {sourceProvider === 'github' && selectedGithubRepo && (
             <div style={{ borderRadius: 10, border: '1px solid rgba(167,139,250,0.3)', background: 'rgba(167,139,250,0.08)', padding: '8px 10px', minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#c4b5fd' }}>{selectedGithubRepo.full_name}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{selectedGithubRepo.private ? 'private' : 'public'}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{selectedGithubRepo.private ? t('mappings.private') : t('mappings.public')}</div>
             </div>
           )}
 
@@ -571,7 +593,7 @@ export default function RepoMappingsPage() {
               <div key={m.id} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1fr 1.05fr 0.75fr 0.95fr 0.85fr 130px', gap: 10, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: (m.provider === 'github') ? '#c4b5fd' : '#7dd3fc' }}>
-                    {(m.provider === 'github') ? 'GitHub' : (m.azure_project || 'Azure')}
+                    {(m.provider === 'github') ? 'GitHub' : (m.azure_project || t('mappings.azure'))}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>
                     {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
@@ -610,7 +632,7 @@ export default function RepoMappingsPage() {
                           fontWeight: 700,
                         }}
                       >
-                        Open AGENTS.md
+                        {t('mappings.openAgents')}
                       </button>
                     </>
                   ) : (

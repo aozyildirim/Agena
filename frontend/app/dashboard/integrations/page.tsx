@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 type IntegrationConfig = {
-  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'playbook';
+  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'playbook' | 'slack' | 'teams';
   base_url: string;
   project?: string | null;
   username?: string | null;
@@ -41,6 +41,7 @@ function saveSecretPreview(provider: string, preview: string) {
 
 export default function IntegrationsPage() {
   const { t, lang } = useLocale();
+  const [activeTab, setActiveTab] = useState<'ai' | 'task' | 'notifications'>('ai');
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraSecret, setJiraSecret] = useState('');
@@ -62,6 +63,11 @@ export default function IntegrationsPage() {
   const [jiraTokenPreview, setJiraTokenPreview] = useState('');
   const [playbookText, setPlaybookText] = useState('');
   const [isPlaybookSaving, setIsPlaybookSaving] = useState(false);
+  const [slackWebhook, setSlackWebhook] = useState('');
+  const [teamsWebhook, setTeamsWebhook] = useState('');
+  const [slackPreview, setSlackPreview] = useState('');
+  const [teamsPreview, setTeamsPreview] = useState('');
+  const [notifyTesting, setNotifyTesting] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [help, setHelp] = useState<{ title: string; steps: string[]; link?: string; note?: string } | null>(null);
@@ -121,6 +127,26 @@ export default function IntegrationsPage() {
           'Agent ayarlarında provider olarak Gemini seç',
         ],
         link: 'https://ai.google.dev/gemini-api/docs/api-key',
+      },
+      slack: {
+        title: 'Slack Nasıl Bağlanır?',
+        steps: [
+          'Slack kanalında Incoming Webhook oluştur',
+          'Webhook URL\'ini kopyala',
+          'Slack Webhook alanına yapıştırıp Kaydet',
+          'Notifications sekmesinden test bildirimi gönder',
+        ],
+        link: 'https://api.slack.com/messaging/webhooks',
+      },
+      teams: {
+        title: 'Microsoft Teams Nasıl Bağlanır?',
+        steps: [
+          'Teams kanalında Incoming Webhook connector ekle',
+          'Webhook URL\'ini kopyala',
+          'Teams Webhook alanına yapıştırıp Kaydet',
+          'Notifications sekmesinden test bildirimi gönder',
+        ],
+        link: 'https://learn.microsoft.com/microsoftteams/platform/webhooks-and-connectors/how-to/connectors-using',
       },
       playbook: {
         title: 'Tenant Playbook Nedir?',
@@ -186,6 +212,26 @@ export default function IntegrationsPage() {
         ],
         link: 'https://ai.google.dev/gemini-api/docs/api-key',
       },
+      slack: {
+        title: 'How to Connect Slack',
+        steps: [
+          'Create an Incoming Webhook for your Slack channel',
+          'Copy webhook URL',
+          'Paste into Slack Webhook and Save',
+          'Send a test event from Notifications tab',
+        ],
+        link: 'https://api.slack.com/messaging/webhooks',
+      },
+      teams: {
+        title: 'How to Connect Microsoft Teams',
+        steps: [
+          'Add an Incoming Webhook connector to Teams channel',
+          'Copy webhook URL',
+          'Paste into Teams Webhook and Save',
+          'Send a test event from Notifications tab',
+        ],
+        link: 'https://learn.microsoft.com/microsoftteams/platform/webhooks-and-connectors/how-to/connectors-using',
+      },
       playbook: {
         title: 'What is Tenant Playbook?',
         steps: [
@@ -208,6 +254,8 @@ export default function IntegrationsPage() {
     const github = data.find((c) => c.provider === 'github');
     const openai = data.find((c) => c.provider === 'openai');
     const gemini = data.find((c) => c.provider === 'gemini');
+    const slack = data.find((c) => c.provider === 'slack');
+    const teams = data.find((c) => c.provider === 'teams');
     if (jira) { setJiraBaseUrl(jira.base_url); setJiraEmail(jira.username ?? ''); }
     if (azure) { setAzureOrgUrl(azure.base_url); setAzureProject(azure.project ?? ''); }
     if (github) {
@@ -216,6 +264,8 @@ export default function IntegrationsPage() {
     }
     if (openai) { setOpenaiBaseUrl(openai.base_url); }
     if (gemini) { setGeminiBaseUrl(gemini.base_url); }
+    if (slack) { setSlackWebhook(''); }
+    if (teams) { setTeamsWebhook(''); }
   }
 
   useEffect(() => {
@@ -224,6 +274,8 @@ export default function IntegrationsPage() {
     setAzurePatPreview(loadSecretPreview('azure'));
     setGithubTokenPreview(loadSecretPreview('github'));
     setJiraTokenPreview(loadSecretPreview('jira'));
+    setSlackPreview(loadSecretPreview('slack'));
+    setTeamsPreview(loadSecretPreview('teams'));
     void loadIntegrationState().catch(() => {});
   }, []);
 
@@ -344,12 +396,71 @@ export default function IntegrationsPage() {
     finally { setIsPlaybookSaving(false); }
   }
 
+  async function saveSlack() {
+    Promise.all([
+      apiFetch('/integrations/slack', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: 'https://hooks.slack.com/services', secret: slackWebhook || undefined }),
+      }),
+      loadIntegrationState(),
+    ]).then(() => {
+      if (slackWebhook.trim()) {
+        const preview = maskSecretPreview(slackWebhook);
+        setSlackPreview(preview);
+        saveSecretPreview('slack', preview);
+      }
+      setSlackWebhook('');
+      setMsg(t('integrations.savedSlack'));
+    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
+  }
+
+  async function saveTeams() {
+    Promise.all([
+      apiFetch('/integrations/teams', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: 'https://outlook.office.com/webhook', secret: teamsWebhook || undefined }),
+      }),
+      loadIntegrationState(),
+    ]).then(() => {
+      if (teamsWebhook.trim()) {
+        const preview = maskSecretPreview(teamsWebhook);
+        setTeamsPreview(preview);
+        saveSecretPreview('teams', preview);
+      }
+      setTeamsWebhook('');
+      setMsg(t('integrations.savedTeams'));
+    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
+  }
+
+  async function sendTestNotification() {
+    setNotifyTesting(true);
+    setError('');
+    try {
+      await apiFetch('/notifications/event', {
+        method: 'POST',
+        body: JSON.stringify({
+          event_type: 'task_completed',
+          title: 'Integration Test Notification',
+          message: 'Slack/Teams/Web notifications test event',
+          severity: 'success',
+        }),
+      });
+      setMsg(t('integrations.sentTestNotify'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('integrations.saveFailed'));
+    } finally {
+      setNotifyTesting(false);
+    }
+  }
+
   const jiraConfig = configs.find((c) => c.provider === 'jira');
   const azureConfig = configs.find((c) => c.provider === 'azure');
   const githubConfig = configs.find((c) => c.provider === 'github');
   const openaiConfig = configs.find((c) => c.provider === 'openai');
   const geminiConfig = configs.find((c) => c.provider === 'gemini');
   const playbookConfig = configs.find((c) => c.provider === 'playbook');
+  const slackConfig = configs.find((c) => c.provider === 'slack');
+  const teamsConfig = configs.find((c) => c.provider === 'teams');
 
   return (
     <div style={{ display: 'grid', gap: 28 }}>
@@ -406,9 +517,48 @@ export default function IntegrationsPage() {
         </div>
       )}
 
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type='button'
+          className='button'
+          onClick={() => setActiveTab('ai')}
+          style={{
+            borderColor: activeTab === 'ai' ? 'rgba(52,211,153,0.45)' : 'rgba(255,255,255,0.12)',
+            background: activeTab === 'ai' ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.03)',
+            color: activeTab === 'ai' ? '#6ee7b7' : 'rgba(255,255,255,0.58)',
+          }}
+        >
+          {t('integrations.tabAi')}
+        </button>
+        <button
+          type='button'
+          className='button'
+          onClick={() => setActiveTab('task')}
+          style={{
+            borderColor: activeTab === 'task' ? 'rgba(96,165,250,0.45)' : 'rgba(255,255,255,0.12)',
+            background: activeTab === 'task' ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.03)',
+            color: activeTab === 'task' ? '#93c5fd' : 'rgba(255,255,255,0.58)',
+          }}
+        >
+          {t('integrations.tabTask')}
+        </button>
+        <button
+          type='button'
+          className='button'
+          onClick={() => setActiveTab('notifications')}
+          style={{
+            borderColor: activeTab === 'notifications' ? 'rgba(251,146,60,0.45)' : 'rgba(255,255,255,0.12)',
+            background: activeTab === 'notifications' ? 'rgba(251,146,60,0.12)' : 'rgba(255,255,255,0.03)',
+            color: activeTab === 'notifications' ? '#fdba74' : 'rgba(255,255,255,0.58)',
+          }}
+        >
+          {t('integrations.tabNotifications')}
+        </button>
+      </div>
+
       <div className='integrations-grid'>
         {/* OpenAI */}
-        <IntegrationCard
+        {activeTab === 'ai' && <IntegrationCard
           title='OpenAI'
           icon='⚡'
           color='#34d399'
@@ -430,10 +580,10 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveOpenai')}
           </button>
-        </IntegrationCard>
+        </IntegrationCard>}
 
         {/* Gemini */}
-        <IntegrationCard
+        {activeTab === 'ai' && <IntegrationCard
           title='Gemini'
           icon='✨'
           color='#22d3ee'
@@ -455,10 +605,10 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveGemini()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveGemini')}
           </button>
-        </IntegrationCard>
+        </IntegrationCard>}
 
         {/* Azure DevOps */}
-        <IntegrationCard
+        {activeTab === 'task' && <IntegrationCard
           title='Azure DevOps'
           icon='🔷'
           color='#60a5fa'
@@ -483,10 +633,10 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveAzure()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveAzure')}
           </button>
-        </IntegrationCard>
+        </IntegrationCard>}
 
         {/* GitHub */}
-        <IntegrationCard
+        {activeTab === 'task' && <IntegrationCard
           title='GitHub'
           icon='🐙'
           color='#a78bfa'
@@ -511,10 +661,10 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveGithub()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveGithub')}
           </button>
-        </IntegrationCard>
+        </IntegrationCard>}
 
         {/* Jira */}
-        <IntegrationCard
+        {activeTab === 'task' && <IntegrationCard
           title='Jira'
           icon='🟦'
           color='#818cf8'
@@ -539,10 +689,10 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveJira()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveJira')}
           </button>
-        </IntegrationCard>
+        </IntegrationCard>}
 
         {/* Tenant Playbook */}
-        <IntegrationCard
+        {activeTab === 'ai' && <IntegrationCard
           title='Tenant Playbook'
           icon='📘'
           color='#f59e0b'
@@ -564,7 +714,68 @@ export default function IntegrationsPage() {
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>
             {t('integrations.playbookStored')} ({playbookConfig?.updated_at ? `${t('integrations.updated')} ${new Date(playbookConfig.updated_at).toLocaleString()}` : t('integrations.notSavedYet')}).
           </div>
-        </IntegrationCard>
+        </IntegrationCard>}
+
+        {activeTab === 'notifications' && <IntegrationCard
+          title='Slack'
+          icon='💬'
+          color='#22c55e'
+          connected={slackConfig?.has_secret ?? false}
+          updatedAt={slackConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.slack)}
+        >
+          <FieldGroup label={t('integrations.webhookUrl')}>
+            <input
+              type='password'
+              value={slackWebhook}
+              onChange={(e) => setSlackWebhook(e.target.value)}
+              placeholder={slackConfig?.has_secret ? `${slackConfig?.secret_preview || slackPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.slackWebhookPlaceholder')}
+            />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveSlack()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
+            {t('integrations.saveSlack')}
+          </button>
+        </IntegrationCard>}
+
+        {activeTab === 'notifications' && <IntegrationCard
+          title='Microsoft Teams'
+          icon='🟪'
+          color='#60a5fa'
+          connected={teamsConfig?.has_secret ?? false}
+          updatedAt={teamsConfig?.updated_at}
+          onHelp={() => setHelp(helpByProvider.teams)}
+        >
+          <FieldGroup label={t('integrations.webhookUrl')}>
+            <input
+              type='password'
+              value={teamsWebhook}
+              onChange={(e) => setTeamsWebhook(e.target.value)}
+              placeholder={teamsConfig?.has_secret ? `${teamsConfig?.secret_preview || teamsPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.teamsWebhookPlaceholder')}
+            />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveTeams()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
+            {t('integrations.saveTeams')}
+          </button>
+        </IntegrationCard>}
+
+        {activeTab === 'notifications' && <IntegrationCard
+          title={t('integrations.notificationRouter')}
+          icon='🔔'
+          color='#fb923c'
+          connected={Boolean(slackConfig?.has_secret || teamsConfig?.has_secret)}
+        >
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
+            {t('integrations.notificationRouterDesc')}
+          </div>
+          <button
+            className='button button-primary'
+            onClick={() => void sendTestNotification()}
+            disabled={notifyTesting}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+          >
+            {notifyTesting ? t('integrations.sending') : t('integrations.sendTestNotify')}
+          </button>
+        </IntegrationCard>}
       </div>
       {help && (
         <div
