@@ -125,7 +125,7 @@ async def list_github_repos(
     if response.status_code == 403:
         raise HTTPException(status_code=403, detail='GitHub access forbidden for repository listing')
     if response.status_code == 404:
-        raise HTTPException(status_code=404, detail='GitHub owner not found')
+        return []
     response.raise_for_status()
 
     if not isinstance(data, list):
