@@ -378,6 +378,34 @@ export default function IntegrationsPage() {
         </div>
       )}
 
+      {(msg || error) && (
+        <div
+          style={{
+            position: 'fixed',
+            right: 20,
+            bottom: 20,
+            zIndex: 80,
+            minWidth: 220,
+            maxWidth: 380,
+            padding: '10px 12px',
+            borderRadius: 10,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: 0.2,
+            color: error ? '#fecaca' : '#86efac',
+            border: error ? '1px solid rgba(248,113,113,0.35)' : '1px solid rgba(34,197,94,0.35)',
+            background: error ? 'rgba(127,29,29,0.86)' : 'rgba(20,83,45,0.86)',
+            boxShadow: error
+              ? '0 10px 30px rgba(127,29,29,0.35)'
+              : '0 10px 30px rgba(20,83,45,0.35)',
+            backdropFilter: 'blur(3px)',
+            animation: 'toastSlideUp 180ms ease-out',
+          }}
+        >
+          {error || msg}
+        </div>
+      )}
+
       <div className='integrations-grid'>
         {/* OpenAI */}
         <IntegrationCard
@@ -615,6 +643,10 @@ export default function IntegrationsPage() {
           0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
           70% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @keyframes toastSlideUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
