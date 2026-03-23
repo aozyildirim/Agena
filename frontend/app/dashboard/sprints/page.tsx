@@ -63,6 +63,7 @@ const fallbackPalette = [
   { color: '#fb923c', bg: 'rgba(251,146,60,0.07)', border: 'rgba(251,146,60,0.2)' },
 ];
 const sc = (s: string, i: number) => STATE_COLORS[s] ?? fallbackPalette[i % fallbackPalette.length];
+const normalizeState = (value: string | null | undefined): string => String(value || '').trim().toLowerCase();
 
 const LS_PROJECT = 'tiqr_sprint_project';
 const LS_TEAM    = 'tiqr_sprint_team';
@@ -478,12 +479,14 @@ export default function SprintsPage() {
       if (!validBoard || !validSprint) return;
     }
     setLbd(true); setErr('');
+    let activeStatesSnapshot: string[] = [];
     const statesUrl = provider === 'jira'
       ? '/tasks/jira/states?board_id=' + encodeURIComponent(team) + '&sprint_id=' + encodeURIComponent(sprint)
       : '/tasks/azure/states?project=' + encodeURIComponent(project) + '&team=' + encodeURIComponent(team) + '&sprint_path=' + encodeURIComponent(sprint);
     apiFetch<string[]>(statesUrl)
       .then((fetchedStates) => {
         const active = fetchedStates.length > 0 ? fetchedStates : ['Backlog','To Do','In Progress','Done'];
+        activeStatesSnapshot = active;
         setStates(active);
         return Promise.allSettled(
           active.map(async (state) => {
@@ -503,7 +506,13 @@ export default function SprintsPage() {
         if (!results) return;
         const merged: WorkItem[] = [];
         results.forEach((r) => { if (r.status === 'fulfilled') merged.push(...r.value); });
-        setItems(merged);
+        const alias = new Map<string, string>();
+        activeStatesSnapshot.forEach((s) => alias.set(normalizeState(s), s));
+        const normalized = merged.map((item) => {
+          const canonical = alias.get(normalizeState(item.state)) || item.state;
+          return { ...item, state: canonical };
+        });
+        setItems(normalized);
       }).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.boardError')))
         .finally(() => setLbd(false));
   }, [sprint, project, team, provider, t]);
@@ -585,7 +594,7 @@ export default function SprintsPage() {
   // Sadece içi dolu sütunları göster (yükleme sırasında hepsini göster)
   const visibleStates = lbd
     ? states
-    : states.filter((s) => items.some((i) => i.state === s));
+    : states.filter((s) => items.some((i) => normalizeState(i.state) === normalizeState(s)));
 
   const selS = sprints.find((s) => (s.path ?? s.name) === sprint);
   const selT = teams.find((t) => t.name === team);
@@ -691,7 +700,7 @@ export default function SprintsPage() {
               </div>
             ) : (lbd ? states : visibleStates).map((state, idx) => {
               const s = sc(state, idx);
-              const col = items.filter((i) => i.state === state);
+              const col = items.filter((i) => normalizeState(i.state) === normalizeState(state));
               return (
                 <div key={state} style={{ borderRadius: 14, border: '1px solid ' + s.border, background: s.bg, overflow: 'hidden', minWidth: 200, width: 220, flexShrink: 0 }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid ' + s.border, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
