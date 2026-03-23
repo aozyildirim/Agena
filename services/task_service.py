@@ -253,6 +253,7 @@ class TaskService:
         organization_id: int,
         *,
         status: str | None = None,
+        source: str | None = None,
         q: str | None = None,
         created_from: datetime | None = None,
         created_to: datetime | None = None,
@@ -268,6 +269,8 @@ class TaskService:
         filters = [TaskRecord.organization_id == organization_id]
         if status and status != 'all':
             filters.append(TaskRecord.status == status)
+        if source and source != 'all':
+            filters.append(TaskRecord.source == source)
         if q:
             needle = f'%{q.strip()}%'
             if needle != '%%':

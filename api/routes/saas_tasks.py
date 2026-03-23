@@ -104,6 +104,7 @@ async def list_tasks(
 @router.get('/search', response_model=TaskListResponse)
 async def search_tasks(
     status: str = Query(default='all'),
+    source: str = Query(default='all'),
     q: str = Query(default=''),
     created_from: str | None = Query(default=None),
     created_to: str | None = Query(default=None),
@@ -127,6 +128,7 @@ async def search_tasks(
     tasks, total = await service.search_tasks(
         tenant.organization_id,
         status=status,
+        source=source,
         q=q,
         created_from=from_dt,
         created_to=to_dt,

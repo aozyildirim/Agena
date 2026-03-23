@@ -7,6 +7,7 @@ import { TaskItem } from '@/components/TaskTable';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 const STATUS_FILTERS = ['all', 'queued', 'running', 'completed', 'failed'];
+const SOURCE_FILTERS = ['all', 'internal', 'azure', 'jira'];
 
 function statusColor(s: string) {
   const m: Record<string, string> = { queued: '#f59e0b', running: '#38bdf8', completed: '#22c55e', failed: '#f87171' };
@@ -39,6 +40,7 @@ export default function DashboardTasksPage() {
     created_at: string;
   }[]>([]);
   const [filter, setFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -62,6 +64,7 @@ export default function DashboardTasksPage() {
     try {
       const qs = new URLSearchParams();
       qs.set('status', filter);
+      qs.set('source', sourceFilter);
       qs.set('q', search);
       qs.set('page', String(page));
       qs.set('page_size', String(pageSize));
@@ -104,11 +107,12 @@ export default function DashboardTasksPage() {
         const toTs = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
         const filteredLegacy = legacyData.filter((t) => {
           const matchStatus = filter === 'all' || t.status === filter;
+          const matchSource = sourceFilter === 'all' || (t.source || '').toLowerCase() === sourceFilter;
           const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase());
           const created = new Date((t as TaskItem & { created_at?: string }).created_at ?? '').getTime();
           const matchFrom = fromTs === null || created >= fromTs;
           const matchTo = toTs === null || created <= toTs;
-          return matchStatus && matchSearch && matchFrom && matchTo;
+          return matchStatus && matchSource && matchSearch && matchFrom && matchTo;
         });
         const pagedLegacy = filteredLegacy.slice((page - 1) * pageSize, page * pageSize);
         setTasks(pagedLegacy);
@@ -118,7 +122,7 @@ export default function DashboardTasksPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : t('tasks.loadFailed'));
     }
-  }, [dateFrom, dateTo, filter, page, search, t]);
+  }, [dateFrom, dateTo, filter, sourceFilter, page, search, t]);
 
   useEffect(() => {
     loadPrefs().then((prefs) => {
@@ -293,6 +297,23 @@ export default function DashboardTasksPage() {
             </button>
           ))}
         </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {SOURCE_FILTERS.map((s) => (
+            <button
+              key={s}
+              onClick={() => { setSourceFilter(s); setPage(1); }}
+              style={{
+                padding: '6px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                border: sourceFilter === s ? '1px solid rgba(129,140,248,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                background: sourceFilter === s ? 'rgba(129,140,248,0.16)' : 'transparent',
+                color: sourceFilter === s ? '#c4b5fd' : 'rgba(255,255,255,0.45)',
+                cursor: 'pointer', textTransform: 'capitalize',
+              }}
+            >
+              {t(`tasks.source.${s}` as TranslationKey)}
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[7, 30].map((d) => (
             <button
@@ -325,7 +346,7 @@ export default function DashboardTasksPage() {
         </div>
         <button
           className='button button-outline'
-          onClick={() => { setDateFrom(''); setDateTo(''); setSearch(''); setFilter('all'); setPage(1); }}
+          onClick={() => { setDateFrom(''); setDateTo(''); setSearch(''); setFilter('all'); setSourceFilter('all'); setPage(1); }}
           style={{ padding: '6px 10px', fontSize: 11 }}
         >
           {t('tasks.reset')}

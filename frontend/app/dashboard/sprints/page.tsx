@@ -160,6 +160,7 @@ export default function SprintsPage() {
   const [taskMapByExternalId, setTaskMapByExternalId] = useState<Record<string, number>>({});
   const [hydrating, setHydrating] = useState(true);
   const [preferredSprint, setPreferredSprint] = useState('');
+  const isJiraAuthError = (message: string) => message.toLowerCase().includes('jira credentials are invalid');
 
   const setProject = useCallback((v: string) => {
     setProjectRaw(v);
@@ -346,7 +347,13 @@ export default function SprintsPage() {
           setTeams(boards);
         }
       } catch (e) {
-        setErr(e instanceof Error ? e.message : t('sprints.boardError'));
+        const message = e instanceof Error ? e.message : t('sprints.boardError');
+        setErr(message);
+        if (provider === 'jira' && hasAzure && isJiraAuthError(message)) {
+          setProviderRaw('azure');
+          localStorage.setItem(LS_PROVIDER, 'azure');
+          setMsg(t('sprints.noJira') + ' ' + t('sprints.goIntegrations'));
+        }
       } finally {
         setLpj(false);
       }

@@ -542,10 +542,16 @@ async def list_jira_states(
         raise HTTPException(status_code=400, detail='Jira integration not configured')
 
     task_service = TaskService(db)
-    states = await task_service.jira_client.fetch_board_states(
-        {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret},
-        board_id=board_id,
-    )
+    try:
+        states = await task_service.jira_client.fetch_board_states(
+            {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret},
+            board_id=board_id,
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
+            raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
+        raise HTTPException(status_code=502, detail='Jira states fetch failed') from exc
     if states:
         return states
     return ['To Do', 'In Progress', 'Done']

@@ -427,6 +427,10 @@ const translations = {
     'tasks.status.completed': 'Tamamlandı',
     'tasks.status.failed': 'Başarısız',
     'tasks.status.cancelled': 'İptal',
+    'tasks.source.all': 'Tüm Kaynaklar',
+    'tasks.source.internal': 'İç',
+    'tasks.source.azure': 'Azure',
+    'tasks.source.jira': 'Jira',
     // Task Detail
     'taskDetail.task': 'Görev',
     'taskDetail.status': 'Durum',
@@ -1223,6 +1227,10 @@ const translations = {
     'tasks.status.completed': 'Completed',
     'tasks.status.failed': 'Failed',
     'tasks.status.cancelled': 'Cancelled',
+    'tasks.source.all': 'All Sources',
+    'tasks.source.internal': 'Internal',
+    'tasks.source.azure': 'Azure',
+    'tasks.source.jira': 'Jira',
     // Task Detail
     'taskDetail.task': 'Task',
     'taskDetail.status': 'Status',
