@@ -33,6 +33,7 @@ async def list_github_repos(
         raise HTTPException(status_code=400, detail='GitHub token is missing')
 
     resolved_owner = (owner or '').strip()
+    default_owner = (config.username or '').strip()
     base = (config.base_url or 'https://api.github.com').rstrip('/')
     headers = {
         'Authorization': f'Bearer {token}',
@@ -79,6 +80,18 @@ async def list_github_repos(
                 data = []
         else:
             data = response.json() if response.status_code < 400 else []
+            if (
+                isinstance(data, list)
+                and not data
+                and default_owner
+                and response.status_code < 400
+            ):
+                org_url = f'{base}/orgs/{quote(default_owner, safe="")}/repos?per_page=100&sort=updated'
+                org_response = await client.get(org_url, headers=headers)
+                if org_response.status_code < 400:
+                    org_data = org_response.json()
+                    if isinstance(org_data, list) and org_data:
+                        data = org_data
 
     if response.status_code == 401:
         raise HTTPException(status_code=401, detail='Invalid GitHub token')
