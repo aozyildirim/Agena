@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, getRepoAgentsDoc, loadPrefs, RepoMapping, RepoProfileSummary, savePrefs, saveRepoAgentsDoc, scanRepoProfile } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
@@ -74,6 +74,7 @@ export default function RepoMappingsPage() {
   const [editorContent, setEditorContent] = useState('');
   const [editorLoading, setEditorLoading] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
+  const githubFetchRef = useRef(0);
 
   useEffect(() => {
     const init = async () => {
@@ -120,6 +121,7 @@ export default function RepoMappingsPage() {
 
   useEffect(() => {
     if (sourceProvider !== 'github') return;
+    const reqId = ++githubFetchRef.current;
     setGithubRepos([]);
     setSelGithubRepo('');
     setGithubRepoCount(0);
@@ -129,15 +131,20 @@ export default function RepoMappingsPage() {
     const query = owner ? `?owner=${encodeURIComponent(owner)}` : '';
     apiFetch<GithubRepo[]>(`/integrations/github/repos${query}`)
       .then((list) => {
+        if (reqId !== githubFetchRef.current) return;
         setGithubRepos(list);
         setGithubRepoCount(Array.isArray(list) ? list.length : 0);
       })
       .catch((e: unknown) => {
+        if (reqId !== githubFetchRef.current) return;
         setGithubRepos([]);
         setGithubRepoCount(0);
         setGithubRepoError(e instanceof Error ? e.message : 'GitHub repo list fetch failed');
       })
-      .finally(() => setLoadingGithubRepos(false));
+      .finally(() => {
+        if (reqId !== githubFetchRef.current) return;
+        setLoadingGithubRepos(false);
+      });
   }, [sourceProvider, githubOwner]);
 
   useEffect(() => {
