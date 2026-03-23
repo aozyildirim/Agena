@@ -222,10 +222,11 @@ export default function SprintsPage() {
         );
         setHasAzure(azureConnected);
         setHasJira(jiraConnected);
-        if (savedProvider === 'azure' && !azureConnected && jiraConnected) savedProvider = 'jira';
-        if (savedProvider === 'jira' && !jiraConnected && azureConnected) savedProvider = 'azure';
-        if (!azureConnected && jiraConnected) savedProvider = 'jira';
-        if (jiraConnected && (jiraProjectPref || jiraBoardPref || jiraSprintPref)) {
+        // Azure should be the default provider whenever it is connected.
+        // Jira is selected only when Azure is unavailable.
+        if (azureConnected) {
+          savedProvider = 'azure';
+        } else if (jiraConnected) {
           savedProvider = 'jira';
           if (jiraProjectPref) savedProject = jiraProjectPref;
           if (jiraBoardPref) savedTeam = jiraBoardPref;
