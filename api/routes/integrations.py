@@ -59,7 +59,7 @@ async def list_github_repos(
         # Collect repos via multiple user/repos variants because token types can differ
         # (classic PAT vs fine-grained) and some variants may return partial lists.
         endpoints = [
-            f'{base}/user/repos?per_page=100&sort=updated&visibility=all&type=all',
+            f'{base}/user/repos?per_page=100&sort=updated&visibility=all',
             f'{base}/user/repos?per_page=100&sort=updated&type=owner',
             f'{base}/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member',
         ]
