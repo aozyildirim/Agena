@@ -133,6 +133,9 @@ export default function SprintsPage() {
   const [projects, setProjects] = useState<Opt[]>([]);
   const [teams,    setTeams]    = useState<Opt[]>([]);
   const [sprints,  setSprints]  = useState<Opt[]>([]);
+  const [projectsScope, setProjectsScope] = useState<'azure' | 'jira' | null>(null);
+  const [teamsScope, setTeamsScope] = useState<'azure' | 'jira' | null>(null);
+  const [sprintsScope, setSprintsScope] = useState<'azure' | 'jira' | null>(null);
   const [states,   setStates]   = useState<string[]>([]);
   const [project,  setProjectRaw]  = useState('');
   const [team,     setTeamRaw]     = useState('');
@@ -253,6 +256,7 @@ export default function SprintsPage() {
         if (savedProvider === 'jira') {
           const projs = await apiFetch<Opt[]>('/tasks/jira/projects');
           setProjects(projs);
+          setProjectsScope('jira');
           let boards: Opt[] = [];
           if (savedProject) {
             const byId = projs.find((p) => (p.id ?? p.name) === savedProject);
@@ -278,6 +282,7 @@ export default function SprintsPage() {
             }
           }
           setTeams(boards);
+          setTeamsScope('jira');
           if (!savedTeam) return;
           const validBoard =
             boards.find((b) => (b.id ?? b.name) === savedTeam) ||
@@ -287,6 +292,7 @@ export default function SprintsPage() {
           setTeamRaw(boardId);
           const sps = await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(boardId));
           setSprints(sps);
+          setSprintsScope('jira');
           const current = pickCurrentSprint(sps);
           if (current) {
             setSprintRaw(current.path ?? current.name);
@@ -299,14 +305,17 @@ export default function SprintsPage() {
         }
         const projs = await apiFetch<Opt[]>('/tasks/azure/projects');
         setProjects(projs);
+        setProjectsScope('azure');
         if (!savedProject) return;
         setProjectRaw(savedProject);
         const tms = await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(savedProject));
         setTeams(tms);
+        setTeamsScope('azure');
         if (!savedTeam) return;
         setTeamRaw(savedTeam);
         const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(savedProject) + '&team=' + encodeURIComponent(savedTeam));
         setSprints(sps);
+        setSprintsScope('azure');
         const current = pickCurrentSprint(sps);
         if (current) {
           setSprintRaw(current.path ?? current.name);
@@ -330,8 +339,11 @@ export default function SprintsPage() {
     setTeamRaw('');
     setSprintRaw('');
     setProjects([]);
+    setProjectsScope(null);
     setTeams([]);
+    setTeamsScope(null);
     setSprints([]);
+    setSprintsScope(null);
     setItems([]);
     setStates([]);
     setLpj(true);
@@ -341,6 +353,7 @@ export default function SprintsPage() {
           ? await apiFetch<Opt[]>('/tasks/jira/projects')
           : await apiFetch<Opt[]>('/tasks/azure/projects');
         setProjects(list);
+        setProjectsScope(provider);
         if (storedProject) {
           if (provider === 'jira') {
             let normalized = storedProject;
@@ -362,6 +375,7 @@ export default function SprintsPage() {
         if (provider === 'jira' && list.length === 0) {
           const boards = await apiFetch<Opt[]>('/tasks/jira/boards');
           setTeams(boards);
+          setTeamsScope('jira');
         }
       } catch (e) {
         const message = e instanceof Error ? e.message : t('sprints.boardError');
@@ -381,7 +395,9 @@ export default function SprintsPage() {
   useEffect(() => {
     if (hydrating) return;
     setTeamRaw(''); setTeams([]); setSprintRaw(''); setSprints([]); setItems([]); setStates([]);
+    setTeamsScope(null); setSprintsScope(null);
     if (!project && provider !== 'jira') return;
+    if (projectsScope !== provider) return;
     if (provider === 'jira' && project) {
       const validProject = projects.some((p) => (p.id ?? p.name) === project || p.name === project);
       if (!validProject) return;
@@ -394,6 +410,7 @@ export default function SprintsPage() {
     apiFetch<Opt[]>(url)
       .then((list) => {
         setTeams(list);
+        setTeamsScope(provider);
         if (!storedTeam) return;
         if (provider === 'jira') {
           const byId = list.find((item) => (item.id ?? item.name) === storedTeam);
@@ -415,6 +432,7 @@ export default function SprintsPage() {
     if (hydrating) return;
     setSprintRaw(''); setSprints([]); setItems([]);
     if (!project || !team) return;
+    if (teamsScope !== provider) return;
     if (provider === 'jira') {
       const validBoard = teams.some((t) => (t.id ?? t.name) === team || t.name === team);
       if (!validBoard) return;
@@ -426,6 +444,7 @@ export default function SprintsPage() {
     apiFetch<Opt[]>(url)
       .then((list) => {
         setSprints(list);
+        setSprintsScope(provider);
         const current = pickCurrentSprint(list);
         if (current) {
           setSprintRaw(current.path ?? current.name);
@@ -452,6 +471,7 @@ export default function SprintsPage() {
   useEffect(() => {
     setItems([]); setStates([]); setSelected(null);
     if (!sprint || !project) return;
+    if (sprintsScope !== provider) return;
     if (provider === 'jira') {
       const validBoard = teams.some((t) => (t.id ?? t.name) === team || t.name === team);
       const validSprint = sprints.some((s) => (s.path ?? s.name) === sprint || s.name === sprint);
