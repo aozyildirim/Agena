@@ -32,7 +32,7 @@ async def list_github_repos(
     if not token:
         raise HTTPException(status_code=400, detail='GitHub token is missing')
 
-    resolved_owner = (owner or config.username or '').strip()
+    resolved_owner = (owner or '').strip()
     base = (config.base_url or 'https://api.github.com').rstrip('/')
     headers = {
         'Authorization': f'Bearer {token}',
