@@ -38,6 +38,9 @@
   --panel-border-4: rgba(255,255,255,0.15);
   --terminal-bg: #0a0e14;
   --terminal-bar: rgba(255,255,255,0.03);
+  --nav-active: #5eead4;
+  --nav-active-bg: rgba(13,148,136,0.12);
+  --nav-active-border: rgba(13,148,136,0.2);
 }
 
 html.light {
@@ -78,6 +81,9 @@ html.light {
   --panel-border-4: rgba(0,0,0,0.22);
   --terminal-bg: #f8f9fa;
   --terminal-bar: rgba(0,0,0,0.06);
+  --nav-active: #0d7377;
+  --nav-active-bg: rgba(13,148,136,0.1);
+  --nav-active-border: rgba(13,148,136,0.25);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

@@ -3,6 +3,7 @@ from __future__ import annotations
 import difflib
 import json
 import re
+import shutil
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -142,6 +143,9 @@ class OrchestrationService:
 
         state: dict[str, Any] = {}
         try:
+            if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path and not shutil.which('codex'):
+                await task_service.add_log(task.id, organization_id, 'agent', 'codex_cli selected but binary not found — falling back to OpenAI API mode')
+                routing.preferred_agent_provider = 'openai'
             if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path:
                 await task_service.add_log(
                     task.id,

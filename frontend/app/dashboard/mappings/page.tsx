@@ -558,40 +558,43 @@ export default function RepoMappingsPage() {
           </div>
         </div>
 
-        <div style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border-2)', display: 'grid', gridTemplateColumns: '1fr 1.05fr 0.75fr 0.95fr 0.85fr 130px', gap: 10 }}>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{t('mappings.col.source')}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{t('mappings.col.localPath')}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{t('mappings.col.notes')}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{t('mappings.col.repoPlaybook')}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{t('mappings.col.repoProfile')}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{t('mappings.col.action')}</span>
-          </div>
-
-              {empty ? (
-            <div style={{ padding: 20, color: 'var(--ink-50)', fontSize: 13 }}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {empty ? (
+            <div style={{ padding: 20, color: 'var(--ink-50)', fontSize: 13, borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)' }}>
               {t('mappings.empty')}
             </div>
           ) : (
             items.map((m) => (
-              <div key={m.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-alt)', display: 'grid', gridTemplateColumns: '1fr 1.05fr 0.75fr 0.95fr 0.85fr 130px', gap: 10, alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: (m.provider === 'github') ? '#c4b5fd' : '#7dd3fc' }}>
-                    {(m.provider === 'github') ? 'GitHub' : (m.azure_project || t('mappings.azure'))}
+              <div key={m.id} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: '14px 16px', display: 'grid', gap: 10 }}>
+                {/* Header: Provider + Repo name + actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 6, background: (m.provider === 'github') ? 'rgba(167,139,250,0.12)' : 'rgba(56,189,248,0.12)', color: (m.provider === 'github') ? '#a78bfa' : '#38bdf8', border: `1px solid ${(m.provider === 'github') ? 'rgba(167,139,250,0.3)' : 'rgba(56,189,248,0.3)'}` }}>
+                        {(m.provider === 'github') ? 'GitHub' : 'Azure'}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.local_path}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-90)' }}>
-                    {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => startEdit(m)} className='button button-outline' style={{ padding: '5px 10px', fontSize: 11 }}>{t('mappings.edit')}</button>
+                    <button onClick={() => void removeMapping(m.id)} className='button button-outline' style={{ padding: '5px 10px', fontSize: 11, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444' }}>{t('mappings.delete')}</button>
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-58)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {m.local_path}
+
+                {/* Details row */}
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: 'var(--ink-58)' }}>
+                  {m.azure_project && <span><b style={{ color: 'var(--ink-78)' }}>{t('mappings.col.source')}:</b> {m.azure_project}</span>}
+                  {m.notes && <span><b style={{ color: 'var(--ink-78)' }}>{t('mappings.col.notes')}:</b> {m.notes}</span>}
+                  {m.repo_playbook && <span title={m.repo_playbook}><b style={{ color: 'var(--ink-78)' }}>Playbook:</b> {m.repo_playbook.length > 60 ? m.repo_playbook.slice(0, 60) + '…' : m.repo_playbook}</span>}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>
-                  {m.notes || '-'}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-45)', lineHeight: 1.45 }}>
-                  {m.repo_playbook ? (m.repo_playbook.length > 110 ? m.repo_playbook.slice(0, 110).trimEnd() + '…' : m.repo_playbook) : '-'}
-                </div>
+
+                {/* Profile + agents.md row */}
                 <div style={{ display: 'grid', gap: 4 }}>
                   {repoProfiles[m.id] ? (
                     <>
@@ -661,14 +664,6 @@ export default function RepoMappingsPage() {
                       </button>
                     )}
                   </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  <button onClick={() => startEdit(m)} style={{ padding: '6px 0', width: '100%', borderRadius: 8, border: '1px solid rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.12)', color: '#7dd3fc', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                    {t('mappings.edit')}
-                  </button>
-                  <button onClick={() => void removeMapping(m.id)} style={{ padding: '6px 0', width: '100%', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.1)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                    {t('mappings.delete')}
-                  </button>
                 </div>
               </div>
             ))

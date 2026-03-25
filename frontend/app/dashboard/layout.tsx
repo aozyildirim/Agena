@@ -318,14 +318,14 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
                 fontWeight: active ? 600 : 400,
-                color: active ? '#5eead4' : 'var(--muted)',
-                background: active ? 'rgba(13,148,136,0.12)' : 'transparent',
-                border: active ? '1px solid rgba(13,148,136,0.2)' : '1px solid transparent',
+                color: active ? 'var(--nav-active)' : 'var(--muted)',
+                background: active ? 'var(--nav-active-bg)' : 'transparent',
+                border: active ? '1px solid var(--nav-active-border)' : '1px solid transparent',
                 transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
               }}>
                 <span style={{ fontSize: 16, opacity: active ? 1 : 0.5 }}>{item.icon}</span>
                 {!sidebarCollapsed && t(item.key)}
-                {active && !sidebarCollapsed && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#5eead4' }} />}
+                {active && !sidebarCollapsed && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--nav-active)' }} />}
               </Link>
             );
           })}
@@ -336,7 +336,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             const active = pathname === item.href || pathname.startsWith(item.href);
             const isNotificationItem = item.href === '/dashboard/notifications';
             const hasUnread = isNotificationItem && unreadCount > 0;
-            const itemColor = hasUnread ? '#ef4444' : (active ? '#5eead4' : 'var(--muted)');
+            const itemColor = hasUnread ? '#ef4444' : (active ? 'var(--nav-active)' : 'var(--muted)');
             return (
               <Link key={item.href} href={item.href} title={t(item.key)} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -417,7 +417,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             <div style={{ border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 12, padding: 10, display: 'grid', gap: 8, maxHeight: 250, overflow: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 700 }}>{t('notifications.recent')}</span>
-                <button onClick={() => void markAllReadAndRefresh()} style={{ border: 'none', background: 'transparent', color: '#5eead4', fontSize: 11, cursor: 'pointer' }}>{t('notifications.markAllRead')}</button>
+                <button onClick={() => void markAllReadAndRefresh()} style={{ border: 'none', background: 'transparent', color: 'var(--nav-active)', fontSize: 11, cursor: 'pointer' }}>{t('notifications.markAllRead')}</button>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
