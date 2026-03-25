@@ -65,7 +65,7 @@ class OrchestrationService:
         self.cost_tracker = CostTracker()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8), reraise=True)
-    async def run_task_record(self, organization_id: int, task_id: int, create_pr: bool = True) -> AgentRunResult:
+    async def run_task_record(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow') -> AgentRunResult:
         task = await self.db_session.get(TaskRecord, task_id)
         if task is None or task.organization_id != organization_id:
             raise ValueError('Task not found for organization')
@@ -230,7 +230,8 @@ class OrchestrationService:
                     )
 
                 # Step 1: Fetch context
-                await task_service.add_log(task.id, organization_id, 'agent', 'Step 1/3: Fetching context & memory...')
+                total_steps = 3 if mode == 'flow' else 2
+                await task_service.add_log(task.id, organization_id, 'agent', f'Step 1/{total_steps}: Fetching context & memory... (mode={mode})')
                 u_before = _get_usage(flow_state)
                 s_start = datetime.utcnow()
                 s_clock = time.perf_counter()
@@ -241,39 +242,42 @@ class OrchestrationService:
                 ctx_len = len(flow_state.get('context_summary', ''))
                 mem_hits = len(flow_state.get('memory_context', []))
 
-                # Step 2: PM analyze
-                # Log what PM will receive
-                pm_desc = flow_state.get('task', {}).get('description', '')
-                pm_ctx = flow_state.get('context_summary', '')
-                pm_has_source = '=== RELEVANT SOURCE FILES ===' in pm_ctx
-                source_file_names = re.findall(r'--- ([\w/._-]+)', pm_ctx) if pm_has_source else []
-                await task_service.add_log(task.id, organization_id, 'agent',
-                    f'Step 2/3: PM analyzing task...\n'
-                    f'  context_summary: {ctx_len} chars | has_source_files: {pm_has_source} | source_files: {source_file_names[:10]}\n'
-                    f'  memory_hits: {mem_hits}\n'
-                    f'  system_prompt: PM_SYSTEM_PROMPT (technical review agent)\n'
-                    f'  model: {routing.preferred_agent_model or "default"}'
-                )
-                u_before = _get_usage(flow_state)
-                s_start = datetime.utcnow()
-                s_clock = time.perf_counter()
-                flow_state = await orchestrator.analyze_node(flow_state)
-                u_after = _get_usage(flow_state)
-                pm_delta = _usage_delta(u_before, u_after)
-                s_model = (flow_state.get('model_usage') or [''])[-1]
-                await _step_event('pm_analyze', pm_delta, s_model, s_start, time.perf_counter() - s_clock)
-                spec = flow_state.get('spec', {})
-                await task_service.add_log(task.id, organization_id, 'agent',
-                    f'PM result:\n'
-                    f'  model: {s_model} | tokens: prompt={pm_delta["prompt_tokens"]} completion={pm_delta["completion_tokens"]}\n'
-                    f'  status: {spec.get("status","")} | score: {spec.get("score","")} | storyPoint: {spec.get("storyPoint","")}\n'
-                    f'  scoreReason: {str(spec.get("scoreReason",""))[:200]}\n'
-                    f'  summary: {str(spec.get("summary",""))[:300]}\n'
-                    f'  file_changes: {json.dumps(spec.get("file_changes",[]), ensure_ascii=False)[:400]}\n'
-                    f'  recommendedNextStep: {str(spec.get("recommendedNextStep",""))[:200]}'
-                )
+                # Step 2: PM analyze (only in flow mode)
+                spec = {}
+                if mode == 'flow':
+                    pm_ctx = flow_state.get('context_summary', '')
+                    pm_has_source = '=== RELEVANT SOURCE FILES ===' in pm_ctx
+                    source_file_names = re.findall(r'--- ([\w/._-]+)', pm_ctx) if pm_has_source else []
+                    await task_service.add_log(task.id, organization_id, 'agent',
+                        f'Step 2/3: PM analyzing task...\n'
+                        f'  context_summary: {ctx_len} chars | has_source_files: {pm_has_source} | source_files: {source_file_names[:10]}\n'
+                        f'  memory_hits: {mem_hits}\n'
+                        f'  system_prompt: PM_SYSTEM_PROMPT (technical review agent)\n'
+                        f'  model: {routing.preferred_agent_model or "default"}'
+                    )
+                    u_before = _get_usage(flow_state)
+                    s_start = datetime.utcnow()
+                    s_clock = time.perf_counter()
+                    flow_state = await orchestrator.analyze_node(flow_state)
+                    u_after = _get_usage(flow_state)
+                    pm_delta = _usage_delta(u_before, u_after)
+                    s_model = (flow_state.get('model_usage') or [''])[-1]
+                    await _step_event('pm_analyze', pm_delta, s_model, s_start, time.perf_counter() - s_clock)
+                    spec = flow_state.get('spec', {})
+                    await task_service.add_log(task.id, organization_id, 'agent',
+                        f'PM result:\n'
+                        f'  model: {s_model} | tokens: prompt={pm_delta["prompt_tokens"]} completion={pm_delta["completion_tokens"]}\n'
+                        f'  status: {spec.get("status","")} | score: {spec.get("score","")} | storyPoint: {spec.get("storyPoint","")}\n'
+                        f'  scoreReason: {str(spec.get("scoreReason",""))[:200]}\n'
+                        f'  summary: {str(spec.get("summary",""))[:300]}\n'
+                        f'  file_changes: {json.dumps(spec.get("file_changes",[]), ensure_ascii=False)[:400]}\n'
+                        f'  recommendedNextStep: {str(spec.get("recommendedNextStep",""))[:200]}'
+                    )
+                else:
+                    await task_service.add_log(task.id, organization_id, 'agent', 'PM skipped (direct AI mode) — developer will work directly with source files')
+                    flow_state['spec'] = {'goal': task.title, 'summary': task.description or task.title}
 
-                # Step 3: Developer generate code
+                # Step: Developer generate code
                 dev_ctx = flow_state.get('context_summary', '')
                 dev_has_source = '=== RELEVANT SOURCE FILES ===' in dev_ctx
                 dev_source_files = re.findall(r'--- ([\w/._-]+)', dev_ctx) if dev_has_source else []

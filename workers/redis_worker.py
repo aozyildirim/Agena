@@ -88,6 +88,7 @@ async def _run_single_task(payload: dict) -> None:
     organization_id = int(payload.get('organization_id', 0) or 0)
     task_id = int(payload.get('task_id', 0) or 0)
     create_pr = bool(payload.get('create_pr', True))
+    run_mode = str(payload.get('mode', 'flow'))
     lock_retries = int(payload.get('lock_retries', 0) or 0)
 
     if organization_id <= 0 or task_id <= 0:
@@ -156,6 +157,7 @@ async def _run_single_task(payload: dict) -> None:
                 organization_id=organization_id,
                 task_id=task_id,
                 create_pr=create_pr,
+                mode=run_mode,
             )
         finally:
             if lock_key:

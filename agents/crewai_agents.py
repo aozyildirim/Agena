@@ -78,6 +78,7 @@ class CrewAIAgentRunner:
             user_prompt=prompt,
             complexity_hint='high',
             max_output_tokens=32000,
+            skip_cache=True,
         )
 
     async def run_reviewer(self, generated_code: str, spec: dict[str, Any], context_summary: str = '') -> tuple[str, dict[str, int], str]:
@@ -122,6 +123,7 @@ class CrewAIAgentRunner:
         user_prompt: str,
         complexity_hint: str,
         max_output_tokens: int = 2500,
+        skip_cache: bool = False,
     ) -> tuple[str, dict[str, int], str]:
         raw_key = (self.llm.settings.openai_api_key or '').strip()
         if not raw_key or raw_key.startswith('your_'):
@@ -130,6 +132,7 @@ class CrewAIAgentRunner:
                 user_prompt=user_prompt,
                 complexity_hint=complexity_hint,
                 max_output_tokens=max_output_tokens,
+                skip_cache=skip_cache,
             )
             return content, usage, model
         try:
@@ -149,6 +152,7 @@ class CrewAIAgentRunner:
                 user_prompt=user_prompt,
                 complexity_hint=complexity_hint,
                 max_output_tokens=max_output_tokens,
+                skip_cache=skip_cache,
             )
             return content, usage, model
 

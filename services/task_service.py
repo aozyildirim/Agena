@@ -385,7 +385,7 @@ class TaskService:
         out.sort(key=lambda x: (x['position'], x['created_at']))
         return out
 
-    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True) -> str:
+    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow') -> str:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -469,6 +469,7 @@ class TaskService:
                     'organization_id': organization_id,
                     'task_id': task.id,
                     'create_pr': create_pr,
+                    'mode': mode,
                 }
             )
         except Exception as exc:

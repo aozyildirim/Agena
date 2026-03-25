@@ -251,6 +251,7 @@ async def assign_task(
             tenant.organization_id,
             task_id,
             create_pr=payload.create_pr,
+            mode=payload.mode,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
