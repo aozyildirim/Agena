@@ -161,6 +161,7 @@ export default function SprintsPage() {
   const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
   const [flowRunning, setFlowRunning] = useState(false);
   const [flowResult, setFlowResult] = useState<FlowRunResult | null>(null);
+  const [flowError, setFlowError] = useState('');
   const [taskMapByExternalId, setTaskMapByExternalId] = useState<Record<string, number>>({});
   const [hydrating, setHydrating] = useState(true);
   const [preferredSprint, setPreferredSprint] = useState('');
@@ -591,6 +592,14 @@ export default function SprintsPage() {
   }
 
   async function handleRunFlow(flowId: string, item: WorkItem, options?: FlowRunOptions) {
+    const hasLlmKey = integrations.some(
+      (c) => (c.provider === 'openai' || c.provider === 'gemini') && c.has_secret,
+    );
+    if (!hasLlmKey) {
+      setFlowError('noLlmKey');
+      setTimeout(() => setFlowError(''), 6000);
+      return;
+    }
     setFlowRunning(true); setFlowResult(null);
     try {
       const result = await runFlow(flowId, {
@@ -777,6 +786,24 @@ export default function SprintsPage() {
           />
         )}
       </div>
+
+      {/* LLM key eksik toast */}
+      {flowError && (
+        <div style={{
+          position: 'fixed', right: 20, bottom: 20, zIndex: 9999,
+          minWidth: 260, maxWidth: 420, padding: '12px 16px', borderRadius: 12,
+          background: 'rgba(127,29,29,0.92)', border: '1px solid rgba(248,113,113,0.4)',
+          boxShadow: '0 10px 30px rgba(127,29,29,0.4)', backdropFilter: 'blur(4px)',
+          fontSize: 13, color: '#fecaca', fontWeight: 600, lineHeight: 1.5,
+        }}>
+          {t('sprints.noLlmKey')}
+          <div style={{ marginTop: 8 }}>
+            <a href="/dashboard/integrations" style={{ color: '#fbbf24', fontSize: 12, textDecoration: 'underline' }}>
+              {t('sprints.goIntegrationsLink')}
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1054,6 +1081,14 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
             {flowResult && (
               <div style={{ padding: '8px 10px', borderRadius: 9, background: flowResult.status === 'completed' ? 'rgba(34,197,94,0.08)' : 'rgba(248,113,113,0.08)', border: '1px solid ' + (flowResult.status === 'completed' ? 'rgba(34,197,94,0.25)' : 'rgba(248,113,113,0.25)'), fontSize: 11, color: flowResult.status === 'completed' ? '#22c55e' : '#f87171' }}>
                 {flowResult.status === 'completed' ? '✓' : '✗'} {flowResult.status} · {flowResult.steps.length} {t('sprints.steps')}
+                {flowResult.status !== 'completed' && (() => {
+                  const failedStep = flowResult.steps.find((s) => s.status === 'failed' && s.error_msg);
+                  return failedStep?.error_msg ? (
+                    <div style={{ marginTop: 5, color: '#fca5a5', fontSize: 10, wordBreak: 'break-word' }}>
+                      {failedStep.node_label || failedStep.node_type}: {failedStep.error_msg}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             )}
           </div>

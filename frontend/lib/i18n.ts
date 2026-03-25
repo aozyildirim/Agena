@@ -268,6 +268,8 @@ const translations = {
     'sprints.selectMappingShort': 'Mapping seç',
     'sprints.selectAgent': 'Agent seç',
     'sprints.aiHint': 'AI bu işi analiz edip otomatik atar',
+    'sprints.noLlmKey': 'LLM API key bulunamadı. Lütfen Entegrasyonlar sayfasından OpenAI veya Gemini API key ekle.',
+    'sprints.goIntegrationsLink': 'Entegrasyonlara git',
     // Repo mappings
     'mappings.title': 'Repo Mapping',
     'mappings.subtitle': 'Local repo pathlerini bir kere isimle eşleştir. Sprint detayında bu isimler direkt seçilir.',
@@ -1133,6 +1135,8 @@ const translations = {
     'sprints.selectMappingShort': 'Select mapping',
     'sprints.selectAgent': 'Select agent',
     'sprints.aiHint': 'AI analyzes this item and assigns automatically',
+    'sprints.noLlmKey': 'No LLM API key found. Please add an OpenAI or Gemini API key in the Integrations page.',
+    'sprints.goIntegrationsLink': 'Go to Integrations',
     // Repo mappings
     'mappings.title': 'Repo Mapping',
     'mappings.subtitle': 'Map local repo paths once by name. Sprint details can reuse these mappings directly.',
