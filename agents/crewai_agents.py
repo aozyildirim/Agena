@@ -77,7 +77,7 @@ class CrewAIAgentRunner:
             system_prompt=DEV_SYSTEM_PROMPT,
             user_prompt=prompt,
             complexity_hint='high',
-            max_output_tokens=16000,
+            max_output_tokens=32000,
         )
 
     async def run_reviewer(self, generated_code: str, spec: dict[str, Any], context_summary: str = '') -> tuple[str, dict[str, int], str]:
@@ -94,7 +94,7 @@ class CrewAIAgentRunner:
             system_prompt=REVIEWER_SYSTEM_PROMPT,
             user_prompt=prompt,
             complexity_hint='normal',
-            max_output_tokens=16000,
+            max_output_tokens=32000,
         )
 
     async def finalize(self, reviewed_code: str) -> tuple[str, dict[str, int], str]:
@@ -111,7 +111,7 @@ class CrewAIAgentRunner:
             system_prompt=FINALIZE_SYSTEM_PROMPT,
             user_prompt=prompt,
             complexity_hint='simple',
-            max_output_tokens=16000,
+            max_output_tokens=32000,
         )
 
     async def _run_with_crewai_or_llm(

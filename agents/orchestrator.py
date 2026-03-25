@@ -72,21 +72,14 @@ class AgentOrchestrator:
     async def generate_code_node(self, state: OrchestrationState) -> OrchestrationState:
         spec = state.get('spec', {})
         desc = state.get('task', {}).get('description', '')
+        ctx = state.get('context_summary', '')
 
-        # Read files from PM spec file_changes + context_summary source files
-        target_files_context = self._read_spec_target_files(spec, desc)
-
-        # If PM didn't produce file_changes, pass context_summary which has source files
-        if not target_files_context:
-            ctx = state.get('context_summary', '')
-            if '=== RELEVANT SOURCE FILES ===' in ctx:
-                target_files_context = ctx[ctx.index('=== RELEVANT SOURCE FILES ==='):]
-
+        # Pass full context_summary (includes source files) to developer
         generated_code, usage, model = await self.agents.run_developer(
             spec=spec,
-            context_summary='',  # avoid duplication, target_files_context has the code
+            context_summary='',
             task_description=desc,
-            target_files_context=target_files_context,
+            target_files_context=ctx,
         )
         self._merge_usage(state, usage)
         state['generated_code'] = generated_code
