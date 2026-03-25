@@ -5,10 +5,14 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
+    git openssh-client curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Python deps (requirements.txt değişmezse cache'den gelir)
 COPY requirements.txt /app/requirements.txt
-RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client nodejs npm && rm -rf /var/lib/apt/lists/* && \
-    npm install -g @openai/codex && \
-    pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app
