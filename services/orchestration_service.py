@@ -64,7 +64,7 @@ class OrchestrationService:
         self.local_repo_service = LocalRepoService()
         self.cost_tracker = CostTracker()
 
-    async def run_task_record(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow') -> AgentRunResult:
+    async def run_task_record(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_model: str | None = None, agent_provider: str | None = None) -> AgentRunResult:
         task = await self.db_session.get(TaskRecord, task_id)
         if task is None or task.organization_id != organization_id:
             raise ValueError('Task not found for organization')
@@ -80,6 +80,12 @@ class OrchestrationService:
         await self.db_session.commit()
 
         routing = self._extract_task_routing(task)
+
+        # Override model/provider if explicitly passed from assignment
+        if agent_model:
+            routing.preferred_agent_model = agent_model
+        if agent_provider:
+            routing.preferred_agent_provider = agent_provider
 
         run_info_parts = [f'Agent pipeline started at {run_started_at.isoformat()}Z']
         if routing.preferred_agent_model:

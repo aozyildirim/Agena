@@ -190,11 +190,20 @@ export default function DashboardTasksPage() {
     setFlowPopupTaskId(id);
   }
 
-  async function doAssignAI(id: number, _agent: { role: string; model: string; provider: string }) {
+  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }) {
     setAiPopupTaskId(null);
     try {
-      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: 'ai' }) });
-      setMsg(`${t('tasks.assignedAi')} (${_agent.role} / ${_agent.model})`); await load();
+      await apiFetch('/tasks/' + id + '/assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          create_pr: defaultCreatePr,
+          mode: 'ai',
+          agent_role: agent.role,
+          agent_model: agent.model,
+          agent_provider: agent.provider,
+        }),
+      });
+      setMsg(`${t('tasks.assignedAi')} (${agent.role} / ${agent.model})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 

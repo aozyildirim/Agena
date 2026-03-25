@@ -89,6 +89,9 @@ async def _run_single_task(payload: dict) -> None:
     task_id = int(payload.get('task_id', 0) or 0)
     create_pr = bool(payload.get('create_pr', True))
     run_mode = str(payload.get('mode', 'flow'))
+    agent_role = payload.get('agent_role') or None
+    agent_model = payload.get('agent_model') or None
+    agent_provider = payload.get('agent_provider') or None
     lock_retries = int(payload.get('lock_retries', 0) or 0)
 
     if organization_id <= 0 or task_id <= 0:
@@ -158,6 +161,8 @@ async def _run_single_task(payload: dict) -> None:
                 task_id=task_id,
                 create_pr=create_pr,
                 mode=run_mode,
+                agent_model=agent_model,
+                agent_provider=agent_provider,
             )
         finally:
             if lock_key:
