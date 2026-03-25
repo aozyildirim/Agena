@@ -155,7 +155,7 @@ class AgentOrchestrator:
 
         lines = ['=== TARGET FILES (full contents for modification) ===']
         total = 0
-        max_total = 120000  # ~30K tokens
+        max_total = 500000  # large models handle 200K+ tokens
         for rel in target_paths:
             fp = root / rel
             if not fp.is_file():

@@ -997,7 +997,7 @@ class OrchestrationService:
                 lines.append('')
                 lines.append('=== RELEVANT SOURCE FILES ===')
                 total_chars = 0
-                max_chars = 48000  # ~12k tokens budget for source context
+                max_chars = 500000  # large budget — modern models handle 200K+ tokens
                 for rel_path, content in relevant_files:
                     if total_chars + len(content) > max_chars:
                         lines.append(f'\n--- {rel_path} (skipped, context budget reached) ---')
@@ -1080,8 +1080,8 @@ class OrchestrationService:
                 continue
             try:
                 content = full.read_text(errors='replace')
-                if len(content) > 8000:
-                    content = content[:8000] + '\n... (truncated)'
+                if len(content) > 200000:
+                    content = content[:200000] + '\n... (truncated)'
                 result.append((rel_path, content))
             except Exception:
                 continue
@@ -1117,8 +1117,8 @@ class OrchestrationService:
                 if total + len(content) > max_chars:
                     break
                 rel = str(f.relative_to(root))
-                if len(content) > 8000:
-                    content = content[:8000] + '\n... (truncated)'
+                if len(content) > 200000:
+                    content = content[:200000] + '\n... (truncated)'
                 result.append((rel, content))
                 total += len(content)
             except Exception:
