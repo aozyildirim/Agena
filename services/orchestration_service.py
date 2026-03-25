@@ -275,7 +275,16 @@ class OrchestrationService:
                     )
                 else:
                     await task_service.add_log(task.id, organization_id, 'agent', 'PM skipped (direct AI mode) — developer will work directly with source files')
-                    flow_state['spec'] = {'goal': task.title, 'summary': task.description or task.title}
+                    # Build a clear spec from task info + list source files for developer
+                    ctx = flow_state.get('context_summary', '')
+                    source_files_list = re.findall(r'--- ([\w/._-]+)', ctx)
+                    flow_state['spec'] = {
+                        'goal': task.title,
+                        'summary': task.description or task.title,
+                        'file_changes': [{'file': f, 'action': 'modify', 'description': 'Review and modify as needed for task'} for f in source_files_list[:10]],
+                        'available_source_files': source_files_list,
+                        'instruction': 'You have ALL the source files below. Find the relevant structs/functions, make the changes, and return **File: path** blocks.',
+                    }
 
                 # Step: Developer generate code
                 dev_ctx = flow_state.get('context_summary', '')
@@ -1200,7 +1209,9 @@ class OrchestrationService:
         # Sort by relevance (hit count), take top files
         sorted_files = sorted(matched_files.items(), key=lambda x: -x[1])
         result: list[tuple[str, str]] = []
-        for rel_path, _hits in sorted_files[:15]:
+        # Skip test files — they add noise without helping implementation
+        sorted_files = [(p, h) for p, h in sorted_files if '_test.' not in p and '/test' not in p]
+        for rel_path, _hits in sorted_files[:8]:
             full = root / rel_path
             if not full.is_file():
                 continue
