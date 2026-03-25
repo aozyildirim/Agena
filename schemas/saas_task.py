@@ -52,6 +52,7 @@ class AssignTaskResponse(BaseModel):
 
 class AssignTaskRequest(BaseModel):
     create_pr: bool = True
+    mode: str = 'flow'  # 'flow' = PM + Developer, 'ai' = Developer only
 
 
 class TaskLogItem(BaseModel):

@@ -52,6 +52,7 @@ class LLMProvider:
         user_prompt: str,
         complexity_hint: str = 'normal',
         max_output_tokens: int = 2500,
+        skip_cache: bool = False,
     ) -> tuple[str, dict[str, int], str, bool]:
         raw_key = (self.api_key or '').strip()
         if not raw_key or raw_key.startswith('your_'):
@@ -62,7 +63,7 @@ class LLMProvider:
         model = self._select_model(complexity_hint)
         truncated_user = self._truncate(user_prompt)
         cache_key = self.cache.build_key(model=model, system_prompt=system_prompt, user_prompt=truncated_user)
-        cached = await self.cache.get(cache_key)
+        cached = await self.cache.get(cache_key) if not skip_cache else None
         if cached:
             cached_output = (cached.get('output', '') or '').strip()
             if cached_output:
@@ -106,11 +107,12 @@ class LLMProvider:
                 except Exception:
                     pass  # chat completions not available for this model
         # Cache meaningful outputs (code blocks, JSON specs, substantial text)
-        # Skip caching refusals and empty outputs
-        stripped = output.strip()
-        is_refusal = stripped.lower().startswith("i'm sorry") or stripped.lower().startswith("i can't")
-        if stripped and len(stripped) > 50 and not is_refusal:
-            await self.cache.set(cache_key, {'output': output, 'usage': usage})
+        # Skip caching refusals, empty outputs, and skip_cache calls
+        if not skip_cache:
+            stripped = output.strip()
+            is_refusal = stripped.lower().startswith("i'm sorry") or stripped.lower().startswith("i can't")
+            if stripped and len(stripped) > 50 and not is_refusal:
+                await self.cache.set(cache_key, {'output': output, 'usage': usage})
         return output, usage, model, False
 
     def _select_model(self, complexity_hint: str) -> str:

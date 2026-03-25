@@ -58,7 +58,9 @@ export default function DashboardTasksPage() {
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<{ role: string; model: string; provider: string; enabled: boolean }[]>([]);
-  const [assignPopupTaskId, setAssignPopupTaskId] = useState<number | null>(null);
+  const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
+  const [aiPopupTaskId, setAiPopupTaskId] = useState<number | null>(null);
+  const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -137,6 +139,9 @@ export default function DashboardTasksPage() {
             .map((a) => ({ role: a.role, model: a.custom_model || a.model || '', provider: a.provider || '', enabled: a.enabled }))
         );
       }
+      if (prefs.flows?.length) {
+        setSavedFlows((prefs.flows as { id: string; name: string }[]).map((f) => ({ id: f.id, name: f.name })));
+      }
     }).catch(() => {});
   }, []);
 
@@ -177,25 +182,27 @@ export default function DashboardTasksPage() {
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.createFailed')); }
   }
 
-  async function onAssign(id: number) {
-    if (agentConfigs.length > 0) {
-      setAssignPopupTaskId(id);
-      return;
-    }
+  function onAssignAI(id: number) {
+    setAiPopupTaskId(id);
+  }
+
+  function onAssignFlow(id: number) {
+    setFlowPopupTaskId(id);
+  }
+
+  async function doAssignAI(id: number, _agent: { role: string; model: string; provider: string }) {
+    setAiPopupTaskId(null);
     try {
-      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr }) });
-      setMsg(t('tasks.assigned')); await load();
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: 'ai' }) });
+      setMsg(`${t('tasks.assignedAi')} (${_agent.role} / ${_agent.model})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 
-  async function onAssignWithAgent(id: number, agent: { role: string; model: string; provider: string }) {
-    setAssignPopupTaskId(null);
+  async function doAssignFlow(id: number, flowId: string, flowName: string) {
+    setFlowPopupTaskId(null);
     try {
-      await apiFetch('/tasks/' + id + '/assign', {
-        method: 'POST',
-        body: JSON.stringify({ create_pr: defaultCreatePr, agent_role: agent.role, agent_model: agent.model, agent_provider: agent.provider }),
-      });
-      setMsg(`${t('tasks.assigned')} (${agent.role} / ${agent.model})`); await load();
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: 'flow' }) });
+      setMsg(`${t('tasks.assignedFlow')} (${flowName})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 
@@ -498,12 +505,20 @@ export default function DashboardTasksPage() {
                 <button
                   className='button button-primary'
                   disabled={task.status === 'queued' || task.status === 'running'}
-                  onClick={() => void onAssign(task.id)}
-                  style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap', minHeight: 32, opacity: task.status === 'queued' || task.status === 'running' ? 0.6 : 1, cursor: task.status === 'queued' || task.status === 'running' ? 'not-allowed' : 'pointer' }}
+                  onClick={() => void onAssignAI(task.id)}
+                  style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30, opacity: task.status === 'queued' || task.status === 'running' ? 0.6 : 1, cursor: task.status === 'queued' || task.status === 'running' ? 'not-allowed' : 'pointer' }}
                 >
                   {task.status === 'queued' || task.status === 'running' ? statusLabel(task.status, t) : t('tasks.assignAi')}
                 </button>
-                <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 10px', fontSize: 12, whiteSpace: 'nowrap', minHeight: 32 }}>
+                <button
+                  className='button button-outline'
+                  disabled={task.status === 'queued' || task.status === 'running'}
+                  onClick={() => void onAssignFlow(task.id)}
+                  style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30, opacity: task.status === 'queued' || task.status === 'running' ? 0.6 : 1, cursor: task.status === 'queued' || task.status === 'running' ? 'not-allowed' : 'pointer', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', border: 'none', color: '#fff' }}
+                >
+                  {t('tasks.assignFlow')}
+                </button>
+                <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30 }}>
                   {t('tasks.details')}
                 </Link>
               </div>
@@ -538,56 +553,46 @@ export default function DashboardTasksPage() {
           </button>
         </div>
       </div>
-      {/* Agent Select Popup */}
-      {assignPopupTaskId !== null && (
-        <div
-          onClick={() => setAssignPopupTaskId(null)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
-              padding: '20px 24px', minWidth: 340, maxWidth: 440,
-            }}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: 16, color: 'var(--ink)' }}>
-              {t('tasks.selectAgent')}
-            </h3>
+      {/* AI Agent Select Popup */}
+      {aiPopupTaskId !== null && (
+        <div onClick={() => setAiPopupTaskId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', minWidth: 340, maxWidth: 440 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 6, fontSize: 16, color: 'var(--ink)' }}>{t('tasks.selectAgent')}</h3>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 0, marginBottom: 14 }}>Developer direkt kodu yazar, PM analizi olmadan.</p>
             <div style={{ display: 'grid', gap: 8 }}>
               {agentConfigs.map((agent) => (
-                <button
-                  key={agent.role}
-                  onClick={() => void onAssignWithAgent(assignPopupTaskId, agent)}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                    padding: '12px 14px', borderRadius: 12,
-                    border: '1px solid var(--panel-border-3)',
-                    background: 'var(--panel)',
-                    cursor: 'pointer', textAlign: 'left', width: '100%',
-                  }}
-                >
+                <button key={agent.role} onClick={() => void doAssignAI(aiPopupTaskId, agent)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textTransform: 'capitalize' }}>
-                      {agent.role}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                      {agent.model || 'default'} {agent.provider ? `• ${agent.provider}` : ''}
-                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textTransform: 'capitalize' }}>{agent.role}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{agent.model || 'default'} {agent.provider ? `• ${agent.provider}` : ''}</div>
                   </div>
-                  <span style={{ fontSize: 18 }}>→</span>
+                  <span style={{ fontSize: 18, color: 'var(--muted)' }}>→</span>
                 </button>
               ))}
-              <button
-                onClick={() => setAssignPopupTaskId(null)}
-                className='button button-outline'
-                style={{ marginTop: 4, fontSize: 12 }}
-              >
-                {t('tasks.cancel')}
-              </button>
+              <button onClick={() => setAiPopupTaskId(null)} className='button button-outline' style={{ marginTop: 4, fontSize: 12 }}>{t('tasks.cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Flow Select Popup */}
+      {flowPopupTaskId !== null && (
+        <div onClick={() => setFlowPopupTaskId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', minWidth: 340, maxWidth: 440 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 6, fontSize: 16, color: 'var(--ink)' }}>{t('tasks.assignFlow')}</h3>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 0, marginBottom: 14 }}>PM analiz eder, Developer kodu yazar, PR acar.</p>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {savedFlows.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)', padding: 10 }}>Kayitli flow yok. Flows sayfasindan olusturun.</div>
+              ) : savedFlows.map((flow) => (
+                <button key={flow.id} onClick={() => void doAssignFlow(flowPopupTaskId, flow.id, flow.name)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{flow.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{flow.id}</div>
+                  </div>
+                  <span style={{ fontSize: 18, color: '#a78bfa' }}>▶</span>
+                </button>
+              ))}
+              <button onClick={() => setFlowPopupTaskId(null)} className='button button-outline' style={{ marginTop: 4, fontSize: 12 }}>{t('tasks.cancel')}</button>
             </div>
           </div>
         </div>
