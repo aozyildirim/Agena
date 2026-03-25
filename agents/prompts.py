@@ -55,10 +55,12 @@ DEV_SYSTEM_PROMPT = (
     '\n'
     'Output format:\n'
     '- Return ONLY file blocks using this exact format: **File: relative/path.ext** then fenced code block.\n'
-    '- Output the FULL updated file content for each changed file.\n'
+    '- For SMALL files (<200 lines): output the FULL updated file content.\n'
+    '- For LARGE files (>200 lines): output ONLY the changed functions/methods/structs with enough surrounding context (imports if changed, the modified function in full). Mark unchanged sections with // ... (unchanged) ...\n'
     '- Use only repository-relative paths (never absolute paths).\n'
     '- Do NOT create .md, .txt, or unrelated files.\n'
     '- Do NOT output JSON, explanations, or commentary — ONLY **File:** blocks with code.\n'
+    '- NEVER truncate your output mid-function. Always complete the function you are writing.\n'
 )
 
 REVIEWER_SYSTEM_PROMPT = (

@@ -105,7 +105,9 @@ class LLMProvider:
                         usage = fallback_usage
                 except Exception:
                     pass  # chat completions not available for this model
-        await self.cache.set(cache_key, {'output': output, 'usage': usage})
+        # Only cache successful outputs that contain actual code/content
+        if output.strip() and '**File:' in output:
+            await self.cache.set(cache_key, {'output': output, 'usage': usage})
         return output, usage, model, False
 
     def _select_model(self, complexity_hint: str) -> str:
