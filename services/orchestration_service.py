@@ -251,6 +251,7 @@ class OrchestrationService:
                 s_model = (flow_state.get('model_usage') or [''])[-1]
                 await _step_event('pm_analyze', _usage_delta(u_before, u_after), s_model, s_start, time.perf_counter() - s_clock)
                 spec = flow_state.get('spec', {})
+                await task_service.add_log(task.id, organization_id, 'agent', f'PM spec: {json.dumps(spec, ensure_ascii=False)[:500]}')
 
                 # Step 3: Developer generate code
                 await task_service.add_log(task.id, organization_id, 'agent', f'Step 3/3: Developer generating code... (spec_goal={str(spec.get("goal",""))[:120]})')

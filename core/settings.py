@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     qdrant_embedding_timeout_sec: int = Field(default=25, alias='QDRANT_EMBEDDING_TIMEOUT_SEC')
 
     max_agent_retries: int = Field(default=3, alias='MAX_AGENT_RETRIES')
-    max_context_chars: int = Field(default=8000, alias='MAX_CONTEXT_CHARS')
+    max_context_chars: int = Field(default=200000, alias='MAX_CONTEXT_CHARS')
 
     smtp_host: str = Field(default='', alias='SMTP_HOST')
     smtp_port: int = Field(default=587, alias='SMTP_PORT')
