@@ -23,5 +23,5 @@ class PromptCache:
             return None
         return json.loads(value)
 
-    async def set(self, key: str, value: dict[str, Any], ttl_seconds: int = 3600) -> None:
+    async def set(self, key: str, value: dict[str, Any], ttl_seconds: int = 86400) -> None:
         await self.client.set(key, json.dumps(value), ex=ttl_seconds)

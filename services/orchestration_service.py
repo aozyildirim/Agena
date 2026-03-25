@@ -242,32 +242,66 @@ class OrchestrationService:
                 mem_hits = len(flow_state.get('memory_context', []))
 
                 # Step 2: PM analyze
-                await task_service.add_log(task.id, organization_id, 'agent', f'Step 2/3: PM analyzing task... (context={ctx_len} chars, memory_hits={mem_hits})')
+                # Log what PM will receive
+                pm_desc = flow_state.get('task', {}).get('description', '')
+                pm_ctx = flow_state.get('context_summary', '')
+                pm_has_source = '=== RELEVANT SOURCE FILES ===' in pm_ctx
+                source_file_names = re.findall(r'--- ([\w/._-]+)', pm_ctx) if pm_has_source else []
+                await task_service.add_log(task.id, organization_id, 'agent',
+                    f'Step 2/3: PM analyzing task...\n'
+                    f'  context_summary: {ctx_len} chars | has_source_files: {pm_has_source} | source_files: {source_file_names[:10]}\n'
+                    f'  memory_hits: {mem_hits}\n'
+                    f'  system_prompt: PM_SYSTEM_PROMPT (technical review agent)\n'
+                    f'  model: {routing.preferred_agent_model or "default"}'
+                )
                 u_before = _get_usage(flow_state)
                 s_start = datetime.utcnow()
                 s_clock = time.perf_counter()
                 flow_state = await orchestrator.analyze_node(flow_state)
                 u_after = _get_usage(flow_state)
+                pm_delta = _usage_delta(u_before, u_after)
                 s_model = (flow_state.get('model_usage') or [''])[-1]
-                await _step_event('pm_analyze', _usage_delta(u_before, u_after), s_model, s_start, time.perf_counter() - s_clock)
+                await _step_event('pm_analyze', pm_delta, s_model, s_start, time.perf_counter() - s_clock)
                 spec = flow_state.get('spec', {})
-                await task_service.add_log(task.id, organization_id, 'agent', f'PM spec: {json.dumps(spec, ensure_ascii=False)[:500]}')
+                await task_service.add_log(task.id, organization_id, 'agent',
+                    f'PM result:\n'
+                    f'  model: {s_model} | tokens: prompt={pm_delta["prompt_tokens"]} completion={pm_delta["completion_tokens"]}\n'
+                    f'  status: {spec.get("status","")} | score: {spec.get("score","")} | storyPoint: {spec.get("storyPoint","")}\n'
+                    f'  scoreReason: {str(spec.get("scoreReason",""))[:200]}\n'
+                    f'  summary: {str(spec.get("summary",""))[:300]}\n'
+                    f'  file_changes: {json.dumps(spec.get("file_changes",[]), ensure_ascii=False)[:400]}\n'
+                    f'  recommendedNextStep: {str(spec.get("recommendedNextStep",""))[:200]}'
+                )
 
                 # Step 3: Developer generate code
-                await task_service.add_log(task.id, organization_id, 'agent', f'Step 3/3: Developer generating code... (spec_goal={str(spec.get("goal",""))[:120]})')
+                dev_ctx = flow_state.get('context_summary', '')
+                dev_has_source = '=== RELEVANT SOURCE FILES ===' in dev_ctx
+                dev_source_files = re.findall(r'--- ([\w/._-]+)', dev_ctx) if dev_has_source else []
+                await task_service.add_log(task.id, organization_id, 'agent',
+                    f'Step 3/3: Developer generating code...\n'
+                    f'  spec_goal: {str(spec.get("goal",spec.get("summary","")))[:150]}\n'
+                    f'  target_files_context: {len(dev_ctx)} chars | has_source: {dev_has_source} | files: {dev_source_files[:10]}\n'
+                    f'  system_prompt: DEV_SYSTEM_PROMPT (implementation agent)\n'
+                    f'  model: {routing.preferred_agent_model or "default"} | max_output_tokens: 32000'
+                )
                 u_before = _get_usage(flow_state)
                 s_start = datetime.utcnow()
                 s_clock = time.perf_counter()
                 flow_state = await orchestrator.generate_code_node(flow_state)
                 u_after = _get_usage(flow_state)
+                dev_delta = _usage_delta(u_before, u_after)
                 s_model = (flow_state.get('model_usage') or [''])[-1]
                 gen_len = len(flow_state.get('generated_code', ''))
-                await _step_event('developer_generate', _usage_delta(u_before, u_after), s_model, s_start, time.perf_counter() - s_clock)
+                await _step_event('developer_generate', dev_delta, s_model, s_start, time.perf_counter() - s_clock)
 
-                # Developer output = final output. Skip reviewer/finalize.
+                # Developer output = final output
                 generated = flow_state.get('generated_code', '')
-                # Log developer raw output for debugging
-                await task_service.add_log(task.id, organization_id, 'agent', f'Developer raw output ({gen_len} chars): {generated[:500]}')
+                await task_service.add_log(task.id, organization_id, 'agent',
+                    f'Developer result:\n'
+                    f'  model: {s_model} | tokens: prompt={dev_delta["prompt_tokens"]} completion={dev_delta["completion_tokens"]}\n'
+                    f'  output_length: {gen_len} chars\n'
+                    f'  output_preview:\n{generated[:800]}'
+                )
                 flow_state['reviewed_code'] = generated
                 flow_state['final_code'] = generated
                 final_len = gen_len
@@ -309,7 +343,7 @@ class OrchestrationService:
             )
             pr_url = None
             branch_name = None
-            pr_payload = self._build_pr_payload(task=payload, reviewed_code=final_code)
+            pr_payload = self._build_pr_payload(task=payload, reviewed_code=final_code, local_repo_path=routing.local_repo_path)
             await task_service.add_log(
                 task.id,
                 organization_id,
@@ -594,12 +628,12 @@ class OrchestrationService:
                 await task_service.add_log(task.id, organization_id, 'notify', 'Failure email sent')
             raise
 
-    def _build_pr_payload(self, task: dict[str, Any], reviewed_code: str) -> CreatePRRequest:
+    def _build_pr_payload(self, task: dict[str, Any], reviewed_code: str, local_repo_path: str | None = None) -> CreatePRRequest:
         branch_suffix = datetime.utcnow().strftime('%Y%m%d%H%M%S')
         safe_id = re.sub(r'[^a-zA-Z0-9_-]', '-', task.get('id', 'task'))
         branch_name = f'ai-task/{safe_id}-{branch_suffix}'
 
-        parsed_files = self._parse_reviewed_output_to_files(reviewed_code)
+        parsed_files = self._parse_reviewed_output_to_files(reviewed_code, local_repo_path=local_repo_path)
         if not parsed_files:
             raise RuntimeError(
                 'Model output did not contain structured file blocks (**File: path** + fenced code). '
@@ -619,7 +653,7 @@ class OrchestrationService:
             files=parsed_files,
         )
 
-    def _parse_reviewed_output_to_files(self, reviewed_code: str) -> list[GitHubFileChange]:
+    def _parse_reviewed_output_to_files(self, reviewed_code: str, local_repo_path: str | None = None) -> list[GitHubFileChange]:
         # Try multiple patterns: **File: path**, `File: path`, ### File: path, # path, etc.
         patterns = [
             re.compile(r'(?:\*\*)?File:\s*(.*?)(?:\*\*)?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
@@ -632,11 +666,10 @@ class OrchestrationService:
             if matches:
                 break
         files: list[GitHubFileChange] = []
-        for path, content in matches:
-            clean_path = path.strip().strip('`').strip()
+        for path_raw, content in matches:
+            clean_path = path_raw.strip().strip('`').strip()
             if not clean_path:
                 continue
-            # Safety guard: allow only repo-relative paths.
             normalized = clean_path.replace('\\', '/')
             if normalized.startswith('/'):
                 continue
@@ -644,8 +677,97 @@ class OrchestrationService:
                 continue
             if '/..' in f'/{normalized}' or normalized.startswith('..'):
                 continue
-            files.append(GitHubFileChange(path=clean_path, content=content.rstrip() + '\n'))
+
+            final_content = content.rstrip() + '\n'
+
+            # Detect partial output (contains "unchanged" markers)
+            is_partial = bool(re.search(r'//\s*\.{2,}\s*\(?unchanged', final_content, re.IGNORECASE))
+            if is_partial and local_repo_path:
+                merged = self._merge_partial_output(local_repo_path, clean_path, final_content)
+                if merged:
+                    final_content = merged
+
+            files.append(GitHubFileChange(path=clean_path, content=final_content))
         return files
+
+    def _merge_partial_output(self, local_repo_path: str, rel_path: str, partial: str) -> str | None:
+        """Merge partial AI output with existing file by replacing changed functions."""
+        try:
+            original_path = Path(local_repo_path).expanduser().resolve() / rel_path
+            if not original_path.is_file():
+                return None
+            original = original_path.read_text(errors='replace')
+
+            # Extract function/method signatures from partial output
+            # Find blocks between "unchanged" markers — these are the actual changes
+            lines = partial.splitlines()
+            change_blocks: list[str] = []
+            current_block: list[str] = []
+            in_unchanged = False
+
+            for line in lines:
+                if re.search(r'//\s*\.{2,}\s*\(?unchanged', line, re.IGNORECASE):
+                    if current_block:
+                        block_text = '\n'.join(current_block).strip()
+                        if block_text:
+                            change_blocks.append(block_text)
+                        current_block = []
+                    in_unchanged = True
+                    continue
+                in_unchanged = False
+                current_block.append(line)
+
+            if current_block:
+                block_text = '\n'.join(current_block).strip()
+                if block_text:
+                    change_blocks.append(block_text)
+
+            if not change_blocks:
+                return None
+
+            # For each change block, try to find the corresponding function in original
+            # and replace it
+            result = original
+            for block in change_blocks:
+                # Find function signature in block
+                func_match = re.search(r'^func\s+(\([^)]+\)\s+)?(\w+)\s*\(', block, re.MULTILINE)
+                if not func_match:
+                    # Try struct/type definition
+                    type_match = re.search(r'^type\s+(\w+)\s+struct\s*\{', block, re.MULTILINE)
+                    if type_match:
+                        type_name = type_match.group(1)
+                        # Find and replace the type block in original
+                        type_pattern = re.compile(
+                            rf'^type\s+{re.escape(type_name)}\s+struct\s*\{{.*?^\}}',
+                            re.MULTILINE | re.DOTALL,
+                        )
+                        if type_pattern.search(result):
+                            result = type_pattern.sub(block, result, count=1)
+                    continue
+
+                func_name = func_match.group(2)
+                receiver = func_match.group(1) or ''
+
+                # Build pattern to find the full function in original
+                if receiver:
+                    recv_type = re.search(r'\*?(\w+)', receiver)
+                    recv_name = recv_type.group(1) if recv_type else ''
+                    func_pattern = re.compile(
+                        rf'^func\s+\([^)]*\*?{re.escape(recv_name)}[^)]*\)\s+{re.escape(func_name)}\s*\(.*?(?=\n^func\s|\n^type\s|\n^var\s|\Z)',
+                        re.MULTILINE | re.DOTALL,
+                    )
+                else:
+                    func_pattern = re.compile(
+                        rf'^func\s+{re.escape(func_name)}\s*\(.*?(?=\n^func\s|\n^type\s|\n^var\s|\Z)',
+                        re.MULTILINE | re.DOTALL,
+                    )
+
+                if func_pattern.search(result):
+                    result = func_pattern.sub(block, result, count=1)
+
+            return result if result != original else None
+        except Exception:
+            return None
 
     def _extract_task_routing(self, task: TaskRecord) -> TaskRouting:
         meta: dict[str, str] = {}

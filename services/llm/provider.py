@@ -105,8 +105,11 @@ class LLMProvider:
                         usage = fallback_usage
                 except Exception:
                     pass  # chat completions not available for this model
-        # Only cache successful outputs that contain actual code/content
-        if output.strip() and '**File:' in output:
+        # Cache meaningful outputs (code blocks, JSON specs, substantial text)
+        # Skip caching refusals and empty outputs
+        stripped = output.strip()
+        is_refusal = stripped.lower().startswith("i'm sorry") or stripped.lower().startswith("i can't")
+        if stripped and len(stripped) > 50 and not is_refusal:
             await self.cache.set(cache_key, {'output': output, 'usage': usage})
         return output, usage, model, False
 
