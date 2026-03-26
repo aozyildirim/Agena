@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.invite import Invite
@@ -164,6 +164,7 @@ class OrgService:
         added = 0
         invited = 0
         already_exists = 0
+        invited_emails: list[str] = []
 
         email_pattern = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
@@ -198,29 +199,28 @@ class OrgService:
                     )
                     added += 1
             else:
-                # No user — check for existing pending invite
+                # No user — check for ANY existing invite (pending or accepted)
                 inv_result = await self.db.execute(
-                    select(Invite).where(
+                    select(func.count(Invite.id)).where(
                         Invite.organization_id == org_id,
                         Invite.email == email,
-                        Invite.status == 'pending',
                     )
                 )
-                if inv_result.scalars().first() is not None:
+                if (inv_result.scalar() or 0) > 0:
                     already_exists += 1
                 else:
-                    self.db.add(
-                        Invite(
-                            organization_id=org_id,
-                            email=email,
-                            token=secrets.token_urlsafe(32),
-                            status='pending',
-                        )
+                    inv = Invite(
+                        organization_id=org_id,
+                        email=email,
+                        token=secrets.token_urlsafe(32),
+                        status='pending',
                     )
+                    self.db.add(inv)
                     invited += 1
+                    invited_emails.append(email)
 
         await self.db.flush()
-        return {'added': added, 'invited': invited, 'already_exists': already_exists}
+        return {'added': added, 'invited': invited, 'already_exists': already_exists, 'invited_emails': invited_emails}
 
     async def get_user(self, user_id: int) -> User | None:
         result = await self.db.execute(select(User).where(User.id == user_id))

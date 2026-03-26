@@ -405,7 +405,7 @@ async def save_preferences(
     await db.commit()
     await db.refresh(pref)
 
-    # Notify org owner about newly invited members
+    # Notify org owner + send invite emails for newly invited members
     if sync_summary and sync_summary.get('invited', 0) > 0:
         notif_svc = NotificationService(db)
         invited_count = sync_summary['invited']
@@ -418,6 +418,16 @@ async def save_preferences(
             severity='info',
             payload={'sync_summary': sync_summary},
         )
+        # Send invite emails
+        for email_addr in sync_summary.get('invited_emails', []):
+            try:
+                notif_svc._send_email(
+                    email_addr,
+                    'You are invited to Tiqr',
+                    f'You have been invited to join an organization on Tiqr.\n\nVisit http://localhost:3010/invite to accept.',
+                )
+            except Exception:
+                pass  # email sending is best-effort
 
     final_settings = _parse_json_obj(pref.profile_settings_json)
     final_source = str(final_settings.get('my_team_source') or 'azure').strip().lower()
