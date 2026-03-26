@@ -15,6 +15,7 @@ const LS_SIDEBAR_COLLAPSED = 'tiqr_sidebar_collapsed';
 
 const PRIMARY_NAV_KEYS = [
   { href: '/dashboard', key: 'nav.overview', icon: '🧭' },
+  { href: '/dashboard/office', key: 'nav.office', icon: '🏢' },
   { href: '/dashboard/tasks', key: 'nav.tasks', icon: '✅' },
   { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂' },
   { href: '/dashboard/team', key: 'nav.team', icon: '👥' },

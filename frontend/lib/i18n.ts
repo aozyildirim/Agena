@@ -15,6 +15,7 @@ const translations = {
     'nav.profileHint': 'Profil & Sprint →',
     // Sidebar items
     'nav.overview': 'Genel Bakış',
+    'nav.office': 'Patron Modu',
     'nav.tasks': 'Görevler',
     'nav.notifications': 'Bildirimler',
     'nav.usage': 'Token Kullanımı',
@@ -885,6 +886,7 @@ const translations = {
     'nav.profileHint': 'Profile & Sprint →',
     // Sidebar items
     'nav.overview': 'Overview',
+    'nav.office': 'Boss Mode',
     'nav.tasks': 'Tasks',
     'nav.notifications': 'Notifications',
     'nav.usage': 'Token Usage',
