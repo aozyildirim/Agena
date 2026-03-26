@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { loadPrefs, savePrefs, getAgentAnalytics } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
@@ -18,6 +18,55 @@ interface AgentConfig {
   custom_model: string;
   system_prompt: string;
   enabled: boolean;
+  palette?: number;
+}
+
+// ── Pixel Character Picker ────────────────────────────────────────────────────
+const PALETTE_COUNT = 6;
+const CHAR_FRAME_W = 16;
+const CHAR_FRAME_H = 32;
+
+function PixelCharPicker({ selected, onSelect, accent }: {
+  selected: number;
+  onSelect: (p: number) => void;
+  accent: string;
+}) {
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+
+  useEffect(() => {
+    for (let i = 0; i < PALETTE_COUNT; i++) {
+      const img = new Image();
+      img.src = `/pixel-office/assets/characters/char_${i}.png`;
+      img.onload = () => {
+        const c = canvasRefs.current[i];
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        if (!ctx) return;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, CHAR_FRAME_W, 0, CHAR_FRAME_W, CHAR_FRAME_H, 0, 0, c.width, c.height);
+      };
+    }
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {Array.from({ length: PALETTE_COUNT }, (_, i) => (
+        <button key={i} onClick={() => onSelect(i)}
+          style={{
+            width: 40, height: 56, borderRadius: 8, cursor: 'pointer', padding: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: selected === i ? `2px solid ${accent}` : '1px solid var(--panel-border)',
+            background: selected === i ? `${accent}15` : 'var(--panel)',
+            transition: 'all 0.15s',
+          }}>
+          <canvas ref={(el) => { canvasRefs.current[i] = el; }}
+            width={CHAR_FRAME_W * 2} height={CHAR_FRAME_H * 2}
+            style={{ width: 32, height: 64, imageRendering: 'pixelated' }} />
+        </button>
+      ))}
+    </div>
+  );
 }
 
 type AgentAnalytics = {
@@ -62,6 +111,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     custom_model: '',
     system_prompt: 'You are a project manager. Analyze work items, prioritize them, and suggest ownership.',
     enabled: true,
+    palette: 0,
   },
   {
     role: 'pm',
@@ -74,6 +124,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     custom_model: '',
     system_prompt: 'You are a product manager. Analyze work from the user perspective and define acceptance criteria.',
     enabled: true,
+    palette: 1,
   },
   {
     role: 'lead_developer',
@@ -86,6 +137,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     custom_model: '',
     system_prompt: 'You are a lead developer. Analyze tasks technically, propose implementation plans, and identify risks.',
     enabled: true,
+    palette: 2,
   },
   {
     role: 'developer',
@@ -98,6 +150,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     custom_model: '',
     system_prompt: 'You are a software developer. Implement the task and prepare changes suitable for a PR.',
     enabled: true,
+    palette: 3,
   },
   {
     role: 'qa',
@@ -110,6 +163,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     custom_model: '',
     system_prompt: 'You are a QA engineer. Test the work item, define scenarios, and cover edge cases.',
     enabled: true,
+    palette: 4,
   },
 ];
 
@@ -138,6 +192,7 @@ function loadAgents(): AgentConfig[] {
         custom_model: p.custom_model || '',
         system_prompt: p.system_prompt || '',
         enabled: p.enabled ?? true,
+        palette: p.palette ?? 0,
       }));
     return [...mergedDefaults, ...extras];
   } catch {
@@ -155,6 +210,31 @@ function toRoleId(input: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '') || ('agent_' + Date.now());
+}
+
+// ── Small character icon for card headers ─────────────────────────────────────
+function AgentCharIcon({ palette, color, size }: { palette: number; color: string; size: number }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const img = new Image();
+    img.src = `/pixel-office/assets/characters/char_${palette % PALETTE_COUNT}.png`;
+    img.onload = () => {
+      const c = canvasRef.current;
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      if (!ctx) return;
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, CHAR_FRAME_W, 0, CHAR_FRAME_W, CHAR_FRAME_H, 0, 0, c.width, c.height);
+    };
+  }, [palette]);
+
+  return (
+    <div style={{ width: size, height: size, borderRadius: 10, background: color + '18', border: '1px solid ' + color + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+      <canvas ref={canvasRef} width={CHAR_FRAME_W * 2} height={CHAR_FRAME_H * 2}
+        style={{ width: size - 4, height: (size - 4) * 2, imageRendering: 'pixelated', marginTop: 4 }} />
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -176,6 +256,7 @@ export default function AgentsPage() {
     custom_model: '',
     system_prompt: '',
     enabled: true,
+    palette: 0,
   });
   const { t } = useLocale();
 
@@ -243,6 +324,7 @@ export default function AgentsPage() {
       custom_model: '',
       system_prompt: '',
       enabled: true,
+      palette: 0,
     });
     setShowNewAgent(true);
   }
@@ -265,6 +347,7 @@ export default function AgentsPage() {
         custom_model: draft.custom_model.trim(),
         system_prompt: draft.system_prompt.trim(),
         enabled: draft.enabled,
+        palette: draft.palette ?? 0,
       },
     ];
     setAgents(next);
@@ -362,6 +445,11 @@ export default function AgentsPage() {
               <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-90)' }}>{t('agents.createTitle')}</div>
               <button onClick={() => setShowNewAgent(false)} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', fontSize: 18, cursor: 'pointer' }}>×</button>
             </div>
+            {/* Character picker */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('office.pickCharacter')}</div>
+              <PixelCharPicker selected={draft.palette ?? 0} onSelect={(p) => setDraft((d) => ({ ...d, palette: p }))} accent={draft.color || '#38bdf8'} />
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder={t('agents.newLabelPlaceholder')} style={inputStyle} />
               <input value={draft.role} onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))} placeholder={t('agents.newRolePlaceholder')} style={inputStyle} />
@@ -405,9 +493,7 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
     <div style={{ width: '100%', minWidth: 0, minHeight: isEditing ? 'auto' : 118, borderRadius: 14, border: '1px solid ' + (isEditing ? agent.color + '40' : 'var(--panel-border)'), background: isEditing ? agent.color + '08' : 'var(--panel)', overflow: 'hidden', transition: 'all 0.2s' }}>
       {/* Card header */}
       <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: agent.color + '18', border: '1px solid ' + agent.color + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
-          {agent.icon}
-        </div>
+        <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={36} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, minWidth: 0, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-90)' }}>{agent.label}</span>
@@ -434,6 +520,12 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
       {/* Expanded editor */}
       {isEditing && (
         <div style={{ borderTop: '1px solid var(--panel-border)', padding: '10px 12px 12px', display: 'grid', gap: 10 }}>
+          {/* Character picker */}
+          <div>
+            <label style={labelStyle}>{t('office.pickCharacter')}</label>
+            <PixelCharPicker selected={agent.palette ?? 0} onSelect={(p) => onUpdate({ palette: p })} accent={agent.color} />
+          </div>
+
           {/* Provider seçimi */}
           <div>
             <label style={labelStyle}>{t('agents.provider')}</label>
