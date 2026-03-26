@@ -173,17 +173,9 @@ class AnalyticsService:
         now = datetime.utcnow()
         since = now - timedelta(days=days)
 
-        # ── Weekly aggregation ─────────────────────────────────────────────
-        week_label = func.concat(
-            cast(extract('isoyear', TaskRecord.created_at), SAString),
-            '-W',
-            func.lpad(cast(extract('week', TaskRecord.created_at), SAString), 2, '0'),
-        )
-        week_label_upd = func.concat(
-            cast(extract('isoyear', TaskRecord.updated_at), SAString),
-            '-W',
-            func.lpad(cast(extract('week', TaskRecord.updated_at), SAString), 2, '0'),
-        )
+        # ── Weekly aggregation (MySQL: YEARWEEK with ISO mode 3) ────────
+        week_label = cast(func.yearweek(TaskRecord.created_at, 3), SAString)
+        week_label_upd = cast(func.yearweek(TaskRecord.updated_at, 3), SAString)
 
         # Tasks created (planned) per week
         planned_q = await self.db.execute(

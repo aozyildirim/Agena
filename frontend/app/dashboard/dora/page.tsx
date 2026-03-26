@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { fetchDoraOverview } from '@/lib/api';
+import { useEffect, useState, useCallback } from 'react';
+import { apiFetch, fetchDoraOverview, loadPrefs, syncDoraRepo } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import RepoSelector from '@/components/RepoSelector';
 
 const box: React.CSSProperties = {
   borderRadius: 14,
@@ -93,13 +92,39 @@ function formatValue(metric: string, value: number | null): string {
   }
 }
 
+type RepoMapping = { id: string; name: string; provider?: string; github_owner?: string; github_repo?: string; azure_project?: string; azure_repo_name?: string };
+type SyncStatusItem = { repo_mapping_id: string; commits: number; prs: number; deployments: number; last_sync: string | null };
+type SyncStatus = Record<string, SyncStatusItem>;
+
 export default function DoraOverviewPage() {
   const { t } = useLocale();
   const [data, setData] = useState<DoraSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [repoId, setRepoId] = useState<string | null>(null);
+  const [repos, setRepos] = useState<RepoMapping[]>([]);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({});
+  const [syncingRepo, setSyncingRepo] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
 
+  // Load repos + sync status
+  useEffect(() => {
+    (async () => {
+      try {
+        const prefs = await loadPrefs();
+        const mappings = (prefs.repo_mappings || []) as RepoMapping[];
+        setRepos(mappings);
+      } catch { /* silent */ }
+      try {
+        const res = await apiFetch<{ repos: SyncStatusItem[] }>('/analytics/dora/sync-status');
+        const map: SyncStatus = {};
+        for (const item of res.repos) map[item.repo_mapping_id] = item;
+        setSyncStatus(map);
+      } catch { /* silent */ }
+    })();
+  }, []);
+
+  // Load DORA data
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -116,6 +141,41 @@ export default function DoraOverviewPage() {
     })();
     return () => { active = false; };
   }, [repoId]);
+
+  const handleSync = useCallback(async (id: string) => {
+    setSyncingRepo(id);
+    try {
+      await syncDoraRepo(id);
+      const res2 = await apiFetch<{ repos: SyncStatusItem[] }>('/analytics/dora/sync-status');
+      const map2: SyncStatus = {};
+      for (const item of res2.repos) map2[item.repo_mapping_id] = item;
+      setSyncStatus(map2);
+      // Refresh DORA data if this repo is selected
+      if (repoId === id || repoId === null) {
+        const res = await fetchDoraOverview(30, repoId);
+        setData(res);
+      }
+    } catch { /* silent */ }
+    setSyncingRepo(null);
+  }, [repoId]);
+
+  const handleSyncAll = useCallback(async () => {
+    setSyncingAll(true);
+    for (const repo of repos) {
+      setSyncingRepo(repo.id);
+      try { await syncDoraRepo(repo.id); } catch { /* silent */ }
+    }
+    setSyncingRepo(null);
+    try {
+      const res2 = await apiFetch<{ repos: SyncStatusItem[] }>('/analytics/dora/sync-status');
+      const map2: SyncStatus = {};
+      for (const item of res2.repos) map2[item.repo_mapping_id] = item;
+      setSyncStatus(map2);
+      const res = await fetchDoraOverview(30, repoId);
+      setData(res);
+    } catch { /* silent */ }
+    setSyncingAll(false);
+  }, [repos, repoId]);
 
   const metrics = [
     {
@@ -172,15 +232,68 @@ export default function DoraOverviewPage() {
   return (
     <div>
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{t('dora.title')}</h1>
-        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>{t('dora.subtitle')}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--glass)', border: '1px solid var(--panel-border)', borderRadius: 999, padding: '3px 10px' }}>
-            {t('dora.last30')}
-          </span>
-          <RepoSelector value={repoId} onSelect={setRepoId} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{t('dora.title')}</h1>
+            <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>{t('dora.subtitle')}</p>
+          </div>
+          <button onClick={handleSyncAll} disabled={syncingAll || repos.length === 0}
+            style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: syncingAll ? 'var(--panel-alt)' : 'linear-gradient(135deg, #0d9488, #22c55e)', color: syncingAll ? 'var(--muted)' : '#fff', fontWeight: 700, fontSize: 13, cursor: syncingAll ? 'not-allowed' : 'pointer' }}>
+            {syncingAll ? `Syncing... (${syncingRepo ? repos.findIndex(r => r.id === syncingRepo) + 1 : 0}/${repos.length})` : `Sync All (${repos.length})`}
+          </button>
+        </div>
+        {/* Repo filter pills */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+          <button onClick={() => setRepoId(null)}
+            style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: repoId === null ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border)', background: repoId === null ? 'rgba(94,234,212,0.12)' : 'var(--panel-alt)', color: repoId === null ? '#5eead4' : 'var(--muted)' }}>
+            {t('dora.allRepos')}
+          </button>
+          {repos.map((r) => (
+            <button key={r.id} onClick={() => setRepoId(r.id)}
+              style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: repoId === r.id ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border)', background: repoId === r.id ? 'rgba(94,234,212,0.12)' : 'var(--panel-alt)', color: repoId === r.id ? '#5eead4' : 'var(--muted)' }}>
+              {r.provider === 'github' ? '⬤' : '🔷'} {r.name}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Repo Cards */}
+      {repos.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 32 }}>
+          {repos.map((repo) => {
+            const st = syncStatus[repo.id];
+            const isSyncing = syncingRepo === repo.id;
+            const providerIcon = repo.provider === 'github' ? '⬤' : repo.provider === 'azure' ? '🔷' : '📁';
+            const repoLabel = repo.github_owner && repo.github_repo
+              ? `${repo.github_owner}/${repo.github_repo}`
+              : repo.azure_project && repo.azure_repo_name
+                ? `${repo.azure_project}/${repo.azure_repo_name}`
+                : repo.name;
+            return (
+              <div key={repo.id} style={{ ...box, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ fontSize: 24, flexShrink: 0 }}>{providerIcon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repoLabel}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {st ? (
+                      <>
+                        <span>{st.commits} commits</span>
+                        <span>{st.prs} PRs</span>
+                        <span>{st.deployments} deploys</span>
+                        {st.last_sync && <span>· {new Date(st.last_sync).toLocaleString()}</span>}
+                      </>
+                    ) : <span>Not synced yet</span>}
+                  </div>
+                </div>
+                <button onClick={() => handleSync(repo.id)} disabled={isSyncing}
+                  style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--panel-border)', background: isSyncing ? 'var(--panel-alt)' : 'var(--panel)', color: isSyncing ? 'var(--muted)' : '#5eead4', fontSize: 12, fontWeight: 600, cursor: isSyncing ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
+                  {isSyncing ? '⏳' : '🔄'} Sync
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {error && (
         <div style={{ ...box, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13, marginBottom: 24 }}>
