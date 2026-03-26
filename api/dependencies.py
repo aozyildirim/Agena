@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +41,7 @@ def get_task_service() -> TaskService:
 
 
 async def get_current_tenant(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db_session),
 ) -> CurrentTenant:
@@ -56,6 +57,15 @@ async def get_current_tenant(
 
     if user_id <= 0 or org_id <= 0:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid auth context')
+
+    # Enforce subdomain isolation: if middleware resolved a tenant org_id
+    # from the subdomain, the JWT's org must match it.
+    tenant_org_id = getattr(request.state, 'tenant_org_id', None)
+    if tenant_org_id is not None and tenant_org_id != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Your account does not belong to this organization',
+        )
 
     user_result = await db.execute(select(User).where(User.id == user_id))
     user = user_result.scalar_one_or_none()

@@ -76,3 +76,27 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 export function useTenant() {
   return useContext(TenantContext);
 }
+
+/**
+ * In production, redirect the user to their org's subdomain if they're
+ * on the bare domain (tiqr.dev) or wrong subdomain.
+ * On localhost, this is a no-op (subdomains don't work locally).
+ */
+export function redirectToTenantSubdomain(slug: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname;
+  // Skip on localhost / IP — subdomains don't work
+  if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return false;
+
+  const currentSlug = getTenantSlug();
+  if (currentSlug === slug) return false; // already on correct subdomain
+
+  // Build the target URL: slug.domain.tld
+  const parts = hostname.split('.');
+  // Remove existing subdomain if any (e.g. wrong-slug.tiqr.dev → tiqr.dev)
+  const baseDomain = parts.length >= 3 ? parts.slice(1).join('.') : hostname;
+  const port = window.location.port ? `:${window.location.port}` : '';
+  const target = `${window.location.protocol}//${slug}.${baseDomain}${port}${window.location.pathname}`;
+  window.location.href = target;
+  return true; // redirect initiated
+}
