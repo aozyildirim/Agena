@@ -877,12 +877,25 @@ class OrchestrationService:
 
             final_content = content.rstrip() + '\n'
 
+            # Detect patch format (@@ sections with +/- lines and *** End Patch)
+            is_patch = bool(re.search(r'^@@\s*$', final_content, re.MULTILINE)) and (
+                bool(re.search(r'^\+', final_content, re.MULTILINE)) or
+                bool(re.search(r'^-', final_content, re.MULTILINE))
+            )
+            if is_patch and local_repo_path:
+                applied = self._apply_patch(local_repo_path, clean_path, final_content)
+                if applied:
+                    final_content = applied
+                else:
+                    continue  # Skip if patch application failed
+
             # Detect partial output (contains "unchanged" markers)
-            is_partial = bool(re.search(r'//\s*\.{2,}\s*\(?unchanged', final_content, re.IGNORECASE))
-            if is_partial and local_repo_path:
-                merged = self._merge_partial_output(local_repo_path, clean_path, final_content)
-                if merged:
-                    final_content = merged
+            elif not is_patch:
+                is_partial = bool(re.search(r'//\s*\.{2,}\s*\(?unchanged', final_content, re.IGNORECASE))
+                if is_partial and local_repo_path:
+                    merged = self._merge_partial_output(local_repo_path, clean_path, final_content)
+                    if merged:
+                        final_content = merged
 
             files.append(GitHubFileChange(path=clean_path, content=final_content))
         return files
@@ -964,6 +977,102 @@ class OrchestrationService:
 
             return result if result != original else None
         except Exception:
+            return None
+
+    def _apply_patch(self, local_repo_path: str, rel_path: str, patch_content: str) -> str | None:
+        """Apply a patch-style output (@@ context +additions -deletions) to the original file."""
+        try:
+            original_path = Path(local_repo_path).expanduser().resolve() / rel_path
+            if not original_path.is_file():
+                return None
+            original = original_path.read_text(errors='replace')
+            original_lines = original.splitlines()
+
+            # Parse patch into hunks
+            hunks: list[list[str]] = []
+            current_hunk: list[str] = []
+            for line in patch_content.splitlines():
+                stripped = line.strip()
+                if stripped == '@@':
+                    if current_hunk:
+                        hunks.append(current_hunk)
+                    current_hunk = []
+                    continue
+                if stripped == '*** End Patch':
+                    if current_hunk:
+                        hunks.append(current_hunk)
+                    current_hunk = []
+                    continue
+                if current_hunk is not None:
+                    current_hunk.append(line)
+            if current_hunk:
+                hunks.append(current_hunk)
+
+            if not hunks:
+                return None
+
+            result_lines = list(original_lines)
+
+            for hunk in hunks:
+                # Extract context lines (lines starting with space) to find position
+                context_lines = []
+                for hl in hunk:
+                    if hl.startswith(' '):
+                        context_lines.append(hl[1:])  # strip leading space
+
+                if not context_lines:
+                    continue
+
+                # Find the context in original — match first context line
+                match_start = -1
+                first_ctx = context_lines[0]
+                for i, orig_line in enumerate(result_lines):
+                    if orig_line.rstrip() == first_ctx.rstrip():
+                        # Verify subsequent context lines match too
+                        all_match = True
+                        ctx_idx = 0
+                        for j in range(i, min(i + len(hunk), len(result_lines))):
+                            while ctx_idx < len(hunk) and not hunk[ctx_idx].startswith(' '):
+                                ctx_idx += 1
+                            if ctx_idx >= len(hunk):
+                                break
+                            expected = hunk[ctx_idx][1:]  # strip leading space
+                            if result_lines[j].rstrip() != expected.rstrip():
+                                all_match = False
+                                break
+                            ctx_idx += 1
+                        if all_match:
+                            match_start = i
+                            break
+
+                if match_start == -1:
+                    logger.warning(f'Patch: could not find context match for hunk in {rel_path}')
+                    continue
+
+                # Apply the hunk: rebuild lines at match position
+                new_section: list[str] = []
+                orig_idx = match_start
+                for hl in hunk:
+                    if hl.startswith('+'):
+                        new_section.append(hl[1:])  # add new line (strip +)
+                    elif hl.startswith('-'):
+                        orig_idx += 1  # skip deleted line
+                    elif hl.startswith(' '):
+                        new_section.append(hl[1:])  # keep context line
+                        orig_idx += 1
+                    else:
+                        new_section.append(hl)  # unknown prefix, keep as-is
+                        orig_idx += 1
+
+                # Replace the section
+                result_lines[match_start:orig_idx] = new_section
+
+            result = '\n'.join(result_lines)
+            if not result.endswith('\n'):
+                result += '\n'
+            return result if result != original else None
+        except Exception:
+            logger.exception(f'Failed to apply patch to {rel_path}')
             return None
 
     def _extract_task_routing(self, task: TaskRecord) -> TaskRouting:
