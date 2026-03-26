@@ -48,6 +48,9 @@ async def run_agents(
             organization_id=tenant.organization_id,
             task_id=task.id,
             create_pr=create_pr,
+            agent_role=request.agent_role,
+            agent_model=request.agent_model,
+            agent_provider=request.agent_provider,
         )
         return AgentRunResponse(status='queued', queue_key=queue_key)
 
