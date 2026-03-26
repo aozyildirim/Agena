@@ -55,8 +55,8 @@ class DoraService:
         # For each merged PR: merged_at - first_commit_at
         lt_q = select(
             func.avg(
-                func.extract('epoch', GitPullRequest.merged_at) -
-                func.extract('epoch', GitPullRequest.first_commit_at)
+                func.unix_timestamp(GitPullRequest.merged_at) -
+                func.unix_timestamp(GitPullRequest.first_commit_at)
             ).label('avg_seconds'),
         ).where(
             GitPullRequest.organization_id == organization_id,
@@ -174,8 +174,8 @@ class DoraService:
         daily_lt_q = select(
             day_col_pr,
             func.avg(
-                func.extract('epoch', GitPullRequest.merged_at) -
-                func.extract('epoch', GitPullRequest.first_commit_at)
+                func.unix_timestamp(GitPullRequest.merged_at) -
+                func.unix_timestamp(GitPullRequest.first_commit_at)
             ).label('avg_seconds'),
         ).where(
             GitPullRequest.organization_id == organization_id,
@@ -266,8 +266,8 @@ class DoraService:
         lt_result = await self.db.execute(
             select(
                 func.avg(
-                    func.extract('epoch', TaskRecord.updated_at) -
-                    func.extract('epoch', TaskRecord.created_at)
+                    func.unix_timestamp(TaskRecord.updated_at) -
+                    func.unix_timestamp(TaskRecord.created_at)
                 ).label('avg_seconds'),
             )
             .where(
@@ -285,8 +285,8 @@ class DoraService:
             select(
                 day_col,
                 func.avg(
-                    func.extract('epoch', TaskRecord.updated_at) -
-                    func.extract('epoch', TaskRecord.created_at)
+                    func.unix_timestamp(TaskRecord.updated_at) -
+                    func.unix_timestamp(TaskRecord.created_at)
                 ).label('avg_seconds'),
             )
             .where(
@@ -336,8 +336,8 @@ class DoraService:
         mttr_result = await self.db.execute(
             select(
                 func.avg(
-                    func.extract('epoch', TaskRecord.updated_at) -
-                    func.extract('epoch', TaskRecord.created_at)
+                    func.unix_timestamp(TaskRecord.updated_at) -
+                    func.unix_timestamp(TaskRecord.created_at)
                 ).label('avg_seconds'),
             )
             .where(
@@ -355,8 +355,8 @@ class DoraService:
             select(
                 day_col,
                 func.avg(
-                    func.extract('epoch', TaskRecord.updated_at) -
-                    func.extract('epoch', TaskRecord.created_at)
+                    func.unix_timestamp(TaskRecord.updated_at) -
+                    func.unix_timestamp(TaskRecord.created_at)
                 ).label('avg_seconds'),
             )
             .where(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import String as SAString, case, cast, Date, extract, func, select
+from sqlalchemy import String as SAString, case, cast, Date, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ai_usage_event import AIUsageEvent
@@ -261,8 +261,8 @@ class AnalyticsService:
             select(
                 cast(TaskRecord.updated_at, Date).label('day'),
                 func.avg(
-                    extract('epoch', TaskRecord.updated_at)
-                    - extract('epoch', TaskRecord.created_at),
+                    func.unix_timestamp(TaskRecord.updated_at)
+                    - func.unix_timestamp(TaskRecord.created_at),
                 ).label('avg_lead_time_sec'),
             )
             .where(
@@ -287,8 +287,8 @@ class AnalyticsService:
         all_time_q = await self.db.execute(
             select(
                 func.avg(
-                    extract('epoch', TaskRecord.updated_at)
-                    - extract('epoch', TaskRecord.created_at),
+                    func.unix_timestamp(TaskRecord.updated_at)
+                    - func.unix_timestamp(TaskRecord.created_at),
                 ).label('avg_lead_time_sec'),
             )
             .where(
@@ -750,8 +750,8 @@ class AnalyticsService:
         mttr_result = await self.db.execute(
             select(
                 func.avg(
-                    extract('epoch', TaskRecord.updated_at)
-                    - extract('epoch', TaskRecord.created_at)
+                    func.unix_timestamp(TaskRecord.updated_at)
+                    - func.unix_timestamp(TaskRecord.created_at)
                 ).label('avg_duration')
             ).where(
                 TaskRecord.organization_id == organization_id,
