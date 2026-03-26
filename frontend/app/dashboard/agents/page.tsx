@@ -13,7 +13,7 @@ interface AgentConfig {
   icon: string;
   color: string;
   description: string;
-  provider: 'openai' | 'gemini' | 'custom' | 'codex_cli' | '';
+  provider: 'openai' | 'gemini' | 'custom' | 'codex_cli' | 'claude_cli' | '';
   model: string;
   custom_model: string;
   system_prompt: string;
@@ -372,9 +372,10 @@ export default function AgentsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <select value={draft.provider} onChange={(e) => setDraft((d) => ({ ...d, provider: e.target.value as AgentConfig['provider'] }))} style={inputStyle}>
                 <option value='custom'>{t('agents.providerCustom')}</option>
-                <option value='codex_cli'>Codex CLI</option>
                 <option value='openai'>OpenAI</option>
                 <option value='gemini'>Gemini</option>
+                <option value='codex_cli'>Codex CLI (local)</option>
+                <option value='claude_cli'>Claude CLI (local)</option>
               </select>
               <input value={draft.model} onChange={(e) => setDraft((d) => ({ ...d, model: e.target.value, custom_model: e.target.value }))} placeholder={t('agents.newModelPlaceholder')} style={inputStyle} />
             </div>

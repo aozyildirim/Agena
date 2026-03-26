@@ -54,6 +54,22 @@ services:
       - qdrant
     restart: unless-stopped
 
+  cli-bridge:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bridge
+    container_name: ai_agent_cli_bridge
+    env_file:
+      - .env
+    ports:
+      - '9876:9876'
+      - '1455:1455'
+    volumes:
+      - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
+      - cli_codex_auth:/root/.codex
+      - cli_claude_auth:/root/.claude
+    restart: unless-stopped
+
   frontend:
     build:
       context: .
@@ -78,6 +94,8 @@ services:
       MYSQL_DATABASE: ai_agent_db
       MYSQL_USER: app_user
       MYSQL_PASSWORD: app_password
+    ports:
+      - '3307:3306'
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -86,6 +104,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ai_agent_redis
+    ports:
+      - '6379:6379'
     restart: unless-stopped
 
   qdrant:
@@ -101,3 +121,5 @@ services:
 volumes:
   mysql_data:
   qdrant_data:
+  cli_codex_auth:
+  cli_claude_auth:

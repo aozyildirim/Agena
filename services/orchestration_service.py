@@ -22,6 +22,7 @@ from schemas.agent import AgentRunResult, UsageStats
 from schemas.github import CreatePRRequest, GitHubFileChange
 from services.azure_pr_service import AzurePRService
 from services.ai_usage_event_service import AIUsageEventService
+from services.claude_cli_service import ClaudeCLIService
 from services.codex_cli_service import CodexCLIService
 from services.github_service import GitHubService
 from services.integration_config_service import IntegrationConfigService
@@ -62,6 +63,7 @@ class OrchestrationService:
         self.github_service = GitHubService()
         self.azure_pr_service = AzurePRService(db_session)
         self.codex_cli_service = CodexCLIService()
+        self.claude_cli_service = ClaudeCLIService()
         self.local_repo_service = LocalRepoService()
         self.cost_tracker = CostTracker()
 
@@ -143,9 +145,6 @@ class OrchestrationService:
 
         state: dict[str, Any] = {}
         try:
-            if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path and not shutil.which('codex'):
-                await task_service.add_log(task.id, organization_id, 'agent', 'codex_cli selected but binary not found — falling back to OpenAI API mode')
-                routing.preferred_agent_provider = 'openai'
             if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path:
                 await task_service.add_log(
                     task.id,
@@ -196,6 +195,29 @@ class OrchestrationService:
                     'model_usage': [f"codex-cli:{routing.preferred_agent_model or 'default'}"],
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using codex_cli preferred agent')
+            elif routing.preferred_agent_provider == 'claude_cli' and routing.local_repo_path:
+                await task_service.add_log(task.id, organization_id, 'agent', f"Claude CLI started (model={routing.preferred_agent_model or 'default'})")
+                final_code = await self.claude_cli_service.generate_file_markdown(
+                    repo_path=routing.local_repo_path,
+                    task_title=task.title,
+                    task_description=effective_description,
+                    model=routing.preferred_agent_model,
+                )
+                prompt_estimate = self._estimate_tokens(f'{task.title}\n{task.description or ""}')
+                completion_estimate = self._estimate_tokens(final_code)
+                state = {
+                    'spec': {'goal': 'claude_cli execution'},
+                    'generated_code': final_code,
+                    'reviewed_code': final_code,
+                    'final_code': final_code,
+                    'usage': {
+                        'prompt_tokens': prompt_estimate,
+                        'completion_tokens': completion_estimate,
+                        'total_tokens': prompt_estimate + completion_estimate,
+                    },
+                    'model_usage': [f"claude-cli:{routing.preferred_agent_model or 'default'}"],
+                }
+                await task_service.add_log(task.id, organization_id, 'agent', 'Using claude_cli preferred agent')
             else:
                 orchestrator = await self._build_orchestrator(organization_id, routing)
                 # Run flow step-by-step with logging
