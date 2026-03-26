@@ -68,6 +68,7 @@ export default function TeamPage() {
   const [expanded,     setExpanded]     = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  const [confirmRemove, setConfirmRemove] = useState<AzureMember | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -224,28 +225,33 @@ export default function TeamPage() {
   function toggleMember(m: AzureMember) {
     const exists = myTeam.some((x) => x.id === m.id);
 
-    // Removing — confirm first
+    // Removing — show confirm modal
     if (exists) {
-      const ok = window.confirm(`"${m.displayName}" takımdan çıkarılacak. Emin misiniz?`);
-      if (!ok) return;
+      setConfirmRemove(m);
+      return;
     }
 
+    // Adding
     setMyTeam((prev) => {
-      const next = exists ? prev.filter((x) => x.id !== m.id) : [...prev, m];
-      setMyTeamBySource((curr) => ({
-        ...curr,
-        [provider]: next,
-      }));
+      const next = [...prev, m];
+      setMyTeamBySource((curr) => ({ ...curr, [provider]: next }));
       void savePrefs({ my_team: next, my_team_source: provider });
+      return next;
+    });
+  }
 
-      // If removing, also remove from org
-      if (exists && m.uniqueName) {
+  function doRemoveMember(m: AzureMember) {
+    setConfirmRemove(null);
+    setMyTeam((prev) => {
+      const next = prev.filter((x) => x.id !== m.id);
+      setMyTeamBySource((curr) => ({ ...curr, [provider]: next }));
+      void savePrefs({ my_team: next, my_team_source: provider });
+      if (m.uniqueName) {
         void apiFetch('/org/remove-by-email', {
           method: 'POST',
           body: JSON.stringify({ email: m.uniqueName }),
         }).catch(() => {});
       }
-
       return next;
     });
   }
@@ -492,6 +498,50 @@ export default function TeamPage() {
       ) : null}
 
       {/* Picker Modal */}
+      {/* Remove confirmation modal */}
+      {confirmRemove && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setConfirmRemove(null)}>
+          <div style={{ width: 'min(400px, 100%)', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}
+            onClick={(e) => e.stopPropagation()}>
+            {/* Icon */}
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>
+              ⚠️
+            </div>
+            {/* Title */}
+            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>
+              Üyeyi Çıkar
+            </div>
+            {/* Description */}
+            <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-35)', lineHeight: 1.5, marginBottom: 20 }}>
+              <strong style={{ color: 'var(--ink-78)' }}>{confirmRemove.displayName}</strong>
+              {' '}takımdan ve organizasyondan çıkarılacak. Bu işlem geri alınamaz.
+            </div>
+            {/* Member preview */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--panel)', border: '1px solid var(--panel-border)', marginBottom: 20 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: grad(confirmRemove.displayName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                {initials(confirmRemove.displayName)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)' }}>{confirmRemove.displayName}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{confirmRemove.uniqueName}</div>
+              </div>
+            </div>
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmRemove(null)}
+                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                Vazgeç
+              </button>
+              <button onClick={() => doRemoveMember(confirmRemove)}
+                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', color: '#fff' }}>
+                Çıkar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPicker && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)' }} onClick={() => setShowPicker(false)} />
