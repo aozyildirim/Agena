@@ -225,6 +225,16 @@ export default function DashboardTasksPage() {
     }
   }
 
+  async function onDeleteTask(id: number) {
+    try {
+      await apiFetch('/tasks/' + id, { method: 'DELETE' });
+      setMsg(t('tasks.deleted'));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('tasks.deleteFailed'));
+    }
+  }
+
   const currentPage = Math.min(page, totalPages);
 
   function applyRange(days: number) {
@@ -530,6 +540,12 @@ export default function DashboardTasksPage() {
                 <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30 }}>
                   {t('tasks.details')}
                 </Link>
+                {task.status !== 'running' && (
+                  <button onClick={() => { if (window.confirm(t('tasks.deleteConfirm'))) void onDeleteTask(task.id); }}
+                    style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30, borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
+                    🗑
+                  </button>
+                )}
               </div>
             </div>
           ))

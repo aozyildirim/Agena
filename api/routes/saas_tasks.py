@@ -275,6 +275,36 @@ async def cancel_task(
     return await _to_task_response(service, tenant.organization_id, task)
 
 
+@router.delete('/{task_id}')
+async def delete_task(
+    task_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    from models.task_record import TaskRecord
+    from models.agent_log import AgentLog
+    result = await db.execute(
+        select(TaskRecord).where(
+            TaskRecord.id == task_id,
+            TaskRecord.organization_id == tenant.organization_id,
+        )
+    )
+    task = result.scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+    if task.status == 'running':
+        raise HTTPException(status_code=409, detail='Cannot delete a running task')
+    # Delete related logs
+    await db.execute(
+        select(AgentLog).where(AgentLog.task_id == task_id)
+    )
+    from sqlalchemy import delete as sa_delete
+    await db.execute(sa_delete(AgentLog).where(AgentLog.task_id == task_id))
+    await db.delete(task)
+    await db.commit()
+    return {'status': 'deleted', 'task_id': str(task_id)}
+
+
 @router.get('/{task_id}/runs', response_model=list[RunItem])
 async def task_runs(
     task_id: int,

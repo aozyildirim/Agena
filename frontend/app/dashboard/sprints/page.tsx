@@ -554,6 +554,24 @@ export default function SprintsPage() {
       .finally(() => setImp(''));
   }
 
+  async function importSingleItem(item: WorkItem) {
+    try {
+      const desc = toPlainText(item.description) || '';
+      type TaskRecord = { id: number };
+      const created = await apiFetch<TaskRecord>('/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: `[${provider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`,
+          description: `${desc}\n\n---\nExternal Source: ${provider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
+        }),
+      });
+      setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: created.id }));
+      setMsg(t('sprints.importedSingle'));
+    } catch {
+      setErr(t('sprints.importFailed'));
+    }
+  }
+
   async function assignAI(item: WorkItem, options?: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string }) {
     setAiLoading(true); setAiResult('');
     try {
@@ -753,7 +771,9 @@ export default function SprintsPage() {
                     ) : col.map((item) => (
                       <BoardCard key={item.id} item={item} stateColor={s.color}
                         selected={selected?.id === item.id}
-                        onClick={() => setSelected(selected?.id === item.id ? null : item)} />
+                        onClick={() => setSelected(selected?.id === item.id ? null : item)}
+                        onImport={() => void importSingleItem(item)}
+                        isImported={Boolean(taskMapByExternalId[item.id])} />
                     ))}
                   </div>
                 </div>
@@ -819,8 +839,9 @@ function SkeletonCard({ opacity = 1 }: { opacity?: number }) {
   );
 }
 
-function BoardCard({ item, stateColor, selected, onClick }: {
+function BoardCard({ item, stateColor, selected, onClick, onImport, isImported }: {
   item: WorkItem; stateColor: string; selected: boolean; onClick: () => void;
+  onImport?: () => void; isImported?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
@@ -866,11 +887,25 @@ function BoardCard({ item, stateColor, selected, onClick }: {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
         <span style={{ fontSize: 9, color: 'var(--panel-border-3)', fontFamily: 'monospace' }}>#{item.id}</span>
-        {timeLabel && (
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)', color: 'var(--ink-35)' }}>
-            ⏱ {timeLabel}
-          </span>
-        )}
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {timeLabel && (
+            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)', color: 'var(--ink-35)' }}>
+              ⏱ {timeLabel}
+            </span>
+          )}
+          {onImport && !isImported && (
+            <button onClick={(e) => { e.stopPropagation(); onImport(); }}
+              style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)', color: '#5eead4', cursor: 'pointer' }}
+              title="Import to Tiqr">
+              ↓
+            </button>
+          )}
+          {isImported && (
+            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }}>
+              ✓
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
