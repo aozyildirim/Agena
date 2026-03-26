@@ -555,6 +555,11 @@ export default function SprintsPage() {
   }
 
   async function importSingleItem(item: WorkItem) {
+    // Check if already imported
+    if (taskMapByExternalId[item.id]) {
+      setMsg(t('sprints.alreadyImported'));
+      return;
+    }
     try {
       const desc = toPlainText(item.description) || '';
       type TaskRecord = { id: number };
@@ -567,6 +572,8 @@ export default function SprintsPage() {
       });
       setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: created.id }));
       setMsg(t('sprints.importedSingle'));
+      // Ask if user wants to assign to agent
+      setSelected(item);
     } catch {
       setErr(t('sprints.importFailed'));
     }

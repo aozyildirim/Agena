@@ -61,6 +61,7 @@ export default function DashboardTasksPage() {
   const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
   const [aiPopupTaskId, setAiPopupTaskId] = useState<number | null>(null);
   const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState<TaskItem | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -541,7 +542,7 @@ export default function DashboardTasksPage() {
                   {t('tasks.details')}
                 </Link>
                 {task.status !== 'running' && (
-                  <button onClick={() => { if (window.confirm(t('tasks.deleteConfirm'))) void onDeleteTask(task.id); }}
+                  <button onClick={() => setDeleteConfirmTask(task)}
                     style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30, borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
                     🗑
                   </button>
@@ -618,6 +619,34 @@ export default function DashboardTasksPage() {
                 </button>
               ))}
               <button onClick={() => setFlowPopupTaskId(null)} className='button button-outline' style={{ marginTop: 4, fontSize: 12 }}>{t('tasks.cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete confirmation modal */}
+      {deleteConfirmTask && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setDeleteConfirmTask(null)}>
+          <div style={{ width: 'min(400px, 100%)', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>🗑</div>
+            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>{t('tasks.deleteConfirm')}</div>
+            <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-35)', lineHeight: 1.5, marginBottom: 20 }}>
+              <strong style={{ color: 'var(--ink-78)' }}>{deleteConfirmTask.title}</strong>
+              {' '}{t('tasks.deleteDesc')}
+            </div>
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--panel)', border: '1px solid var(--panel-border)', marginBottom: 20, fontSize: 12, color: 'var(--ink-50)' }}>
+              #{deleteConfirmTask.id} · {deleteConfirmTask.status}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setDeleteConfirmTask(null)}
+                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                {t('tasks.cancelAction')}
+              </button>
+              <button onClick={() => { void onDeleteTask(deleteConfirmTask.id); setDeleteConfirmTask(null); }}
+                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', color: '#fff' }}>
+                {t('tasks.deleteAction')}
+              </button>
             </div>
           </div>
         </div>
