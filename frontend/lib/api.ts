@@ -154,6 +154,7 @@ export type RepoMapping = {
   github_repo?: string;
   github_repo_full_name?: string;
   analyze_prompt?: string;
+  default_branch?: string;
 };
 
 export interface UserPrefs {

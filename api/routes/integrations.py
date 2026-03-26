@@ -277,3 +277,92 @@ async def upsert_integration(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return IntegrationConfigResponse(**service.to_public_dict(item))
+
+
+# ── Branch listing ───────────────────────────────────────────────────────────
+
+
+class BranchItem(BaseModel):
+    name: str
+    is_default: bool = False
+
+
+@router.get('/github/branches', response_model=list[BranchItem])
+async def list_github_branches(
+    owner: str = Query(...),
+    repo: str = Query(...),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[BranchItem]:
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'github')
+    token = cfg.secret if cfg else ''
+    if not token:
+        raise HTTPException(status_code=400, detail='GitHub token not configured')
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+    }
+
+    branches: list[BranchItem] = []
+    async with httpx.AsyncClient(timeout=15) as client:
+        repo_resp = await client.get(f'https://api.github.com/repos/{owner}/{repo}', headers=headers)
+        default_branch = ''
+        if repo_resp.status_code == 200:
+            default_branch = repo_resp.json().get('default_branch', 'main')
+
+        resp = await client.get(f'https://api.github.com/repos/{owner}/{repo}/branches?per_page=100', headers=headers)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail='Failed to fetch branches')
+        for b in resp.json():
+            name = b.get('name', '')
+            branches.append(BranchItem(name=name, is_default=name == default_branch))
+
+    branches.sort(key=lambda b: (not b.is_default, b.name))
+    return branches
+
+
+@router.get('/azure/branches', response_model=list[BranchItem])
+async def list_azure_branches(
+    project: str = Query(...),
+    repo_name: str = Query(...),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[BranchItem]:
+    import base64
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'azure')
+    if not cfg or not cfg.secret:
+        raise HTTPException(status_code=400, detail='Azure PAT not configured')
+
+    pat = cfg.secret
+    base_url = (cfg.base_url or '').rstrip('/')
+    auth = base64.b64encode(f':{pat}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Content-Type': 'application/json'}
+
+    branches: list[BranchItem] = []
+    async with httpx.AsyncClient(timeout=15) as client:
+        repo_resp = await client.get(
+            f'{base_url}/{quote(project)}/_apis/git/repositories/{quote(repo_name)}?api-version=7.1',
+            headers=headers,
+        )
+        default_branch = ''
+        if repo_resp.status_code == 200:
+            raw = repo_resp.json().get('defaultBranch', '')
+            default_branch = raw.replace('refs/heads/', '')
+
+        resp = await client.get(
+            f'{base_url}/{quote(project)}/_apis/git/repositories/{quote(repo_name)}/refs?filter=heads/&api-version=7.1',
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail='Failed to fetch branches')
+        for ref in resp.json().get('value', []):
+            name = ref.get('name', '').replace('refs/heads/', '')
+            if name:
+                branches.append(BranchItem(name=name, is_default=name == default_branch))
+
+    branches.sort(key=lambda b: (not b.is_default, b.name))
+    return branches

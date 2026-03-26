@@ -74,6 +74,9 @@ export default function RepoMappingsPage() {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [agentsMdContent, setAgentsMdContent] = useState<string | null>(null);
   const [agentsMdViewId, setAgentsMdViewId] = useState<string | null>(null);
+  const [branches, setBranches] = useState<Array<{ name: string; is_default: boolean }>>([]);
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const githubFetchRef = useRef(0);
 
   useEffect(() => {
@@ -233,6 +236,8 @@ export default function RepoMappingsPage() {
     setRepoPlaybook('');
     setAnalyzePrompt('');
     setEditingId(null);
+    setBranches([]);
+    setSelectedBranch('');
   }
 
   function startEdit(item: RepoMapping) {
@@ -278,6 +283,7 @@ export default function RepoMappingsPage() {
     setNotes(item.notes || '');
     setRepoPlaybook(item.repo_playbook || '');
     setAnalyzePrompt(item.analyze_prompt || '');
+    setSelectedBranch(item.default_branch || '');
   }
 
   useEffect(() => {
@@ -297,6 +303,40 @@ export default function RepoMappingsPage() {
       setSelGithubRepo(rebuilt);
     }
   }, [sourceProvider, editingId, selGithubRepo, items, githubOwner]);
+
+  // Load branches when a repo is selected
+  useEffect(() => {
+    setBranches([]);
+    if (sourceProvider === 'azure') {
+      if (!selProject || !selRepoUrl) return;
+      const repoName = repos.find((r) => r.remote_url === selRepoUrl)?.name || '';
+      if (!repoName) return;
+      setLoadingBranches(true);
+      apiFetch<Array<{ name: string; is_default: boolean }>>(
+        `/integrations/azure/branches?project=${encodeURIComponent(selProject)}&repo_name=${encodeURIComponent(repoName)}`
+      ).then((list) => {
+        setBranches(list);
+        if (!selectedBranch) {
+          const def = list.find((b) => b.is_default);
+          if (def) setSelectedBranch(def.name);
+        }
+      }).catch(() => {}).finally(() => setLoadingBranches(false));
+    } else if (sourceProvider === 'github') {
+      if (!selGithubRepo) return;
+      const [owner, repo] = selGithubRepo.split('/');
+      if (!owner || !repo) return;
+      setLoadingBranches(true);
+      apiFetch<Array<{ name: string; is_default: boolean }>>(
+        `/integrations/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`
+      ).then((list) => {
+        setBranches(list);
+        if (!selectedBranch) {
+          const def = list.find((b) => b.is_default);
+          if (def) setSelectedBranch(def.name);
+        }
+      }).catch(() => {}).finally(() => setLoadingBranches(false));
+    }
+  }, [sourceProvider, selRepoUrl, selProject, selGithubRepo]);
 
   async function upsertMapping() {
     const currentEditing = editingId ? items.find((m) => m.id === editingId) : undefined;
@@ -320,6 +360,7 @@ export default function RepoMappingsPage() {
         azure_project: effectiveProject,
         azure_repo_url: effectiveRepoUrl,
         azure_repo_name: effectiveRepoName,
+        default_branch: selectedBranch || undefined,
       };
     } else {
       const selectedRepo = githubRepos.find((r) => r.full_name === selGithubRepo);
@@ -338,6 +379,7 @@ export default function RepoMappingsPage() {
         github_owner: owner,
         github_repo: repoName,
         github_repo_full_name: fullName,
+        default_branch: selectedBranch || undefined,
       };
     }
     const next: RepoMapping[] = editingId
@@ -487,9 +529,25 @@ export default function RepoMappingsPage() {
             </div>
           )}
 
-          <div>
-            <div style={fieldLabelStyle}>{t('mappings.localPath')}</div>
-            <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={t('mappings.pathPlaceholder')} style={fieldStyle} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <div style={fieldLabelStyle}>{t('mappings.localPath')}</div>
+              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={t('mappings.pathPlaceholder')} style={fieldStyle} />
+            </div>
+            <div>
+              <div style={fieldLabelStyle}>{t('mappings.branch')}</div>
+              {loadingBranches ? (
+                <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', color: 'var(--ink-35)', fontSize: 12 }}>Loading...</div>
+              ) : branches.length > 0 ? (
+                <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
+                  {branches.map((b) => (
+                    <option key={b.name} value={b.name}>{b.name}{b.is_default ? ' (default)' : ''}</option>
+                  ))}
+                </select>
+              ) : (
+                <input value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} placeholder="main" style={fieldStyle} />
+              )}
+            </div>
           </div>
           <div>
             <div style={fieldLabelStyle}>{t('mappings.notes')}</div>
@@ -577,8 +635,13 @@ export default function RepoMappingsPage() {
                         {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
                       {m.local_path}
+                      {m.default_branch && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 6, background: 'rgba(94,234,212,0.12)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)', fontFamily: 'inherit' }}>
+                          🌿 {m.default_branch}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
