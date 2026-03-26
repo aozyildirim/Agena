@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import String as SAString, case, cast, Date, func, select
+from sqlalchemy import String as SAString, case, cast, Date, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ai_usage_event import AIUsageEvent
