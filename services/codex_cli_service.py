@@ -24,9 +24,13 @@ class CodexCLIService:
     ) -> str:
         codex_bin = shutil.which('codex')
         if not codex_bin:
-            raise RuntimeError(
-                'Preferred agent is codex_cli but `codex` binary is not available in worker runtime. '
-                'Install Codex CLI where worker runs or switch to an OpenAI provider.'
+            # Try CLI bridge on host
+            return await self._generate_via_bridge(
+                cli='codex',
+                repo_path=repo_path,
+                task_title=task_title,
+                task_description=task_description,
+                model=model,
             )
 
         repo = Path(repo_path).expanduser().resolve()
@@ -197,3 +201,50 @@ class CodexCLIService:
             or 'timed out' in lowered
             or 'failed to connect to websocket' in lowered
         )
+
+    async def _generate_via_bridge(
+        self,
+        cli: str,
+        repo_path: str,
+        task_title: str,
+        task_description: str,
+        model: str | None = None,
+    ) -> str:
+        """Call CLI bridge HTTP server running on host."""
+        import httpx
+
+        bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        prompt = (
+            'Implement the task in the CURRENT repository and return ONLY markdown file blocks in this format:\n'
+            '**File: relative/path.ext**\n'
+            '```language\n'
+            '...content...\n'
+            '```\n\n'
+            'Hard rules:\n'
+            '- Use ONLY repository-relative file paths.\n'
+            '- Prefer editing existing files.\n'
+            '- Keep changes minimal.\n'
+            '- Do not output explanations, only file blocks.\n\n'
+            f'Task title: {task_title}\n'
+            f'Task description:\n{task_description}\n'
+        )
+
+        async with httpx.AsyncClient(timeout=300) as client:
+            resp = await client.post(
+                f'{bridge_url}/{cli}',
+                json={
+                    'repo_path': repo_path,
+                    'prompt': prompt,
+                    'model': model or '',
+                    'timeout': self.EXEC_TIMEOUT_SEC,
+                },
+            )
+            data = resp.json()
+
+        if data.get('status') != 'ok':
+            raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')
+
+        content = (data.get('stdout') or '').strip()
+        if not content:
+            raise RuntimeError(f'{cli} bridge returned empty output')
+        return content

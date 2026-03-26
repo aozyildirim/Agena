@@ -41,7 +41,8 @@ function saveSecretPreview(provider: string, preview: string) {
 
 export default function IntegrationsPage() {
   const { t, lang } = useLocale();
-  const [activeTab, setActiveTab] = useState<'ai' | 'task' | 'notifications'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'task' | 'notifications' | 'cli'>('ai');
+  const [cliBridgeStatus, setCliBridgeStatus] = useState<{ ok: boolean; codex: boolean; claude: boolean; codex_auth?: boolean; claude_auth?: boolean } | null>(null);
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraSecret, setJiraSecret] = useState('');
@@ -554,6 +555,21 @@ export default function IntegrationsPage() {
         >
           {t('integrations.tabNotifications')}
         </button>
+        <button
+          type='button'
+          className='button'
+          onClick={() => {
+            setActiveTab('cli');
+            fetch('http://localhost:9876/health').then(r => r.json()).then(d => setCliBridgeStatus({ ok: true, codex: d.codex, claude: d.claude })).catch(() => setCliBridgeStatus({ ok: false, codex: false, claude: false }));
+          }}
+          style={{
+            borderColor: activeTab === 'cli' ? 'rgba(168,85,247,0.45)' : 'var(--panel-border-3)',
+            background: activeTab === 'cli' ? 'rgba(168,85,247,0.12)' : 'var(--panel-alt)',
+            color: activeTab === 'cli' ? '#c084fc' : 'var(--ink-58)',
+          }}
+        >
+          CLI Agents
+        </button>
       </div>
 
       <div className='integrations-grid'>
@@ -776,6 +792,194 @@ export default function IntegrationsPage() {
             {notifyTesting ? t('integrations.sending') : t('integrations.sendTestNotify')}
           </button>
         </IntegrationCard>}
+
+        {/* CLI Agents */}
+        {activeTab === 'cli' && (
+          <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 16 }}>
+            <div style={{ borderRadius: 16, border: '1px solid rgba(168,85,247,0.25)', background: 'var(--surface)', padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>CLI Bridge</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)' }}>
+                    Codex CLI ve Claude CLI host makinede calisir. Bridge HTTP server uzerinden Docker worker ile iletisim kurar.
+                  </p>
+                </div>
+                <div style={{
+                  padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                  background: cliBridgeStatus?.ok ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
+                  color: cliBridgeStatus?.ok ? '#22c55e' : '#f87171',
+                  border: `1px solid ${cliBridgeStatus?.ok ? 'rgba(34,197,94,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                }}>
+                  {cliBridgeStatus === null ? 'Kontrol edilmedi' : cliBridgeStatus.ok ? 'Bagli' : 'Bagli degil'}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div style={{ borderRadius: 12, border: '1px solid var(--panel-border-2)', padding: '14px 16px', background: 'var(--panel)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}>⌘</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Codex CLI</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                      background: cliBridgeStatus?.codex ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
+                      color: cliBridgeStatus?.codex ? '#22c55e' : '#f87171',
+                    }}>
+                      {cliBridgeStatus?.codex ? 'Kurulu' : 'Bulunamadi'}
+                    </span>
+                    {cliBridgeStatus?.codex && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                        background: cliBridgeStatus?.codex_auth ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color: cliBridgeStatus?.codex_auth ? '#22c55e' : '#f59e0b',
+                      }}>
+                        {cliBridgeStatus?.codex_auth ? 'Auth OK' : 'Auth gerekli'}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                    OpenAI Codex CLI — repo icinde kod yazar, dosyalari degistirir.
+                  </p>
+                  {cliBridgeStatus?.codex && !cliBridgeStatus?.codex_auth && (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                      <button className='button button-primary' style={{ width: '100%', padding: '9px 14px', fontSize: 12, justifyContent: 'center' }} onClick={() => {
+                        setMsg('Codex login baslatiliyor...');
+                        fetch('http://localhost:9876/codex/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                          .then(r => r.json()).then(d => {
+                            if (d.login_url) {
+                              window.open(d.login_url, '_blank');
+                              setMsg('Giris yap, hata sayfasindaki URL\'i kopyala ve asagiya yapistir');
+                              const cbEl = document.getElementById('codex-callback-section');
+                              if (cbEl) cbEl.style.display = 'grid';
+                              const poll = setInterval(() => {
+                                fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
+                                  if (h.codex_auth) { clearInterval(poll); setMsg('Codex login basarili!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); if (cbEl) cbEl.style.display = 'none'; }
+                                }).catch(() => {});
+                              }, 3000);
+                              setTimeout(() => clearInterval(poll), 180000);
+                            } else if (d.already_auth) { setMsg('Zaten giris yapilmis!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
+                            else setMsg(d.message || 'Login baslatildi');
+                          }).catch(() => setError('Bridge baglantisi basarisiz'));
+                      }}>ChatGPT Hesabi ile Giris Yap</button>
+                      <div id='codex-callback-section' style={{ display: 'none', gap: 6 }}>
+                        <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5 }}>Giris yaptiktan sonra hata sayfasina yonlendirileceksin. O sayfanin URL&apos;ini kopyala ve buraya yapistir:</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input id='codex-callback-url' type='text' placeholder='http://localhost:1455/auth/callback?code=...' style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
+                          <button className='button button-primary' style={{ padding: '7px 12px', fontSize: 11, flexShrink: 0 }} onClick={() => {
+                            const cbUrl = (document.getElementById('codex-callback-url') as HTMLInputElement)?.value;
+                            if (!cbUrl || !cbUrl.includes('code=')) { setError('Gecerli callback URL yapistirin'); return; }
+                            try {
+                              const parsed = new URL(cbUrl);
+                              fetch(`http://localhost:9876/auth/callback${parsed.search}`).then(() => {
+                                setMsg('Login tamamlaniyor...');
+                                setTimeout(() => fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
+                                  if (h.codex_auth) { setMsg('Codex login basarili!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
+                                  else setMsg('Birka saniye bekleyin...');
+                                }), 2000);
+                              });
+                            } catch { setError('Gecersiz URL'); }
+                          }}>Tamamla</button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> veya <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input id='codex-key' type='password' placeholder='OpenAI API Key (sk-...)' style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12 }} />
+                        <button className='button button-outline' style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => {
+                          const key = (document.getElementById('codex-key') as HTMLInputElement)?.value;
+                          if (!key) { setError('API Key girin'); return; }
+                          fetch('http://localhost:9876/codex/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: key }) })
+                            .then(r => r.json()).then(d => { if (d.status === 'ok') { setMsg('Codex API key kaydedildi'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); } else setError(d.message); })
+                            .catch(() => setError('Bridge baglantisi basarisiz'));
+                        }}>API Key ile Bagla</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ borderRadius: 12, border: '1px solid var(--panel-border-2)', padding: '14px 16px', background: 'var(--panel)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}>◆</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Claude CLI</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                      background: cliBridgeStatus?.claude ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
+                      color: cliBridgeStatus?.claude ? '#22c55e' : '#f87171',
+                    }}>
+                      {cliBridgeStatus?.claude ? 'Kurulu' : 'Bulunamadi'}
+                    </span>
+                    {cliBridgeStatus?.claude && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                        background: cliBridgeStatus?.claude_auth ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color: cliBridgeStatus?.claude_auth ? '#22c55e' : '#f59e0b',
+                      }}>
+                        {cliBridgeStatus?.claude_auth ? 'Auth OK' : 'Auth gerekli'}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                    Anthropic Claude Code — repo icinde analiz ve kod yazma.
+                  </p>
+                  {cliBridgeStatus?.claude && !cliBridgeStatus?.claude_auth && (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                      <button className='button button-primary' style={{ width: '100%', padding: '9px 14px', fontSize: 12, justifyContent: 'center' }} onClick={() => {
+                        setMsg('Claude login baslatiliyor...');
+                        fetch('http://localhost:9876/claude/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                          .then(r => r.json()).then(d => {
+                            if (d.login_url) {
+                              window.open(d.login_url, '_blank');
+                              setMsg('Login sayfasi acildi — giris yap, sonra buraya don...');
+                              const poll = setInterval(() => {
+                                fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
+                                  if (h.claude_auth) { clearInterval(poll); setMsg('Claude login basarili!'); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
+                                }).catch(() => {});
+                              }, 3000);
+                              setTimeout(() => clearInterval(poll), 180000);
+                            } else if (d.already_auth) { setMsg('Zaten giris yapilmis!'); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
+                            else setMsg(d.message || 'Login baslatildi');
+                          }).catch(() => setError('Bridge baglantisi basarisiz'));
+                      }}>Anthropic Hesabi ile Giris Yap</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> veya <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input id='claude-key' type='password' placeholder='Anthropic API Key (sk-ant-...)' style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12 }} />
+                        <button className='button button-outline' style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => {
+                          const key = (document.getElementById('claude-key') as HTMLInputElement)?.value;
+                          if (!key) { setError('API Key girin'); return; }
+                          fetch('http://localhost:9876/claude/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: key }) })
+                            .then(r => r.json()).then(d => { if (d.status === 'ok') { setMsg('Claude API key kaydedildi'); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); } else setError(d.message); })
+                            .catch(() => setError('Bridge baglantisi basarisiz'));
+                        }}>API Key ile Bagla</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ borderRadius: 12, border: '1px solid rgba(168,85,247,0.2)', background: 'rgba(168,85,247,0.05)', padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Bridge Nasil Calistirilir</div>
+                <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--ink-72)', lineHeight: 1.8 }}>
+                  <li>Ayri bir terminalde bridge serveri baslat:</li>
+                </ol>
+                <div style={{ margin: '8px 0', padding: '8px 10px', borderRadius: 8, background: 'var(--terminal-bg)', fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-65)' }}>
+                  python3 cli_bridge.py
+                </div>
+                <ol start={2} style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--ink-72)', lineHeight: 1.8 }}>
+                  <li>Agents sayfasinda developer agent'in provider'ini "Codex CLI" veya "Claude CLI" olarak secin</li>
+                  <li>Task'a AI atayinca bridge uzerinden CLI calisir, kodu yazar, PR acar</li>
+                </ol>
+              </div>
+
+              <button
+                className='button button-outline'
+                style={{ marginTop: 12, width: '100%', justifyContent: 'center' }}
+                onClick={() => {
+                  fetch('http://localhost:9876/health').then(r => r.json()).then(d => { setCliBridgeStatus({ ok: true, codex: d.codex, claude: d.claude }); setMsg('Bridge bagli!'); }).catch(() => { setCliBridgeStatus({ ok: false, codex: false, claude: false }); setError('Bridge bagli degil. Terminalde python3 cli_bridge.py calistirin.'); });
+                }}
+              >
+                Bridge Durumunu Kontrol Et
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       {help && (
         <div

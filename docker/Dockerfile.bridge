@@ -1,0 +1,11 @@
+FROM node:20
+
+# CLI tools
+RUN npm install -g @openai/codex@latest || true
+RUN npm install -g @anthropic-ai/claude-code@latest || true
+
+WORKDIR /app
+COPY docker/bridge-server.mjs /app/bridge-server.mjs
+
+EXPOSE 9876
+CMD ["node", "/app/bridge-server.mjs"]
