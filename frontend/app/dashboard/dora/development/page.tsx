@@ -6,9 +6,11 @@ import {
   fetchDoraDevelopment,
   fetchGitAnalytics,
   fetchPrAnalytics,
+  fetchDeploymentsAnalytics,
   type DoraDevelopmentResponse,
   type GitAnalyticsResponse,
   type PrAnalyticsResponse,
+  type DeploymentsAnalyticsResponse,
 } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import LineChart from '@/components/charts/LineChart';
@@ -32,6 +34,7 @@ export default function DoraDevelopmentPage() {
   const [gitData, setGitData] = useState<GitAnalyticsResponse | null>(null);
   const [devData, setDevData] = useState<DoraDevelopmentResponse | null>(null);
   const [prData, setPrData] = useState<PrAnalyticsResponse | null>(null);
+  const [deployData, setDeployData] = useState<DeploymentsAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -41,15 +44,17 @@ export default function DoraDevelopmentPage() {
     setError('');
     (async () => {
       try {
-        const [git, dev, pr] = await Promise.all([
+        const [git, dev, pr, dep] = await Promise.all([
           fetchGitAnalytics(30, repoId),
           fetchDoraDevelopment(30, repoId),
           fetchPrAnalytics(30, repoId),
+          fetchDeploymentsAnalytics(30, repoId),
         ]);
         if (active) {
           setGitData(git);
           setDevData(dev);
           setPrData(pr);
+          setDeployData(dep);
         }
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Failed');
@@ -141,10 +146,8 @@ export default function DoraDevelopmentPage() {
         <PrTab data={prData} t={t} />
       )}
 
-      {!loading && !error && tab === 'deployments' && (
-        <div style={{ ...box, textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 60 }}>
-          {t('dora.git.comingSoon')}
-        </div>
+      {!loading && !error && tab === 'deployments' && deployData && (
+        <DeploymentsTab data={deployData} t={t} />
       )}
     </div>
   );
@@ -953,3 +956,87 @@ function formatMs(ms: number): string {
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
 }
+
+/* =========================================================================
+   DEPLOYMENTS (DORA) TAB
+   ========================================================================= */
+
+function DeploymentsTab({ data, t }: { data: DeploymentsAnalyticsResponse; t: TFn }) {
+  const kpi = data.kpi;
+  const kpis = [
+    { label: t('dora.deploy.leadTime'), value: kpi.lead_time_hours < 1 ? `${Math.round(kpi.lead_time_hours * 60)}m` : `${kpi.lead_time_hours.toFixed(1)}h`, color: '#3b82f6' },
+    { label: t('dora.deploy.deployFrequency'), value: `${kpi.deploy_frequency}/d`, color: '#22c55e' },
+    { label: t('dora.deploy.changeFailureRate'), value: `${kpi.change_failure_rate.toFixed(1)}%`, color: kpi.change_failure_rate > 15 ? '#ef4444' : kpi.change_failure_rate > 5 ? '#eab308' : '#22c55e' },
+    { label: t('dora.deploy.mttr'), value: kpi.mttr_hours < 1 ? `${Math.round(kpi.mttr_hours * 60)}m` : `${kpi.mttr_hours.toFixed(1)}h`, color: '#f59e0b' },
+  ];
+
+  return (
+    <>
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
+        {kpis.map((k) => (
+          <div key={k.label} style={{ ...box, padding: 16, textAlign: 'center' }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{k.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: k.color }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        {data.lead_time_trend.length > 0 && (
+          <div style={box}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('dora.deploy.leadTime')} Trend</div>
+            <LineChart data={data.lead_time_trend.map((d) => ({ label: d.date.slice(5), value: d.hours }))} />
+          </div>
+        )}
+        {data.deploy_freq_trend.length > 0 && (
+          <div style={box}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('dora.deploy.deployFrequency')} Trend</div>
+            <BarChart data={data.deploy_freq_trend.map((d) => ({ label: d.date.slice(5), value: d.deploys }))} />
+          </div>
+        )}
+        {data.cfr_trend.length > 0 && (
+          <div style={box}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('dora.deploy.changeFailureRate')} Trend</div>
+            <LineChart data={data.cfr_trend.map((d) => ({ label: d.date.slice(5), value: d.rate }))} />
+          </div>
+        )}
+      </div>
+
+      {/* Deployment list */}
+      {data.deployment_list.length > 0 && (
+        <div style={box}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Deployments</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
+                  <th style={thStyle}>Environment</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>SHA</th>
+                  <th style={thStyle}>Deployed At</th>
+                  <th style={thStyle}>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.deployment_list.map((d, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--panel-border-2)' }}>
+                    <td style={tdStyle}><span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontSize: 11, fontWeight: 600 }}>{d.environment}</span></td>
+                    <td style={tdStyle}><span style={{ padding: '2px 8px', borderRadius: 6, background: d.status === 'success' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: d.status === 'success' ? '#22c55e' : '#ef4444', fontSize: 11, fontWeight: 600 }}>{d.status}</span></td>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11 }}>{d.sha}</td>
+                    <td style={tdStyle}>{new Date(d.deployed_at).toLocaleString()}</td>
+                    <td style={tdStyle}>{d.duration_sec ? `${d.duration_sec}s` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+const thStyle: React.CSSProperties = { textAlign: 'left', padding: '8px 10px', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 };
+const tdStyle: React.CSSProperties = { padding: '8px 10px', color: 'var(--ink)' };

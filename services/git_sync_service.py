@@ -95,7 +95,7 @@ class GitSyncService:
         owner: str,
         repo: str,
         token: str,
-        since_days: int = 30,
+        since_days: int = 365,
     ) -> int:
         since = (datetime.utcnow() - timedelta(days=since_days)).strftime('%Y-%m-%dT%H:%M:%SZ')
         url = f'https://api.github.com/repos/{owner}/{repo}/commits'
@@ -153,7 +153,7 @@ class GitSyncService:
         owner: str,
         repo: str,
         token: str,
-        since_days: int = 30,
+        since_days: int = 365,
     ) -> int:
         cutoff = datetime.utcnow() - timedelta(days=since_days)
         url = f'https://api.github.com/repos/{owner}/{repo}/pulls'
@@ -288,7 +288,7 @@ class GitSyncService:
         project: str,
         repo_name: str,
         pat: str,
-        since_days: int = 30,
+        since_days: int = 365,
     ) -> int:
         since = (datetime.utcnow() - timedelta(days=since_days)).strftime('%Y-%m-%dT%H:%M:%SZ')
         base = org_url.rstrip('/')
