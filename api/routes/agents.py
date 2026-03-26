@@ -65,24 +65,50 @@ async def run_agents(
     return AgentRunResponse(status='completed', result=result)
 
 
-STAGE_TO_ROLE = {
-    'fetch_context': 'pm',
-    'analyze': 'pm',
-    'generate_code': 'developer',
-    'code_generation': 'developer',
-    'review_code': 'reviewer',
-    'code_review': 'reviewer',
-    'finalize': 'finalizer',
-    'code_diff': 'finalizer',
-    'code_preview': 'finalizer',
-}
+import re
 
-AGENT_ROLES = [
-    {'id': 1, 'name': 'PM Agent', 'role': 'pm', 'color': '#5eead4', 'icon': 'clipboard'},
-    {'id': 2, 'name': 'Developer', 'role': 'developer', 'color': '#a78bfa', 'icon': 'code'},
-    {'id': 3, 'name': 'Reviewer', 'role': 'reviewer', 'color': '#38bdf8', 'icon': 'search'},
-    {'id': 4, 'name': 'Finalizer', 'role': 'finalizer', 'color': '#22c55e', 'icon': 'rocket'},
-]
+
+def _detect_active_role(message: str) -> str | None:
+    """Parse agent log message to detect which pipeline role is currently active."""
+    msg = message.lower()
+    # Step messages from orchestration_service
+    if 'fetching context' in msg:
+        return 'pm'
+    if 'pm analyzing' in msg or 'pm result' in msg:
+        return 'pm'
+    if 'ai plan' in msg or 'planning' in msg:
+        return 'pm'
+    if 'developer generating' in msg or 'developer result' in msg:
+        return 'developer'
+    if 'ai code' in msg or 'coding' in msg:
+        return 'developer'
+    if 'review' in msg:
+        return 'qa'
+    if 'finalize' in msg:
+        return 'lead_developer'
+    return None
+
+
+def _detect_step_label(message: str) -> str:
+    """Extract human-readable step label from agent log message."""
+    msg = message.lower()
+    if 'fetching context' in msg:
+        return 'fetch_context'
+    if 'pm analyzing' in msg:
+        return 'pm_analyzing'
+    if 'pm result' in msg:
+        return 'pm_done'
+    if 'developer generating' in msg:
+        return 'generating_code'
+    if 'developer result' in msg:
+        return 'dev_done'
+    if 'flow complete' in msg:
+        return 'flow_complete'
+    if 'ai plan' in msg:
+        return 'ai_planning'
+    if 'ai code' in msg:
+        return 'ai_coding'
+    return message[:40]
 
 
 @router.get('/live')
@@ -90,8 +116,8 @@ async def get_live_agents(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
-    """Return live agent status: active agents from running tasks + idle agents from recent tasks."""
-    # Get running tasks -> active agents
+    """Return live agent status by parsing actual pipeline execution logs."""
+    # Get running tasks
     result = await db.execute(
         select(TaskRecord)
         .where(
@@ -102,87 +128,45 @@ async def get_live_agents(
     )
     running_tasks = result.scalars().all()
 
-    task_stages: list[dict[str, Any]] = []
-    active_roles: set[str] = set()
+    # For each running task, find the latest agent log to detect active role
+    running_info: list[dict[str, Any]] = []
+    active_roles: dict[str, dict[str, Any]] = {}  # role -> task info
 
     for task in running_tasks:
         log_result = await db.execute(
             select(AgentLog)
             .where(AgentLog.task_id == task.id)
             .order_by(AgentLog.id.desc())
-            .limit(1)
-        )
-        latest_log = log_result.scalar_one_or_none()
-        current_stage = latest_log.stage if latest_log else 'fetch_context'
-        role = STAGE_TO_ROLE.get(current_stage, 'pm')
-        active_roles.add(role)
-        task_stages.append({
-            'task_id': task.id,
-            'title': task.title,
-            'status': task.status,
-            'current_stage': current_stage,
-            'active_role': role,
-        })
-
-    # Get recently completed/failed tasks (last 24h) -> idle agents who worked before
-    idle_roles: set[str] = set()
-    recent_result = await db.execute(
-        select(TaskRecord)
-        .where(
-            TaskRecord.organization_id == tenant.organization_id,
-            TaskRecord.status.in_(['completed', 'failed']),
-        )
-        .order_by(TaskRecord.id.desc())
-        .limit(10)
-    )
-    recent_tasks = recent_result.scalars().all()
-
-    for task in recent_tasks:
-        log_result = await db.execute(
-            select(AgentLog)
-            .where(AgentLog.task_id == task.id)
-            .order_by(AgentLog.id.desc())
-            .limit(5)
+            .limit(3)
         )
         logs = log_result.scalars().all()
+
+        detected_role = None
+        step_label = 'running'
         for log in logs:
-            role = STAGE_TO_ROLE.get(log.stage)
-            if role:
-                idle_roles.add(role)
+            if log.stage == 'agent':
+                role = _detect_active_role(log.message)
+                if role:
+                    detected_role = role
+                    step_label = _detect_step_label(log.message)
+                    break
+            elif log.stage == 'running':
+                detected_role = 'manager'
+                step_label = 'starting'
+                break
 
-    # Build agent list: active ones + idle ones (from past work)
-    agents = []
-    seen_roles: set[str] = set()
-
-    # Active agents first
-    for agent_def in AGENT_ROLES:
-        active_task = next(
-            (t for t in task_stages if t['active_role'] == agent_def['role']),
-            None,
-        )
-        if active_task:
-            seen_roles.add(agent_def['role'])
-            agents.append({
-                **agent_def,
-                'status': 'active',
-                'current_task': active_task['title'],
-                'current_stage': active_task['current_stage'],
-                'task_id': active_task['task_id'],
-            })
-
-    # All remaining agents show as idle (always present in office)
-    for agent_def in AGENT_ROLES:
-        if agent_def['role'] not in seen_roles:
-            agents.append({
-                **agent_def,
-                'status': 'idle',
-                'current_task': None,
-                'current_stage': None,
-                'task_id': None,
-            })
+        task_info = {
+            'task_id': task.id,
+            'title': task.title,
+            'active_role': detected_role or 'manager',
+            'step_label': step_label,
+        }
+        running_info.append(task_info)
+        if detected_role:
+            active_roles[detected_role] = task_info
 
     return {
-        'agents': agents,
-        'running_tasks': task_stages,
-        'active_count': sum(1 for a in agents if a['status'] == 'active'),
+        'running_tasks': running_info,
+        'active_roles': active_roles,
+        'active_count': len(active_roles),
     }

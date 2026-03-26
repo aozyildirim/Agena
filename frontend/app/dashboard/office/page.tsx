@@ -53,30 +53,22 @@ function loadAgentConfigs(): AgentConfig[] {
   }
 }
 
-/* ── Stage mapping ───────────────────────────────────────────────── */
+/* ── Step label to pixel-agents tool animation ───────────────────── */
 
-const STAGE_TO_ROLE: Record<string, string[]> = {
-  fetch_context: ['pm', 'manager'],
-  analyze: ['pm', 'manager'],
-  generate_code: ['developer', 'lead_developer'],
-  code_generation: ['developer', 'lead_developer'],
-  review_code: ['qa', 'lead_developer', 'reviewer'],
-  code_review: ['qa', 'lead_developer', 'reviewer'],
-  finalize: ['developer', 'lead_developer'],
-  code_diff: ['developer'],
-  code_preview: ['developer'],
-};
-
-function stageToToolName(stage: string): string {
-  switch (stage) {
-    case 'fetch_context': return 'Grep';
-    case 'analyze': return 'Read';
-    case 'generate_code': case 'code_generation': return 'Write';
-    case 'review_code': case 'code_review': return 'Read';
-    case 'finalize': case 'code_diff': case 'code_preview': return 'Bash';
-    default: return 'Bash';
-  }
+function stepToToolName(step: string): string {
+  if (step.includes('fetch') || step.includes('context')) return 'Grep';
+  if (step.includes('pm') || step.includes('analyz') || step.includes('plan')) return 'Read';
+  if (step.includes('generat') || step.includes('cod') || step.includes('dev')) return 'Write';
+  if (step.includes('review') || step.includes('qa')) return 'Read';
+  if (step.includes('final') || step.includes('complete')) return 'Bash';
+  return 'Bash';
 }
+
+type LiveResponse = {
+  running_tasks: Array<{ task_id: number; title: string; active_role: string; step_label: string }>;
+  active_roles: Record<string, { task_id: number; title: string; active_role: string; step_label: string }>;
+  active_count: number;
+};
 
 /* ── Pixel Office iframe bridge ──────────────────────────────────── */
 
@@ -85,22 +77,20 @@ function usePixelOfficeBridge(
   agents: OfficeAgent[],
   iframeReady: boolean,
 ) {
+  const [bridgeReady, setBridgeReady] = useState(false);
   const spawnedRef = useRef<Set<number>>(new Set());
   const stageRef = useRef<Record<number, string>>({});
-  const bridgeReady = useRef(false);
 
+  // Wait for pixel office to fully load assets before sending messages
   useEffect(() => {
     if (!iframeReady) return;
-    const timer = setTimeout(() => {
-      bridgeReady.current = true;
-      spawnedRef.current.clear();
-      stageRef.current = {};
-    }, 2500);
+    const timer = setTimeout(() => setBridgeReady(true), 2500);
     return () => clearTimeout(timer);
   }, [iframeReady]);
 
+  // Sync agents to pixel office whenever agents or bridgeReady changes
   useEffect(() => {
-    if (!bridgeReady.current) return;
+    if (!bridgeReady) return;
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
 
@@ -109,30 +99,41 @@ function usePixelOfficeBridge(
     };
 
     for (const agent of agents) {
-      if (!spawnedRef.current.has(agent.pixelId)) {
+      const isNew = !spawnedRef.current.has(agent.pixelId);
+
+      // 1. Spawn character
+      if (isNew) {
         send({ type: 'agentCreated', id: agent.pixelId, folderName: agent.label });
         spawnedRef.current.add(agent.pixelId);
-      }
 
-      const stage = agent.status === 'active' ? (agent.currentStage || 'working') : 'idle';
-      const prev = stageRef.current[agent.pixelId] || '';
-
-      if (stage !== prev) {
-        stageRef.current[agent.pixelId] = stage;
-        if (agent.status === 'active' && agent.currentStage) {
-          send({
-            type: 'agentToolStart',
-            id: agent.pixelId,
-            toolId: `tool-${agent.pixelId}-${Date.now()}`,
-            status: stageToToolName(agent.currentStage),
-          });
-        } else if (prev && prev !== 'idle') {
-          send({ type: 'agentToolsClear', id: agent.pixelId });
+        // Idle agents: immediately end their "turn" so they start wandering
+        // (agentCreated sets isActive=true, we need to flip it to false)
+        if (agent.status !== 'active') {
           send({ type: 'agentStatus', id: agent.pixelId, status: 'waiting' });
         }
       }
+
+      // 2. Track status changes
+      const key = agent.status === 'active' ? (agent.currentStage || 'active') : 'idle';
+      if (key === stageRef.current[agent.pixelId]) continue;
+      const prev = stageRef.current[agent.pixelId];
+      stageRef.current[agent.pixelId] = key;
+
+      if (agent.status === 'active') {
+        // Active → sit at desk, play tool animation
+        send({
+          type: 'agentToolStart',
+          id: agent.pixelId,
+          toolId: `tool-${agent.pixelId}-${Date.now()}`,
+          status: stepToToolName(agent.currentStage || ''),
+        });
+      } else if (prev && prev !== 'idle') {
+        // Was working, now idle → clear tools, trigger idle cycle
+        send({ type: 'agentToolsClear', id: agent.pixelId });
+        send({ type: 'agentStatus', id: agent.pixelId, status: 'waiting' });
+      }
     }
-  }, [agents, iframeRef]);
+  }, [agents, bridgeReady, iframeRef]);
 }
 
 /* ── Task Assignment Modal ───────────────────────────────────────── */
@@ -277,33 +278,23 @@ export default function OfficePage() {
 
     const poll = async () => {
       try {
-        const taskList = await apiFetch<TaskItem[]>('/tasks');
+        const [taskList, live] = await Promise.all([
+          apiFetch<TaskItem[]>('/tasks'),
+          apiFetch<LiveResponse>('/agents/live').catch((): LiveResponse => ({
+            running_tasks: [], active_roles: {}, active_count: 0,
+          })),
+        ]);
         setTasks(taskList);
 
-        // Get running tasks with their latest stage from logs
-        const runningTasks = taskList.filter((t) => t.status === 'running');
-
-        // Try to get live data from backend
-        let liveStages: Array<{ task_id: number; title: string; current_stage: string; active_role: string }> = [];
-        try {
-          const live = await apiFetch<{ running_tasks: typeof liveStages }>('/agents/live');
-          liveStages = live.running_tasks || [];
-        } catch { /* silent */ }
-
-        // Build office agents from configs + live status
+        // Build office agents: match config role to active_roles from backend
         const agents: OfficeAgent[] = agentConfigs.map((config, idx) => {
-          // Find if this agent role is currently active
-          const activeTask = liveStages.find((t) => {
-            const roles = STAGE_TO_ROLE[t.current_stage] || [];
-            return roles.includes(config.role);
-          });
-
+          const activeInfo = live.active_roles[config.role];
           return {
             ...config,
             pixelId: idx + 1,
-            status: activeTask ? 'active' as const : 'idle' as const,
-            currentTask: activeTask?.title || null,
-            currentStage: activeTask?.current_stage || null,
+            status: activeInfo ? 'active' as const : 'idle' as const,
+            currentTask: activeInfo?.title || null,
+            currentStage: activeInfo?.step_label || null,
           };
         });
 

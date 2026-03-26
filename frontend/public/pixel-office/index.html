@@ -15,8 +15,57 @@
           window.dispatchEvent(new MessageEvent('message', { data: e.data.payload }));
         }
       });
+
+      // Intercept vscode.postMessage calls to persist layout in localStorage
+      (function() {
+        var LS_KEY = 'tiqr_pixel_office_layout';
+
+        // After the app loads, override vscode.postMessage to catch saveLayout
+        var origConsoleLog = console.log;
+        var _patchInterval = setInterval(function() {
+          // The app creates a vscode stub: { postMessage: (msg) => console.log(...) }
+          // We can't easily override that, so instead listen for the 'message' events
+          // the app dispatches internally and intercept saveLayout from the message handler
+        }, 100);
+
+        // Better approach: intercept at window message level
+        // When pixel-agents calls vscode.postMessage({type:'saveLayout', layout}),
+        // in browser mode it just logs. We'll patch console.log to catch it.
+        var _origLog = console.log;
+        console.log = function() {
+          var args = Array.from(arguments);
+          // vscode.postMessage logs: '[vscode.postMessage]', {type:'saveLayout',...}
+          if (args.length >= 2 && args[0] === '[vscode.postMessage]') {
+            var msg = args[1];
+            if (msg && msg.type === 'saveLayout' && msg.layout) {
+              try {
+                localStorage.setItem(LS_KEY, JSON.stringify(msg.layout));
+              } catch(e) {}
+            }
+          }
+          return _origLog.apply(console, args);
+        };
+
+        // On load: if we have a saved layout, inject it after assets load
+        window.addEventListener('DOMContentLoaded', function() {
+          var saved = null;
+          try {
+            var raw = localStorage.getItem(LS_KEY);
+            if (raw) saved = JSON.parse(raw);
+          } catch(e) {}
+
+          if (saved) {
+            // Wait for browserMock to dispatch, then override layout
+            setTimeout(function() {
+              window.dispatchEvent(new MessageEvent('message', {
+                data: { type: 'layoutLoaded', layout: saved }
+              }));
+            }, 1500);
+          }
+        });
+      })();
     </script>
-    <script type="module" crossorigin src="./assets/index-DoBQIEQ8.js"></script>
+    <script type="module" crossorigin src="./assets/index-BDaS46-f.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-CX8LPhCk.css">
   </head>
   <body>

@@ -11,12 +11,12 @@ export const MAX_ROWS = 64;
 export const WALK_SPEED_PX_PER_SEC = 48;
 export const WALK_FRAME_DURATION_SEC = 0.15;
 export const TYPE_FRAME_DURATION_SEC = 0.3;
-export const WANDER_PAUSE_MIN_SEC = 2.0;
-export const WANDER_PAUSE_MAX_SEC = 20.0;
-export const WANDER_MOVES_BEFORE_REST_MIN = 3;
-export const WANDER_MOVES_BEFORE_REST_MAX = 6;
-export const SEAT_REST_MIN_SEC = 120.0;
-export const SEAT_REST_MAX_SEC = 240.0;
+export const WANDER_PAUSE_MIN_SEC = 1.0;
+export const WANDER_PAUSE_MAX_SEC = 5.0;
+export const WANDER_MOVES_BEFORE_REST_MIN = 5;
+export const WANDER_MOVES_BEFORE_REST_MAX = 12;
+export const SEAT_REST_MIN_SEC = 3.0;
+export const SEAT_REST_MAX_SEC = 8.0;
 
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3;
