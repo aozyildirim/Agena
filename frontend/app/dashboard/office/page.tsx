@@ -91,6 +91,11 @@ const OPENAI_MODELS = [
   { id: 'o4-mini', label: 'o4-mini' },
   { id: 'gpt-5', label: 'GPT-5' },
   { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
+  { id: 'gpt-5.1-codex', label: 'GPT-5.1 Codex' },
+  { id: 'gpt-5.1-codex-mini', label: 'GPT-5.1 Codex Mini' },
+  { id: 'gpt-5.1-codex-max', label: 'GPT-5.1 Codex Max' },
+  { id: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
+  { id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
   { id: 'gpt-4.1', label: 'GPT-4.1' },
   { id: 'gpt-4.1-mini', label: 'GPT-4.1 mini' },
   { id: 'gpt-4o', label: 'GPT-4o' },
@@ -100,6 +105,8 @@ const GEMINI_MODELS = [
   { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
   { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
 ];
 
 function modelsForProvider(provider: string) {
@@ -108,8 +115,75 @@ function modelsForProvider(provider: string) {
   return [];
 }
 
-const EMOJI_PICKS = ['🤖', '🧠', '🛡️', '🎯', '🔬', '📊', '🚀', '💡', '🔥', '⚙️', '🧪', '🎨'];
 const COLOR_PICKS = ['#38bdf8', '#22c55e', '#f59e0b', '#a78bfa', '#f472b6', '#ef4444', '#14b8a6', '#6366f1', '#ec4899', '#84cc16'];
+
+// 6 pixel character palettes (char_0.png .. char_5.png)
+const PALETTE_COUNT = 6;
+// Each PNG is 112×96: 7 frames × 16px wide, 3 direction rows × 32px tall
+// Walk2 (standing idle pose) = frame index 1, row 0 (down direction)
+const CHAR_FRAME_W = 16;
+const CHAR_FRAME_H = 32;
+const IDLE_FRAME_X = 1 * CHAR_FRAME_W; // frame 1
+const IDLE_FRAME_Y = 0; // row 0 = down
+
+function PixelCharacterPicker({ selected, onSelect, accentColor }: {
+  selected: number;
+  onSelect: (palette: number) => void;
+  accentColor: string;
+}) {
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const [loaded, setLoaded] = useState(0);
+
+  useEffect(() => {
+    for (let i = 0; i < PALETTE_COUNT; i++) {
+      const img = new Image();
+      img.src = `/pixel-office/assets/characters/char_${i}.png`;
+      img.onload = () => {
+        const canvas = canvasRefs.current[i];
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Draw the idle frame (walk2, facing down)
+        ctx.drawImage(img, IDLE_FRAME_X, IDLE_FRAME_Y, CHAR_FRAME_W, CHAR_FRAME_H, 0, 0, canvas.width, canvas.height);
+        setLoaded((p) => p + 1);
+      };
+    }
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {Array.from({ length: PALETTE_COUNT }, (_, i) => (
+        <button key={i} onClick={() => onSelect(i)}
+          style={{
+            width: 56, height: 72, borderRadius: 12, cursor: 'pointer', padding: 4,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: selected === i ? `2px solid ${accentColor}` : '2px solid var(--panel-border)',
+            background: selected === i ? `${accentColor}15` : 'var(--panel)',
+            boxShadow: selected === i ? `0 0 12px ${accentColor}30` : 'none',
+            transition: 'all 0.15s', position: 'relative',
+          }}>
+          <canvas
+            ref={(el) => { canvasRefs.current[i] = el; }}
+            width={CHAR_FRAME_W * 3}
+            height={CHAR_FRAME_H * 3}
+            style={{ width: 48, height: 96, imageRendering: 'pixelated' }}
+          />
+          {selected === i && (
+            <div style={{
+              position: 'absolute', bottom: -4, right: -4,
+              width: 16, height: 16, borderRadius: 99,
+              background: accentColor, color: '#000',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, fontWeight: 900,
+            }}>✓</div>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /* ── Pixel Office iframe bridge ──────────────────────────────────── */
 
@@ -340,13 +414,16 @@ function AddAgentModal({
 }) {
   const [step, setStep] = useState(0); // 0=identity, 1=provider, 2=model
   const [label, setLabel] = useState('');
-  const [icon, setIcon] = useState('🤖');
+  const [palette, setPalette] = useState(0);
   const [color, setColor] = useState('#38bdf8');
   const [provider, setProvider] = useState('');
   const [model, setModel] = useState('');
   const [customModel, setCustomModel] = useState('');
   const availModels = modelsForProvider(provider);
   const needsCustomInput = provider === 'custom' || provider === 'codex_cli' || provider === 'claude_cli';
+
+  // Map palette index to a default icon for the agent config
+  const paletteIcons = ['👔', '📋', '🧑‍💻', '⚡', '🔍', '🤖'];
 
   const toRoleId = (s: string) =>
     s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `agent_${Date.now()}`;
@@ -366,7 +443,7 @@ function AddAgentModal({
     onAdd({
       role: roleId,
       label: label.trim(),
-      icon: icon.trim() || '🤖',
+      icon: paletteIcons[palette] || '🤖',
       color,
       enabled: true,
       provider: provider || undefined,
@@ -409,16 +486,14 @@ function AddAgentModal({
 
           {/* Step 0: Identity */}
           {step === 0 && (
-            <div style={{ display: 'grid', gap: 14 }}>
-              {/* Preview card */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: `${color}08`, border: `1px solid ${color}20` }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: `${color}20`, border: `2px solid ${color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{icon}</div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: color }}>{label || t('office.agentNamePlaceholder')}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{roleId || '...'}</div>
-                </div>
+            <div style={{ display: 'grid', gap: 16 }}>
+              {/* Character picker */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 10 }}>{t('office.pickCharacter')}</div>
+                <PixelCharacterPicker selected={palette} onSelect={setPalette} accentColor={color} />
               </div>
 
+              {/* Name input */}
               <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t('office.agentNamePlaceholder')} autoFocus
                 style={inputSt} />
 
@@ -427,19 +502,6 @@ function AddAgentModal({
                   {t('office.roleConflict')}
                 </div>
               )}
-
-              {/* Icon picker */}
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>Icon</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {EMOJI_PICKS.map((e) => (
-                    <button key={e} onClick={() => setIcon(e)}
-                      style={{ width: 38, height: 38, borderRadius: 10, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: icon === e ? `2px solid ${color}` : '1px solid var(--panel-border)', background: icon === e ? `${color}15` : 'var(--panel)', transition: 'all 0.15s' }}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Color picker */}
               <div>
