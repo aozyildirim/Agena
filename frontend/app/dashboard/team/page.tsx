@@ -551,6 +551,7 @@ export default function TeamPage() {
 /* ── Org Members & Role Management Panel ────────────────────────── */
 
 type OrgMember = { id: number; user_id: number; email: string; full_name: string; role: string };
+type PendingInvite = { id: number; email: string; status: string; created_at?: string };
 
 const ROLE_OPTIONS = [
   { value: 'owner', label: 'Owner', color: '#f59e0b', desc: 'Tam yetki' },
@@ -562,6 +563,7 @@ const ROLE_OPTIONS = [
 function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocale>['t']>[0]) => string }) {
   const { role: myRole } = useRole();
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [changingId, setChangingId] = useState<number | null>(null);
   const [toast, setToast] = useState('');
@@ -570,8 +572,12 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
 
   const fetchMembers = useCallback(async () => {
     try {
-      const data = await apiFetch<OrgMember[]>('/org/members');
+      const [data, invData] = await Promise.all([
+        apiFetch<OrgMember[]>('/org/members'),
+        apiFetch<PendingInvite[]>('/org/invites').catch(() => [] as PendingInvite[]),
+      ]);
       setMembers(data);
+      setInvites(invData.filter((i) => i.status === 'pending'));
     } catch { /* silent */ }
     setLoading(false);
   }, []);
@@ -673,6 +679,41 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
           );
         })}
       </div>
+
+      {/* Pending Invites */}
+      {invites.length > 0 && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 2 }}>
+            Pending Invites ({invites.length})
+          </div>
+          {invites.map((inv) => (
+            <div key={inv.id} style={{
+              display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px',
+              borderRadius: 14, border: '1px dashed rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.04)',
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, flexShrink: 0,
+              }}>✉</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-90)' }}>{inv.email}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>
+                  {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : ''} · Davet gönderildi
+                </div>
+              </div>
+              <span style={{
+                padding: '5px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+                border: '1px solid rgba(245,158,11,0.3)', flexShrink: 0,
+              }}>
+                Pending
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Permission matrix legend */}
       <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: 16 }}>
