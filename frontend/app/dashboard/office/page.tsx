@@ -74,66 +74,66 @@ type LiveResponse = {
 
 function usePixelOfficeBridge(
   iframeRef: React.RefObject<HTMLIFrameElement | null>,
-  agents: OfficeAgent[],
+  agentsRef: React.RefObject<OfficeAgent[]>,
   iframeReady: boolean,
 ) {
-  const [bridgeReady, setBridgeReady] = useState(false);
   const spawnedRef = useRef<Set<number>>(new Set());
   const stageRef = useRef<Record<number, string>>({});
 
-  // Wait for pixel office to fully load assets before sending messages
   useEffect(() => {
     if (!iframeReady) return;
-    const timer = setTimeout(() => setBridgeReady(true), 2500);
-    return () => clearTimeout(timer);
-  }, [iframeReady]);
+    let syncId: ReturnType<typeof setInterval>;
 
-  // Sync agents to pixel office whenever agents or bridgeReady changes
-  useEffect(() => {
-    if (!bridgeReady) return;
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) return;
-
-    const send = (payload: unknown) => {
-      iframe.contentWindow?.postMessage({ source: 'tiqr-bridge', payload }, '*');
-    };
-
-    for (const agent of agents) {
-      const isNew = !spawnedRef.current.has(agent.pixelId);
-
-      // 1. Spawn character
-      if (isNew) {
-        send({ type: 'agentCreated', id: agent.pixelId, folderName: agent.label });
-        spawnedRef.current.add(agent.pixelId);
-
-        // Idle agents: immediately end their "turn" so they start wandering
-        // (agentCreated sets isActive=true, we need to flip it to false)
-        if (agent.status !== 'active') {
-          send({ type: 'agentStatus', id: agent.pixelId, status: 'waiting' });
+    const startTimer = setTimeout(() => {
+      // Spawn all agents with agentCreated (one by one, each gets unique palette)
+      const iframe = iframeRef.current;
+      const agents = agentsRef.current;
+      if (iframe?.contentWindow && agents.length) {
+        const send = (p: unknown) => iframe.contentWindow!.postMessage({ source: 'tiqr-bridge', payload: p }, '*');
+        for (const a of agents) {
+          send({ type: 'agentCreated', id: a.pixelId, folderName: a.label });
+          spawnedRef.current.add(a.pixelId);
         }
+        // After 500ms, mark idle ones as waiting so they start wandering
+        setTimeout(() => {
+          const curr = agentsRef.current;
+          for (const a of curr) {
+            if (a.status !== 'active') {
+              send({ type: 'agentStatus', id: a.pixelId, status: 'waiting' });
+              stageRef.current[a.pixelId] = 'idle';
+            } else {
+              send({ type: 'agentToolStart', id: a.pixelId, toolId: `t-${a.pixelId}-${Date.now()}`, status: stepToToolName(a.currentStage || '') });
+              stageRef.current[a.pixelId] = a.currentStage || 'active';
+            }
+          }
+        }, 500);
       }
 
-      // 2. Track status changes
-      const key = agent.status === 'active' ? (agent.currentStage || 'active') : 'idle';
-      if (key === stageRef.current[agent.pixelId]) continue;
-      const prev = stageRef.current[agent.pixelId];
-      stageRef.current[agent.pixelId] = key;
+      // Sync loop: detect status changes every second
+      syncId = setInterval(() => {
+        const ifr = iframeRef.current;
+        const ag = agentsRef.current;
+        if (!ifr?.contentWindow || !ag.length) return;
+        const s = (p: unknown) => ifr.contentWindow!.postMessage({ source: 'tiqr-bridge', payload: p }, '*');
 
-      if (agent.status === 'active') {
-        // Active → sit at desk, play tool animation
-        send({
-          type: 'agentToolStart',
-          id: agent.pixelId,
-          toolId: `tool-${agent.pixelId}-${Date.now()}`,
-          status: stepToToolName(agent.currentStage || ''),
-        });
-      } else if (prev && prev !== 'idle') {
-        // Was working, now idle → clear tools, trigger idle cycle
-        send({ type: 'agentToolsClear', id: agent.pixelId });
-        send({ type: 'agentStatus', id: agent.pixelId, status: 'waiting' });
-      }
-    }
-  }, [agents, bridgeReady, iframeRef]);
+        for (const agent of ag) {
+          const key = agent.status === 'active' ? (agent.currentStage || 'active') : 'idle';
+          if (key === stageRef.current[agent.pixelId]) continue;
+          const prev = stageRef.current[agent.pixelId];
+          stageRef.current[agent.pixelId] = key;
+
+          if (agent.status === 'active') {
+            s({ type: 'agentToolStart', id: agent.pixelId, toolId: `t-${agent.pixelId}-${Date.now()}`, status: stepToToolName(agent.currentStage || '') });
+          } else if (prev && prev !== 'idle') {
+            s({ type: 'agentToolsClear', id: agent.pixelId });
+            s({ type: 'agentStatus', id: agent.pixelId, status: 'waiting' });
+          }
+        }
+      }, 1000);
+    }, 2500);
+
+    return () => { clearTimeout(startTimer); clearInterval(syncId); };
+  }, [iframeReady, iframeRef, agentsRef]);
 }
 
 /* ── Task Assignment Modal ───────────────────────────────────────── */
@@ -255,6 +255,10 @@ export default function OfficePage() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<'office' | 'split'>('split');
   const [assignAgent, setAssignAgent] = useState<OfficeAgent | null>(null);
+  const officeAgentsRef = useRef<OfficeAgent[]>([]);
+
+  // Keep ref in sync with state
+  useEffect(() => { officeAgentsRef.current = officeAgents; }, [officeAgents]);
 
   // Load agent configs (same source as /dashboard/agents)
   useEffect(() => {
@@ -307,7 +311,7 @@ export default function OfficePage() {
     return () => clearInterval(iv);
   }, [agentConfigs]);
 
-  usePixelOfficeBridge(iframeRef, officeAgents, iframeLoaded);
+  usePixelOfficeBridge(iframeRef, officeAgentsRef, iframeLoaded);
 
   const activeAgents = officeAgents.filter((a) => a.status === 'active');
   const running = tasks.filter((t) => t.status === 'running');

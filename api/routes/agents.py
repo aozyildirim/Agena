@@ -68,47 +68,63 @@ async def run_agents(
 import re
 
 
-def _detect_active_role(message: str) -> str | None:
-    """Parse agent log message to detect which pipeline role is currently active."""
-    msg = message.lower()
-    # Step messages from orchestration_service
-    if 'fetching context' in msg:
-        return 'pm'
-    if 'pm analyzing' in msg or 'pm result' in msg:
-        return 'pm'
-    if 'ai plan' in msg or 'planning' in msg:
-        return 'pm'
-    if 'developer generating' in msg or 'developer result' in msg:
-        return 'developer'
-    if 'ai code' in msg or 'coding' in msg:
-        return 'developer'
-    if 'review' in msg:
-        return 'qa'
-    if 'finalize' in msg:
-        return 'lead_developer'
-    return None
+def _parse_pipeline_state(logs: list) -> tuple[str | None, str]:
+    """Parse recent agent logs to detect which role is CURRENTLY working.
 
+    Returns (active_role, step_label). Only returns a role if that step
+    is still in progress (not yet finished).
 
-def _detect_step_label(message: str) -> str:
-    """Extract human-readable step label from agent log message."""
-    msg = message.lower()
-    if 'fetching context' in msg:
-        return 'fetch_context'
-    if 'pm analyzing' in msg:
-        return 'pm_analyzing'
-    if 'pm result' in msg:
-        return 'pm_done'
-    if 'developer generating' in msg:
-        return 'generating_code'
-    if 'developer result' in msg:
-        return 'dev_done'
-    if 'flow complete' in msg:
-        return 'flow_complete'
-    if 'ai plan' in msg:
-        return 'ai_planning'
-    if 'ai code' in msg:
-        return 'ai_coding'
-    return message[:40]
+    Log sequence for flow mode:
+      "Step 1/3: Fetching context"     → pm active
+      "Step 2/3: PM analyzing"         → pm active
+      "PM result:"                     → pm DONE
+      "Step 3/3: Developer generating" → developer active
+      "Developer result:"              → developer DONE
+      "Flow complete"                  → nobody active
+    """
+    for log in logs:  # logs are newest-first
+        msg = log.message.lower() if hasattr(log, 'message') else str(log).lower()
+        stage = log.stage if hasattr(log, 'stage') else ''
+
+        # Finished signals - nobody from this step is active anymore
+        if 'flow complete' in msg:
+            return None, 'flow_complete'
+        if 'developer result' in msg:
+            return None, 'dev_done'
+        if 'pm result' in msg:
+            return None, 'pm_done'
+        if 'ai code' in msg and 'result' in msg:
+            return None, 'ai_code_done'
+        if 'ai plan' in msg and 'result' in msg:
+            return None, 'ai_plan_done'
+
+        # Active signals - this role is currently working
+        if 'developer generating' in msg or 'step 3' in msg:
+            return 'developer', 'generating_code'
+        if 'ai code' in msg:
+            return 'developer', 'ai_coding'
+        if 'pm analyzing' in msg or 'step 2' in msg:
+            return 'pm', 'pm_analyzing'
+        if 'ai plan' in msg:
+            return 'pm', 'ai_planning'
+        if 'fetching context' in msg or 'step 1' in msg:
+            return 'pm', 'fetch_context'
+        if 'review' in msg and 'result' not in msg:
+            return 'qa', 'reviewing'
+        if 'finalize' in msg and 'result' not in msg:
+            return 'lead_developer', 'finalizing'
+
+        # Non-agent stages
+        if stage == 'running':
+            return 'manager', 'starting'
+        if stage in ('code_ready', 'code_preview', 'code_diff', 'local_exec'):
+            return 'lead_developer', stage
+        if stage == 'pr':
+            return 'lead_developer', 'creating_pr'
+        if stage in ('completed', 'failed', 'cancelled'):
+            return None, stage
+
+    return None, 'unknown'
 
 
 @router.get('/live')
@@ -128,7 +144,7 @@ async def get_live_agents(
     )
     running_tasks = result.scalars().all()
 
-    # For each running task, find the latest agent log to detect active role
+    # For each running task, parse logs to find who is CURRENTLY working
     running_info: list[dict[str, Any]] = []
     active_roles: dict[str, dict[str, Any]] = {}  # role -> task info
 
@@ -137,28 +153,16 @@ async def get_live_agents(
             select(AgentLog)
             .where(AgentLog.task_id == task.id)
             .order_by(AgentLog.id.desc())
-            .limit(3)
+            .limit(5)
         )
         logs = log_result.scalars().all()
 
-        detected_role = None
-        step_label = 'running'
-        for log in logs:
-            if log.stage == 'agent':
-                role = _detect_active_role(log.message)
-                if role:
-                    detected_role = role
-                    step_label = _detect_step_label(log.message)
-                    break
-            elif log.stage == 'running':
-                detected_role = 'manager'
-                step_label = 'starting'
-                break
+        detected_role, step_label = _parse_pipeline_state(logs)
 
         task_info = {
             'task_id': task.id,
             'title': task.title,
-            'active_role': detected_role or 'manager',
+            'active_role': detected_role,
             'step_label': step_label,
         }
         running_info.append(task_info)
