@@ -596,8 +596,8 @@ class OrchestrationService:
                     base_branch=pr_payload.base_branch,
                     commit_message=pr_payload.commit_message,
                     files=pr_payload.files,
-                    remote_url=routing.azure_repo_url if routing.effective_source == 'azure' else None,
-                    remote_pat=azure_remote_pat,
+                    remote_url=(routing.azure_repo_url if routing.effective_source == 'azure' else None) if create_pr else None,
+                    remote_pat=azure_remote_pat if create_pr else None,
                 )
                 if not has_changes:
                     await task_service.add_log(task.id, organization_id, 'local_exec', 'No file changes detected, skipping PR')
@@ -1105,28 +1105,37 @@ class OrchestrationService:
                 if not orig_sequence:
                     continue
 
-                # Find the unique position where ALL orig_sequence lines match consecutively
-                match_start = -1
-                candidates = 0
-                for i in range(len(result_lines) - len(orig_sequence) + 1):
-                    all_match = True
-                    for j, expected in enumerate(orig_sequence):
-                        # Normalize: strip trailing whitespace, collapse internal whitespace for comparison
-                        orig_norm = result_lines[i + j].rstrip()
-                        exp_norm = expected.rstrip()
-                        # Also try stripped comparison (model may add/remove leading tabs)
-                        if orig_norm != exp_norm and orig_norm.strip() != exp_norm.strip():
-                            all_match = False
-                            break
-                    if all_match:
-                        match_start = i
-                        candidates += 1
-                        if candidates > 1:
-                            # Multiple matches — ambiguous, try with more strict matching
-                            break
+                # Find the unique position where orig_sequence lines match consecutively.
+                # First try exact match, then fall back to fuzzy (allow up to 20% mismatched lines).
+                def _find_match(lines: list[str], seq: list[str], max_mismatch: int = 0) -> tuple[int, int]:
+                    best_start = -1
+                    count = 0
+                    for i in range(len(lines) - len(seq) + 1):
+                        mismatches = 0
+                        for j, expected in enumerate(seq):
+                            orig_norm = lines[i + j].rstrip()
+                            exp_norm = expected.rstrip()
+                            if orig_norm != exp_norm and orig_norm.strip() != exp_norm.strip():
+                                mismatches += 1
+                                if mismatches > max_mismatch:
+                                    break
+                        else:
+                            best_start = i
+                            count += 1
+                            if count > 1:
+                                break
+                    return best_start, count
+
+                match_start, candidates = _find_match(result_lines, orig_sequence, 0)
+                if match_start == -1:
+                    # Fuzzy: allow up to 20% of lines to mismatch
+                    allowed = max(1, len(orig_sequence) // 5)
+                    match_start, candidates = _find_match(result_lines, orig_sequence, allowed)
+                    if match_start != -1:
+                        logger.info(f'Patch: fuzzy match for hunk in {rel_path} (allowed {allowed} mismatches)')
 
                 if match_start == -1:
-                    logger.warning(f'Patch: no context match for hunk in {rel_path}, skipping')
+                    logger.warning(f'Patch: no context match for hunk in {rel_path}, skipping hunk')
                     continue
 
                 if candidates > 1:

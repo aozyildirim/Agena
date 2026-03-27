@@ -43,11 +43,22 @@ class LocalRepoService:
         except Exception:
             pass  # fetch may fail if no remote configured
 
+        # If the branch already exists remotely, continue on top of it.
+        # Otherwise create from base_branch.
+        branch_exists = False
         try:
-            # Create new branch from base
-            await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+            await self._run_git(root, ['fetch', remote_target, branch_name])
+            branch_exists = True
         except Exception:
-            await self._run_git(root, ['checkout', '-B', branch_name])
+            pass
+
+        if branch_exists:
+            await self._run_git(root, ['checkout', '-B', branch_name, f'FETCH_HEAD'], allow_fail=True)
+        else:
+            try:
+                await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+            except Exception:
+                await self._run_git(root, ['checkout', '-B', branch_name])
 
         try:
             # Write files directly to the repo
@@ -70,11 +81,13 @@ class LocalRepoService:
                  'commit', '-m', commit_message],
             )
 
-            # Try to push (non-fatal if no remote)
-            try:
-                await self._run_git(root, ['push', '-u', remote_target, branch_name])
-            except Exception:
-                pass  # Push is optional — local changes are committed
+            # Push only when remote_url is provided (i.e. create_pr flow)
+            if remote_url:
+                try:
+                    await self._run_git(root, ['push', '-u', '--force-with-lease', remote_target, branch_name])
+                except Exception:
+                    # Fallback to force push if force-with-lease fails (first push)
+                    await self._run_git(root, ['push', '-u', remote_target, branch_name], allow_fail=True)
 
             return True, branch_name
         except Exception:

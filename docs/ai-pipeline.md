@@ -168,3 +168,50 @@ api/routes/
   saas_tasks.py             — Task CRUD + assign endpoint
   preferences.py            — Repo scan + agents.md generation
 ```
+
+---
+
+## Token Output Limitleri (AGENT_TOKEN_LIMITS)
+
+Tum agent output token limitleri tek bir yerden kontrol edilir:
+`agents/crewai_agents.py` → `AGENT_TOKEN_LIMITS` dict
+
+Bu dict'i degistirince tum pipeline etkilenir. Baska dosyada hardcoded limit yoktur.
+
+```python
+AGENT_TOKEN_LIMITS = {
+    # --- Core pipeline (orchestration_service / crewai_agents) ---
+    'context': 2_000,        # fetch_context: memory & context summary
+    'pm': 16_000,            # product manager: spec/analysis JSON
+    'planner': 8_000,        # AI planner: plan + file list JSON
+    'developer': 128_000,    # developer: code patches (ai & flow mode)
+    'reviewer': 128_000,     # reviewer: reviewed patches
+    'finalizer': 128_000,    # finalizer: cleaned final output
+    # --- Flow executor & misc ---
+    'flow_node': 8_000,      # generic flow LLM nodes
+    'agent_node': 2_000,     # generic agent nodes in flows
+    'pr_review': 4_000,      # PR review comments
+    'agent_test': 2_000,     # agent test/preview from settings
+}
+```
+
+### Nerede kullanilir?
+
+| Key | Dosya | Metot |
+|-----|-------|-------|
+| `context` | `crewai_agents.py` | `fetch_context()` |
+| `pm` | `crewai_agents.py` | `run_product_manager()` |
+| `planner` | `crewai_agents.py` | `run_ai_plan()` |
+| `developer` | `crewai_agents.py` | `run_ai_code()` + `run_developer()` |
+| `reviewer` | `crewai_agents.py` | `run_reviewer()` |
+| `finalizer` | `crewai_agents.py` | `finalize()` |
+| `flow_node` | `flow_executor.py` | Flow LLM node calistirma |
+| `agent_node` | `flow_executor.py` | Generic agent node |
+| `pr_review` | `flow_executor.py` | PR review comment olusturma |
+| `agent_test` | `preferences.py` | Agent test/preview endpoint |
+
+### Degistirirken dikkat:
+- `developer`, `reviewer`, `finalizer` yuksek tutulmali (128K+) — buyuk repo'larda cok dosya degisebilir
+- `planner` ve `pm` orta (8-16K) — JSON cikti, cok buyumez
+- `context`, `agent_node`, `agent_test` dusuk (2K) — kisa ozet ciktilari
+- Model'in kendi limiti bu degerden dusukse, model limiti gecerlidir

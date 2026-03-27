@@ -246,6 +246,7 @@ export default function AgentsPage() {
   const [editModalAgent, setEditModalAgent] = useState<AgentConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, AgentAnalytics>>({});
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [draft, setDraft] = useState<AgentConfig>({
@@ -355,6 +356,7 @@ export default function AgentsPage() {
     ];
     setAgents(next);
     saveAgents(next);
+    void savePrefs({ agents: next as unknown as Record<string, unknown>[] });
     setEditing(role);
     setShowNewAgent(false);
   }
@@ -447,7 +449,10 @@ export default function AgentsPage() {
           onClose={() => { setShowNewAgent(false); setEditModalAgent(null); }}
           onSave={(updated) => {
             if (editModalAgent) {
-              updateAgent(editModalAgent.role, updated);
+              const next = agents.map((a) => a.role === editModalAgent.role ? { ...a, ...updated } : a);
+              setAgents(next);
+              saveAgents(next);
+              void savePrefs({ agents: next as unknown as Record<string, unknown>[] });
             } else {
               setDraft(updated);
               createNewAgent();

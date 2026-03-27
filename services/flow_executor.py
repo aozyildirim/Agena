@@ -18,6 +18,7 @@ from services.azure_pr_service import AzurePRService
 from services.github_service import GitHubService
 from services.integration_config_service import IntegrationConfigService
 from services.llm.provider import LLMProvider
+from agents.crewai_agents import AGENT_TOKEN_LIMITS
 from services.orchestration_service import OrchestrationService
 
 logger = logging.getLogger(__name__)
@@ -369,7 +370,7 @@ async def _run_product_review_node(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             complexity_hint='high',
-            max_output_tokens=8000,
+            max_output_tokens=AGENT_TOKEN_LIMITS['flow_node'],
         )
         parsed: dict[str, Any] = {}
         try:
@@ -515,7 +516,7 @@ async def _run_agent_node(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             complexity_hint='normal',
-            max_output_tokens=1200,
+            max_output_tokens=AGENT_TOKEN_LIMITS['agent_node'],
         )
         return {'status': 'ok', 'output': output, 'role': role, 'model': used_model, 'usage': usage_meta}
     except Exception as exc:
@@ -807,7 +808,7 @@ async def _run_lead_pr_review_node(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 complexity_hint='normal',
-                max_output_tokens=1200,
+                max_output_tokens=AGENT_TOKEN_LIMITS['pr_review'],
             )
             if not (review or '').strip():
                 raise RuntimeError('Empty review output')

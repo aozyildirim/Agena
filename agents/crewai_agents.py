@@ -20,13 +20,20 @@ logger = logging.getLogger(__name__)
 
 # Centralized output token limits per agent role.
 # Adjust these values to control max generation length for each step.
+# See docs/ai-pipeline.md for documentation.
 AGENT_TOKEN_LIMITS: dict[str, int] = {
-    'context': 2_000,
-    'pm': 16_000,
-    'planner': 8_000,
-    'developer': 128_000,
-    'reviewer': 128_000,
-    'finalizer': 128_000,
+    # --- Core pipeline (orchestration_service / crewai_agents) ---
+    'context': 2_000,        # fetch_context: memory & context summary
+    'pm': 16_000,            # product manager: spec/analysis JSON
+    'planner': 8_000,        # AI planner: plan + file list JSON
+    'developer': 128_000,    # developer: code patches (ai & flow mode)
+    'reviewer': 128_000,     # reviewer: reviewed patches
+    'finalizer': 128_000,    # finalizer: cleaned final output
+    # --- Flow executor & misc ---
+    'flow_node': 8_000,      # generic flow LLM nodes
+    'agent_node': 2_000,     # generic agent nodes in flows
+    'pr_review': 4_000,      # PR review comments
+    'agent_test': 2_000,     # agent test/preview from settings
 }
 
 

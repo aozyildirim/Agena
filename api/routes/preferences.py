@@ -17,6 +17,7 @@ from models.user_preference import UserPreference
 from services.ai_usage_event_service import AIUsageEventService
 from services.integration_config_service import IntegrationConfigService
 from services.llm.cost_tracker import CostTracker
+from agents.crewai_agents import AGENT_TOKEN_LIMITS
 from services.llm.provider import LLMProvider
 from services.notification_service import NotificationService
 from services.org_service import OrgService
@@ -539,7 +540,7 @@ async def scan_repo_profile(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 complexity_hint='high',
-                max_output_tokens=1500,
+                max_output_tokens=AGENT_TOKEN_LIMITS['agent_test'],
             )
             used_model = model
             prompt_tokens = int(usage_meta.get('prompt_tokens', 0))
