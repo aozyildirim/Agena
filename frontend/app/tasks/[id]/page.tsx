@@ -20,6 +20,7 @@ type TaskDetail = {
   pr_url?: string | null;
   branch_name?: string | null;
   failure_reason?: string | null;
+  last_mode?: string | null;
   created_at: string;
   duration_sec?: number | null;
   run_duration_sec?: number | null;
@@ -499,7 +500,7 @@ export default function TaskDetailPage() {
     if (!taskId) return;
     try {
       setIsRerunBusy(true);
-      await apiFetch('/tasks/' + taskId + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr }) });
+      await apiFetch('/tasks/' + taskId + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: task?.last_mode || undefined }) });
       setSelectedRunIndex(-1);
       await loadData();
     } catch (err) {

@@ -16,6 +16,13 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.columns "
+        "WHERE table_name='invites' AND column_name='invited_by'"
+    ))
+    if result.scalar():
+        return
     op.add_column(
         'invites',
         sa.Column('invited_by', sa.Integer(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),

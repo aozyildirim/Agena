@@ -515,6 +515,7 @@ class OrchestrationService:
                     f'  output_length: {gen_len} chars\n'
                     f'  output_preview:\n{generated[:800]}'
                 )
+
                 # Skip reviewer — use developer output directly
                 flow_state['final_code'] = generated
                 final_len = gen_len
@@ -891,6 +892,7 @@ class OrchestrationService:
 
         parsed_files = self._parse_reviewed_output_to_files(reviewed_code, local_repo_path=local_repo_path)
         if not parsed_files:
+            logger.error(f'No file blocks parsed. Output length: {len(reviewed_code)} chars. First 2000 chars:\n{reviewed_code[:2000]}')
             raise RuntimeError(
                 'Model output did not contain structured file blocks (**File: path** + fenced code). '
                 'Task cannot be applied safely to repository files.'
@@ -913,19 +915,22 @@ class OrchestrationService:
         # Try multiple patterns — with and without fenced code blocks
         patterns = [
             # **File: path** + ```code```
-            re.compile(r'(?:\*\*)?File:\s*(.*?)(?:\*\*)?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
+            re.compile(r'\*{0,2}File:\s*(.*?)\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
             # File: path + @@...*** End Patch (no fenced code blocks)
-            re.compile(r'(?:\*\*)?File:\s*([^\n*]+?)(?:\*\*)?\s*\r?\n(@@.*?(?:\*\*\* End Patch|\Z))', re.DOTALL),
+            re.compile(r'\*{0,2}File:\s*([^\n*]+?)\*{0,2}\s*\r?\n\s*(@@.*?(?:\*\*\* End Patch|\Z))', re.DOTALL),
             # ### File: path + ```code```
             re.compile(r'#+\s*(?:File:?\s*)?`?([^\n`]+)`?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
             # `path.ext`: + ```code```
             re.compile(r'`([^`\n]+\.[a-zA-Z]{1,10})`\s*:?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
+            # Fallback: any line with a file path ending in known extension + next fenced block
+            re.compile(r'(?:^|\n)\s*\*{0,2}([\w/._-]+\.(?:go|py|ts|tsx|js|jsx|java|rs|rb|cs))\s*\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
         ]
         matches: list[tuple[str, str]] = []
         for pat in patterns:
             matches = pat.findall(reviewed_code)
             if matches:
                 break
+        logger.info(f'Parsed {len(matches)} file block(s): {[m[0].strip() for m in matches]}')
         files: list[GitHubFileChange] = []
         for path_raw, content in matches:
             clean_path = path_raw.strip().strip('`').strip()

@@ -27,6 +27,7 @@ class TaskResponse(BaseModel):
     pr_url: str | None = None
     branch_name: str | None = None
     failure_reason: str | None = None
+    last_mode: str | None = None
     created_at: datetime
     duration_sec: float | None = None
     run_duration_sec: float | None = None

@@ -461,6 +461,7 @@ class TaskService:
 
         task.status = 'queued'
         task.failure_reason = None
+        task.last_mode = mode
         await self.db.commit()
         try:
             queue_key = await self.queue_service.enqueue(

@@ -20,8 +20,10 @@ def upgrade() -> None:
         'organizations',
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('name', sa.String(length=255), nullable=False, unique=True),
+        sa.Column('slug', sa.String(length=100), nullable=False, unique=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.func.now()),
     )
+    op.create_index('ix_organizations_slug', 'organizations', ['slug'], unique=True)
 
     op.create_table(
         'users',
@@ -81,6 +83,7 @@ def upgrade() -> None:
         sa.Column('branch_name', sa.String(length=255), nullable=True),
         sa.Column('pr_url', sa.String(length=1024), nullable=True),
         sa.Column('failure_reason', sa.Text(), nullable=True),
+        sa.Column('last_mode', sa.String(length=32), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(), server_default=sa.func.now()),
     )
@@ -132,6 +135,7 @@ def upgrade() -> None:
         sa.Column('email', sa.String(length=255), nullable=False),
         sa.Column('token', sa.String(length=255), nullable=False, unique=True),
         sa.Column('status', sa.String(length=32), nullable=False, server_default='pending'),
+        sa.Column('invited_by', sa.Integer(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.func.now()),
     )
 
