@@ -281,6 +281,7 @@ function usePixelOfficeBridge(
 /* ── Task Assignment Modal ───────────────────────────────────────── */
 
 type SprintWorkItem = { id: string; title: string; description: string; state?: string; source: string };
+type RepoMappingItem = { id: string; name: string; local_path: string; azure_repo_url?: string; repo_playbook?: string };
 
 function AssignTaskModal({
   agent, tasks, onClose, t,
@@ -302,17 +303,27 @@ function AssignTaskModal({
   const [sprintItems, setSprintItems] = useState<SprintWorkItem[]>([]);
   const [sprintLoading, setSprintLoading] = useState(false);
   const [sprintAssigning, setSprintAssigning] = useState<string | null>(null);
+  const [selectedSprintItem, setSelectedSprintItem] = useState<SprintWorkItem | null>(null);
+  const [sprintDesc, setSprintDesc] = useState('');
+  const [repoMappings, setRepoMappings] = useState<RepoMappingItem[]>([]);
+  const [selectedMapping, setSelectedMapping] = useState<string>('');
   const assignable = tasks.filter((tk) => tk.status === 'queued' || tk.status === 'failed');
   const availModels = modelsForProvider(selProvider);
 
   const loadSprintItems = async () => {
     setSprintLoading(true);
     try {
-      const project = localStorage.getItem('tiqr_azure_project') || '';
-      const team = localStorage.getItem('tiqr_azure_team') || '';
-      const sprint = localStorage.getItem('tiqr_azure_sprint') || '';
+      // Load repo mappings
+      const mappingsRaw = localStorage.getItem('tiqr_repo_mappings');
+      const mappings: RepoMappingItem[] = mappingsRaw ? JSON.parse(mappingsRaw) : [];
+      setRepoMappings(mappings);
+      if (mappings.length > 0 && !selectedMapping) setSelectedMapping(mappings[0].id);
+
+      const project = localStorage.getItem('tiqr_sprint_project') || '';
+      const team = localStorage.getItem('tiqr_sprint_team') || '';
+      const sprint = localStorage.getItem('tiqr_sprint_path') || '';
       if (!sprint) { setSprintItems([]); return; }
-      const states = ['New', 'Active', 'To Do', 'In Progress'];
+      const states = ['New', 'Active', 'To Do', 'In Progress', 'Backlog'];
       const all: SprintWorkItem[] = [];
       const results = await Promise.allSettled(
         states.map(async (state) => {
@@ -328,35 +339,32 @@ function AssignTaskModal({
     } catch { setSprintItems([]); } finally { setSprintLoading(false); }
   };
 
-  const handleSprintAssign = async (item: SprintWorkItem) => {
+  const handleSprintAssign = async () => {
+    if (!selectedSprintItem) return;
+    const item = selectedSprintItem;
     setSprintAssigning(item.id);
     try {
-      // Get repo mapping for context
-      const mappingsRaw = localStorage.getItem('tiqr_repo_mappings');
-      const mappings = mappingsRaw ? JSON.parse(mappingsRaw) : [];
-      const mapping = mappings[0] || {};
-      const project = localStorage.getItem('tiqr_azure_project') || '';
+      const project = localStorage.getItem('tiqr_sprint_project') || '';
+      const mapping = repoMappings.find((m) => m.id === selectedMapping) || repoMappings[0];
       const ctxParts = [
         `External Source: Azure #${item.id}`,
         project ? `Project: ${project}` : '',
-        mapping.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
-        mapping.name ? `Local Repo Mapping: ${mapping.name}` : '',
-        mapping.local_path ? `Local Repo Path: ${mapping.local_path}` : '',
+        mapping?.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
+        mapping?.name ? `Local Repo Mapping: ${mapping.name}` : '',
+        mapping?.local_path ? `Local Repo Path: ${mapping.local_path}` : '',
       ].filter(Boolean);
-      const desc = (item.description || item.title) + '\n\n---\n' + ctxParts.join('\n');
-      // Create task
+      const fullDesc = (sprintDesc || item.title) + '\n\n---\n' + ctxParts.join('\n');
       const created = await apiFetch<{ id: number }>('/tasks', {
         method: 'POST',
-        body: JSON.stringify({ title: `[Azure #${item.id}] ${item.title}`, description: desc }),
+        body: JSON.stringify({ title: `[Azure #${item.id}] ${item.title}`, description: fullDesc }),
       });
-      // Assign to agent
       await apiFetch(`/tasks/${created.id}/assign`, { method: 'POST', body: JSON.stringify(assignBody()) });
       onClose();
     } catch { /* silent */ } finally { setSprintAssigning(null); }
   };
 
   const assignBody = () => {
-    const body: Record<string, unknown> = { create_pr: createPr };
+    const body: Record<string, unknown> = { create_pr: createPr, mode: 'ai' };
     if (selProvider) body.agent_provider = selProvider;
     const m = selModel || customModel;
     if (m) body.agent_model = m;
@@ -489,23 +497,55 @@ function AssignTaskModal({
           <div>
             {sprintLoading ? (
               <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--ink-25)', fontSize: 13 }}>{t('office.loading')}</div>
-            ) : sprintItems.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--ink-25)', fontSize: 13 }}>{t('office.noSprintItems')}</div>
+            ) : !selectedSprintItem ? (
+              /* Step 1: Pick item */
+              sprintItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--ink-25)', fontSize: 13 }}>{t('office.noSprintItems')}</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 4, maxHeight: 300, overflowY: 'auto' }}>
+                  {sprintItems.map((item) => (
+                    <button key={item.id} onClick={() => { setSelectedSprintItem(item); setSprintDesc(item.description || ''); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 10, fontSize: 12, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', color: 'var(--ink-78)', cursor: 'pointer', textAlign: 'left' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, flexShrink: 0, color: 'var(--ink-35)', padding: '2px 5px', borderRadius: 5, background: 'var(--panel-alt)' }}>{item.state || '?'}</span>
+                      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{item.title}</div>
+                      <span style={{ fontSize: 10, color: 'var(--ink-25)', flexShrink: 0 }}>#{item.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )
             ) : (
-              <div style={{ display: 'grid', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
-                {sprintItems.map((item) => (
-                  <button key={item.id} onClick={() => handleSprintAssign(item)} disabled={sprintAssigning === item.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 12, fontSize: 13, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', color: 'var(--ink-78)', cursor: 'pointer', textAlign: 'left', opacity: sprintAssigning === item.id ? 0.5 : 1 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, color: 'var(--ink-35)', padding: '2px 6px', borderRadius: 6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)' }}>{item.state || '?'}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{item.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink-25)', marginTop: 2 }}>#{item.id}</div>
+              /* Step 2: Configure & assign */
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button onClick={() => setSelectedSprintItem(null)} style={{ background: 'none', border: 'none', color: 'var(--ink-35)', cursor: 'pointer', fontSize: 14, padding: 0 }}>←</button>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', flex: 1 }}>{selectedSprintItem.title}</div>
+                  <span style={{ fontSize: 10, color: 'var(--ink-25)' }}>#{selectedSprintItem.id}</span>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4 }}>{t('office.description')}</div>
+                  <textarea value={sprintDesc} onChange={(e) => setSprintDesc(e.target.value)} rows={3}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink-90)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                </div>
+
+                {repoMappings.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4 }}>{t('office.repoMapping')}</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {repoMappings.map((m) => (
+                        <button key={m.id} onClick={() => setSelectedMapping(m.id)}
+                          style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: selectedMapping === m.id ? `1px solid ${agent.color}60` : '1px solid var(--panel-border-2)', background: selectedMapping === m.id ? `${agent.color}15` : 'var(--panel)', color: selectedMapping === m.id ? agent.color : 'var(--ink-50)' }}>
+                          {m.name}
+                        </button>
+                      ))}
                     </div>
-                    <span style={{ color: agent.color, fontSize: 12, fontWeight: 700, flexShrink: 0, padding: '4px 10px', borderRadius: 8, background: `${agent.color}15`, border: `1px solid ${agent.color}30` }}>
-                      {sprintAssigning === item.id ? '...' : t('office.run')}
-                    </span>
-                  </button>
-                ))}
+                  </div>
+                )}
+
+                <button onClick={() => void handleSprintAssign()} disabled={sprintAssigning === selectedSprintItem.id}
+                  style={{ width: '100%', padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: agent.color, color: '#000', border: 'none', opacity: sprintAssigning ? 0.6 : 1 }}>
+                  {sprintAssigning ? '...' : t('office.assignAndRun')}
+                </button>
               </div>
             )}
           </div>
