@@ -229,8 +229,18 @@ class OrchestrationService:
             else:
                 orchestrator = await self._build_orchestrator(organization_id, routing)
                 # Build repo context into task description before flow starts
-                enriched_desc = await self._build_effective_description(
-                    task, routing, organization_id,
+                enriched_desc = self._build_effective_description(
+                    task.description,
+                    routing.execution_prompt,
+                    routing.repo_playbook,
+                    None,  # tenant_playbook
+                    await self._build_repo_context(
+                        local_repo_path=routing.local_repo_path,
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        task_title=task.title or '',
+                        task_description=task.description or '',
+                    ),
                 )
                 payload_with_context = dict(payload)
                 payload_with_context['description'] = enriched_desc
