@@ -321,8 +321,30 @@ class OrchestrationService:
                     agents_md_source = ''
                     repo_root = Path(routing.local_repo_path).expanduser().resolve() if routing.local_repo_path else None
 
-                    # 1) Repo'nun kendi agents.md'si
-                    if repo_root:
+                    # 1) Tiqr data dir'deki agents.md (scan sonucu)
+                    if routing.local_repo_path:
+                        try:
+                            from models.user_preference import UserPreference
+                            pref_result = await self.db.execute(
+                                __import__('sqlalchemy', fromlist=['select']).select(UserPreference).where(
+                                    UserPreference.user_id == task.created_by_user_id
+                                )
+                            )
+                            pref = pref_result.scalar_one_or_none()
+                            if pref and pref.profile_settings_json:
+                                import json as _json
+                                ps = _json.loads(pref.profile_settings_json)
+                                for _mid, _prof in (ps.get('repo_profiles') or {}).items():
+                                    md_path = _prof.get('agents_md_path', '')
+                                    if md_path and Path(md_path).is_file():
+                                        agents_md_content = Path(md_path).read_text(errors='replace')
+                                        agents_md_source = f'db:{Path(md_path).name}'
+                                        break
+                        except Exception:
+                            pass
+
+                    # 2) Fallback: repo root'taki agents.md
+                    if not agents_md_content and repo_root:
                         for name in ['agents.md', 'AGENTS.md']:
                             p = repo_root / name
                             if p.is_file():
@@ -1425,8 +1447,17 @@ class OrchestrationService:
             # Gather git branch and recent commit info
             git_info = self._get_git_info(root)
 
-            # Check for agents.md first — if exists, use it as primary context
-            agents_md = root / 'agents.md'
+            # Check for agents.md — first in Tiqr data dir, then repo root
+            agents_data_dir = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
+            agents_md = None
+            # Try data dir first (from scan)
+            for f in agents_data_dir.glob('*.md') if agents_data_dir.exists() else []:
+                if f.is_file() and f.stat().st_size > 500:
+                    agents_md = f
+                    break
+            # Fallback to repo root
+            if agents_md is None:
+                agents_md = root / 'agents.md'
             if agents_md.is_file():
                 try:
                     agents_content = agents_md.read_text(errors='replace')

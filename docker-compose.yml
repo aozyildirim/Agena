@@ -21,6 +21,7 @@ services:
       - ./schemas:/app/schemas
       - ./core:/app/core
       - ./workers:/app/workers
+      - ./data:/app/data
       - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
     depends_on:
       - mysql
@@ -46,6 +47,7 @@ services:
       - ./schemas:/app/schemas
       - ./core:/app/core
       - ./workers:/app/workers
+      - ./data:/app/data
       - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
     command: ["python", "-m", "workers.redis_worker"]
     depends_on:
