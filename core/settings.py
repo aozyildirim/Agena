@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     qdrant_embedding_provider: str = Field(default='openai', alias='QDRANT_EMBEDDING_PROVIDER')
     qdrant_openai_embedding_model: str = Field(default='text-embedding-3-small', alias='QDRANT_OPENAI_EMBEDDING_MODEL')
     qdrant_gemini_embedding_model: str = Field(default='text-embedding-004', alias='QDRANT_GEMINI_EMBEDDING_MODEL')
+    qdrant_gemini_api_key: Optional[str] = Field(default=None, alias='QDRANT_GEMINI_API_KEY')
     qdrant_embedding_timeout_sec: int = Field(default=25, alias='QDRANT_EMBEDDING_TIMEOUT_SEC')
 
     max_agent_retries: int = Field(default=3, alias='MAX_AGENT_RETRIES')

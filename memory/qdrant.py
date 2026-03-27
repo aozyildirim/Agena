@@ -52,6 +52,8 @@ class QdrantMemoryStore(MemoryStore):
         if not self.embedding_api_key and self.embedding_provider == 'openai':
             self.embedding_api_key = (self.settings.openai_api_key or '').strip()
             self.embedding_base_url = self.embedding_base_url or (self.settings.openai_base_url or '').strip()
+        if not self.embedding_api_key and self.embedding_provider == 'gemini':
+            self.embedding_api_key = (self.settings.qdrant_gemini_api_key or '').strip()
         if self.embedding_provider == 'openai':
             api_key = (self.embedding_api_key or '').strip()
             if api_key and not api_key.startswith('your_'):
