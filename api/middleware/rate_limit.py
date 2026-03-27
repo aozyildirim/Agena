@@ -40,8 +40,8 @@ _SKIP_PREFIXES = (
 
 # Plan -> max requests per minute.  ``0`` means unlimited.
 _PLAN_LIMITS: dict[str, int] = {
-    'free': 100,
-    'pro': 500,
+    'free': 300,
+    'pro': 1000,
     'enterprise': 0,
 }
 
