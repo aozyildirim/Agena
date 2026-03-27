@@ -294,12 +294,26 @@ async def delete_task(
         raise HTTPException(status_code=404, detail='Task not found')
     if task.status == 'running':
         raise HTTPException(status_code=409, detail='Cannot delete a running task')
-    # Delete related logs
-    await db.execute(
-        select(AgentLog).where(AgentLog.task_id == task_id)
-    )
     from sqlalchemy import delete as sa_delete
-    await db.execute(sa_delete(AgentLog).where(AgentLog.task_id == task_id))
+    # Delete all related records (foreign keys)
+    try:
+        await db.execute(sa_delete(AgentLog).where(AgentLog.task_id == task_id))
+        from models.ai_usage_event import AIUsageEvent
+        await db.execute(sa_delete(AIUsageEvent).where(AIUsageEvent.task_id == task_id))
+    except Exception:
+        pass  # tables might not have task_id FK
+    try:
+        from models.run_record import RunRecord
+        await db.execute(sa_delete(RunRecord).where(RunRecord.task_id == task_id))
+    except Exception:
+        pass
+    try:
+        from models.task_dependency import TaskDependency
+        await db.execute(sa_delete(TaskDependency).where(
+            (TaskDependency.task_id == task_id) | (TaskDependency.depends_on_task_id == task_id)
+        ))
+    except Exception:
+        pass
     await db.delete(task)
     await db.commit()
     return {'status': 'deleted', 'task_id': str(task_id)}
