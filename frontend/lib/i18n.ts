@@ -423,6 +423,11 @@ const translations = {
     'agents.updateError': 'Agent güncellenirken hata oluştu',
     'agents.createSuccess': 'Yeni agent oluşturuldu',
     'agents.createError': 'Agent oluşturulurken hata oluştu',
+    'agents.delete': 'Sil',
+    'agents.deleteConfirm': 'Bu agent silinecek. Emin misiniz?',
+    'agents.confirmDelete': 'Evet, Sil',
+    'agents.deleteSuccess': 'Agent silindi',
+    'agents.deleteError': 'Agent silinirken hata oluştu',
     // Sprints
     'sprints.section': 'Sprintler',
     'sprints.title': 'Sprint Board',
@@ -1796,6 +1801,11 @@ const translations = {
     'agents.updateError': 'Failed to update agent',
     'agents.createSuccess': 'New agent created',
     'agents.createError': 'Failed to create agent',
+    'agents.delete': 'Delete',
+    'agents.deleteConfirm': 'This agent will be deleted. Are you sure?',
+    'agents.confirmDelete': 'Yes, Delete',
+    'agents.deleteSuccess': 'Agent deleted',
+    'agents.deleteError': 'Failed to delete agent',
     // Sprints
     'sprints.section': 'Sprints',
     'sprints.title': 'Sprint Board',
