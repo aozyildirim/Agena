@@ -621,7 +621,7 @@ export default function SprintsPage() {
       await apiFetch('/tasks/' + String(taskId) + '/assign', {
         method: 'POST',
         body: JSON.stringify({
-          mode: 'flow',
+          mode: 'ai',
           create_pr: false,
           agent_role: options?.agentRole || undefined,
           agent_model: options?.agentModel || undefined,
