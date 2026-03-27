@@ -28,6 +28,7 @@ type AgentConfig = {
   description?: string;
   system_prompt?: string;
   palette?: number;
+  create_pr?: boolean;
 };
 
 type OfficeAgent = AgentConfig & {
@@ -299,7 +300,7 @@ function AssignTaskModal({
   const [selProvider, setSelProvider] = useState(agent.provider || '');
   const [selModel, setSelModel] = useState(agent.model || '');
   const [customModel, setCustomModel] = useState('');
-  const [createPr, setCreatePr] = useState(true);
+  const [createPr, setCreatePr] = useState(agent.create_pr ?? false);
   const [sprintItems, setSprintItems] = useState<SprintWorkItem[]>([]);
   const [sprintLoading, setSprintLoading] = useState(false);
   const [sprintAssigning, setSprintAssigning] = useState<string | null>(null);
