@@ -557,6 +557,13 @@ class OrchestrationService:
                 flow_state['final_code'] = generated
                 final_len = gen_len
 
+                await orchestrator.memory_store.upsert_memory(
+                    key=str(task.id),
+                    input_text=f"{task.title}\n{task.description or ''}",
+                    output_text=generated,
+                    organization_id=organization_id,
+                )
+
                 await task_service.add_log(task.id, organization_id, 'agent', f'Flow complete: final_code={final_len} chars, tokens={flow_state.get("usage",{}).get("total_tokens",0)}')
                 state = flow_state
             await task_service.add_log(

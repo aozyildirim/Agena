@@ -87,8 +87,7 @@ class QdrantMemoryStore(MemoryStore):
         if not self.enabled or not self.client:
             return
         await self.ensure_collection()
-        combined = f'{input_text}\n{output_text}'
-        vector = await self._get_or_create_embedding(combined)
+        vector = await self._get_or_create_embedding(input_text)
 
         payload: dict[str, Any] = {'key': key, 'input': input_text, 'output': output_text}
         if organization_id is not None and organization_id > 0:
