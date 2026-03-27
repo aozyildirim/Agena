@@ -25,11 +25,19 @@ def _slugify(name: str) -> str:
 
 
 def upgrade() -> None:
+    # Skip if slug already exists (added to 0001_initial for fresh installs)
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.columns "
+        "WHERE table_name='organizations' AND column_name='slug'"
+    ))
+    if result.scalar():
+        return
+
     # 1. Add nullable slug column
     op.add_column('organizations', sa.Column('slug', sa.String(63), nullable=True))
 
     # 2. Backfill existing orgs with a slugified version of their name
-    conn = op.get_bind()
     orgs = conn.execute(sa.text('SELECT id, name FROM organizations')).fetchall()
     seen: dict[str, int] = {}
     for org_id, org_name in orgs:

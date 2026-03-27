@@ -44,6 +44,19 @@ class AzurePRService:
 
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(pr_api, headers=self._headers(config.secret), json=payload)
+            if resp.status_code == 409:
+                # PR already exists for this branch — find and return the existing one
+                existing_url = await self._find_existing_pr(
+                    org_url=org_url,
+                    project=project,
+                    repo_name=repo_name,
+                    source_branch=source_branch,
+                    target_branch=target_branch,
+                    pat=config.secret,
+                )
+                if existing_url:
+                    return existing_url
+                resp.raise_for_status()  # no existing PR found, propagate original error
             resp.raise_for_status()
             data = resp.json()
 
@@ -113,6 +126,36 @@ class AzurePRService:
             resp.raise_for_status()
             data = resp.json()
         return data.get('id') if isinstance(data, dict) else None
+
+    async def _find_existing_pr(
+        self,
+        org_url: str,
+        project: str,
+        repo_name: str,
+        source_branch: str,
+        target_branch: str,
+        pat: str,
+    ) -> str | None:
+        """Find an active PR for the given source→target branch pair."""
+        search_api = (
+            f'{org_url}/{project}/_apis/git/repositories/{repo_name}/pullrequests'
+            f'?searchCriteria.sourceRefName=refs/heads/{source_branch}'
+            f'&searchCriteria.targetRefName=refs/heads/{target_branch}'
+            f'&searchCriteria.status=active'
+            f'&api-version=7.1-preview.1'
+        )
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(search_api, headers=self._headers(pat))
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+        prs = data.get('value', []) or []
+        if not prs:
+            return None
+        pr = prs[0]
+        links = pr.get('_links', {}) if isinstance(pr, dict) else {}
+        web = (links.get('web') or {}).get('href') if isinstance(links, dict) else None
+        return web or pr.get('url') or None
 
     def _headers(self, pat: str) -> dict[str, str]:
         token = base64.b64encode(f':{pat}'.encode()).decode()

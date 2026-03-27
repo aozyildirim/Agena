@@ -97,7 +97,7 @@ class CrewAIAgentRunner:
             system_prompt=AI_CODE_SYSTEM_PROMPT,
             user_prompt=prompt,
             complexity_hint='high',
-            max_output_tokens=32000,
+            max_output_tokens=128000,
             skip_cache=True,
         )
 

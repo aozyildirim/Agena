@@ -25,6 +25,7 @@ class TaskRecord(Base):
     branch_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pr_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
