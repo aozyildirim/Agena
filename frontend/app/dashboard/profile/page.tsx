@@ -363,9 +363,10 @@ export default function ProfilePage() {
             {/* Preset buttons */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
               {[
-                { label: 'feature/{ext_id}-{title_slug}', desc: 'feature/AB#61717-merchant-status' },
-                { label: 'bugfix/{ext_id}', desc: 'bugfix/AB#61717' },
-                { label: '{ext_id}/{title_slug}', desc: 'AB#61717/merchant-status' },
+                { label: 'feature/AB#{ext_id}-{title_slug}', desc: 'feature/AB#61717-merchant-status' },
+                { label: 'feature/{ext_id}-{title_slug}', desc: 'feature/61717-merchant-status' },
+                { label: 'bugfix/{ext_id}', desc: 'bugfix/61717' },
+                { label: '{ext_id}/{title_slug}', desc: '61717/merchant-status' },
                 { label: 'ai-task/{id}-{timestamp}', desc: 'ai-task/47-20260327' },
                 { label: 'feature/{title_slug}', desc: 'feature/merchant-status' },
               ].map((p) => (
@@ -390,8 +391,8 @@ export default function ProfilePage() {
             />
             {/* Preview */}
             <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 6, fontFamily: 'monospace' }}>
-              Preview: {(profileSettings.branch_prefix || 'feature/{ext_id}-{title_slug}')
-                .replace('{ext_id}', 'AB#61717')
+              Preview: {(profileSettings.branch_prefix || 'feature/AB#{ext_id}-{title_slug}')
+                .replace('{ext_id}', '61717')
                 .replace('{title_slug}', 'merchant-status')
                 .replace('{id}', '47')
                 .replace('{timestamp}', '20260327')}

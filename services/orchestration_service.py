@@ -855,9 +855,9 @@ class OrchestrationService:
         title = str(task.get('title', '') or '')
         desc = str(task.get('description', '') or '')
 
-        # Extract external ID (e.g. "Azure #61717" or "Jira #123")
+        # Extract external ID number only (e.g. "Azure #61717" → "61717")
         ext_match = re.search(r'(?:Azure|Jira|GitHub)\s*#(\d+)', f'{title} {desc}')
-        ext_id = f'AB#{ext_match.group(1)}' if ext_match else str(task.get('id', 'task'))
+        ext_id = ext_match.group(1) if ext_match else str(task.get('id', 'task'))
 
         # Create slug from title (remove [Azure #xxx] prefix, slugify)
         clean_title = re.sub(r'\[.*?#\d+\]\s*', '', title).strip()
