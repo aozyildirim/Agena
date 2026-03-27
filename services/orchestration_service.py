@@ -493,39 +493,9 @@ class OrchestrationService:
                     f'  output_length: {gen_len} chars\n'
                     f'  output_preview:\n{generated[:800]}'
                 )
-                # Step 4 (flow) / Step 3 (ai): Review code
-                flow_state['reviewed_code'] = generated
-                flow_state['spec'] = spec if spec else flow_state.get('spec', {})
-                review_step = total_steps
-                await task_service.add_log(task.id, organization_id, 'agent',
-                    f'Step {review_step}/{total_steps}: Reviewer checking code...\n'
-                    f'  input_length: {gen_len} chars\n'
-                    f'  system_prompt: REVIEWER_SYSTEM_PROMPT\n'
-                    f'  model: {routing.preferred_agent_model or "default"}'
-                )
-                u_before = _get_usage(flow_state)
-                s_start = datetime.utcnow()
-                s_clock = time.perf_counter()
-                flow_state = await orchestrator.review_code_node(flow_state)
-                review_delta = _usage_delta(u_before, _get_usage(flow_state))
-                s_model = (flow_state.get('model_usage') or [''])[-1]
-                await _step_event('review_code', review_delta, s_model, s_start, time.perf_counter() - s_clock)
-                reviewed = flow_state.get('reviewed_code', generated)
-                # If reviewer broke the patch format, fall back to developer output
-                if generated and reviewed:
-                    dev_has_patches = bool(re.search(r'^\+', generated, re.MULTILINE))
-                    rev_has_patches = bool(re.search(r'^\+', reviewed, re.MULTILINE))
-                    dev_has_files = bool(re.search(r'\*\*File:', generated))
-                    rev_has_files = bool(re.search(r'\*\*File:', reviewed))
-                    if dev_has_files and dev_has_patches and not rev_has_patches:
-                        reviewed = generated  # reviewer broke patch format, use developer output
-                final_len = len(reviewed)
-                flow_state['final_code'] = reviewed
-                await task_service.add_log(task.id, organization_id, 'agent',
-                    f'Reviewer result:\n'
-                    f'  model: {s_model} | tokens: prompt={review_delta["prompt_tokens"]} completion={review_delta["completion_tokens"]}\n'
-                    f'  output_length: {final_len} chars'
-                )
+                # Skip reviewer — use developer output directly
+                flow_state['final_code'] = generated
+                final_len = gen_len
 
                 await task_service.add_log(task.id, organization_id, 'agent', f'Flow complete: final_code={final_len} chars, tokens={flow_state.get("usage",{}).get("total_tokens",0)}')
                 state = flow_state

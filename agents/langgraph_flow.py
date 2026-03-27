@@ -24,12 +24,10 @@ def build_graph(orchestrator: 'AgentOrchestrator'):
     graph.add_node('fetch_context', orchestrator.fetch_context_node)
     graph.add_node('analyze', orchestrator.analyze_node)
     graph.add_node('generate_code', orchestrator.generate_code_node)
-    graph.add_node('review_code', orchestrator.review_code_node)
 
     graph.set_entry_point('fetch_context')
     graph.add_edge('fetch_context', 'analyze')
     graph.add_edge('analyze', 'generate_code')
-    graph.add_edge('generate_code', 'review_code')
-    graph.add_edge('review_code', END)
+    graph.add_edge('generate_code', END)
 
     return graph.compile()
