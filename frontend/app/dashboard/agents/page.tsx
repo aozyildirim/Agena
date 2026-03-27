@@ -356,7 +356,9 @@ export default function AgentsPage() {
     ];
     setAgents(next);
     saveAgents(next);
-    void savePrefs({ agents: next as unknown as Record<string, unknown>[] });
+    savePrefs({ agents: next as unknown as Record<string, unknown>[] })
+      .then(() => { setNotice({ type: 'success', msg: t('agents.createSuccess') }); setTimeout(() => setNotice(null), 3000); })
+      .catch(() => { setNotice({ type: 'error', msg: t('agents.createError') }); setTimeout(() => setNotice(null), 3000); });
     setEditing(role);
     setShowNewAgent(false);
   }
@@ -378,6 +380,14 @@ export default function AgentsPage() {
           + {t('agents.new')}
         </button>
       </div>
+
+      {/* Notice */}
+      {notice && (
+        <div style={{ padding: '10px 14px', borderRadius: 10, background: notice.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${notice.type === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, color: notice.type === 'success' ? '#22c55e' : '#ef4444', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>{notice.type === 'success' ? '✓' : '✕'}</span>
+          {notice.msg}
+        </div>
+      )}
 
       {/* Agent Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 8, alignItems: 'stretch' }}>
@@ -452,7 +462,9 @@ export default function AgentsPage() {
               const next = agents.map((a) => a.role === editModalAgent.role ? { ...a, ...updated } : a);
               setAgents(next);
               saveAgents(next);
-              void savePrefs({ agents: next as unknown as Record<string, unknown>[] });
+              savePrefs({ agents: next as unknown as Record<string, unknown>[] })
+                .then(() => { setNotice({ type: 'success', msg: t('agents.updateSuccess') }); setTimeout(() => setNotice(null), 3000); })
+                .catch(() => { setNotice({ type: 'error', msg: t('agents.updateError') }); setTimeout(() => setNotice(null), 3000); });
             } else {
               setDraft(updated);
               createNewAgent();

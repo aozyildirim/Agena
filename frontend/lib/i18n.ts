@@ -419,6 +419,10 @@ const translations = {
     'agents.cancel': 'Vazgeç',
     'agents.create': 'Oluştur',
     'agents.modelNamePlaceholder': 'örn: claude-3-5-sonnet, llama-3.3-70b...',
+    'agents.updateSuccess': 'Agent güncellendi',
+    'agents.updateError': 'Agent güncellenirken hata oluştu',
+    'agents.createSuccess': 'Yeni agent oluşturuldu',
+    'agents.createError': 'Agent oluşturulurken hata oluştu',
     // Sprints
     'sprints.section': 'Sprintler',
     'sprints.title': 'Sprint Board',
@@ -1782,6 +1786,10 @@ const translations = {
     'agents.cancel': 'Cancel',
     'agents.create': 'Create',
     'agents.modelNamePlaceholder': 'e.g. claude-3-5-sonnet, llama-3.3-70b...',
+    'agents.updateSuccess': 'Agent updated',
+    'agents.updateError': 'Failed to update agent',
+    'agents.createSuccess': 'New agent created',
+    'agents.createError': 'Failed to create agent',
     // Sprints
     'sprints.section': 'Sprints',
     'sprints.title': 'Sprint Board',
