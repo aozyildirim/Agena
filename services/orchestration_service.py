@@ -854,10 +854,15 @@ class OrchestrationService:
         )
 
     def _parse_reviewed_output_to_files(self, reviewed_code: str, local_repo_path: str | None = None) -> list[GitHubFileChange]:
-        # Try multiple patterns: **File: path**, `File: path`, ### File: path, # path, etc.
+        # Try multiple patterns — with and without fenced code blocks
         patterns = [
+            # **File: path** + ```code```
             re.compile(r'(?:\*\*)?File:\s*(.*?)(?:\*\*)?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
+            # File: path + @@...*** End Patch (no fenced code blocks)
+            re.compile(r'(?:\*\*)?File:\s*([^\n*]+?)(?:\*\*)?\s*\r?\n(@@.*?(?:\*\*\* End Patch|\Z))', re.DOTALL),
+            # ### File: path + ```code```
             re.compile(r'#+\s*(?:File:?\s*)?`?([^\n`]+)`?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
+            # `path.ext`: + ```code```
             re.compile(r'`([^`\n]+\.[a-zA-Z]{1,10})`\s*:?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
         ]
         matches: list[tuple[str, str]] = []
