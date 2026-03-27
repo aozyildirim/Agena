@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Link from 'next/link';
 import { apiFetch, loadPrefs, savePrefs } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import { useWS } from '@/lib/useWebSocket';
@@ -782,6 +781,9 @@ export default function OfficePage() {
   const [viewMode, setViewMode] = useState<'office' | 'split'>('split');
   const [assignAgent, setAssignAgent] = useState<OfficeAgent | null>(null);
   const [showAddAgent, setShowAddAgent] = useState(false);
+  const [previewTaskId, setPreviewTaskId] = useState<number | null>(null);
+  const [previewLogs, setPreviewLogs] = useState<Array<{ stage: string; message: string }>>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const officeAgentsRef = useRef<OfficeAgent[]>([]);
   const { t } = useLocale();
   const layoutSaveTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -898,6 +900,18 @@ export default function OfficePage() {
     setShowAddAgent(false);
   }, []);
 
+  const openTaskPreview = (taskId: number) => {
+    setPreviewTaskId(taskId);
+    setPreviewLoading(true);
+    setPreviewLogs([]);
+    apiFetch<Array<{ stage: string; message: string }>>(`/tasks/${taskId}/logs`)
+      .then((logs) => setPreviewLogs(logs))
+      .catch(() => setPreviewLogs([]))
+      .finally(() => setPreviewLoading(false));
+  };
+
+  const previewTask = previewTaskId ? tasks.find((t) => t.id === previewTaskId) : null;
+
   const activeAgents = officeAgents.filter((a) => a.status === 'active');
   const running = tasks.filter((tk) => tk.status === 'running');
   const queued = tasks.filter((tk) => tk.status === 'queued');
@@ -907,120 +921,158 @@ export default function OfficePage() {
     ? t('office.statusWorking').replace('{active}', String(activeAgents.length)).replace('{total}', String(officeAgents.length))
     : t('office.statusReady').replace('{total}', String(officeAgents.length));
 
+  const failed = tasks.filter((tk) => tk.status === 'failed').slice(0, 3);
+
   return (
-    <div style={{ display: 'grid', gap: 20, height: 'calc(100vh - 136px)' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div className="section-label">{t('office.section')}</div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 12 }}>
-            {t('office.title')}
-            <span style={{ fontSize: 12, fontWeight: 700, color: activeAgents.length > 0 ? '#22c55e' : 'var(--ink-35)', background: activeAgents.length > 0 ? 'rgba(34,197,94,0.16)' : 'var(--panel-alt)', border: `1px solid ${activeAgents.length > 0 ? 'rgba(34,197,94,0.35)' : 'var(--panel-border)'}`, borderRadius: 999, padding: '4px 12px' }}>
-              {statusText}
-            </span>
-          </h1>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', gap: 0 }}>
+      {/* ── Header bar ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0 14px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>{t('office.title')}</h1>
+          {/* Live status pills */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {running.length > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#38bdf8', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', animation: 'pulse 2s infinite' }}>
+                {running.length} {t('office.running')}
+              </span>
+            )}
+            {queued.length > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                {queued.length} {t('office.queued')}
+              </span>
+            )}
+            {activeAgents.length > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                {activeAgents.length}/{officeAgents.length} {t('office.active')}
+              </span>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           {(['split', 'office'] as const).map((mode) => (
             <button key={mode} onClick={() => setViewMode(mode)}
-              style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: viewMode === mode ? 'rgba(94,234,212,0.16)' : 'var(--panel-alt)', border: viewMode === mode ? '1px solid rgba(94,234,212,0.35)' : '1px solid var(--panel-border)', color: viewMode === mode ? '#5eead4' : 'var(--ink-50)' }}>
+              style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: viewMode === mode ? 'var(--nav-active-bg)' : 'transparent', border: viewMode === mode ? '1px solid var(--nav-active-border)' : '1px solid var(--panel-border)', color: viewMode === mode ? 'var(--nav-active)' : 'var(--ink-35)', transition: 'all 0.15s' }}>
               {mode === 'split' ? t('office.viewSplit') : t('office.viewFull')}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div style={{ display: 'grid', gridTemplateColumns: viewMode === 'split' ? '1fr 340px' : '1fr', gap: 16, flex: 1, minHeight: 0 }}>
-        {/* Pixel Office iframe */}
-        <div style={{ borderRadius: 20, border: '1px solid var(--panel-border)', overflow: 'hidden', position: 'relative', background: '#0a0a14', minHeight: 400 }}>
+      {/* ── Main area ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: viewMode === 'split' ? '1fr 320px' : '1fr', gap: 0, flex: 1, minHeight: 0 }}>
+        {/* Pixel Office */}
+        <div style={{ borderRadius: 16, border: '1px solid var(--panel-border)', overflow: 'hidden', position: 'relative', background: 'var(--surface)' }}>
           {!iframeLoaded && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-35)', fontSize: 14, background: '#0a0a14', zIndex: 2 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🏢</div>
-                <div>{t('office.loading')}</div>
-              </div>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-25)', fontSize: 13, zIndex: 2 }}>
+              {t('office.loading')}
             </div>
           )}
           <iframe ref={iframeRef} src="/pixel-office/index.html" onLoad={() => setIframeLoaded(true)}
             style={{ width: '100%', height: '100%', border: 'none', display: iframeLoaded ? 'block' : 'none' }} title="Pixel Office" />
         </div>
 
-        {/* Side Panel */}
+        {/* ── Side panel ── */}
         {viewMode === 'split' && (
-          <div style={{ display: 'grid', gap: 12, alignContent: 'start', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', borderLeft: '1px solid var(--panel-border)', background: 'var(--surface)', overflowY: 'auto' }}>
 
-            {/* Agent Cards */}
-            <div style={{ borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 12 }}>
-                {t('office.teamTitle')} ({officeAgents.length}) · {t('office.teamHint')}
+            {/* Agents */}
+            <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid var(--panel-border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--ink-25)', marginBottom: 10, display: 'flex', justifyContent: 'space-between' }}>
+                <span>{t('office.teamTitle')}</span>
+                <span style={{ color: 'var(--ink-35)' }}>{officeAgents.length}</span>
               </div>
-              <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ display: 'grid', gap: 4 }}>
                 {officeAgents.map((agent) => {
                   const isActive = agent.status === 'active';
                   return (
                     <div key={agent.pixelId} onClick={() => setAssignAgent(agent)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, cursor: 'pointer', background: isActive ? `${agent.color}12` : 'var(--panel)', border: `1px solid ${isActive ? `${agent.color}35` : 'var(--panel-border-2)'}`, transition: 'all 0.15s' }}>
-                      <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={32} />
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 10, cursor: 'pointer', background: isActive ? `${agent.color}08` : 'transparent', border: `1px solid ${isActive ? `${agent.color}20` : 'transparent'}`, transition: 'all 0.15s' }}
+                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--panel-alt)'; }}
+                      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+                      <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={28} />
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: agent.color, display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>{agent.label}</span>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: isActive ? '#22c55e' : 'var(--ink-25)', boxShadow: isActive ? '0 0 6px #22c55e' : 'none' }} />
+                        <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? agent.color : 'var(--ink-78)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.label}</span>
+                          {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', flexShrink: 0 }} />}
                         </div>
-                        <div style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {isActive ? `${agent.currentStage} · ${agent.currentTask?.slice(0, 20) || ''}` : t('office.agentIdle')}
-                        </div>
+                        {isActive && (
+                          <div style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                            {agent.currentStage} · {agent.currentTask?.slice(0, 24)}
+                          </div>
+                        )}
                       </div>
-                      {!isActive && <span style={{ fontSize: 14, color: agent.color, flexShrink: 0 }}>+</span>}
+                      <span style={{ fontSize: 16, color: isActive ? agent.color : 'var(--ink-20)', flexShrink: 0, opacity: isActive ? 0.5 : 1 }}>{isActive ? '⟳' : '+'}</span>
                     </div>
                   );
                 })}
-
               </div>
             </div>
 
-            {/* Running Tasks */}
-            <div style={{ borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{t('office.activeTasks')}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: running.length > 0 ? '#38bdf8' : 'var(--ink-25)', background: running.length > 0 ? 'rgba(56,189,248,0.16)' : 'var(--panel)', borderRadius: 999, padding: '2px 8px' }}>{running.length}</span>
-              </div>
-              {running.length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--ink-25)', padding: '8px 0' }}>{t('office.noActiveTasks')}</div>
-              ) : running.map((task) => (
-                <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none', display: 'block', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', marginBottom: 4 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-78)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
-                  <div style={{ fontSize: 11, color: '#5eead4', marginTop: 3 }}>{task.run_duration_sec ? `${Math.round(task.run_duration_sec)}s` : 'running...'}</div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Queue */}
-            {queued.length > 0 && (
-              <div style={{ borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{t('office.queue')}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.16)', borderRadius: 999, padding: '2px 8px' }}>{queued.length}</span>
+            {/* Running */}
+            {running.length > 0 && (
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#38bdf8', marginBottom: 8 }}>
+                  {t('office.activeTasks')}
                 </div>
-                {queued.slice(0, 5).map((task, i) => (
-                  <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', fontSize: 12, color: 'var(--ink-50)', marginBottom: 3 }}>
-                    <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 11 }}>#{i + 1}</span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
-                  </Link>
+                {running.map((task) => (
+                  <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 3, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.12)' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8', flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'var(--ink-78)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                    <span style={{ fontSize: 10, color: '#38bdf8', fontWeight: 600, flexShrink: 0 }}>{task.run_duration_sec ? `${Math.round(task.run_duration_sec)}s` : '...'}</span>
+                  </div>
                 ))}
               </div>
             )}
 
-            {/* Recent Completed */}
-            {recentCompleted.length > 0 && (
-              <div style={{ borderRadius: 16, border: '1px solid rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.04)', padding: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#22c55e', marginBottom: 10 }}>{t('office.recentCompleted')}</div>
-                {recentCompleted.map((task) => (
-                  <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-50)', padding: '4px 0' }}>
-                    <span style={{ color: '#22c55e' }}>✓</span>
+            {/* Queue */}
+            {queued.length > 0 && (
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 8 }}>
+                  {t('office.queue')} ({queued.length})
+                </div>
+                {queued.slice(0, 5).map((task, i) => (
+                  <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 8, marginBottom: 2, fontSize: 12, color: 'var(--ink-50)' }}>
+                    <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 10, width: 16, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
-                  </Link>
+                  </div>
                 ))}
+              </div>
+            )}
+
+            {/* Failed */}
+            {failed.length > 0 && (
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#ef4444', marginBottom: 8 }}>
+                  {t('office.failed')}
+                </div>
+                {failed.map((task) => (
+                  <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 8, marginBottom: 2, fontSize: 12, color: 'var(--ink-50)' }}>
+                    <span style={{ color: '#ef4444', fontSize: 11, flexShrink: 0 }}>✕</span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Completed */}
+            {recentCompleted.length > 0 && (
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#22c55e', marginBottom: 8 }}>
+                  {t('office.recentCompleted')}
+                </div>
+                {recentCompleted.map((task) => (
+                  <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', borderRadius: 8, marginBottom: 2, fontSize: 12, color: 'var(--ink-50)' }}>
+                    <span style={{ color: '#22c55e', fontSize: 11, flexShrink: 0 }}>✓</span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {running.length === 0 && queued.length === 0 && recentCompleted.length === 0 && (
+              <div style={{ padding: '40px 14px', textAlign: 'center', color: 'var(--ink-20)', fontSize: 12 }}>
+                {t('office.noActiveTasks')}
               </div>
             )}
           </div>
@@ -1028,6 +1080,54 @@ export default function OfficePage() {
       </div>
 
       {assignAgent && <AssignTaskModal agent={assignAgent} tasks={tasks} onClose={() => setAssignAgent(null)} t={t} />}
+
+      {/* Task Preview Panel */}
+      {previewTask && (
+        <div onClick={() => setPreviewTaskId(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: 'min(520px, 90vw)', height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--panel-border)', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 30px rgba(0,0,0,0.3)' }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: previewTask.status === 'completed' ? '#22c55e' : previewTask.status === 'failed' ? '#ef4444' : previewTask.status === 'running' ? '#38bdf8' : '#f59e0b', marginBottom: 3 }}>
+                  {previewTask.status} · #{previewTask.id}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewTask.title}</div>
+              </div>
+              <a href={`/tasks/${previewTask.id}`} style={{ fontSize: 11, color: 'var(--ink-35)', textDecoration: 'none', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)' }}>
+                {t('office.openFull')}
+              </a>
+              <button onClick={() => setPreviewTaskId(null)}
+                style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                ✕
+              </button>
+            </div>
+            {/* Logs */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+              {previewLoading ? (
+                <div style={{ color: 'var(--ink-25)', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>{t('office.loading')}</div>
+              ) : previewLogs.length === 0 ? (
+                <div style={{ color: 'var(--ink-25)', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>{t('office.noLogs')}</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {previewLogs.map((log, i) => {
+                    const stageColor = log.stage === 'completed' ? '#22c55e' : log.stage === 'failed' ? '#ef4444' : log.stage === 'running' ? '#38bdf8' : log.stage === 'agent' ? '#a78bfa' : 'var(--ink-35)';
+                    return (
+                      <div key={i} style={{ fontSize: 12, lineHeight: 1.5 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: stageColor, textTransform: 'uppercase', marginRight: 6 }}>{log.stage}</span>
+                        <span style={{ color: 'var(--ink-60)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>
+                          {log.message.length > 500 ? log.message.slice(0, 500) + '...' : log.message}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddAgent && (
         <AddAgentModal
