@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name)
 
+app.add_middleware(TenantMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestLoggerMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -27,10 +30,6 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
-
-app.add_middleware(TenantMiddleware)
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(RequestLoggerMiddleware)
 
 app.include_router(analytics.router)
 app.include_router(auth.router)

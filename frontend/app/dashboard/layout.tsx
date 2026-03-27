@@ -187,8 +187,23 @@ function DashboardInner({ children }: { children: ReactNode }) {
         setWebPushEnabled(raw.web_push_notifications !== false);
         // Auto-redirect to onboarding if not completed (skip if already on onboarding page)
         if (!raw.onboarding_completed && !pathname.startsWith('/dashboard/onboarding')) {
-          router.replace('/dashboard/onboarding');
-          return;
+          // Check if user already has integrations — if so, skip onboarding
+          try {
+            const integrations = await apiFetch<Array<{ has_secret: boolean; base_url?: string | null }>>('/integrations');
+            const hasIntegration = integrations.some((cfg) => cfg.has_secret || Boolean(cfg.base_url));
+            if (hasIntegration) {
+              // Mark onboarding as completed silently
+              const nextProfile = { ...raw, onboarding_completed: true };
+              setProfileSettings(nextProfile);
+              await savePrefs({ profile_settings: nextProfile });
+            } else {
+              router.replace('/dashboard/onboarding');
+              return;
+            }
+          } catch {
+            router.replace('/dashboard/onboarding');
+            return;
+          }
         }
       } catch {
         setWebPushEnabled(true);

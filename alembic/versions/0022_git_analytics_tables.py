@@ -16,6 +16,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    existing = bind.dialect.get_table_names(bind)
+    if 'git_commits' in existing and 'git_pull_requests' in existing and 'git_deployments' in existing:
+        return  # tables already exist, skip
+
     op.create_table(
         'git_commits',
         sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),

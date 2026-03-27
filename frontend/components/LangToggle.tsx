@@ -10,6 +10,7 @@ export default function LangToggle({ style }: { style?: React.CSSProperties }) {
       value={lang}
       onChange={(e) => setLang(e.target.value as 'tr' | 'en')}
       title='Language'
+      suppressHydrationWarning
       style={{
         padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
         border: '1px solid var(--border)',
