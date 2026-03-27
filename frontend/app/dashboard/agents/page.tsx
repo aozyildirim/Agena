@@ -472,6 +472,15 @@ export default function AgentsPage() {
             setShowNewAgent(false);
             setEditModalAgent(null);
           }}
+          onDelete={editModalAgent ? () => {
+            const next = agents.filter((a) => a.role !== editModalAgent.role);
+            setAgents(next);
+            saveAgents(next);
+            savePrefs({ agents: next as unknown as Record<string, unknown>[] })
+              .then(() => { setNotice({ type: 'success', msg: t('agents.deleteSuccess') }); setTimeout(() => setNotice(null), 3000); })
+              .catch(() => { setNotice({ type: 'error', msg: t('agents.deleteError') }); setTimeout(() => setNotice(null), 3000); });
+            setEditModalAgent(null);
+          } : undefined}
           t={t}
         />
       )}
@@ -480,14 +489,16 @@ export default function AgentsPage() {
 }
 
 // ── Agent Edit/Create Modal ───────────────────────────────────────────────────
-function AgentModal({ agent: initial, isNew, onClose, onSave, t }: {
+function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t }: {
   agent: AgentConfig;
   isNew: boolean;
   onClose: () => void;
   onSave: (agent: AgentConfig) => void;
+  onDelete?: () => void;
   t: ReturnType<typeof useLocale>['t'];
 }) {
   const [a, setA] = useState<AgentConfig>({ ...initial });
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const models = a.provider === 'openai' ? OPENAI_MODELS : a.provider === 'gemini' ? GEMINI_MODELS : [];
   const color = a.color || '#38bdf8';
 
@@ -593,8 +604,31 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, t }: {
             </div>
           </div>
 
-          {/* Save button */}
+          {/* Confirm delete overlay */}
+          {confirmDelete && onDelete && (
+            <div style={{ padding: '14px', borderRadius: 14, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444', marginBottom: 10 }}>{t('agents.deleteConfirm')}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setConfirmDelete(false)}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                  {t('agents.cancel')}
+                </button>
+                <button onClick={onDelete}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'rgba(239,68,68,0.9)', border: 'none', color: '#fff' }}>
+                  {t('agents.confirmDelete')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Save / Delete buttons */}
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            {onDelete && !confirmDelete && (
+              <button onClick={() => setConfirmDelete(true)}
+                style={{ padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}>
+                {t('agents.delete')}
+              </button>
+            )}
             <button onClick={onClose}
               style={{ flex: 1, padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
               {t('agents.cancel')}

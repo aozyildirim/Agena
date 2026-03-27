@@ -67,9 +67,19 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
+  const [taskBadges, setTaskBadges] = useState<Record<string, number>>({});
   const shouldOpenOnboarding = searchParams.get('onboarding') === '1' || searchParams.get('welcome') === '1';
   const lastUnreadRef = useRef<number | null>(null);
   const sidebarWidth = sidebarCollapsed ? 76 : 220;
+
+  // Clear task badges when visiting tasks page
+  useEffect(() => {
+    if (pathname.startsWith('/dashboard/tasks')) {
+      const current = localStorage.getItem('tiqr_task_current_counts');
+      if (current) localStorage.setItem('tiqr_task_seen_counts', current);
+      setTaskBadges({});
+    }
+  }, [pathname]);
 
   function playNotifyTone() {
     if (typeof window === 'undefined' || !webPushEnabled) return;
@@ -143,6 +153,24 @@ function DashboardInner({ children }: { children: ReactNode }) {
           const me = members.find((m) => m.email === u.email);
           if (me) setUserRole(me.role as Role);
         }).catch(() => {});
+      }).catch(() => {});
+
+      // Fetch task counts and compute unseen badges
+      apiFetch<Array<{ status: string }>>('/tasks').then((tasks) => {
+        if (!active) return;
+        const counts: Record<string, number> = {};
+        for (const tk of tasks) counts[tk.status] = (counts[tk.status] || 0) + 1;
+        // Compare with last seen
+        const seenRaw = localStorage.getItem('tiqr_task_seen_counts');
+        const seen: Record<string, number> = seenRaw ? JSON.parse(seenRaw) : {};
+        const badges: Record<string, number> = {};
+        for (const [status, count] of Object.entries(counts)) {
+          const diff = count - (seen[status] || 0);
+          if (diff > 0) badges[status] = diff;
+        }
+        setTaskBadges(badges);
+        // Store current counts so we can diff next time
+        localStorage.setItem('tiqr_task_current_counts', JSON.stringify(counts));
       }).catch(() => {});
 
       // Initialize org info from localStorage in case /me hasn't responded yet
@@ -431,7 +459,22 @@ function DashboardInner({ children }: { children: ReactNode }) {
               }}>
                 <span style={{ fontSize: 16, opacity: active ? 1 : 0.5 }}>{item.icon}</span>
                 {!sidebarCollapsed && t(item.key as Parameters<typeof t>[0])}
-                {active && !sidebarCollapsed && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--nav-active)' }} />}
+                {!sidebarCollapsed && item.href === '/dashboard/tasks' && (() => {
+                  const badges: Array<{ count: number; color: string; bg: string; key: string }> = [];
+                  if (taskBadges.running) badges.push({ key: 'running', count: taskBadges.running, color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' });
+                  if (taskBadges.queued) badges.push({ key: 'queued', count: taskBadges.queued, color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' });
+                  if (taskBadges.failed) badges.push({ key: 'failed', count: taskBadges.failed, color: '#ef4444', bg: 'rgba(239,68,68,0.15)' });
+                  if (taskBadges.completed) badges.push({ key: 'completed', count: taskBadges.completed, color: '#22c55e', bg: 'rgba(34,197,94,0.15)' });
+                  if (!badges.length) return null;
+                  return (
+                    <span style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
+                      {badges.map((b) => (
+                        <span key={b.key} style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 6, color: b.color, background: b.bg, lineHeight: '16px' }}>{b.count}</span>
+                      ))}
+                    </span>
+                  );
+                })()}
+                {active && !sidebarCollapsed && !Object.keys(taskBadges).length && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--nav-active)' }} />}
               </Link>
             );
           })}
