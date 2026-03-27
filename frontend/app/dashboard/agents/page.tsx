@@ -243,6 +243,7 @@ function AgentCharIcon({ palette, color, size }: { palette: number; color: strin
 export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentConfig[]>(DEFAULT_AGENTS);
   const [editing, setEditing] = useState<AgentRole | null>(null);
+  const [editModalAgent, setEditModalAgent] = useState<AgentConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [analytics, setAnalytics] = useState<Record<string, AgentAnalytics>>({});
@@ -406,19 +407,16 @@ export default function AgentsPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 8, alignItems: 'stretch' }}>
-        {agents.map((agent) => {
-          const isEditing = editing === agent.role;
-          return (
-            <div key={agent.role} style={{ gridColumn: isEditing ? '1 / -1' : 'auto' }}>
-              <AgentCard
-                agent={agent}
-                isEditing={isEditing}
-                onEdit={() => setEditing(isEditing ? null : agent.role)}
-                onUpdate={(patch) => updateAgent(agent.role, patch)}
-              />
-            </div>
-          );
-        })}
+        {agents.map((agent) => (
+          <div key={agent.role}>
+            <AgentCard
+              agent={agent}
+              isEditing={false}
+              onEdit={() => setEditModalAgent(agent)}
+              onUpdate={(patch) => updateAgent(agent.role, patch)}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Save button */}
@@ -440,43 +438,156 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {showNewAgent && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ width: 'min(640px, 100%)', borderRadius: 16, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', padding: 16, display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-90)' }}>{t('agents.createTitle')}</div>
-              <button onClick={() => setShowNewAgent(false)} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', fontSize: 18, cursor: 'pointer' }}>×</button>
-            </div>
-            {/* Character picker */}
+      {/* Agent Edit/Create Modal */}
+      {(showNewAgent || editModalAgent) && (
+        <AgentModal
+          agent={editModalAgent || draft}
+          isNew={showNewAgent && !editModalAgent}
+          onClose={() => { setShowNewAgent(false); setEditModalAgent(null); }}
+          onSave={(updated) => {
+            if (editModalAgent) {
+              updateAgent(editModalAgent.role, updated);
+            } else {
+              setDraft(updated);
+              createNewAgent();
+            }
+            setShowNewAgent(false);
+            setEditModalAgent(null);
+          }}
+          t={t}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Agent Edit/Create Modal ───────────────────────────────────────────────────
+function AgentModal({ agent: initial, isNew, onClose, onSave, t }: {
+  agent: AgentConfig;
+  isNew: boolean;
+  onClose: () => void;
+  onSave: (agent: AgentConfig) => void;
+  t: ReturnType<typeof useLocale>['t'];
+}) {
+  const [a, setA] = useState<AgentConfig>({ ...initial });
+  const models = a.provider === 'openai' ? OPENAI_MODELS : a.provider === 'gemini' ? GEMINI_MODELS : [];
+  const color = a.color || '#38bdf8';
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div style={{ width: 'min(560px, 100%)', maxHeight: '85vh', overflowY: 'auto', borderRadius: 24, border: `1px solid ${color}30`, background: 'var(--surface)', padding: 0, boxShadow: `0 32px 100px rgba(0,0,0,0.5), 0 0 0 1px ${color}10` }} onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <AgentCharIcon palette={a.palette ?? 0} color={color} size={44} />
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('office.pickCharacter')}</div>
-              <PixelCharPicker selected={draft.palette ?? 0} onSelect={(p) => setDraft((d) => ({ ...d, palette: p }))} accent={draft.color || '#38bdf8'} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder={t('agents.newLabelPlaceholder')} style={inputStyle} />
-              <input value={draft.role} onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))} placeholder={t('agents.newRolePlaceholder')} style={inputStyle} />
-              <input value={draft.icon} onChange={(e) => setDraft((d) => ({ ...d, icon: e.target.value }))} placeholder={t('agents.newIconPlaceholder')} style={inputStyle} />
-              <input value={draft.color} onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))} placeholder={t('agents.newColorPlaceholder')} style={inputStyle} />
-            </div>
-            <textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={2} placeholder={t('agents.newDescriptionPlaceholder')} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <select value={draft.provider} onChange={(e) => setDraft((d) => ({ ...d, provider: e.target.value as AgentConfig['provider'] }))} style={inputStyle}>
-                <option value='custom'>{t('agents.providerCustom')}</option>
-                <option value='openai'>OpenAI</option>
-                <option value='gemini'>Gemini</option>
-                <option value='codex_cli'>Codex CLI (local)</option>
-                <option value='claude_cli'>Claude CLI (local)</option>
-              </select>
-              <input value={draft.model} onChange={(e) => setDraft((d) => ({ ...d, model: e.target.value, custom_model: e.target.value }))} placeholder={t('agents.newModelPlaceholder')} style={inputStyle} />
-            </div>
-            <textarea value={draft.system_prompt} onChange={(e) => setDraft((d) => ({ ...d, system_prompt: e.target.value }))} rows={3} placeholder={t('agents.newPromptPlaceholder')} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setShowNewAgent(false)} className='button button-outline'>{t('agents.cancel')}</button>
-              <button onClick={createNewAgent} disabled={!draft.label.trim() || !(draft.model.trim() || draft.custom_model.trim())} className='button button-primary'>{t('agents.create')}</button>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{isNew ? t('agents.createTitle') : a.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{a.role || '...'}</div>
             </div>
           </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
-      )}
+
+        <div style={{ padding: '16px 24px 24px', display: 'grid', gap: 14 }}>
+          {/* Character picker */}
+          <div>
+            <label style={labelStyle}>{t('office.pickCharacter')}</label>
+            <PixelCharPicker selected={a.palette ?? 0} onSelect={(p) => setA((v) => ({ ...v, palette: p }))} accent={color} />
+          </div>
+
+          {/* Name + Role */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={labelStyle}>{t('agents.newLabelPlaceholder')}</label>
+              <input value={a.label} onChange={(e) => setA((v) => ({ ...v, label: e.target.value }))} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>{t('agents.newColorPlaceholder')}</label>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input type="color" value={color} onChange={(e) => setA((v) => ({ ...v, color: e.target.value }))} style={{ width: 36, height: 36, borderRadius: 8, cursor: 'pointer', border: '1px solid var(--panel-border)', padding: 2 }} />
+                <input value={color} onChange={(e) => setA((v) => ({ ...v, color: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={labelStyle}>{t('agents.newDescriptionPlaceholder')}</label>
+            <textarea value={a.description} onChange={(e) => setA((v) => ({ ...v, description: e.target.value }))} rows={2} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+          </div>
+
+          {/* Provider */}
+          <div>
+            <label style={labelStyle}>{t('agents.provider')}</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              {(['openai', 'gemini', 'custom', 'codex_cli', 'claude_cli'] as const).map((p) => (
+                <button key={p} onClick={() => setA((v) => ({ ...v, provider: p, model: '', custom_model: '' }))}
+                  style={{ padding: '10px', borderRadius: 12, border: a.provider === p ? `2px solid ${color}` : '1px solid var(--panel-border-2)', background: a.provider === p ? `${color}10` : 'var(--panel)', color: a.provider === p ? 'var(--ink-90)' : 'var(--ink-35)', fontWeight: a.provider === p ? 700 : 500, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }}>
+                  {p === 'openai' ? '⚡ OpenAI' : p === 'gemini' ? '✦ Gemini' : p === 'codex_cli' ? '⌘ Codex CLI' : p === 'claude_cli' ? '✎ Claude CLI' : '🔧 Custom'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Model */}
+          {models.length > 0 ? (
+            <div>
+              <label style={labelStyle}>{t('agents.model')}</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
+                {models.map((m) => (
+                  <button key={m.id} onClick={() => setA((v) => ({ ...v, model: m.id, custom_model: '' }))}
+                    style={{ padding: '8px 10px', borderRadius: 10, border: a.model === m.id ? `2px solid ${color}` : '1px solid var(--panel-border-2)', background: a.model === m.id ? `${color}10` : 'var(--panel)', color: a.model === m.id ? 'var(--ink-90)' : 'var(--ink-35)', fontWeight: a.model === m.id ? 700 : 500, fontSize: 11, cursor: 'pointer', textAlign: 'left' }}>
+                    {a.model === m.id && '✓ '}{m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Custom model */}
+          <div>
+            <label style={labelStyle}>{t('agents.modelName')}</label>
+            <input value={a.custom_model || a.model} onChange={(e) => setA((v) => ({ ...v, custom_model: e.target.value, model: e.target.value }))} placeholder={t('agents.modelNamePlaceholder')} style={inputStyle} />
+          </div>
+
+          {/* System prompt */}
+          <div>
+            <label style={labelStyle}>{t('agents.systemPrompt')}</label>
+            <textarea value={a.system_prompt} onChange={(e) => setA((v) => ({ ...v, system_prompt: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} />
+          </div>
+
+          {/* Create PR + Enabled toggles */}
+          <div style={{ display: 'flex', gap: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+              <div onClick={() => setA((v) => ({ ...v, create_pr: !(v.create_pr ?? false) }))}
+                style={{ width: 40, height: 22, borderRadius: 999, background: (a.create_pr ?? false) ? color : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: (a.create_pr ?? false) ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-50)' }}>Create PR</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+              <div onClick={() => setA((v) => ({ ...v, enabled: !v.enabled }))}
+                style={{ width: 40, height: 22, borderRadius: 999, background: a.enabled ? '#22c55e' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: a.enabled ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-50)' }}>Enabled</div>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button onClick={onClose}
+              style={{ flex: 1, padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+              {t('agents.cancel')}
+            </button>
+            <button onClick={() => onSave(a)} disabled={!a.label.trim()}
+              style={{ flex: 2, padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: a.label.trim() ? 'pointer' : 'not-allowed', background: a.label.trim() ? `linear-gradient(135deg, ${color}, ${color}cc)` : 'var(--panel-alt)', border: 'none', color: a.label.trim() ? '#000' : 'var(--ink-25)' }}>
+              {isNew ? t('agents.create') : t('agents.save')}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
