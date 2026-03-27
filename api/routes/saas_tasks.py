@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import CurrentTenant, get_current_tenant, require_permission
@@ -294,7 +295,6 @@ async def delete_task(
         raise HTTPException(status_code=404, detail='Task not found')
     if task.status == 'running':
         raise HTTPException(status_code=409, detail='Cannot delete a running task')
-    from sqlalchemy import delete as sa_delete
     # Delete all related records (foreign keys)
     try:
         await db.execute(sa_delete(AgentLog).where(AgentLog.task_id == task_id))
