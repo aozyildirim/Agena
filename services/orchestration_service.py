@@ -343,6 +343,8 @@ class OrchestrationService:
                     agents_md_source = ''
                     repo_root = Path(routing.local_repo_path).expanduser().resolve() if routing.local_repo_path else None
 
+                    agents_pkg_dir = ''
+
                     # 1) Tiqr data dir'deki agents.md (scan sonucu)
                     if routing.local_repo_path:
                         try:
@@ -361,6 +363,7 @@ class OrchestrationService:
                                     if md_path and Path(md_path).is_file():
                                         agents_md_content = Path(md_path).read_text(errors='replace')
                                         agents_md_source = f'db:{Path(md_path).name}'
+                                        agents_pkg_dir = _prof.get('agents_pkg_dir', '')
                                         break
                         except Exception as _amd_err:
                             logger.error(f'Failed to read agents.md from DB: {_amd_err}')
@@ -413,9 +416,22 @@ class OrchestrationService:
                         agents_md_content = flow_state.get('context_summary', '')
                         agents_md_source = 'fallback:full_scan'
 
+                    # Build planner input: index + relevant package signatures
+                    planner_md = agents_md_content
+                    loaded_pkgs: list[str] = []
+                    if agents_pkg_dir and Path(agents_pkg_dir).is_dir():
+                        planner_md = self._build_planner_context(
+                            agents_md_content, agents_pkg_dir,
+                            task.title, task.description or '',
+                            loaded_pkgs,
+                        )
+                    else:
+                        # Legacy: trim inline (agents.md has signatures embedded)
+                        planner_md = self._trim_agents_md(agents_md_content, task.title, task.description or '')
                     await task_service.add_log(task.id, organization_id, 'agent',
                         f'Step 2/{total_steps}: AI Planning...\n'
-                        f'  agents_md: {len(agents_md_content)} chars (source: {agents_md_source})\n'
+                        f'  agents_md: {len(agents_md_content)} chars → planner: {len(planner_md)} chars (source: {agents_md_source})\n'
+                        f'  loaded_packages: {loaded_pkgs or "all (legacy)"}\n'
                         f'  system_prompt: AI_PLAN_SYSTEM_PROMPT\n'
                         f'  model: {routing.preferred_agent_model or "default"}'
                     )
@@ -425,7 +441,7 @@ class OrchestrationService:
                     plan, plan_usage, plan_model = await orchestrator.agents.run_ai_plan(
                         task_title=task.title,
                         task_description=task.description or '',
-                        agents_md=agents_md_content,
+                        agents_md=planner_md,
                     )
                     orchestrator._merge_usage(flow_state, plan_usage)
                     flow_state['model_usage'].append(plan_model)
@@ -1166,6 +1182,133 @@ class OrchestrationService:
         except Exception:
             logger.exception(f'Failed to apply patch to {rel_path}')
             return None
+
+    def _build_planner_context(
+        self, index_md: str, pkg_dir: str, title: str, description: str,
+        loaded_pkgs: list[str],
+    ) -> str:
+        """Build planner context from index + relevant package signature files."""
+        text = f'{title} {description}'.lower()
+        keywords = set(w for w in re.findall(r'[a-z_]{3,}', text) if w not in {
+            'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was', 'not',
+            'but', 'have', 'has', 'been', 'will', 'should', 'would', 'could', 'can',
+            'bir', 'ile', 'olan', 'icin', 'gibi', 'daha', 'var', 'yok', 'hem',
+            'task', 'azure', 'jira', 'local', 'repo', 'path',
+        })
+
+        parts = [index_md, '', '## Relevant Package Signatures', '']
+        pkg_path = Path(pkg_dir)
+        total_loaded = 0
+        for md_file in sorted(pkg_path.glob('*.md')):
+            pkg_name = md_file.stem.replace('__', '/')
+            # Check if any keyword matches the package name
+            pkg_lower = pkg_name.lower()
+            if any(kw in pkg_lower for kw in keywords):
+                try:
+                    content = md_file.read_text(errors='replace')
+                    parts.append(content)
+                    parts.append('')
+                    loaded_pkgs.append(pkg_name)
+                    total_loaded += len(content)
+                except Exception:
+                    pass
+
+        # If no packages matched, load all (safety fallback)
+        if not loaded_pkgs:
+            for md_file in sorted(pkg_path.glob('*.md')):
+                try:
+                    content = md_file.read_text(errors='replace')
+                    parts.append(content)
+                    parts.append('')
+                    loaded_pkgs.append(md_file.stem.replace('__', '/'))
+                except Exception:
+                    pass
+
+        logger.info(f'Planner context: {len(loaded_pkgs)} packages loaded, keywords={keywords}')
+        return '\n'.join(parts)
+
+    def _trim_agents_md(self, agents_md: str, title: str, description: str) -> str:
+        """Trim agents.md to reduce token usage by keeping only relevant Code Signatures.
+
+        Keeps: Overview, Dependencies, File Tree, Source Files (small sections).
+        Trims: Code Signatures — only keeps sections whose file path matches keywords
+        extracted from the task title and description.
+        """
+        if len(agents_md) < 80_000:  # small enough, don't bother trimming
+            return agents_md
+
+        # Extract keywords from title + description (3+ char words, lowercased)
+        text = f'{title} {description}'.lower()
+        keywords = set(w for w in re.findall(r'[a-z_]{3,}', text) if w not in {
+            'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was', 'not',
+            'but', 'have', 'has', 'been', 'will', 'should', 'would', 'could', 'can',
+            'bir', 'ile', 'olan', 'icin', 'gibi', 'daha', 'var', 'yok', 'hem',
+            'task', 'azure', 'jira', 'local', 'repo', 'path', 'status',
+        })
+
+        lines = agents_md.splitlines()
+        result: list[str] = []
+        in_signatures = False
+        current_section: list[str] = []
+        current_file = ''
+        kept_sections = 0
+        skipped_sections = 0
+
+        for line in lines:
+            if line.startswith('## Code Signatures'):
+                in_signatures = True
+                result.append(line)
+                continue
+
+            if not in_signatures:
+                result.append(line)
+                continue
+
+            # New file section within Code Signatures
+            if line.startswith('### `'):
+                # Flush previous section
+                if current_section:
+                    file_lower = current_file.lower()
+                    if any(kw in file_lower for kw in keywords):
+                        result.extend(current_section)
+                        kept_sections += 1
+                    else:
+                        skipped_sections += 1
+                current_section = [line]
+                current_file = line.strip('# `').strip()
+                continue
+
+            # New top-level section (end of Code Signatures)
+            if line.startswith('## ') and in_signatures:
+                # Flush last section
+                if current_section:
+                    file_lower = current_file.lower()
+                    if any(kw in file_lower for kw in keywords):
+                        result.extend(current_section)
+                        kept_sections += 1
+                    else:
+                        skipped_sections += 1
+                in_signatures = False
+                result.append(f'\n> ({skipped_sections} file sections omitted — not matching task keywords)')
+                result.append('')
+                result.append(line)
+                continue
+
+            current_section.append(line)
+
+        # Flush remaining
+        if current_section and in_signatures:
+            file_lower = current_file.lower()
+            if any(kw in file_lower for kw in keywords):
+                result.extend(current_section)
+                kept_sections += 1
+            else:
+                skipped_sections += 1
+            if skipped_sections:
+                result.append(f'\n> ({skipped_sections} file sections omitted — not matching task keywords)')
+
+        logger.info(f'Trimmed agents.md: kept {kept_sections} / {kept_sections + skipped_sections} signature sections, keywords={keywords}')
+        return '\n'.join(result)
 
     def _extract_task_routing(self, task: TaskRecord) -> TaskRouting:
         meta: dict[str, str] = {}

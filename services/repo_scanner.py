@@ -320,15 +320,44 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
             lines.append(f'| `{sf["path"]}` | {sf["lang"]} | {sf["lines"]} | {sf["size"]:,}B |')
         lines.append('')
 
-    # Signatures — THE MOST IMPORTANT PART
+    # Signatures — package index only (details in separate files)
     sigs = scan_data.get('signatures', [])
     if sigs:
-        lines.append('## Code Signatures')
+        by_pkg = _group_by_package(sigs)
+        lines.append('## Packages')
+        lines.append('| Package | Files | Structs | Functions |')
+        lines.append('|---------|-------|---------|-----------|')
+        for pkg, pkg_sigs in sorted(by_pkg.items()):
+            files = len(set(s['file'] for s in pkg_sigs))
+            structs = sum(1 for s in pkg_sigs if s.get('kind') in ('struct', 'interface', 'class', 'type'))
+            funcs = sum(1 for s in pkg_sigs if s.get('kind') in ('func', 'function', 'method', 'fn'))
+            lines.append(f'| `{pkg}` | {files} | {structs} | {funcs} |')
+        lines.append('')
+        lines.append('> Detailed signatures are in separate package files. The planner loads only relevant packages.')
+
+    return '\n'.join(lines)
+
+
+def generate_package_mds(scan_data: dict[str, Any]) -> dict[str, str]:
+    """Generate per-package markdown files from scan data.
+
+    Returns dict mapping package_name -> markdown content.
+    """
+    sigs = scan_data.get('signatures', [])
+    if not sigs:
+        return {}
+
+    by_pkg = _group_by_package(sigs)
+    result: dict[str, str] = {}
+
+    for pkg, pkg_sigs in sorted(by_pkg.items()):
+        lines: list[str] = []
+        lines.append(f'# Package: {pkg}')
         lines.append('')
 
-        # Group by file
+        # Group by file within package
         by_file: dict[str, list[dict]] = {}
-        for s in sigs:
+        for s in pkg_sigs:
             by_file.setdefault(s['file'], []).append(s)
 
         for file_path, file_sigs in sorted(by_file.items()):
@@ -341,8 +370,7 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
                 body = s.get('body', '')
 
                 if body:
-                    # Struct/interface with fields
-                    lines.append(f'```')
+                    lines.append('```')
                     lines.append(body)
                     lines.append('```')
                 elif sig:
@@ -351,4 +379,20 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
                     lines.append(f'- **{kind}** `{name}` (line {line_no})')
             lines.append('')
 
-    return '\n'.join(lines)
+        result[pkg] = '\n'.join(lines)
+
+    return result
+
+
+def _group_by_package(sigs: list[dict]) -> dict[str, list[dict]]:
+    """Group signatures by their top-level package directory."""
+    by_pkg: dict[str, list[dict]] = {}
+    for s in sigs:
+        parts = s['file'].split('/')
+        # Use first directory as package, or 'root' for top-level files
+        pkg = parts[0] if len(parts) > 1 else '_root'
+        # For deeper nesting like pkg/esindexer/file.go, use first two dirs
+        if len(parts) > 2:
+            pkg = '/'.join(parts[:2])
+        by_pkg.setdefault(pkg, []).append(s)
+    return by_pkg

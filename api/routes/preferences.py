@@ -571,7 +571,7 @@ async def scan_repo_profile(
 
     # Auto-generate agents.md from deep repo scan
     try:
-        from services.repo_scanner import scan_repo, generate_agents_md
+        from services.repo_scanner import scan_repo, generate_agents_md, generate_package_mds
         scan_data = scan_repo(payload.local_path)
         agents_md_content = generate_agents_md(scan_data, payload.mapping_name)
         # Save agents.md to Tiqr's data dir (org-scoped)
@@ -581,7 +581,15 @@ async def scan_repo_profile(
         _sn = (payload.mapping_name or payload.mapping_id).replace('/', '_').replace('\\', '_').replace(' ', '_')
         agents_md_path = _od / f'{_sn}.md'
         agents_md_path.write_text(agents_md_content, encoding='utf-8')
+        # Save per-package signature files
+        pkg_dir = _od / _sn
+        pkg_dir.mkdir(parents=True, exist_ok=True)
+        pkg_mds = generate_package_mds(scan_data)
+        for pkg_name, pkg_content in pkg_mds.items():
+            safe_name = pkg_name.replace('/', '__')
+            (pkg_dir / f'{safe_name}.md').write_text(pkg_content, encoding='utf-8')
         profile['agents_md_path'] = str(agents_md_path)
+        profile['agents_pkg_dir'] = str(pkg_dir)
         profile['agents_md_size'] = len(agents_md_content)
         profile['agents_md_signatures'] = len(scan_data.get('signatures', []))
         profile['agents_md_files'] = len(scan_data.get('source_files', []))
@@ -653,7 +661,7 @@ async def generate_agents_md_endpoint(
     db: AsyncSession = Depends(get_db_session),
 ) -> AgentsMdResponse:
     """Generate agents.md for a repo mapping."""
-    from services.repo_scanner import scan_repo, generate_agents_md
+    from services.repo_scanner import scan_repo, generate_agents_md, generate_package_mds
     scan_data = scan_repo(payload.local_path)
     content = generate_agents_md(scan_data, payload.mapping_name)
     _ab2 = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
@@ -662,6 +670,12 @@ async def generate_agents_md_endpoint(
     _sn2 = (payload.mapping_name or payload.mapping_id).replace('/', '_').replace('\\', '_').replace(' ', '_')
     agents_path = _od2 / f'{_sn2}.md'
     agents_path.write_text(content, encoding='utf-8')
+    # Save per-package signature files
+    pkg_dir2 = _od2 / _sn2
+    pkg_dir2.mkdir(parents=True, exist_ok=True)
+    for pkg_name, pkg_content in generate_package_mds(scan_data).items():
+        safe = pkg_name.replace('/', '__')
+        (pkg_dir2 / f'{safe}.md').write_text(pkg_content, encoding='utf-8')
 
     # Update profile
     pref = await _get_or_create_pref(db, tenant.user_id)
@@ -703,6 +717,15 @@ async def get_agents_md(
     if not p.is_file():
         raise HTTPException(status_code=404, detail='agents.md file not found on disk')
     content = p.read_text(errors='replace')
+    # Append package signature files if they exist
+    pkg_dir = profile.get('agents_pkg_dir', '')
+    if pkg_dir and Path(pkg_dir).is_dir():
+        content += '\n\n---\n\n## Package Signatures\n'
+        for pkg_file in sorted(Path(pkg_dir).glob('*.md')):
+            try:
+                content += '\n' + pkg_file.read_text(errors='replace')
+            except Exception:
+                pass
     return {'mapping_id': mapping_id, 'path': md_path, 'content': content, 'size': len(content)}
 
 

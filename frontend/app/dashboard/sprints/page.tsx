@@ -834,6 +834,24 @@ export default function SprintsPage() {
         )}
       </div>
 
+      {/* AI assign result toast */}
+      {aiResult && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 9999,
+          minWidth: 280, maxWidth: 480, padding: '12px 20px', borderRadius: 12,
+          background: aiResult.includes('❌') || aiResult.toLowerCase().includes('fail') || aiResult.toLowerCase().includes('hata')
+            ? 'rgba(127,29,29,0.92)' : 'rgba(5,46,22,0.92)',
+          border: '1px solid ' + (aiResult.includes('❌') || aiResult.toLowerCase().includes('fail') || aiResult.toLowerCase().includes('hata')
+            ? 'rgba(248,113,113,0.4)' : 'rgba(34,197,94,0.4)'),
+          boxShadow: '0 10px 30px rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+          fontSize: 13, color: '#fff', fontWeight: 600, textAlign: 'center',
+          display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
+        }}>
+          {aiResult}
+          <button onClick={() => setAiResult('')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 16, padding: 0, marginLeft: 4 }}>×</button>
+        </div>
+      )}
+
       {/* LLM key eksik toast */}
       {flowError && (
         <div style={{

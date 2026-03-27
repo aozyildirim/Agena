@@ -37,28 +37,32 @@ class LocalRepoService:
         # Save current branch to restore later
         original_branch = (await self._run_git(root, ['rev-parse', '--abbrev-ref', 'HEAD'])).strip()
 
-        remote_target = self._build_remote_target(remote_url, remote_pat)
-        try:
-            await self._run_git(root, ['fetch', remote_target, base_branch])
-        except Exception:
-            pass  # fetch may fail if no remote configured
-
-        # If the branch already exists remotely, continue on top of it.
-        # Otherwise create from base_branch.
-        branch_exists = False
-        try:
-            await self._run_git(root, ['fetch', remote_target, branch_name])
-            branch_exists = True
-        except Exception:
-            pass
-
-        if branch_exists:
-            await self._run_git(root, ['checkout', '-B', branch_name, f'FETCH_HEAD'], allow_fail=True)
-        else:
+        if remote_url:
+            # PR flow: create/checkout feature branch
+            remote_target = self._build_remote_target(remote_url, remote_pat)
             try:
-                await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+                await self._run_git(root, ['fetch', remote_target, base_branch])
             except Exception:
-                await self._run_git(root, ['checkout', '-B', branch_name])
+                pass
+
+            # If the branch already exists remotely, continue on top of it.
+            branch_exists = False
+            try:
+                await self._run_git(root, ['fetch', remote_target, branch_name])
+                branch_exists = True
+            except Exception:
+                pass
+
+            if branch_exists:
+                await self._run_git(root, ['checkout', '-B', branch_name, 'FETCH_HEAD'], allow_fail=True)
+            else:
+                try:
+                    await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+                except Exception:
+                    await self._run_git(root, ['checkout', '-B', branch_name])
+        else:
+            remote_target = 'origin'
+            # No PR: stay on current branch, just apply changes
 
         try:
             # Write files directly to the repo
@@ -70,8 +74,8 @@ class LocalRepoService:
             await self._run_git(root, ['add', '-A'])
             has_changes = await self._has_staged_changes(root)
             if not has_changes:
-                # Restore original branch
-                await self._run_git(root, ['checkout', original_branch], allow_fail=True)
+                if remote_url:
+                    await self._run_git(root, ['checkout', original_branch], allow_fail=True)
                 await self._run_git(root, ['stash', 'pop'], allow_fail=True)
                 return False, branch_name
 
@@ -81,12 +85,11 @@ class LocalRepoService:
                  'commit', '-m', commit_message],
             )
 
-            # Push only when remote_url is provided (i.e. create_pr flow)
+            # Push only in PR flow
             if remote_url:
                 try:
                     await self._run_git(root, ['push', '-u', '--force-with-lease', remote_target, branch_name])
                 except Exception:
-                    # Fallback to force push if force-with-lease fails (first push)
                     await self._run_git(root, ['push', '-u', remote_target, branch_name], allow_fail=True)
 
             return True, branch_name
