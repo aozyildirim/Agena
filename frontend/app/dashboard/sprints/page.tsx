@@ -618,7 +618,16 @@ export default function SprintsPage() {
         taskId = created.id;
         setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: taskId as number }));
       }
-      await apiFetch('/tasks/' + String(taskId) + '/assign', { method: 'POST' });
+      await apiFetch('/tasks/' + String(taskId) + '/assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: 'flow',
+          create_pr: false,
+          agent_role: options?.agentRole || undefined,
+          agent_model: options?.agentModel || undefined,
+          agent_provider: options?.agentProvider || undefined,
+        }),
+      });
       setAiResult(t('sprints.aiAssigned'));
     } catch (e) {
       setAiResult(t('sprints.aiAssignFailed') + (e instanceof Error ? e.message : t('sprints.errorDefault')));
