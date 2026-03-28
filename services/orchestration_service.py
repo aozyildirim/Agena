@@ -161,13 +161,13 @@ class OrchestrationService:
                     f"Codex CLI started (model={routing.preferred_agent_model or 'default'})",
                 )
                 try:
+                    # Codex CLI uses ChatGPT login session (~/.codex/auth.json).
+                    # Do NOT pass API key — it breaks the responses WebSocket auth flow.
                     final_code = await self.codex_cli_service.generate_file_markdown(
                         repo_path=routing.local_repo_path,
                         task_title=task.title,
                         task_description=effective_description,
                         model=routing.preferred_agent_model,
-                        # For codex_cli we rely on codex auth.json session, not org OpenAI key.
-                        # Restricted API keys may not have responses/model scopes and break execution.
                         api_key=None,
                         api_base_url=None,
                     )

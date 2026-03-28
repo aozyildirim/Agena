@@ -77,6 +77,16 @@ class IntegrationConfigService:
         await self.db.refresh(existing)
         return existing
 
+    async def delete_config(self, organization_id: int, provider: str) -> bool:
+        provider = provider.lower()
+        self._validate_provider(provider)
+        existing = await self.get_config(organization_id, provider)
+        if existing is None:
+            return False
+        await self.db.delete(existing)
+        await self.db.commit()
+        return True
+
     def to_public_dict(self, config: IntegrationConfig) -> dict[str, str | None | bool]:
         return {
             'provider': config.provider,

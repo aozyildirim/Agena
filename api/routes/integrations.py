@@ -256,6 +256,21 @@ async def get_playbook_content(
     return PlaybookContentResponse(content=item.secret or '')
 
 
+@router.delete('/{provider}', status_code=204)
+async def delete_integration(
+    provider: str,
+    tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    service = IntegrationConfigService(db)
+    try:
+        deleted = await service.delete_config(tenant.organization_id, provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail='Integration not found')
+
+
 @router.put('/{provider}', response_model=IntegrationConfigResponse)
 async def upsert_integration(
     provider: str,

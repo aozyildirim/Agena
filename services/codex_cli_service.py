@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class CodexCLIService:
-    FALLBACK_MODEL = 'gpt-5'
+    FALLBACK_MODEL = 'gpt-4o'
     EXEC_TIMEOUT_SEC = 180
     TRANSIENT_RETRIES = 3
 
@@ -31,6 +31,8 @@ class CodexCLIService:
                 task_title=task_title,
                 task_description=task_description,
                 model=model,
+                api_key=api_key,
+                api_base_url=api_base_url,
             )
 
         repo = Path(repo_path).expanduser().resolve()
@@ -185,13 +187,20 @@ class CodexCLIService:
         return 'insufficient permissions for this operation' in lowered or 'missing scopes:' in lowered
 
     def _normalize_model_for_chatgpt(self, model: str | None) -> str | None:
+        """Normalize model name for Codex CLI ChatGPT login mode.
+
+        ChatGPT login mode only supports specific model slugs.
+        Unknown or invalid names fall back to a safe default.
+        """
         if not model:
-            return model
-        lowered = model.lower()
-        # codex CLI with ChatGPT account does not support legacy OpenAI API model ids.
-        if lowered in {'codex', 'gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini'}:
-            return self.FALLBACK_MODEL
-        return model
+            return None
+        lowered = model.strip().lower()
+        # Valid models for Codex CLI ChatGPT login mode
+        VALID = {'gpt-4o', 'gpt-4o-mini', 'o1', 'o3', 'o3-mini', 'o4-mini', 'gpt-4.1', 'gpt-4.1-mini'}
+        if lowered in VALID:
+            return model.strip()
+        # Anything else (gpt-5.4-mini, werdsfsdf, etc.) → safe fallback
+        return self.FALLBACK_MODEL
 
     def _is_transient_error(self, message: str) -> bool:
         lowered = message.lower()
@@ -209,6 +218,8 @@ class CodexCLIService:
         task_title: str,
         task_description: str,
         model: str | None = None,
+        api_key: str | None = None,
+        api_base_url: str | None = None,
     ) -> str:
         """Call CLI bridge HTTP server running on host."""
         import httpx
@@ -229,16 +240,19 @@ class CodexCLIService:
             f'Task description:\n{task_description}\n'
         )
 
+        payload: dict = {
+            'repo_path': repo_path,
+            'prompt': prompt,
+            'model': model or '',
+            'timeout': self.EXEC_TIMEOUT_SEC,
+        }
+        if api_key:
+            payload['api_key'] = api_key
+        if api_base_url:
+            payload['api_base_url'] = api_base_url
+
         async with httpx.AsyncClient(timeout=300) as client:
-            resp = await client.post(
-                f'{bridge_url}/{cli}',
-                json={
-                    'repo_path': repo_path,
-                    'prompt': prompt,
-                    'model': model or '',
-                    'timeout': self.EXEC_TIMEOUT_SEC,
-                },
-            )
+            resp = await client.post(f'{bridge_url}/{cli}', json=payload)
             data = resp.json()
 
         if data.get('status') != 'ok':

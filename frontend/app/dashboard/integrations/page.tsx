@@ -288,6 +288,19 @@ export default function IntegrationsPage() {
     return () => clearTimeout(timer);
   }, [msg]);
 
+  async function deleteIntegration(provider: string) {
+    if (!confirm(`${provider} entegrasyonunu silmek istediğinize emin misiniz?`)) return;
+    try {
+      await apiFetch(`/integrations/${provider}`, { method: 'DELETE' });
+      setConfigs((prev) => prev.filter((c) => c.provider !== provider));
+      // Clear local previews
+      localStorage.removeItem(`${SECRET_PREVIEW_LS_PREFIX}${provider}`);
+      setMsg(`${provider} entegrasyonu silindi`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Silme başarısız');
+    }
+  }
+
   async function saveJira() {
     Promise.all([
       apiFetch('/integrations/jira', {
@@ -596,6 +609,11 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveOpenai')}
           </button>
+          {configs.find(c => c.provider === 'openai')?.has_secret && (
+            <button onClick={() => void deleteIntegration('openai')} style={{ width: '100%', marginTop: 6, padding: '8px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+              🗑 OpenAI bağlantısını sil
+            </button>
+          )}
         </IntegrationCard>}
 
         {/* Gemini */}
@@ -649,6 +667,11 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveAzure()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveAzure')}
           </button>
+          {configs.find(c => c.provider === 'azure')?.has_secret && (
+            <button onClick={() => void deleteIntegration('azure')} style={{ width: '100%', marginTop: 6, padding: '8px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+              🗑 Azure bağlantısını sil
+            </button>
+          )}
         </IntegrationCard>}
 
         {/* GitHub */}
@@ -677,6 +700,11 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveGithub()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveGithub')}
           </button>
+          {configs.find(c => c.provider === 'github')?.has_secret && (
+            <button onClick={() => void deleteIntegration('github')} style={{ width: '100%', marginTop: 6, padding: '8px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+              🗑 GitHub bağlantısını sil
+            </button>
+          )}
         </IntegrationCard>}
 
         {/* Jira */}
@@ -705,6 +733,11 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveJira()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveJira')}
           </button>
+          {configs.find(c => c.provider === 'jira')?.has_secret && (
+            <button onClick={() => void deleteIntegration('jira')} style={{ width: '100%', marginTop: 6, padding: '8px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+              🗑 Jira bağlantısını sil
+            </button>
+          )}
         </IntegrationCard>}
 
         {/* Tenant Playbook */}
@@ -799,9 +832,9 @@ export default function IntegrationsPage() {
             <div style={{ borderRadius: 16, border: '1px solid rgba(168,85,247,0.25)', background: 'var(--surface)', padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>CLI Bridge</h3>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{t('integrations.cliBridgeTitle')}</h3>
                   <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)' }}>
-                    Codex CLI ve Claude CLI host makinede calisir. Bridge HTTP server uzerinden Docker worker ile iletisim kurar.
+                    {t('integrations.cliBridgeDesc')}
                   </p>
                 </div>
                 <div style={{
@@ -810,7 +843,7 @@ export default function IntegrationsPage() {
                   color: cliBridgeStatus?.ok ? '#22c55e' : '#f87171',
                   border: `1px solid ${cliBridgeStatus?.ok ? 'rgba(34,197,94,0.3)' : 'rgba(248,113,113,0.3)'}`,
                 }}>
-                  {cliBridgeStatus === null ? 'Kontrol edilmedi' : cliBridgeStatus.ok ? 'Bagli' : 'Bagli degil'}
+                  {cliBridgeStatus === null ? t('integrations.cliUnchecked') : cliBridgeStatus.ok ? t('integrations.cliConnected') : t('integrations.cliDisconnected')}
                 </div>
               </div>
 
@@ -824,7 +857,7 @@ export default function IntegrationsPage() {
                       background: cliBridgeStatus?.codex ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
                       color: cliBridgeStatus?.codex ? '#22c55e' : '#f87171',
                     }}>
-                      {cliBridgeStatus?.codex ? 'Kurulu' : 'Bulunamadi'}
+                      {cliBridgeStatus?.codex ? t('integrations.cliInstalled') : t('integrations.cliNotFound')}
                     </span>
                     {cliBridgeStatus?.codex && (
                       <span style={{
@@ -832,64 +865,108 @@ export default function IntegrationsPage() {
                         background: cliBridgeStatus?.codex_auth ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
                         color: cliBridgeStatus?.codex_auth ? '#22c55e' : '#f59e0b',
                       }}>
-                        {cliBridgeStatus?.codex_auth ? 'Auth OK' : 'Auth gerekli'}
+                        {cliBridgeStatus?.codex_auth ? t('integrations.cliAuthOk') : t('integrations.cliAuthRequired')}
                       </span>
                     )}
                   </div>
                   <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
-                    OpenAI Codex CLI — repo icinde kod yazar, dosyalari degistirir.
+                    {t('integrations.codexCliDesc')}
                   </p>
+                  {cliBridgeStatus?.codex && cliBridgeStatus?.codex_auth && (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        className='button button-outline'
+                        style={{ width: '100%', padding: '9px 14px', fontSize: 12, justifyContent: 'center' }}
+                        onClick={() => {
+                          fetch('http://localhost:9876/codex/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                            .then(async (r) => {
+                              const text = await r.text();
+                              let data: Record<string, unknown> = {};
+                              if (text) {
+                                try { data = JSON.parse(text) as Record<string, unknown>; }
+                                catch { data = { message: text }; }
+                              }
+                              const status = typeof data.status === 'string' ? data.status : (r.ok ? 'ok' : 'error');
+                              return { status, message: typeof data.message === 'string' ? data.message : '', detail: typeof data.detail === 'string' ? data.detail : '' };
+                            })
+                            .then((d) => {
+                              if (d.status === 'ok') {
+                                setMsg(t('integrations.codexSessionCleared'));
+                                setCliBridgeStatus(s => s ? { ...s, codex_auth: false } : s);
+                              } else {
+                                setError(d.message || d.detail || t('integrations.codexLogoutFailed'));
+                              }
+                            })
+                            .catch(() => setError(t('integrations.codexLogoutRequestFailed')))
+                            .finally(() => {
+                              fetch('http://localhost:9876/health')
+                                .then(r => r.json())
+                                .then(h => setCliBridgeStatus({
+                                  ok: true,
+                                  codex: h.codex,
+                                  claude: h.claude,
+                                  codex_auth: h.codex_auth,
+                                  claude_auth: h.claude_auth,
+                                }))
+                                .catch(() => {});
+                            });
+                        }}
+                      >
+                        {t('integrations.clearSession')}
+                      </button>
+                    </div>
+                  )}
                   {cliBridgeStatus?.codex && !cliBridgeStatus?.codex_auth && (
                     <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                       <button className='button button-primary' style={{ width: '100%', padding: '9px 14px', fontSize: 12, justifyContent: 'center' }} onClick={() => {
-                        setMsg('Codex login baslatiliyor...');
+                        setMsg(t('integrations.codexLoginStarting'));
                         fetch('http://localhost:9876/codex/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                           .then(r => r.json()).then(d => {
                             if (d.login_url) {
                               window.open(d.login_url, '_blank');
-                              setMsg('Giris yap, hata sayfasindaki URL\'i kopyala ve asagiya yapistir');
+                              setMsg(t('integrations.codexLoginCopyCallback'));
                               const cbEl = document.getElementById('codex-callback-section');
                               if (cbEl) cbEl.style.display = 'grid';
                               const poll = setInterval(() => {
                                 fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
-                                  if (h.codex_auth) { clearInterval(poll); setMsg('Codex login basarili!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); if (cbEl) cbEl.style.display = 'none'; }
+                                  if (h.codex_auth) { clearInterval(poll); setMsg(t('integrations.codexLoginSuccess')); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); if (cbEl) cbEl.style.display = 'none'; }
                                 }).catch(() => {});
                               }, 3000);
                               setTimeout(() => clearInterval(poll), 180000);
-                            } else if (d.already_auth) { setMsg('Zaten giris yapilmis!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
-                            else setMsg(d.message || 'Login baslatildi');
-                          }).catch(() => setError('Bridge baglantisi basarisiz'));
-                      }}>ChatGPT Hesabi ile Giris Yap</button>
+                            } else if (d.already_auth) { setMsg(t('integrations.cliAlreadyLoggedIn')); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
+                            else setMsg(d.message || t('integrations.cliLoginStarted'));
+                          }).catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
+                      }}>{t('integrations.connectWithChatgpt')}</button>
                       <div id='codex-callback-section' style={{ display: 'none', gap: 6 }}>
-                        <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5 }}>Giris yaptiktan sonra hata sayfasina yonlendirileceksin. O sayfanin URL&apos;ini kopyala ve buraya yapistir:</div>
+                        <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5 }}>{t('integrations.codexCallbackHint')}</div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <input id='codex-callback-url' type='text' placeholder='http://localhost:1455/auth/callback?code=...' style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
                           <button className='button button-primary' style={{ padding: '7px 12px', fontSize: 11, flexShrink: 0 }} onClick={() => {
                             const cbUrl = (document.getElementById('codex-callback-url') as HTMLInputElement)?.value;
-                            if (!cbUrl || !cbUrl.includes('code=')) { setError('Gecerli callback URL yapistirin'); return; }
+                            if (!cbUrl || !cbUrl.includes('code=')) { setError(t('integrations.validCallbackRequired')); return; }
                             try {
                               const parsed = new URL(cbUrl);
                               fetch(`http://localhost:9876/auth/callback${parsed.search}`).then(() => {
-                                setMsg('Login tamamlaniyor...');
+                                setMsg(t('integrations.loginCompleting'));
                                 setTimeout(() => fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
-                                  if (h.codex_auth) { setMsg('Codex login basarili!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
-                                  else setMsg('Birka saniye bekleyin...');
+                                  if (h.codex_auth) { setMsg(t('integrations.codexLoginSuccess')); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
+                                  else setMsg(t('integrations.waitFewSeconds'));
                                 }), 2000);
                               });
-                            } catch { setError('Gecersiz URL'); }
-                          }}>Tamamla</button>
+                            } catch { setError(t('integrations.invalidUrl')); }
+                          }}>{t('integrations.complete')}</button>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> veya <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> {t('integrations.or')} <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <input id='codex-key' type='password' placeholder='OpenAI API Key (sk-...)' style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12 }} />
                         <button className='button button-outline' style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => {
                           const key = (document.getElementById('codex-key') as HTMLInputElement)?.value;
-                          if (!key) { setError('API Key girin'); return; }
+                          if (!key) { setError(t('integrations.apiKeyRequired')); return; }
                           fetch('http://localhost:9876/codex/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: key }) })
-                            .then(r => r.json()).then(d => { if (d.status === 'ok') { setMsg('Codex API key kaydedildi'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); } else setError(d.message); })
-                            .catch(() => setError('Bridge baglantisi basarisiz'));
-                        }}>API Key ile Bagla</button>
+                            .then(r => r.json()).then(d => { if (d.status === 'ok') { setMsg(t('integrations.codexApiKeySaved')); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); } else setError(d.message); })
+                            .catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
+                        }}>{t('integrations.connectWithApiKey')}</button>
                       </div>
                     </div>
                   )}
@@ -904,7 +981,7 @@ export default function IntegrationsPage() {
                       background: cliBridgeStatus?.claude ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
                       color: cliBridgeStatus?.claude ? '#22c55e' : '#f87171',
                     }}>
-                      {cliBridgeStatus?.claude ? 'Kurulu' : 'Bulunamadi'}
+                      {cliBridgeStatus?.claude ? t('integrations.cliInstalled') : t('integrations.cliNotFound')}
                     </span>
                     {cliBridgeStatus?.claude && (
                       <span style={{
@@ -912,42 +989,42 @@ export default function IntegrationsPage() {
                         background: cliBridgeStatus?.claude_auth ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
                         color: cliBridgeStatus?.claude_auth ? '#22c55e' : '#f59e0b',
                       }}>
-                        {cliBridgeStatus?.claude_auth ? 'Auth OK' : 'Auth gerekli'}
+                        {cliBridgeStatus?.claude_auth ? t('integrations.cliAuthOk') : t('integrations.cliAuthRequired')}
                       </span>
                     )}
                   </div>
                   <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
-                    Anthropic Claude Code — repo icinde analiz ve kod yazma.
+                    {t('integrations.claudeCliDesc')}
                   </p>
                   {cliBridgeStatus?.claude && !cliBridgeStatus?.claude_auth && (
                     <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                       <button className='button button-primary' style={{ width: '100%', padding: '9px 14px', fontSize: 12, justifyContent: 'center' }} onClick={() => {
-                        setMsg('Claude login baslatiliyor...');
+                        setMsg(t('integrations.claudeLoginStarting'));
                         fetch('http://localhost:9876/claude/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                           .then(r => r.json()).then(d => {
                             if (d.login_url) {
                               window.open(d.login_url, '_blank');
-                              setMsg('Login sayfasi acildi — giris yap, sonra buraya don...');
+                              setMsg(t('integrations.claudeLoginPageOpened'));
                               const poll = setInterval(() => {
                                 fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
-                                  if (h.claude_auth) { clearInterval(poll); setMsg('Claude login basarili!'); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
+                                  if (h.claude_auth) { clearInterval(poll); setMsg(t('integrations.claudeLoginSuccess')); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
                                 }).catch(() => {});
                               }, 3000);
                               setTimeout(() => clearInterval(poll), 180000);
-                            } else if (d.already_auth) { setMsg('Zaten giris yapilmis!'); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
-                            else setMsg(d.message || 'Login baslatildi');
-                          }).catch(() => setError('Bridge baglantisi basarisiz'));
-                      }}>Anthropic Hesabi ile Giris Yap</button>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> veya <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
+                            } else if (d.already_auth) { setMsg(t('integrations.cliAlreadyLoggedIn')); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
+                            else setMsg(d.message || t('integrations.cliLoginStarted'));
+                          }).catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
+                      }}>{t('integrations.connectWithAnthropic')}</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> {t('integrations.or')} <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <input id='claude-key' type='password' placeholder='Anthropic API Key (sk-ant-...)' style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12 }} />
                         <button className='button button-outline' style={{ padding: '7px 14px', fontSize: 12 }} onClick={() => {
                           const key = (document.getElementById('claude-key') as HTMLInputElement)?.value;
-                          if (!key) { setError('API Key girin'); return; }
+                          if (!key) { setError(t('integrations.apiKeyRequired')); return; }
                           fetch('http://localhost:9876/claude/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: key }) })
-                            .then(r => r.json()).then(d => { if (d.status === 'ok') { setMsg('Claude API key kaydedildi'); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); } else setError(d.message); })
-                            .catch(() => setError('Bridge baglantisi basarisiz'));
-                        }}>API Key ile Bagla</button>
+                            .then(r => r.json()).then(d => { if (d.status === 'ok') { setMsg(t('integrations.claudeApiKeySaved')); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); } else setError(d.message); })
+                            .catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
+                        }}>{t('integrations.connectWithApiKey')}</button>
                       </div>
                     </div>
                   )}
@@ -955,16 +1032,16 @@ export default function IntegrationsPage() {
               </div>
 
               <div style={{ borderRadius: 12, border: '1px solid rgba(168,85,247,0.2)', background: 'rgba(168,85,247,0.05)', padding: '14px 16px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Bridge Nasil Calistirilir</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{t('integrations.bridgeHowToTitle')}</div>
                 <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--ink-72)', lineHeight: 1.8 }}>
-                  <li>Ayri bir terminalde bridge serveri baslat:</li>
+                  <li>{t('integrations.bridgeStep1')}</li>
                 </ol>
                 <div style={{ margin: '8px 0', padding: '8px 10px', borderRadius: 8, background: 'var(--terminal-bg)', fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-65)' }}>
                   python3 cli_bridge.py
                 </div>
                 <ol start={2} style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--ink-72)', lineHeight: 1.8 }}>
-                  <li>Agents sayfasinda developer agent'in provider'ini "Codex CLI" veya "Claude CLI" olarak secin</li>
-                  <li>Task'a AI atayinca bridge uzerinden CLI calisir, kodu yazar, PR acar</li>
+                  <li>{t('integrations.bridgeStep2')}</li>
+                  <li>{t('integrations.bridgeStep3')}</li>
                 </ol>
               </div>
 
@@ -972,10 +1049,10 @@ export default function IntegrationsPage() {
                 className='button button-outline'
                 style={{ marginTop: 12, width: '100%', justifyContent: 'center' }}
                 onClick={() => {
-                  fetch('http://localhost:9876/health').then(r => r.json()).then(d => { setCliBridgeStatus({ ok: true, codex: d.codex, claude: d.claude, codex_auth: d.codex_auth, claude_auth: d.claude_auth }); setMsg('Bridge bagli!'); }).catch(() => { setCliBridgeStatus({ ok: false, codex: false, claude: false, codex_auth: false, claude_auth: false }); setError('Bridge bagli degil.'); });
+                  fetch('http://localhost:9876/health').then(r => r.json()).then(d => { setCliBridgeStatus({ ok: true, codex: d.codex, claude: d.claude, codex_auth: d.codex_auth, claude_auth: d.claude_auth }); setMsg(t('integrations.bridgeConnected')); }).catch(() => { setCliBridgeStatus({ ok: false, codex: false, claude: false, codex_auth: false, claude_auth: false }); setError(t('integrations.bridgeDisconnected')); });
                 }}
               >
-                Bridge Durumunu Kontrol Et
+                {t('integrations.checkBridgeStatus')}
               </button>
             </div>
           </div>
