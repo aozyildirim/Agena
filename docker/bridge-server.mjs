@@ -88,6 +88,10 @@ const server = createServer(async (req, res) => {
     result = await setAuth('codex', data);
   } else if (url.pathname === '/claude/auth') {
     result = await setAuth('claude', data);
+  } else if (url.pathname === '/codex/logout') {
+    result = await clearAuth('codex');
+  } else if (url.pathname === '/claude/logout') {
+    result = await clearAuth('claude');
   } else if (url.pathname === '/codex/login') {
     result = await startLogin('codex');
   } else if (url.pathname === '/claude/login') {
@@ -305,6 +309,29 @@ async function setAuth(cli, data) {
       }));
       console.log('[claude] API key saved');
       return { status: 'ok', message: 'Claude API key saved' };
+    }
+
+    return { status: 'error', message: `Unknown CLI: ${cli}` };
+  } catch (e) {
+    return { status: 'error', message: e.message };
+  }
+}
+
+async function clearAuth(cli) {
+  try {
+    if (cli === 'codex') {
+      const authPath = '/root/.codex/auth.json';
+      if (existsSync(authPath)) unlinkSync(authPath);
+      delete process.env.OPENAI_API_KEY;
+      return { status: 'ok', message: 'Codex session cleared' };
+    }
+
+    if (cli === 'claude') {
+      const paths = ['/root/.claude/.credentials.json', '/root/.claude/credentials.json'];
+      for (const p of paths) {
+        if (existsSync(p)) unlinkSync(p);
+      }
+      return { status: 'ok', message: 'Claude session cleared' };
     }
 
     return { status: 'error', message: `Unknown CLI: ${cli}` };

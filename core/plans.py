@@ -14,7 +14,7 @@ PLANS: dict[str, dict[str, Any]] = {
     },
     'pro': {
         'name': 'Pro',
-        'max_tasks_per_month': 100,
+        'max_tasks_per_month': 500,
         'max_members': 20,
         'max_agents': 10,
         'features': ['basic_orchestration', 'advanced_analytics', 'priority_queue', 'custom_agents'],
