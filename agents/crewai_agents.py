@@ -196,36 +196,14 @@ class CrewAIAgentRunner:
         max_output_tokens: int = 2500,
         skip_cache: bool = False,
     ) -> tuple[str, dict[str, int], str]:
-        raw_key = (self.llm.settings.openai_api_key or '').strip()
-        if not raw_key or raw_key.startswith('your_'):
-            content, usage, model, _ = await self.llm.generate(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                complexity_hint=complexity_hint,
-                max_output_tokens=max_output_tokens,
-                skip_cache=skip_cache,
-            )
-            return content, usage, model
-        try:
-            from crewai import Agent, Crew, Process, Task
-
-            agent = Agent(role=role, goal=goal, backstory='You are part of a production delivery pipeline.')
-            task = Task(description=user_prompt, expected_output='High quality output', agent=agent)
-            crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
-            result = crew.kickoff()
-            content = str(result)
-            usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
-            return content, usage, 'crewai-runtime'
-        except Exception as exc:
-            logger.info('CrewAI execution fallback to LLM provider due to: %s', exc)
-            content, usage, model, _ = await self.llm.generate(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                complexity_hint=complexity_hint,
-                max_output_tokens=max_output_tokens,
-                skip_cache=skip_cache,
-            )
-            return content, usage, model
+        content, usage, model, _ = await self.llm.generate(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            complexity_hint=complexity_hint,
+            max_output_tokens=max_output_tokens,
+            skip_cache=skip_cache,
+        )
+        return content, usage, model
 
     def _safe_json(self, content: str) -> dict[str, Any]:
         text = content.strip()
