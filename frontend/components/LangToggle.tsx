@@ -8,7 +8,7 @@ export default function LangToggle({ style }: { style?: React.CSSProperties }) {
   return (
     <select
       value={lang}
-      onChange={(e) => setLang(e.target.value as 'tr' | 'en')}
+      onChange={(e) => setLang(e.target.value as 'tr' | 'en' | 'es' | 'zh' | 'it' | 'de' | 'ja')}
       title='Language'
       suppressHydrationWarning
       style={{
@@ -25,6 +25,11 @@ export default function LangToggle({ style }: { style?: React.CSSProperties }) {
     >
       <option value='tr'>🇹🇷 TR</option>
       <option value='en'>🇬🇧 EN</option>
+      <option value='es'>🇪🇸 ES</option>
+      <option value='zh'>🇨🇳 中文</option>
+      <option value='it'>🇮🇹 IT</option>
+      <option value='de'>🇩🇪 DE</option>
+      <option value='ja'>🇯🇵 日本語</option>
     </select>
   );
 }

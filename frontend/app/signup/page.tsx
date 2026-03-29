@@ -70,8 +70,8 @@ export default function SignUpPage() {
 
   function resolveNextUrl(): string {
     const raw = searchParams.get('next') || '';
-    if (!raw.startsWith('/')) return '/dashboard?onboarding=1';
-    if (raw.startsWith('//')) return '/dashboard?onboarding=1';
+    if (!raw.startsWith('/')) return '/dashboard';
+    if (raw.startsWith('//')) return '/dashboard';
     return raw;
   }
 
