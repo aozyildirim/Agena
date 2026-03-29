@@ -211,7 +211,7 @@ export default function DashboardTasksPage() {
           agent_provider: agent.provider,
         }),
       });
-      setMsg(`${t('tasks.assignedAi')} (${agent.role} / ${agent.model})`); await load();
+      setMsg(`${t('tasks.assignedAi')} (${agent.role} / ${agent.provider}:${agent.model})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 

@@ -165,6 +165,7 @@ class CrewAIAgentRunner:
             f'IMPLEMENTATION PLAN:\n{plan.get("plan", "")}\n\n'
             f'CHANGES TO MAKE:\n{changes_text}\n\n'
             f'SOURCE FILES TO MODIFY:\n{file_contents}\n\n'
+            'The source files are embedded inline above under --- path --- markers. They are available to you now.\n'
             f'CRITICAL REQUIREMENT: You MUST produce a **File: path** + ``` patch block for EVERY file listed below. '
             f'Do NOT stop after the first file. Do NOT skip any file. '
             f'There are {len(plan.get("changes", []))} files that need changes:\n{file_list}\n\n'
@@ -179,10 +180,30 @@ class CrewAIAgentRunner:
             complexity_hint='high',
             max_output_tokens=AGENT_TOKEN_LIMITS['developer'],
             skip_cache=True,
-            image_inputs=task_images,
-            multimodal=bool(task_images),
-            reasoning=True,
+            image_inputs=None,
+            multimodal=False,
+            reasoning=False,
         )
+        if self._needs_direct_code_retry(content):
+            retry_prompt = (
+                f'{prompt}\n\n'
+                'RETRY REQUIREMENTS:\n'
+                '- Do NOT claim the files are missing; they are embedded inline above.\n'
+                '- Return only **File: path** blocks with fenced patch sections.\n'
+                '- If a file truly does not need a change, omit it instead of explaining.\n'
+                '- Do not output prose, apologies, or commentary.\n'
+            )
+            direct_content, direct_usage, direct_model, _ = await self.llm.generate(
+                system_prompt=AI_CODE_SYSTEM_PROMPT,
+                user_prompt=retry_prompt,
+                complexity_hint='high',
+                max_output_tokens=AGENT_TOKEN_LIMITS['developer'],
+                skip_cache=True,
+                image_inputs=None,
+            )
+            usage = self._sum_usage(usage, direct_usage)
+            if self._looks_like_structured_file_output(direct_content):
+                return direct_content, usage, direct_model
         return content, usage, model
 
     async def run_developer(
@@ -346,20 +367,59 @@ class CrewAIAgentRunner:
         return normalized
 
     def _build_crewai_llm(self, crewai_model: str, max_output_tokens: int, complexity_hint: str) -> LLM:
+        effective_max_tokens = min(max_output_tokens, self._crewai_output_cap(crewai_model))
         kwargs: dict[str, Any] = {
             'model': crewai_model,
             'api_key': self.llm.api_key or None,
             'base_url': self.llm.base_url or None,
-            'max_completion_tokens': max_output_tokens,
-            'max_tokens': max_output_tokens,
+            'max_completion_tokens': effective_max_tokens,
+            'max_tokens': effective_max_tokens,
         }
         if 'codex' not in crewai_model and '/o1' not in crewai_model and '/o3' not in crewai_model:
             kwargs['temperature'] = 0.2
-        if crewai_model.startswith('openai/'):
-            kwargs['api'] = 'responses'
         if any(token in crewai_model for token in ('gpt-5', 'codex', '/o1', '/o3')):
             kwargs['reasoning_effort'] = 'high' if complexity_hint == 'high' else 'medium'
         return LLM(**kwargs)
+
+    def _crewai_output_cap(self, crewai_model: str) -> int:
+        normalized = (crewai_model or '').lower()
+        if 'gpt-4.1' in normalized:
+            return 32_000
+        if any(token in normalized for token in ('gpt-5', 'gpt-4', 'gpt-4o', 'codex', '/o1', '/o3')):
+            return 32_000
+        return 16_000
+
+    def _looks_like_structured_file_output(self, content: str) -> bool:
+        text = (content or '').strip()
+        if not text:
+            return False
+        return bool(re.search(r'(?m)^\*{0,2}File:\s*.+$', text))
+
+    def _needs_direct_code_retry(self, content: str) -> bool:
+        text = (content or '').strip()
+        if not text:
+            return True
+        lowered = text.lower()
+        if self._looks_like_structured_file_output(text):
+            return False
+        refusal_markers = (
+            'could not access the source files',
+            'cannot access the source files',
+            'files are missing',
+            'unable to complete the requested changes',
+            "i'm sorry",
+            'i cannot',
+        )
+        if any(marker in lowered for marker in refusal_markers):
+            return True
+        return len(text) < 200
+
+    def _sum_usage(self, *usage_items: dict[str, int]) -> dict[str, int]:
+        merged = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
+        for usage in usage_items:
+            for key in merged:
+                merged[key] += int((usage or {}).get(key, 0) or 0)
+        return merged
 
     def _compose_task_description(self, system_prompt: str, user_prompt: str, image_inputs: list[str]) -> str:
         parts = [

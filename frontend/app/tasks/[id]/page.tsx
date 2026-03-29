@@ -10,6 +10,8 @@ type TaskDetail = {
   id: number;
   title: string;
   description: string;
+  preferred_agent_model?: string | null;
+  preferred_agent_provider?: string | null;
   story_context?: string | null;
   acceptance_criteria?: string | null;
   edge_cases?: string | null;
@@ -500,7 +502,15 @@ export default function TaskDetailPage() {
     if (!taskId) return;
     try {
       setIsRerunBusy(true);
-      await apiFetch('/tasks/' + taskId + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: task?.last_mode || 'ai' }) });
+      await apiFetch('/tasks/' + taskId + '/assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          create_pr: defaultCreatePr,
+          mode: task?.last_mode || 'ai',
+          agent_model: task?.preferred_agent_model || undefined,
+          agent_provider: task?.preferred_agent_provider || undefined,
+        }),
+      });
       setSelectedRunIndex(-1);
       await loadData();
     } catch (err) {
@@ -695,6 +705,11 @@ export default function TaskDetailPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 <StatusBadge status={task.status} />
                 <span style={{ color: 'var(--ink-50)', fontSize: 13, textTransform: 'capitalize' }}>{t('taskDetail.source')}: {task.source}</span>
+                {(task.preferred_agent_provider || task.preferred_agent_model) ? (
+                  <span style={{ color: 'var(--ink-50)', fontSize: 13 }}>
+                    {t('agents.provider')}: {task.preferred_agent_provider || '—'} | {t('agents.model')}: {task.preferred_agent_model || '—'}
+                  </span>
+                ) : null}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 <button className='button button-primary' onClick={() => void rerunTask()} disabled={isRerunBusy} style={{ flex: 1 }}>

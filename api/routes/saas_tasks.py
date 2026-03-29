@@ -33,10 +33,13 @@ router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
 
 async def _to_task_response(service: TaskService, organization_id: int, task) -> TaskResponse:
     insights = await service.get_task_insights(organization_id, task)
+    preferred_agent_model, preferred_agent_provider = service._extract_preferred_agent_selection(task.description)
     return TaskResponse(
         id=task.id,
         title=task.title,
         description=task.description,
+        preferred_agent_model=preferred_agent_model,
+        preferred_agent_provider=preferred_agent_provider,
         story_context=task.story_context,
         acceptance_criteria=task.acceptance_criteria,
         edge_cases=task.edge_cases,

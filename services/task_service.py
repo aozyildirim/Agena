@@ -422,34 +422,41 @@ class TaskService:
         if not has_local_mapping:
             await self._attach_default_repo_mapping(organization_id, task)
             has_local_mapping = 'Local Repo Path:' in (task.description or '')
+            local_repo_path = self._extract_local_repo_path(task.description)
         if not has_local_mapping:
             create_pr = False
 
-        # Inject developer agent model/provider into description if not already set.
-        if 'Preferred Agent Model:' not in (task.description or ''):
-            pref_result = await self.db.execute(
-                select(UserPreference).where(UserPreference.user_id == task.created_by_user_id)
+        explicit_model = (agent_model or '').strip() or None
+        explicit_provider = (agent_provider or '').strip() or None
+        stored_model, stored_provider = self._extract_preferred_agent_selection(task.description)
+
+        if explicit_model or explicit_provider:
+            task.description = self._upsert_description_metadata(
+                task.description,
+                {
+                    'Preferred Agent Model': explicit_model,
+                    'Preferred Agent Provider': explicit_provider,
+                },
             )
-            pref = pref_result.scalar_one_or_none()
-            if pref is not None and pref.agents_json:
-                try:
-                    agents = json.loads(pref.agents_json)
-                    dev_agent = next(
-                        (a for a in agents if str(a.get('role', '')).lower() == 'developer' and a.get('enabled', True)),
-                        None,
-                    )
-                    if dev_agent:
-                        agent_model = str(dev_agent.get('custom_model') or dev_agent.get('model') or '').strip()
-                        agent_provider = str(dev_agent.get('provider') or '').strip()
-                        inject_lines: list[str] = []
-                        if agent_model:
-                            inject_lines.append(f'Preferred Agent Model: {agent_model}')
-                        if agent_provider:
-                            inject_lines.append(f'Preferred Agent Provider: {agent_provider}')
-                        if inject_lines:
-                            task.description = (task.description or '').rstrip() + '\n' + '\n'.join(inject_lines)
-                except Exception:
-                    pass
+            stored_model = explicit_model or stored_model
+            stored_provider = explicit_provider or stored_provider
+
+        pref_model, pref_provider = (None, None)
+        if not stored_model or not stored_provider:
+            pref_model, pref_provider = await self._get_user_preferred_agent_selection(task.created_by_user_id)
+
+        effective_model = explicit_model or stored_model or pref_model
+        effective_provider = explicit_provider or stored_provider or pref_provider
+        if effective_model and 'Preferred Agent Model:' not in (task.description or ''):
+            task.description = self._upsert_description_metadata(
+                task.description,
+                {'Preferred Agent Model': effective_model},
+            )
+        if effective_provider and 'Preferred Agent Provider:' not in (task.description or ''):
+            task.description = self._upsert_description_metadata(
+                task.description,
+                {'Preferred Agent Provider': effective_provider},
+            )
 
         was_queued = task.status == 'queued'
         was_terminal = task.status in {'failed', 'completed', 'cancelled'}
@@ -471,8 +478,8 @@ class TaskService:
                     'create_pr': create_pr,
                     'mode': mode,
                     'agent_role': agent_role,
-                    'agent_model': agent_model,
-                    'agent_provider': agent_provider,
+                    'agent_model': effective_model,
+                    'agent_provider': effective_provider,
                 }
             )
         except Exception as exc:
@@ -486,31 +493,25 @@ class TaskService:
         starter_user = user_result.scalar_one_or_none()
         starter_name = starter_user.full_name if starter_user else f'user#{task.created_by_user_id}'
 
-        agent_model_name = ''
-        agent_provider_name = ''
-        pref_for_log = await self.db.execute(
-            select(UserPreference).where(UserPreference.user_id == task.created_by_user_id)
-        )
-        pref_log = pref_for_log.scalar_one_or_none()
-        if pref_log and pref_log.agents_json:
-            try:
-                agents_cfg = json.loads(pref_log.agents_json)
-                dev = next((a for a in agents_cfg if str(a.get('role', '')).lower() == 'developer' and a.get('enabled', True)), None)
-                if dev:
-                    agent_model_name = str(dev.get('custom_model') or dev.get('model') or '').strip()
-                    agent_provider_name = str(dev.get('provider') or '').strip()
-            except Exception:
-                pass
+        agent_source = 'default'
+        if explicit_model or explicit_provider:
+            agent_source = 'explicit_request'
+        elif stored_model or stored_provider:
+            agent_source = 'task_metadata'
+        elif pref_model or pref_provider:
+            agent_source = 'user_preference'
 
         queue_msg_parts = [
             f'{"Re-queued" if (was_queued or was_terminal) else "Queued"} by {starter_name}',
             f'source={task.source}',
             f'create_pr={create_pr}',
         ]
-        if agent_model_name:
-            queue_msg_parts.append(f'model={agent_model_name}')
-        if agent_provider_name:
-            queue_msg_parts.append(f'provider={agent_provider_name}')
+        if effective_provider:
+            queue_msg_parts.append(f'provider={effective_provider}')
+        if effective_model:
+            queue_msg_parts.append(f'model={effective_model}')
+        if effective_model or effective_provider:
+            queue_msg_parts.append(f'agent_source={agent_source}')
         if local_repo_path:
             queue_msg_parts.append(f'repo={local_repo_path}')
         if blockers:
@@ -875,12 +876,84 @@ class TaskService:
             return None
 
     def _extract_local_repo_path(self, description: str | None) -> str | None:
+        return self._extract_description_metadata(description, 'Local Repo Path')
+
+    def _extract_description_metadata(self, description: str | None, label: str) -> str | None:
         if not description:
             return None
+        expected = str(label or '').strip().lower()
+        if not expected:
+            return None
         for raw in description.splitlines():
-            if raw.lower().startswith('local repo path:'):
-                return raw.split(':', 1)[1].strip() or None
+            if ':' not in raw:
+                continue
+            key, value = raw.split(':', 1)
+            if key.strip().lower() != expected:
+                continue
+            return value.strip() or None
         return None
+
+    def _extract_preferred_agent_selection(self, description: str | None) -> tuple[str | None, str | None]:
+        return (
+            self._extract_description_metadata(description, 'Preferred Agent Model'),
+            self._extract_description_metadata(description, 'Preferred Agent Provider'),
+        )
+
+    def _upsert_description_metadata(self, description: str | None, updates: dict[str, str | None]) -> str:
+        normalized_updates = {
+            key.strip().lower(): (key.strip(), value.strip())
+            for key, value in updates.items()
+            if str(key or '').strip() and str(value or '').strip()
+        }
+        if not normalized_updates:
+            return description or ''
+
+        lines = (description or '').splitlines()
+        found: set[str] = set()
+        rewritten: list[str] = []
+        for raw in lines:
+            if ':' not in raw:
+                rewritten.append(raw)
+                continue
+            key, _value = raw.split(':', 1)
+            lowered = key.strip().lower()
+            if lowered in normalized_updates:
+                display_key, display_value = normalized_updates[lowered]
+                rewritten.append(f'{display_key}: {display_value}')
+                found.add(lowered)
+            else:
+                rewritten.append(raw)
+
+        for lowered, (display_key, display_value) in normalized_updates.items():
+            if lowered in found:
+                continue
+            rewritten.append(f'{display_key}: {display_value}')
+
+        return '\n'.join(rewritten).rstrip()
+
+    async def _get_user_preferred_agent_selection(self, user_id: int) -> tuple[str | None, str | None]:
+        if self.db is None:
+            return None, None
+        pref_result = await self.db.execute(
+            select(UserPreference).where(UserPreference.user_id == user_id)
+        )
+        pref = pref_result.scalar_one_or_none()
+        if pref is None or not pref.agents_json:
+            return None, None
+        try:
+            agents = json.loads(pref.agents_json)
+            dev_agent = next(
+                (a for a in agents if str(a.get('role', '')).lower() == 'developer' and a.get('enabled', True)),
+                None,
+            )
+            if not dev_agent:
+                return None, None
+            return (
+                str(dev_agent.get('custom_model') or dev_agent.get('model') or '').strip() or None,
+                str(dev_agent.get('provider') or '').strip() or None,
+            )
+        except Exception:
+            return None, None
 
     async def _attach_default_repo_mapping(self, organization_id: int, task: TaskRecord) -> bool:
         if self.db is None:
