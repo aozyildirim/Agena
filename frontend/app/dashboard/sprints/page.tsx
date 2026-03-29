@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
@@ -94,14 +94,76 @@ function shortName(full?: string): string {
 
 function toPlainText(input?: string): string {
   if (!input) return '';
-  return input
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+  if (typeof window === 'undefined') {
+    return input.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  const doc = new DOMParser().parseFromString(input, 'text/html');
+  return (doc.body.textContent || '')
+    .replace(/\u00A0/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function sanitizeWorkItemDescriptionHtml(input?: string): string {
+  if (!input || typeof window === 'undefined') return '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(input, 'text/html');
+  const allowedTags = new Set([
+    'a', 'b', 'blockquote', 'br', 'code', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td',
+    'th', 'thead', 'tr', 'u', 'ul',
+  ]);
+  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta']);
+  const allowedUrl = (value: string): boolean => /^(https?:|mailto:|tel:|#|\/)/i.test(value);
+  const allowedImgSrc = (value: string): boolean => /^(https?:|data:image\/|blob:|\/)/i.test(value);
+
+  const elements = Array.from(doc.body.querySelectorAll('*'));
+  elements.forEach((el) => {
+    const tag = el.tagName.toLowerCase();
+    if (blockedTags.has(tag)) {
+      el.remove();
+      return;
+    }
+    if (!allowedTags.has(tag)) {
+      const parent = el.parentNode;
+      while (el.firstChild) parent?.insertBefore(el.firstChild, el);
+      parent?.removeChild(el);
+      return;
+    }
+    Array.from(el.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim();
+      if (name.startsWith('on') || name === 'style') {
+        el.removeAttribute(attr.name);
+        return;
+      }
+      if (tag === 'a' && name === 'href' && !allowedUrl(value)) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+      if (tag === 'img' && name === 'src' && !allowedImgSrc(value)) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+      if (tag === 'img' && !['src', 'alt', 'title', 'width', 'height'].includes(name)) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+      if (tag !== 'img' && !['href', 'title', 'target', 'rel', 'colspan', 'rowspan'].includes(name) && name !== 'class') {
+        el.removeAttribute(attr.name);
+      }
+    });
+    if (tag === 'a' && el.getAttribute('href')) {
+      el.setAttribute('target', '_blank');
+      el.setAttribute('rel', 'noopener noreferrer');
+    }
+    if (tag === 'img' && el.getAttribute('src')) {
+      el.setAttribute('loading', 'lazy');
+      el.setAttribute('style', 'max-width:100%;height:auto;border-radius:6px;display:block;margin:8px 0;');
+    }
+  });
+
+  return doc.body.innerHTML.trim();
 }
 
 function truncateText(input: string, max = 110): string {
@@ -561,11 +623,12 @@ export default function SprintsPage() {
       return;
     }
     try {
-      const desc = toPlainText(item.description) || '';
+      const desc = String(item.description || '').trim();
       // Auto-attach repo mapping info from the first available mapping
       const mapping = repoMappings[0];
       const ctxParts = [
         `External Source: ${provider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
+        'Prompt Instruction: Read any images in the task description and include their context in your analysis.',
         project ? `Project: ${project}` : '',
         mapping?.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
         mapping?.name ? `Local Repo Mapping: ${mapping.name}` : '',
@@ -595,9 +658,10 @@ export default function SprintsPage() {
     try {
       let taskId = taskMapByExternalId[item.id];
       if (!taskId) {
-        const desc = toPlainText(item.description) || t('sprints.noDescription');
+        const desc = String(item.description || '').trim() || t('sprints.noDescription');
         const ctxParts = [
           `External Source: ${provider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
+          'Prompt Instruction: Read any images in the task description and include their context in your analysis.',
           options?.project ? `Project: ${options.project}` : '',
           options?.azureRepo ? `Azure Repo: ${options.azureRepo}` : '',
           options?.localRepoMapping ? `Local Repo Mapping: ${options.localRepoMapping}` : '',
@@ -982,6 +1046,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   const openDuration  = elapsed(item.created_date);
   const toActiveDuration = item.activated_date ? elapsed(item.created_date, item.activated_date) : null;
   const plainDescription = toPlainText(item.description);
+  const sanitizedDescriptionHtml = useMemo(() => sanitizeWorkItemDescriptionHtml(item.description), [item.description]);
 
   const [selLocalRepoMappingId, setSelLocalRepoMappingId] = useState(repoMappings[0]?.id ?? '');
   const [selAgent, setSelAgent] = useState('');
@@ -1073,7 +1138,14 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-25)', marginBottom: 6 }}>{t('sprints.description')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.6, background: 'var(--panel-alt)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--panel-border)' }}>
-            {plainDescription || t('sprints.noDescriptionFound')}
+            {sanitizedDescriptionHtml ? (
+              <div
+                style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}
+                dangerouslySetInnerHTML={{ __html: sanitizedDescriptionHtml }}
+              />
+            ) : (
+              plainDescription || t('sprints.noDescriptionFound')
+            )}
           </div>
         </div>
 
