@@ -6,7 +6,7 @@ Please do not open public issues for security vulnerabilities.
 
 Report privately to:
 
-- `security@tiqr.dev` (replace with your active mailbox if needed)
+- `aliozyildirim@gmail.com`
 
 Include:
 
