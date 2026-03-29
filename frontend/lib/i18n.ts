@@ -3822,12 +3822,12 @@ const localizedAdditions: Partial<Record<Lang, Partial<Record<TranslationKey, st
 const dicts: Record<Lang, Record<string, string>> = {
   tr: translations.tr as Record<string, string>,
   en: translations.en as Record<string, string>,
-  // Fallback to English + gradually overridden localized packs.
-  es: { ...(translations.en as Record<string, string>), ...(localizedAdditions.es as Record<string, string>) },
-  zh: { ...(translations.en as Record<string, string>), ...(localizedAdditions.zh as Record<string, string>) },
-  it: { ...(translations.en as Record<string, string>), ...(localizedAdditions.it as Record<string, string>) },
-  de: { ...(translations.en as Record<string, string>), ...(localizedAdditions.de as Record<string, string>) },
-  ja: { ...(translations.en as Record<string, string>), ...(localizedAdditions.ja as Record<string, string>) },
+  // Full-coverage fallback: base on Turkish (most complete), then override with localized packs.
+  es: { ...(translations.tr as Record<string, string>), ...(localizedAdditions.es as Record<string, string>) },
+  zh: { ...(translations.tr as Record<string, string>), ...(localizedAdditions.zh as Record<string, string>) },
+  it: { ...(translations.tr as Record<string, string>), ...(localizedAdditions.it as Record<string, string>) },
+  de: { ...(translations.tr as Record<string, string>), ...(localizedAdditions.de as Record<string, string>) },
+  ja: { ...(translations.tr as Record<string, string>), ...(localizedAdditions.ja as Record<string, string>) },
 };
 
 const _listeners: Set<() => void> = new Set();
