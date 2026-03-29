@@ -17,6 +17,8 @@ class TaskResponse(BaseModel):
     id: int
     title: str
     description: str
+    preferred_agent_model: str | None = None
+    preferred_agent_provider: str | None = None
     story_context: str | None = None
     acceptance_criteria: str | None = None
     edge_cases: str | None = None

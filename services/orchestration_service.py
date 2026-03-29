@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import base64
 import difflib
+import html
 import json
 import logging
 import re
+import unicodedata
 
 logger = logging.getLogger(__name__)
 import shutil
@@ -346,7 +348,7 @@ class OrchestrationService:
                     # === 2-STEP AI MODE ===
                     repo_root = Path(routing.local_repo_path).expanduser().resolve() if routing.local_repo_path else None
                     agents_md_content, agents_md_source, agents_pkg_dir = self._resolve_repo_guide(repo_root)
-                    if not agents_md_content:
+                    if not self._repo_guide_is_sufficient(agents_md_content, agents_pkg_dir):
                         agents_md_content = self._build_full_scan_context(
                             repo_root,
                             task.title,
@@ -402,7 +404,12 @@ class OrchestrationService:
                     )
 
                     # Step 2b: Read the actual files from disk
-                    file_contents, total_read, found_files, missing_files = self._read_plan_files(repo_root, plan_files)
+                    file_contents, total_read, found_files, missing_files = self._read_plan_files(
+                        repo_root,
+                        plan_files,
+                        task.title,
+                        task_description_for_ai,
+                    )
 
                     if plan_files and total_read == 0:
                         fallback_planner_md = self._build_full_scan_context(
@@ -440,7 +447,12 @@ class OrchestrationService:
                                 f'  files: {plan_files}\n'
                                 f'  changes: {json.dumps(plan_changes, ensure_ascii=False)[:400]}'
                             )
-                            file_contents, total_read, found_files, missing_files = self._read_plan_files(repo_root, plan_files)
+                            file_contents, total_read, found_files, missing_files = self._read_plan_files(
+                                repo_root,
+                                plan_files,
+                                task.title,
+                                task_description_for_ai,
+                            )
 
                     if not plan_files:
                         raise RuntimeError('AI planner returned no repository files. Aborting before code generation.')
@@ -455,6 +467,8 @@ class OrchestrationService:
                             f'  found_files: {found_files}\n'
                             f'  missing_files: {missing_files}'
                         )
+                        plan = self._filter_plan_to_existing_files(plan, found_files)
+                        plan_files = list(found_files)
 
                     flow_state['spec'] = plan
 
@@ -1653,6 +1667,20 @@ class OrchestrationService:
 
         return '', '', ''
 
+    def _repo_guide_is_sufficient(self, guide_content: str, pkg_dir: str = '') -> bool:
+        text = (guide_content or '').strip()
+        if not text:
+            return False
+        if pkg_dir and Path(pkg_dir).is_dir():
+            return True
+        file_ref_pattern = re.compile(
+            r'(?im)^[\s>*-]*[`"]?[\w./-]+\.(?:go|py|php|ts|tsx|js|jsx|java|rb|cs|rs|vue|sql|graphql|yaml|yml|json|kt|swift|scala|c|cc|cpp|h|hpp|m|mm|sh)\b',
+        )
+        file_refs = file_ref_pattern.findall(text)
+        if len(file_refs) >= 2:
+            return True
+        return len(text) <= 500 and bool(file_refs)
+
     def _build_full_scan_context(
         self,
         root: Path | None,
@@ -1684,6 +1712,139 @@ class OrchestrationService:
         lines.append('No repository guide is available. Plan only against the real files listed above.')
         lines.append('Return **File: path** blocks with code. Do NOT create .md or .txt files.')
         return '\n'.join(lines)
+
+    def _normalize_context_text(self, text: str) -> str:
+        value = html.unescape(text or '')
+        value = value.translate(str.maketrans({
+            'ı': 'i', 'İ': 'I',
+            'ş': 's', 'Ş': 'S',
+            'ğ': 'g', 'Ğ': 'G',
+            'ü': 'u', 'Ü': 'U',
+            'ö': 'o', 'Ö': 'O',
+            'ç': 'c', 'Ç': 'C',
+        }))
+        value = unicodedata.normalize('NFKD', value)
+        value = ''.join(ch for ch in value if not unicodedata.combining(ch))
+        value = re.sub(r'https?://\S+', ' ', value)
+        value = re.sub(r'<img\b[^>]*>', ' ', value, flags=re.IGNORECASE)
+        value = re.sub(r'<[^>]+>', ' ', value)
+        value = re.sub(r'!\[[^\]]*\]\(([^)]+)\)', ' ', value)
+        value = re.sub(r'([a-z])([A-Z])', r'\1 \2', value)
+        return value.lower()
+
+    def _extract_context_keywords(self, *texts: str, limit: int = 24) -> list[str]:
+        stop_words = {
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+            'should', 'may', 'might', 'shall', 'can', 'to', 'of', 'in', 'for',
+            'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'and',
+            'but', 'or', 'not', 'no', 'so', 'if', 'then', 'than', 'that', 'this',
+            'it', 'its', 'all', 'each', 'any', 'both', 'few', 'more', 'most',
+            'other', 'some', 'such', 'only', 'same', 'also', 'just', 'about',
+            've', 'bir', 'ile', 'icin', 'gore', 'gibi', 'olan', 'olmasi', 'olmali',
+            'sekilde', 'seklinde', 'duzenlemesi', 'duzenlenmelidir', 'tum', 'gelen',
+            'gelecek', 'donen', 'donulen', 'iceren', 'olacak', 'gelsin', 'gelmeli',
+            'local', 'repo', 'path', 'file', 'code', 'task', 'new', 'add', 'fix',
+            'img', 'src', 'alt', 'width', 'height', 'style', 'class', 'png', 'jpg',
+            'jpeg', 'gif', 'image', 'images', 'prompt', 'instruction', 'instructions',
+            'preferred', 'agent', 'model', 'provider', 'context', 'description',
+            'azure', 'read', 'visual', 'board', 'workitems', 'edit', 'localhost',
+        }
+
+        keywords: list[str] = []
+        seen: set[str] = set()
+        for text in texts:
+            normalized = self._normalize_context_text(text)
+            for word in re.findall(r'[a-z_][a-z0-9_]*', normalized):
+                if len(word) <= 2 or word in stop_words or word in seen:
+                    continue
+                seen.add(word)
+                keywords.append(word)
+                if len(keywords) >= limit:
+                    return keywords
+        return keywords
+
+    def _build_context_excerpt(
+        self,
+        rel_path: str,
+        content: str,
+        task_title: str,
+        task_description: str,
+        *,
+        max_chars: int,
+    ) -> str:
+        if len(content) <= max_chars:
+            return content
+
+        focus_terms = self._extract_context_keywords(task_title, task_description, rel_path, limit=28)
+        rel_lower = rel_path.lower()
+        if 'product' in rel_lower:
+            focus_terms.extend([
+                'product', 'products', 'discount', 'discountrate', 'discount_rate',
+                'discountinfo', 'discountlabel', 'discount_percent', 'firstrate',
+                'oldprice', 'price',
+            ])
+        if 'global' in rel_lower or 'lang' in rel_lower:
+            focus_terms.extend(['discountlabel', 'global', 'globals', 'translation', 'locale', 'lang'])
+        if 'route' in rel_lower or 'routing' in rel_lower:
+            focus_terms.extend(['product', 'products', 'v1/products', 'api::v1::products', 'discount'])
+
+        lower = content.lower()
+        windows: list[tuple[int, int]] = [(0, min(len(content), 700))]
+        seen_terms: set[str] = set()
+
+        for term in focus_terms:
+            token = str(term or '').strip().lower()
+            if len(token) <= 2 or token in seen_terms:
+                continue
+            seen_terms.add(token)
+            start_at = 0
+            hits = 0
+            while hits < 2:
+                pos = lower.find(token, start_at)
+                if pos == -1:
+                    break
+                start = max(0, content.rfind('\n', 0, max(0, pos - 500)) + 1)
+                end_marker = content.find('\n', min(len(content) - 1, pos + len(token) + 900))
+                end = len(content) if end_marker == -1 else end_marker
+                windows.append((start, end))
+                start_at = pos + len(token)
+                hits += 1
+                if len(windows) >= 8:
+                    break
+            if len(windows) >= 8:
+                break
+
+        merged: list[tuple[int, int]] = []
+        for start, end in sorted(windows):
+            if not merged or start > merged[-1][1] + 120:
+                merged.append((start, end))
+            else:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+
+        pieces: list[str] = []
+        current_len = 0
+        prefix = f'[Excerpt from {rel_path}; original size {len(content)} chars]\n'
+        budget = max(200, max_chars - len(prefix))
+        for idx, (start, end) in enumerate(merged):
+            chunk = content[start:end].strip()
+            if not chunk:
+                continue
+            separator = '\n...\n' if idx > 0 else ''
+            needed = len(separator) + len(chunk)
+            if current_len + needed > budget and pieces:
+                break
+            if current_len + needed > budget:
+                chunk = chunk[: max(0, budget - current_len - len(separator))]
+            pieces.append(separator + chunk)
+            current_len += len(separator) + len(chunk)
+            if current_len >= budget:
+                break
+
+        if not pieces:
+            pieces.append(content[:budget])
+
+        return prefix + ''.join(pieces)
 
     def _extract_task_image_urls(self, description: str | None) -> list[str]:
         text = description or ''
@@ -1778,7 +1939,35 @@ class OrchestrationService:
             files.append(normalized)
         return files
 
-    def _read_plan_files(self, repo_root: Path | None, plan_files: list[str]) -> tuple[str, int, list[str], list[str]]:
+    def _filter_plan_to_existing_files(self, plan: dict[str, Any], existing_files: list[str]) -> dict[str, Any]:
+        allowed = {
+            str(path or '').strip().replace('\\', '/').lstrip('./')
+            for path in existing_files
+            if str(path or '').strip()
+        }
+        filtered = dict(plan or {})
+        filtered['files'] = [path for path in self._extract_plan_files({'files': list(plan.get('files', []) or [])}) if path in allowed]
+        filtered_changes: list[Any] = []
+        for item in list(plan.get('changes', []) or []):
+            if isinstance(item, dict):
+                raw_path = item.get('file', item.get('path', ''))
+                normalized = str(raw_path or '').strip().replace('\\', '/').lstrip('./')
+                if normalized in allowed:
+                    filtered_changes.append(item)
+            else:
+                normalized = str(item or '').strip().replace('\\', '/').lstrip('./')
+                if normalized in allowed:
+                    filtered_changes.append(item)
+        filtered['changes'] = filtered_changes
+        return filtered
+
+    def _read_plan_files(
+        self,
+        repo_root: Path | None,
+        plan_files: list[str],
+        task_title: str = '',
+        task_description: str = '',
+    ) -> tuple[str, int, list[str], list[str]]:
         if repo_root is None or not repo_root.is_dir():
             return '', 0, [], list(plan_files)
 
@@ -1786,6 +1975,10 @@ class OrchestrationService:
         total_read = 0
         found_files: list[str] = []
         missing_files: list[str] = []
+        max_total = max(2500, self.settings.max_code_context_chars - 2500)
+        normalized_entries: list[tuple[str, Path]] = []
+        file_cache: dict[str, str] = {}
+        full_read_budget = 0
 
         for fp in plan_files:
             normalized = str(fp or '').strip().replace('\\', '/').lstrip('./')
@@ -1806,12 +1999,50 @@ class OrchestrationService:
 
             try:
                 content = full.read_text(errors='replace')
-                file_contents_parts.append(f'\n--- {normalized} ({len(content)} chars) ---\n{content}')
-                total_read += len(content)
-                found_files.append(normalized)
             except Exception:
                 missing_files.append(normalized)
                 file_contents_parts.append(f'\n--- {normalized} (read error) ---\n')
+                continue
+
+            normalized_entries.append((normalized, full))
+            file_cache[normalized] = content
+            full_read_budget += len(content)
+
+        if normalized_entries and full_read_budget <= max_total:
+            for normalized, _full in normalized_entries:
+                content = file_cache[normalized]
+                file_contents_parts.append(f'\n--- {normalized} ({len(content)} chars) ---\n{content}')
+                total_read += len(content)
+                found_files.append(normalized)
+            return '\n'.join(file_contents_parts), total_read, found_files, missing_files
+
+        per_file_budget = max(2400, min(16000, max_total // max(1, min(len(normalized_entries) or 1, 6))))
+
+        for normalized, _full in normalized_entries:
+            content = file_cache[normalized]
+            excerpt = self._build_context_excerpt(
+                normalized,
+                content,
+                task_title,
+                task_description,
+                max_chars=per_file_budget,
+            )
+            if total_read + len(excerpt) > max_total:
+                remaining = max_total - total_read
+                if remaining <= 400:
+                    break
+                excerpt = self._build_context_excerpt(
+                    normalized,
+                    content,
+                    task_title,
+                    task_description,
+                    max_chars=remaining,
+                )
+            file_contents_parts.append(
+                f'\n--- {normalized} ({len(content)} chars; context {len(excerpt)} chars) ---\n{excerpt}'
+            )
+            total_read += len(excerpt)
+            found_files.append(normalized)
 
         return '\n'.join(file_contents_parts), total_read, found_files, missing_files
 
@@ -1832,8 +2063,8 @@ class OrchestrationService:
                 return f'Local repo path is configured but not reachable: {repo_path}'
 
             git_info = self._get_git_info(root)
-            agents_content, agents_source, _agents_pkg_dir = self._resolve_repo_guide(root)
-            if agents_content and len(agents_content) > 500:
+            agents_content, agents_source, agents_pkg_dir = self._resolve_repo_guide(root)
+            if self._repo_guide_is_sufficient(agents_content, agents_pkg_dir):
                 lines = [f'Repo Root: {root}']
                 if git_info:
                     lines.append(git_info)
@@ -1881,9 +2112,22 @@ class OrchestrationService:
         }
         ignore_files = {'go.sum', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'}
 
-        # Extract keywords from task title + description for relevance scoring
-        raw_text = f'{task_title} {task_description}'.lower()
-        # Remove common stop words and short tokens, keep meaningful keywords
+        def _normalize_task_text(text: str) -> str:
+            return self._normalize_context_text(text)
+
+        def _extract_keywords(text: str, *, limit: int) -> list[str]:
+            words = re.findall(r'[a-z_][a-z0-9_]*', text)
+            ranked: list[str] = []
+            seen: set[str] = set()
+            for word in words:
+                if len(word) <= 2 or word in stop_words or word in seen:
+                    continue
+                seen.add(word)
+                ranked.append(word)
+                if len(ranked) >= limit:
+                    break
+            return ranked
+
         stop_words = {
             'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
             'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -1892,12 +2136,58 @@ class OrchestrationService:
             'but', 'or', 'not', 'no', 'so', 'if', 'then', 'than', 'that', 'this',
             'it', 'its', 'all', 'each', 'any', 'both', 'few', 'more', 'most',
             'other', 'some', 'such', 'only', 'same', 'also', 'just', 'about',
+            've', 'bir', 'ile', 'icin', 'gore', 'gibi', 'olan', 'olmasi', 'olmali',
+            'sekilde', 'seklinde', 'duzenlemesi', 'duzenlenmelidir', 'tum', 'gelen',
+            'gelecek', 'donen', 'donulen', 'iceren', 'olacak', 'gelsin', 'gelmeli',
             'local', 'repo', 'path', 'file', 'code', 'task', 'new', 'add', 'fix',
+            'img', 'src', 'alt', 'width', 'height', 'style', 'class', 'png', 'jpg',
+            'jpeg', 'gif', 'image', 'images', 'prompt', 'instruction', 'instructions',
+            'preferred', 'agent', 'model', 'provider', 'context', 'description',
+            'azure', 'read', 'visual', 'board', 'workitems', 'edit', 'localhost',
         }
-        keywords = [
-            w for w in re.findall(r'[a-z_][a-z0-9_]*', raw_text)
-            if len(w) > 2 and w not in stop_words
-        ]
+        title_text = _normalize_task_text(task_title)
+        desc_text = _normalize_task_text(task_description)
+        title_keywords = _extract_keywords(title_text, limit=12)
+        desc_keywords = _extract_keywords(desc_text, limit=18)
+        keywords = title_keywords + [kw for kw in desc_keywords if kw not in title_keywords]
+        if not keywords:
+            keywords = ['product', 'discount']
+
+        keyword_aliases: set[str] = set(keywords)
+        for kw in list(keyword_aliases):
+            if len(kw) <= 2:
+                continue
+            if kw.endswith('s') and len(kw) > 4:
+                keyword_aliases.add(kw[:-1])
+            else:
+                keyword_aliases.add(f'{kw}s')
+
+        def _matches_keyword_stem(*stems: str) -> bool:
+            for kw in keyword_aliases:
+                for stem in stems:
+                    if kw == stem or kw.startswith(stem) or stem in kw:
+                        return True
+            return False
+
+        mentions_product = _matches_keyword_stem('product', 'urun')
+        mentions_discount = _matches_keyword_stem('discount', 'indirim', 'rate', 'oran')
+        mentions_globals = _matches_keyword_stem('global', 'globals', 'label', 'locale', 'lang', 'translation')
+        mentions_services = _matches_keyword_stem('service', 'servis', 'endpoint', 'route', 'api', 'data')
+
+        backend_bias_tokens = {
+            'product', 'discount', 'rate', 'price', 'datas', 'data', 'label',
+            'translation', 'locale', 'global', 'percent', 'servis', 'api', 'route',
+        }
+        backend_dir_tokens = (
+            'app/controller', 'app/model', 'app/service', 'app/services',
+            'resources/lang', 'resources/routing', 'routes', 'test/', 'tests/',
+        )
+        frontend_penalty_tokens = (
+            'app/themes/', 'public/assets/', 'public/pub/', 'frontend/', 'javascript/',
+        )
+        config_penalty_tokens = (
+            'app/config/settings/',
+        )
 
         all_files: list[tuple[Path, int]] = []
         try:
@@ -1921,43 +2211,186 @@ class OrchestrationService:
         except Exception:
             return []
 
-        # Score each file by keyword matches in filename and content preview
-        scored: list[tuple[Path, int, float]] = []
+        scored: list[tuple[Path, str, float, str]] = []
+        scored_by_rel: dict[str, tuple[float, str]] = {}
         for f, size in all_files:
-            rel_path_lower = str(f.relative_to(root)).lower()
+            rel_path = str(f.relative_to(root))
+            rel_path_lower = rel_path.lower()
+            basename_lower = f.stem.lower()
             score = 0.0
-            for kw in keywords:
-                # Filename matches are worth more than content matches
-                if kw in rel_path_lower:
-                    score += 3.0
-            # Read first 500 chars for content-based scoring
             try:
-                with open(f, 'r', errors='replace') as fh:
-                    preview = fh.read(500).lower()
-                for kw in keywords:
-                    if kw in preview:
-                        score += 1.0
+                content = f.read_text(errors='replace')
             except Exception:
-                pass
-            scored.append((f, size, score))
+                continue
 
-        # Sort by relevance score descending, then by path for stability
-        scored.sort(key=lambda x: (-x[2], str(x[0])))
+            content_lower = content.lower()
+            path_parts = [part for part in re.split(r'[^a-z0-9]+', rel_path_lower) if part]
+
+            for idx, kw in enumerate(keywords):
+                path_hits = rel_path_lower.count(kw)
+                body_hits = content_lower.count(kw)
+                weight = 8.0 if idx < len(title_keywords) else 4.0
+                score += min(path_hits, 3) * weight
+                score += min(body_hits, 5) * (weight / 2)
+
+            for kw in keyword_aliases:
+                if basename_lower == kw:
+                    score += 18.0
+                elif basename_lower.startswith(kw) or kw.startswith(basename_lower):
+                    score += 10.0
+                if kw in path_parts:
+                    score += 5.0
+
+            if any(token in rel_path_lower for token in backend_dir_tokens):
+                score += 6.0
+            if rel_path_lower.endswith('.php'):
+                score += 3.0
+            if '/test' in rel_path_lower or rel_path_lower.startswith('test/'):
+                score += 2.5
+            if any(token in rel_path_lower for token in frontend_penalty_tokens):
+                score -= 6.0
+            if any(token in rel_path_lower for token in config_penalty_tokens):
+                score -= 10.0
+            if rel_path_lower.endswith(('.js', '.jsx', '.ts', '.tsx')) and not any(
+                token in rel_path_lower for token in ('api', 'controller', 'service', 'model', 'route')
+            ):
+                score -= 2.0
+            if any(token in keywords for token in backend_bias_tokens) and any(
+                token in rel_path_lower for token in backend_dir_tokens
+            ):
+                score += 4.0
+            if 'product' in rel_path_lower and any(token in content_lower for token in ('discount', 'discountrate', 'discount_rate')):
+                score += 8.0
+            if any(token in rel_path_lower for token in ('routing', 'routes', 'controller')) and 'product' in content_lower:
+                score += 5.0
+            if mentions_product and any(token in rel_path_lower for token in (
+                'app/controller/api/v1/products.php',
+                'app/controller/v1/product.php',
+                'app/model/v1/product.php',
+                'app/model/product.php',
+            )):
+                score += 30.0
+            if mentions_product and '/product' in rel_path_lower and any(
+                token in rel_path_lower for token in ('/controller/', '/model/', '/library/')
+            ):
+                score += 16.0
+            if mentions_services and rel_path_lower.endswith('app/config/routes.php'):
+                score += 24.0
+            if mentions_globals and rel_path_lower.endswith('resources/lang/globals.php'):
+                score += 28.0
+            if mentions_discount and any(
+                token in content_lower for token in (
+                    'discountlabel', 'discount_rate', 'discountrate',
+                    'discount_percent', 'discountinfo',
+                )
+            ):
+                score += 20.0
+            if mentions_discount and any(
+                token in content_lower for token in ("'-%'", '"-%"', "'-'", '"-"')
+            ):
+                score += 12.0
+
+            scored.append((f, rel_path, score, content))
+            scored_by_rel[rel_path] = (score, content)
+
+        priority_candidates: list[tuple[int, str]] = []
+        seen_priorities: set[str] = set()
+
+        def _add_priority(path: Path, priority: int) -> None:
+            try:
+                rel = str(path.relative_to(root))
+            except Exception:
+                return
+            if rel in seen_priorities or rel not in scored_by_rel:
+                return
+            seen_priorities.add(rel)
+            priority_candidates.append((priority, rel))
+
+        if mentions_globals or mentions_discount:
+            _add_priority(root / 'resources/lang/globals.php', 120)
+            for path in sorted((root / 'resources/routing/languages').glob('*.php'))[:4]:
+                _add_priority(path, 80)
+        if mentions_services or mentions_product:
+            _add_priority(root / 'app/Config/routes.php', 110)
+        if mentions_product:
+            for priority, candidate in (
+                (115, root / 'app/Controller/Api/V1/Products.php'),
+                (112, root / 'app/Controller/V1/Product.php'),
+                (114, root / 'app/Model/V1/Product.php'),
+                (111, root / 'app/Model/Product.php'),
+            ):
+                _add_priority(candidate, priority)
+            for pattern, priority in (
+                ('app/Model/Product*.php', 105),
+                ('app/Model/V1/Product*.php', 104),
+                ('app/Controller/**/*Product*.php', 100),
+                ('app/Library/**/*Product*.php', 92),
+            ):
+                for path in sorted(root.glob(pattern))[:10]:
+                    _add_priority(path, priority)
+
+        priority_candidates.sort(key=lambda item: (-item[0], item[1]))
+
+        # Sort by relevance score descending, then prefer smaller critical files.
+        scored.sort(key=lambda x: (-x[2], len(x[3]), x[1]))
 
         # Read files in relevance order, highest-scoring first within budget
         result: list[tuple[str, str]] = []
+        selected_paths: set[str] = set()
         total_chars = 0
-        max_total = self.settings.max_context_chars
-        for f, _size, _score in scored:
-            try:
-                content = f.read_text(errors='replace')
-                if total_chars + len(content) > max_total:
-                    continue
-                rel = str(f.relative_to(root))
-                result.append((rel, content))
-                total_chars += len(content)
-            except Exception:
+        max_total = max(2500, self.settings.max_context_chars - 1500)
+        per_file_budget = max(1000, min(2600, max_total // 4))
+        backend_results = 0
+
+        def _append_result(rel_path: str, content: str) -> bool:
+            nonlocal total_chars, backend_results
+            if rel_path in selected_paths:
+                return False
+            prepared = content
+            if len(content) > per_file_budget:
+                prepared = self._build_context_excerpt(
+                    rel_path,
+                    content,
+                    task_title,
+                    task_description,
+                    max_chars=per_file_budget,
+                )
+            if total_chars + len(prepared) > max_total:
+                return False
+            result.append((rel_path, prepared))
+            selected_paths.add(rel_path)
+            total_chars += len(prepared)
+            if any(token in rel_path.lower() for token in backend_dir_tokens):
+                backend_results += 1
+            return True
+
+        for _priority, rel_path in priority_candidates:
+            score_content = scored_by_rel.get(rel_path)
+            if not score_content:
                 continue
+            _score, content = score_content
+            _append_result(rel_path, content)
+
+        for _f, rel_path, score, content in scored:
+            if score < 1 and backend_results >= 8:
+                continue
+            if rel_path in selected_paths:
+                continue
+            if not _append_result(rel_path, content):
+                continue
+            if len(result) >= 24:
+                break
+
+        if not result:
+            for _f, rel_path, _score, content in scored:
+                if not any(token in rel_path.lower() for token in backend_dir_tokens):
+                    continue
+                if rel_path in selected_paths:
+                    continue
+                if not _append_result(rel_path, content):
+                    continue
+                if len(result) >= 12:
+                    break
 
         return result
 

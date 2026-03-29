@@ -74,6 +74,7 @@ class Settings(BaseSettings):
 
     max_agent_retries: int = Field(default=3, alias='MAX_AGENT_RETRIES')
     max_context_chars: int = Field(default=500000, alias='MAX_CONTEXT_CHARS')
+    max_code_context_chars: int = Field(default=500000, alias='MAX_CODE_CONTEXT_CHARS')
 
     smtp_host: str = Field(default='', alias='SMTP_HOST')
     smtp_port: int = Field(default=587, alias='SMTP_PORT')
