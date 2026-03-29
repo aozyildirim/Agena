@@ -844,6 +844,7 @@
   "tasks.removedFromQueue": "Quitado de la cola",
   "tasks.removeFailed": "Error al quitar",
   "tasks.status.all": "Todos",
+  "tasks.status.new": "Nuevo",
   "tasks.status.queued": "En cola",
   "tasks.status.running": "En ejecución",
   "tasks.status.completed": "Completado",

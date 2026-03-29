@@ -122,6 +122,7 @@
   "tasks.removedFromQueue": "已从队列移除",
   "tasks.removeFailed": "移除失败",
   "tasks.status.all": "全部",
+  "tasks.status.new": "新",
   "tasks.status.queued": "排队中",
   "tasks.status.running": "运行中",
   "tasks.status.completed": "已完成",

@@ -123,6 +123,7 @@
   "tasks.removeFailed": "削除に失敗しました",
   "tasks.status.all": "すべて",
   "tasks.status.queued": "キュー中",
+  "tasks.status.new": "新規",
   "tasks.status.running": "実行中",
   "tasks.status.completed": "完了",
   "tasks.status.failed": "失敗",

@@ -122,6 +122,7 @@
   "tasks.removedFromQueue": "Rimosso dalla coda",
   "tasks.removeFailed": "Rimozione fallita",
   "tasks.status.all": "Tutti",
+  "tasks.status.new": "Nuovo",
   "tasks.status.queued": "In coda",
   "tasks.status.running": "In esecuzione",
   "tasks.status.completed": "Completato",

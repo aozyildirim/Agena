@@ -122,6 +122,7 @@
   "tasks.removedFromQueue": "Aus Warteschlange entfernt",
   "tasks.removeFailed": "Entfernen fehlgeschlagen",
   "tasks.status.all": "Alle",
+  "tasks.status.new": "Neu",
   "tasks.status.queued": "In Warteschlange",
   "tasks.status.running": "Läuft",
   "tasks.status.completed": "Abgeschlossen",
