@@ -1477,6 +1477,7 @@
   "role.admin": "Yönetici",
   "role.member": "Üye",
   "role.viewer": "İzleyici",
+  "onboarding.welcome.title": "Tiqr'a Hoş Geldiniz!",
   "onboarding.welcome.subtitle": "AI destekli görev yönetimi platformuna adım attınız. Birkaç adımda ekibinizi hazırlayalım.",
   "onboarding.welcome.start": "Başlayalım",
   "onboarding.step": "Adım",
