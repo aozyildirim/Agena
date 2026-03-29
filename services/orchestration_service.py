@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import difflib
 import json
 import logging
@@ -13,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -228,6 +230,10 @@ class OrchestrationService:
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using claude_cli preferred agent')
             else:
                 orchestrator = await self._build_orchestrator(organization_id, routing)
+                task_description_for_ai = task.description or ''
+                task_image_inputs: list[str] = []
+                if mode == 'ai':
+                    task_image_inputs = await self._build_task_image_inputs(task_description_for_ai, organization_id)
                 # Build repo context into task description before flow starts
                 _repo_ctx = await self._build_repo_context(
                     local_repo_path=routing.local_repo_path,
@@ -239,7 +245,8 @@ class OrchestrationService:
                 await task_service.add_log(task.id, organization_id, 'agent',
                     f'Repo context built: {len(_repo_ctx or "")} chars, '
                     f'has_agents_md: {"AGENTS.MD" in (_repo_ctx or "")}, '
-                    f'repo_path: {routing.local_repo_path}'
+                    f'repo_path: {routing.local_repo_path}\n'
+                    f'task_images: {len(task_image_inputs)}'
                 )
                 enriched_desc = self._build_effective_description(
                     task.description,
@@ -337,93 +344,18 @@ class OrchestrationService:
                     )
                 else:
                     # === 2-STEP AI MODE ===
-                    # Step 2a: Plan — send agents.md, get file list + plan
-                    # Priority: 1) repo'nun kendi agents.md'si, 2) tiqr'in olusturdugu (DB/disk), 3) full scan
-                    agents_md_content = ''
-                    agents_md_source = ''
                     repo_root = Path(routing.local_repo_path).expanduser().resolve() if routing.local_repo_path else None
-
-                    agents_pkg_dir = ''
-
-                    # 1) Tiqr data dir'deki agents.md (scan sonucu)
-                    # Prefer profiles that have agents_pkg_dir (split format) over legacy
-                    if routing.local_repo_path:
-                        try:
-                            from models.user_preference import UserPreference
-                            pref_result = await self.db_session.execute(
-                                select(UserPreference).where(
-                                    UserPreference.user_id == task.created_by_user_id
-                                )
-                            )
-                            pref = pref_result.scalar_one_or_none()
-                            if pref and pref.profile_settings_json:
-                                import json as _json
-                                ps = _json.loads(pref.profile_settings_json)
-                                best_prof = None
-                                for _mid, _prof in (ps.get('repo_profiles') or {}).items():
-                                    md_path = _prof.get('agents_md_path', '')
-                                    if md_path and Path(md_path).is_file():
-                                        # Prefer profile with pkg_dir
-                                        if _prof.get('agents_pkg_dir') and Path(_prof['agents_pkg_dir']).is_dir():
-                                            best_prof = _prof
-                                            break
-                                        if best_prof is None:
-                                            best_prof = _prof
-                                if best_prof:
-                                    md_path = best_prof['agents_md_path']
-                                    agents_md_content = Path(md_path).read_text(errors='replace')
-                                    agents_md_source = f'db:{Path(md_path).name}'
-                                    agents_pkg_dir = best_prof.get('agents_pkg_dir', '')
-                        except Exception as _amd_err:
-                            logger.error(f'Failed to read agents.md from DB: {_amd_err}')
-
-                    # 2) Fallback: repo root'taki agents.md
-                    if not agents_md_content and repo_root:
-                        for name in ['agents.md', 'AGENTS.md']:
-                            p = repo_root / name
-                            if p.is_file():
-                                try:
-                                    agents_md_content = p.read_text(errors='replace')
-                                    agents_md_source = f'repo:{name}'
-                                    break
-                                except Exception as _e:
-                                    logger.warning('Failed to read agents.md from repo root: %s', _e)
-
-                    # 2) Tiqr'in olusturdugu — DB profildeki path
+                    agents_md_content, agents_md_source, agents_pkg_dir = self._resolve_repo_guide(repo_root)
                     if not agents_md_content:
-                        try:
-                            pref_result = await self.db_session.execute(
-                                select(UserPreference).where(UserPreference.user_id == task.created_by_user_id)
-                            )
-                            pref = pref_result.scalar_one_or_none()
-                            if pref and pref.profile_settings_json:
-                                settings = json.loads(pref.profile_settings_json)
-                                for _mid, profile in (settings.get('repo_profiles') or {}).items():
-                                    if profile.get('local_path', '').rstrip('/') == str(repo_root).rstrip('/'):
-                                        db_path = profile.get('agents_md_path', '')
-                                        if db_path and Path(db_path).is_file():
-                                            agents_md_content = Path(db_path).read_text(errors='replace')
-                                            agents_md_source = f'db:{db_path}'
-                                            break
-                        except Exception as _e:
-                            logger.warning('Failed to read agents.md from DB profile: %s', _e)
-
-                    # 3) .tiqr directory
-                    if not agents_md_content and repo_root:
-                        tiqr_dir = repo_root / '.tiqr' / 'agents'
-                        if tiqr_dir.is_dir():
-                            for md_file in sorted(tiqr_dir.rglob('*.md'), key=lambda f: f.stat().st_mtime, reverse=True):
-                                try:
-                                    agents_md_content = md_file.read_text(errors='replace')
-                                    agents_md_source = f'.tiqr:{md_file}'
-                                    break
-                                except Exception as _e:
-                                    logger.warning('Failed to read agents.md from .tiqr dir: %s', _e)
-
-                    # 4) Fallback — full repo scan
+                        agents_md_content = self._build_full_scan_context(
+                            repo_root,
+                            task.title,
+                            task_description_for_ai,
+                        )
+                        agents_md_source = 'fallback:full_scan'
                     if not agents_md_content:
                         agents_md_content = flow_state.get('context_summary', '')
-                        agents_md_source = 'fallback:full_scan'
+                        agents_md_source = 'fallback:flow_context'
 
                     # Build planner input: index + relevant package signatures
                     planner_md = agents_md_content
@@ -431,16 +363,17 @@ class OrchestrationService:
                     if agents_pkg_dir and Path(agents_pkg_dir).is_dir():
                         planner_md = self._build_planner_context(
                             agents_md_content, agents_pkg_dir,
-                            task.title, task.description or '',
+                            task.title, task_description_for_ai,
                             loaded_pkgs,
                         )
                     else:
                         # Legacy: trim inline (agents.md has signatures embedded)
-                        planner_md = self._trim_agents_md(agents_md_content, task.title, task.description or '')
+                        planner_md = self._trim_agents_md(agents_md_content, task.title, task_description_for_ai)
                     await task_service.add_log(task.id, organization_id, 'agent',
                         f'Step 2/{total_steps}: AI Planning...\n'
                         f'  agents_md: {len(agents_md_content)} chars → planner: {len(planner_md)} chars (source: {agents_md_source})\n'
                         f'  loaded_packages: {loaded_pkgs or "all (legacy)"}\n'
+                        f'  task_images: {len(task_image_inputs)}\n'
                         f'  system_prompt: AI_PLAN_SYSTEM_PROMPT\n'
                         f'  model: {routing.preferred_agent_model or "default"}'
                     )
@@ -449,19 +382,16 @@ class OrchestrationService:
                     s_clock = time.perf_counter()
                     plan, plan_usage, plan_model = await orchestrator.agents.run_ai_plan(
                         task_title=task.title,
-                        task_description=task.description or '',
+                        task_description=task_description_for_ai,
                         agents_md=planner_md,
+                        task_images=task_image_inputs,
                     )
                     orchestrator._merge_usage(flow_state, plan_usage)
                     flow_state['model_usage'].append(plan_model)
                     plan_delta = _usage_delta(u_before, _get_usage(flow_state))
                     await _step_event('ai_plan', plan_delta, plan_model, s_start, time.perf_counter() - s_clock)
 
-                    raw_files = plan.get('files', [])
-                    plan_files = [
-                        f.get('file', f.get('path', '')) if isinstance(f, dict) else str(f)
-                        for f in raw_files
-                    ]
+                    plan_files = self._extract_plan_files(plan)
                     plan_changes = plan.get('changes', [])
                     await task_service.add_log(task.id, organization_id, 'agent',
                         f'AI Plan result:\n'
@@ -472,23 +402,59 @@ class OrchestrationService:
                     )
 
                     # Step 2b: Read the actual files from disk
-                    file_contents_parts: list[str] = []
-                    total_read = 0
-                    repo_root = Path(routing.local_repo_path).expanduser().resolve() if routing.local_repo_path else None
-                    for fp in plan_files:
-                        if not repo_root:
-                            break
-                        full = repo_root / fp
-                        if not full.is_file():
-                            file_contents_parts.append(f'\n--- {fp} (not found) ---\n')
-                            continue
-                        try:
-                            content = full.read_text(errors='replace')
-                            file_contents_parts.append(f'\n--- {fp} ({len(content)} chars) ---\n{content}')
-                            total_read += len(content)
-                        except Exception:
-                            file_contents_parts.append(f'\n--- {fp} (read error) ---\n')
-                    file_contents = '\n'.join(file_contents_parts)
+                    file_contents, total_read, found_files, missing_files = self._read_plan_files(repo_root, plan_files)
+
+                    if plan_files and total_read == 0:
+                        fallback_planner_md = self._build_full_scan_context(
+                            repo_root,
+                            task.title,
+                            task_description_for_ai,
+                        )
+                        if fallback_planner_md and fallback_planner_md != planner_md:
+                            await task_service.add_log(task.id, organization_id, 'agent',
+                                'Planner selected only unreadable files; retrying with fresh repo scan.\n'
+                                f'  initial_files: {plan_files}\n'
+                                f'  missing_files: {missing_files}\n'
+                                f'  retry_source: fallback:full_scan'
+                            )
+                            u_before = _get_usage(flow_state)
+                            s_start = datetime.utcnow()
+                            s_clock = time.perf_counter()
+                            plan, plan_usage, plan_model = await orchestrator.agents.run_ai_plan(
+                                task_title=task.title,
+                                task_description=task_description_for_ai,
+                                agents_md=fallback_planner_md,
+                                task_images=task_image_inputs,
+                            )
+                            orchestrator._merge_usage(flow_state, plan_usage)
+                            flow_state['model_usage'].append(plan_model)
+                            plan_delta = _usage_delta(u_before, _get_usage(flow_state))
+                            await _step_event('ai_replan', plan_delta, plan_model, s_start, time.perf_counter() - s_clock)
+
+                            plan_files = self._extract_plan_files(plan)
+                            plan_changes = plan.get('changes', [])
+                            await task_service.add_log(task.id, organization_id, 'agent',
+                                f'AI Replan result:\n'
+                                f'  model: {plan_model} | tokens: prompt={plan_delta["prompt_tokens"]} completion={plan_delta["completion_tokens"]}\n'
+                                f'  plan: {str(plan.get("plan",""))[:300]}\n'
+                                f'  files: {plan_files}\n'
+                                f'  changes: {json.dumps(plan_changes, ensure_ascii=False)[:400]}'
+                            )
+                            file_contents, total_read, found_files, missing_files = self._read_plan_files(repo_root, plan_files)
+
+                    if not plan_files:
+                        raise RuntimeError('AI planner returned no repository files. Aborting before code generation.')
+                    if total_read == 0:
+                        raise RuntimeError(
+                            'AI planner selected repository files that could not be read from disk. '
+                            f'Aborting before code generation. Missing files: {missing_files[:10]}'
+                        )
+                    if missing_files:
+                        await task_service.add_log(task.id, organization_id, 'agent',
+                            'Planner returned some missing files; continuing only with files that exist.\n'
+                            f'  found_files: {found_files}\n'
+                            f'  missing_files: {missing_files}'
+                        )
 
                     flow_state['spec'] = plan
 
@@ -499,6 +465,7 @@ class OrchestrationService:
                         f'Step 3/{total_steps}: Developer coding...\n'
                         f'  plan_files: {plan_files}\n'
                         f'  file_contents: {total_read} chars ({len(plan_files)} files)\n'
+                        f'  task_images: {len(task_image_inputs)}\n'
                         f'  system_prompt: AI_CODE_SYSTEM_PROMPT\n'
                         f'  model: {routing.preferred_agent_model or "default"} | max_output_tokens: 128000'
                     )
@@ -507,9 +474,10 @@ class OrchestrationService:
                     s_clock = time.perf_counter()
                     generated, code_usage, code_model = await orchestrator.agents.run_ai_code(
                         task_title=task.title,
-                        task_description=task.description or '',
+                        task_description=task_description_for_ai,
                         plan=plan,
                         file_contents=file_contents,
+                        task_images=task_image_inputs,
                     )
                     # Retry once on refusal
                     if generated.strip().lower().startswith("i'm sorry") or len(generated.strip()) < 100:
@@ -517,9 +485,10 @@ class OrchestrationService:
                             f'Developer refused or empty output ({len(generated)} chars), retrying...')
                         generated, code_usage2, code_model = await orchestrator.agents.run_ai_code(
                             task_title=task.title,
-                            task_description=task.description or '',
+                            task_description=task_description_for_ai,
                             plan=plan,
                             file_contents=file_contents,
+                            task_images=task_image_inputs,
                         )
                         orchestrator._merge_usage(flow_state, code_usage2)
                         flow_state['model_usage'].append(code_model)
@@ -972,6 +941,8 @@ class OrchestrationService:
             re.compile(r'`([^`\n]+\.[a-zA-Z]{1,10})`\s*:?\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
             # Fallback: any line with a file path ending in known extension + next fenced block
             re.compile(r'(?:^|\n)\s*\*{0,2}([\w/._-]+\.(?:go|py|ts|tsx|js|jsx|java|rs|rb|cs))\s*\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
+            # File: path + raw block (no fenced code), until next File: marker
+            re.compile(r'(?:^|\n)\s*\*{0,2}File:\s*([^\n*`]+?)\*{0,2}\s*\r?\n(.*?)(?=(?:\n\s*\*{0,2}File:\s*[^\n]+)|\Z)', re.DOTALL),
         ]
         matches: list[tuple[str, str]] = []
         for pat in patterns:
@@ -992,10 +963,14 @@ class OrchestrationService:
             if '/..' in f'/{normalized}' or normalized.startswith('..'):
                 continue
 
-            final_content = content.rstrip() + '\n'
+            body = content.strip()
+            fenced_match = re.match(r'^```[^\n]*\n(.*?)\n```$', body, re.DOTALL)
+            if fenced_match:
+                body = fenced_match.group(1)
+            final_content = body.rstrip() + '\n'
 
             # Detect patch format (@@ sections with +/- lines and *** End Patch)
-            is_patch = bool(re.search(r'^@@\s*$', final_content, re.MULTILINE)) and (
+            is_patch = bool(re.search(r'^@@(?:\s|$)', final_content, re.MULTILINE)) and (
                 bool(re.search(r'^\+', final_content, re.MULTILINE)) or
                 bool(re.search(r'^-', final_content, re.MULTILINE))
             )
@@ -1118,7 +1093,7 @@ class OrchestrationService:
             current_hunk: list[str] = []
             for line in patch_content.splitlines():
                 stripped = line.strip()
-                if stripped == '@@':
+                if stripped.startswith('@@'):
                     if current_hunk:
                         hunks.append(current_hunk)
                     current_hunk = []
@@ -1645,6 +1620,201 @@ class OrchestrationService:
             pass
         return '\n'.join(parts)
 
+    def _resolve_repo_guide(self, root: Path | None) -> tuple[str, str, str]:
+        if root is None or not root.is_dir():
+            return '', '', ''
+
+        for name in ['agents.md', 'AGENTS.md']:
+            guide = root / name
+            if not guide.is_file():
+                continue
+            try:
+                return guide.read_text(errors='replace'), f'repo:{name}', ''
+            except Exception as exc:
+                logger.warning('Failed to read repo guide %s: %s', guide, exc)
+
+        tiqr_dir = root / '.tiqr' / 'agents'
+        if tiqr_dir.is_dir():
+            md_files = sorted(
+                (f for f in tiqr_dir.rglob('*.md') if f.is_file()),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True,
+            )
+            for md_file in md_files:
+                try:
+                    pkg_dir = md_file.parent / 'packages'
+                    return (
+                        md_file.read_text(errors='replace'),
+                        f'.tiqr:{md_file.relative_to(root)}',
+                        str(pkg_dir) if pkg_dir.is_dir() else '',
+                    )
+                except Exception as exc:
+                    logger.warning('Failed to read .tiqr repo guide %s: %s', md_file, exc)
+
+        return '', '', ''
+
+    def _build_full_scan_context(
+        self,
+        root: Path | None,
+        task_title: str,
+        task_description: str,
+    ) -> str:
+        if root is None or not root.is_dir():
+            return ''
+
+        lines = [f'Repo Root: {root}']
+        git_info = self._get_git_info(root)
+        if git_info:
+            lines.append(git_info)
+
+        relevant_files = self._find_relevant_source_files(root, task_title, task_description)
+        if relevant_files:
+            lines.append('')
+            lines.append('=== RELEVANT SOURCE FILES ===')
+            total_chars = 0
+            for rel_path, content in relevant_files:
+                if total_chars + len(content) > 2000000:
+                    continue
+                lines.append(f'\n--- {rel_path} ---')
+                lines.append(content)
+                total_chars += len(content)
+            lines.append('=== END SOURCE FILES ===')
+
+        lines.append('')
+        lines.append('No repository guide is available. Plan only against the real files listed above.')
+        lines.append('Return **File: path** blocks with code. Do NOT create .md or .txt files.')
+        return '\n'.join(lines)
+
+    def _extract_task_image_urls(self, description: str | None) -> list[str]:
+        text = description or ''
+        if not text:
+            return []
+
+        urls: list[str] = []
+        seen: set[str] = set()
+        patterns = [
+            re.compile(r'<img\b[^>]*\bsrc=["\']([^"\']+)["\']', re.IGNORECASE),
+            re.compile(r'!\[[^\]]*\]\(([^)]+)\)'),
+        ]
+        for pattern in patterns:
+            for match in pattern.finditer(text):
+                url = str(match.group(1) or '').strip().replace('&amp;', '&')
+                if not url or url in seen:
+                    continue
+                seen.add(url)
+                urls.append(url)
+                if len(urls) >= 4:
+                    return urls
+        return urls
+
+    async def _download_image_as_data_url(self, url: str, auth_header: str | None = None) -> str | None:
+        headers: dict[str, str] = {}
+        if auth_header:
+            headers['Authorization'] = auth_header
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+
+        content_type = str(response.headers.get('content-type', 'image/png')).split(';', 1)[0].strip().lower()
+        if not content_type.startswith('image/'):
+            return None
+        if len(response.content) > 5 * 1024 * 1024:
+            return None
+        encoded = base64.b64encode(response.content).decode('ascii')
+        return f'data:{content_type};base64,{encoded}'
+
+    async def _build_task_image_inputs(self, description: str | None, organization_id: int) -> list[str]:
+        image_urls = self._extract_task_image_urls(description)
+        if not image_urls:
+            return []
+
+        results: list[str] = []
+        azure_auth_header: str | None = None
+        azure_auth_loaded = False
+
+        for url in image_urls:
+            normalized = url.strip()
+            if not normalized:
+                continue
+            if normalized.startswith('data:image/'):
+                results.append(normalized)
+                continue
+
+            try:
+                is_azure_attachment = 'dev.azure.com/' in normalized or '/_apis/wit/attachments/' in normalized
+                if is_azure_attachment:
+                    if not azure_auth_loaded:
+                        azure_auth_loaded = True
+                        azure_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'azure')
+                        pat = (azure_cfg.secret or '').strip() if azure_cfg and azure_cfg.secret else ''
+                        if pat:
+                            token = base64.b64encode(f':{pat}'.encode()).decode()
+                            azure_auth_header = f'Basic {token}'
+                    if azure_auth_header:
+                        data_url = await self._download_image_as_data_url(normalized, azure_auth_header)
+                        if data_url:
+                            results.append(data_url)
+                            continue
+                results.append(normalized)
+            except Exception as exc:
+                logger.warning('Failed to prepare task image input %s: %s', normalized, exc)
+                results.append(normalized)
+
+        return results[:4]
+
+    def _extract_plan_files(self, plan: dict[str, Any]) -> list[str]:
+        candidates = list(plan.get('files', []) or []) + list(plan.get('changes', []) or [])
+        files: list[str] = []
+        seen: set[str] = set()
+        for item in candidates:
+            if isinstance(item, dict):
+                raw_path = item.get('file', item.get('path', ''))
+            else:
+                raw_path = str(item)
+            normalized = str(raw_path or '').strip().strip('`').replace('\\', '/').lstrip('./')
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            files.append(normalized)
+        return files
+
+    def _read_plan_files(self, repo_root: Path | None, plan_files: list[str]) -> tuple[str, int, list[str], list[str]]:
+        if repo_root is None or not repo_root.is_dir():
+            return '', 0, [], list(plan_files)
+
+        file_contents_parts: list[str] = []
+        total_read = 0
+        found_files: list[str] = []
+        missing_files: list[str] = []
+
+        for fp in plan_files:
+            normalized = str(fp or '').strip().replace('\\', '/').lstrip('./')
+            if not normalized:
+                continue
+            try:
+                full = (repo_root / normalized).resolve()
+                full.relative_to(repo_root)
+            except Exception:
+                missing_files.append(normalized)
+                file_contents_parts.append(f'\n--- {normalized} (invalid path) ---\n')
+                continue
+
+            if not full.is_file():
+                missing_files.append(normalized)
+                file_contents_parts.append(f'\n--- {normalized} (not found) ---\n')
+                continue
+
+            try:
+                content = full.read_text(errors='replace')
+                file_contents_parts.append(f'\n--- {normalized} ({len(content)} chars) ---\n{content}')
+                total_read += len(content)
+                found_files.append(normalized)
+            except Exception:
+                missing_files.append(normalized)
+                file_contents_parts.append(f'\n--- {normalized} (read error) ---\n')
+
+        return '\n'.join(file_contents_parts), total_read, found_files, missing_files
+
     async def _build_repo_context(
         self,
         local_repo_path: str | None,
@@ -1661,67 +1831,22 @@ class OrchestrationService:
             if not root.exists() or not root.is_dir():
                 return f'Local repo path is configured but not reachable: {repo_path}'
 
-            # Gather git branch and recent commit info
             git_info = self._get_git_info(root)
-
-            # Check for agents.md — first in Tiqr data dir (org-scoped), then repo root
-            agents_base = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
-            agents_md = None
-            # Try all org dirs for a matching file (repo name in filename)
-            repo_name = root.name.lower()
-            for org_dir in sorted(agents_base.glob('org_*')) if agents_base.exists() else []:
-                for f in org_dir.glob('*.md'):
-                    if f.is_file() and f.stat().st_size > 500 and repo_name in f.stem.lower():
-                        agents_md = f
-                        break
-                if agents_md:
-                    break
-            # Fallback to repo root
-            if agents_md is None:
-                agents_md = root / 'agents.md'
-            if agents_md.is_file():
-                try:
-                    agents_content = agents_md.read_text(errors='replace')
-                    if len(agents_content) > 500:  # valid agents.md
-                        lines = [
-                            f'Repo Root: {root}',
-                        ]
-                        if git_info:
-                            lines.append(git_info)
-                        lines += [
-                            '',
-                            '=== AGENTS.MD (Repository Guide) ===',
-                            agents_content,
-                            '=== END AGENTS.MD ===',
-                            '',
-                            '=== RELEVANT SOURCE FILES ===',
-                        ]
-                        # Still include source files but agents.md gives structure
-                        relevant_files = self._find_relevant_source_files(root, task_title, task_description)
-                        total_chars = len(agents_content)
-                        for rel_path, content in relevant_files:
-                            if total_chars + len(content) > 2000000:
-                                continue
-                            lines.append(f'\n--- {rel_path} ---')
-                            lines.append(content)
-                            total_chars += len(content)
-                        lines.append('=== END SOURCE FILES ===')
-                        lines.append('')
-                        lines.append('You have agents.md AND the full source files. Use agents.md to understand the architecture, then modify source files.')
-                        lines.append('Return **File: path** blocks with code.')
-                        return '\n'.join(lines)
-                except Exception:
-                    pass
-
-            # No agents.md — full repo scan
-            relevant_files = self._find_relevant_source_files(root, task_title, task_description)
-            lines = [f'Repo Root: {root}']
-            if git_info:
-                lines.append(git_info)
-            if relevant_files:
-                lines.append('')
-                lines.append('=== RELEVANT SOURCE FILES ===')
-                total_chars = 0
+            agents_content, agents_source, _agents_pkg_dir = self._resolve_repo_guide(root)
+            if agents_content and len(agents_content) > 500:
+                lines = [f'Repo Root: {root}']
+                if git_info:
+                    lines.append(git_info)
+                lines += [
+                    '',
+                    f'=== AGENTS.MD (Repository Guide; source={agents_source}) ===',
+                    agents_content,
+                    '=== END AGENTS.MD ===',
+                    '',
+                    '=== RELEVANT SOURCE FILES ===',
+                ]
+                relevant_files = self._find_relevant_source_files(root, task_title, task_description)
+                total_chars = len(agents_content)
                 for rel_path, content in relevant_files:
                     if total_chars + len(content) > 2000000:
                         continue
@@ -1729,10 +1854,12 @@ class OrchestrationService:
                     lines.append(content)
                     total_chars += len(content)
                 lines.append('=== END SOURCE FILES ===')
+                lines.append('')
+                lines.append('You have agents.md AND the full source files. Use agents.md to understand the architecture, then modify source files.')
+                lines.append('Return **File: path** blocks with code.')
+                return '\n'.join(lines)
 
-            lines.append('')
-            lines.append('Return **File: path** blocks with code. Do NOT create .md or .txt files.')
-            return '\n'.join(lines)
+            return self._build_full_scan_context(root, task_title, task_description)
         except Exception as exc:
             return f'Repo context unavailable for {repo_path}: {str(exc)[:180]}'
 

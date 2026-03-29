@@ -78,11 +78,24 @@ class CrewAIAgentRunner:
         spec = self._safe_json(content)
         return spec, usage, model
 
-    async def run_ai_plan(self, task_title: str, task_description: str, agents_md: str) -> tuple[dict[str, Any], dict[str, int], str]:
+    async def run_ai_plan(
+        self,
+        task_title: str,
+        task_description: str,
+        agents_md: str,
+        task_images: list[str] | None = None,
+    ) -> tuple[dict[str, Any], dict[str, int], str]:
         """Step 1: Plan — agents.md + task → which files to change."""
+        image_note = ''
+        if task_images:
+            image_note = (
+                f'TASK IMAGES: {len(task_images)} image(s) are attached separately as vision inputs. '
+                'Use them to identify service names, routes, UI text, and other visual clues.\n\n'
+            )
         prompt = (
             f'TASK: {task_title}\n'
             f'DESCRIPTION: {task_description}\n\n'
+            f'{image_note}'
             f'REPOSITORY GUIDE:\n{agents_md}\n\n'
             'Analyze the task and return JSON with: plan, files, changes.'
         )
@@ -93,10 +106,18 @@ class CrewAIAgentRunner:
             user_prompt=prompt,
             complexity_hint='high',
             max_output_tokens=AGENT_TOKEN_LIMITS['planner'],
+            image_inputs=task_images,
         )
         return self._safe_json(content), usage, model
 
-    async def run_ai_code(self, task_title: str, task_description: str, plan: dict[str, Any], file_contents: str) -> tuple[str, dict[str, int], str]:
+    async def run_ai_code(
+        self,
+        task_title: str,
+        task_description: str,
+        plan: dict[str, Any],
+        file_contents: str,
+        task_images: list[str] | None = None,
+    ) -> tuple[str, dict[str, int], str]:
         """Step 2: Code — plan + actual file contents → code output."""
         changes_text = ''
         for c in plan.get('changes', []):
@@ -109,9 +130,16 @@ class CrewAIAgentRunner:
             f'  - {c.get("file","") if isinstance(c, dict) else c}'
             for c in plan.get('changes', [])
         )
+        image_note = ''
+        if task_images:
+            image_note = (
+                f'TASK IMAGES: {len(task_images)} image(s) are attached separately as vision inputs. '
+                'Use them to resolve any visual details referenced by the task.\n\n'
+            )
         prompt = (
             f'TASK: {task_title}\n'
             f'DESCRIPTION: {task_description}\n\n'
+            f'{image_note}'
             f'IMPLEMENTATION PLAN:\n{plan.get("plan", "")}\n\n'
             f'CHANGES TO MAKE:\n{changes_text}\n\n'
             f'SOURCE FILES TO MODIFY:\n{file_contents}\n\n'
@@ -128,6 +156,7 @@ class CrewAIAgentRunner:
             complexity_hint='high',
             max_output_tokens=AGENT_TOKEN_LIMITS['developer'],
             skip_cache=True,
+            image_inputs=task_images,
         )
 
     async def run_developer(self, spec: dict[str, Any], context_summary: str, task_description: str = '', target_files_context: str = '', direct_mode: bool = False) -> tuple[str, dict[str, int], str]:
@@ -195,6 +224,7 @@ class CrewAIAgentRunner:
         complexity_hint: str,
         max_output_tokens: int = 2500,
         skip_cache: bool = False,
+        image_inputs: list[str] | None = None,
     ) -> tuple[str, dict[str, int], str]:
         content, usage, model, _ = await self.llm.generate(
             system_prompt=system_prompt,
@@ -202,6 +232,7 @@ class CrewAIAgentRunner:
             complexity_hint=complexity_hint,
             max_output_tokens=max_output_tokens,
             skip_cache=skip_cache,
+            image_inputs=image_inputs,
         )
         return content, usage, model
 
