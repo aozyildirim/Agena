@@ -53,6 +53,7 @@ class LLMProvider:
         complexity_hint: str = 'normal',
         max_output_tokens: int = 2500,
         skip_cache: bool = False,
+        image_inputs: list[str] | None = None,
     ) -> tuple[str, dict[str, int], str, bool]:
         raw_key = (self.api_key or '').strip()
         if not raw_key or raw_key.startswith('your_'):
@@ -62,8 +63,9 @@ class LLMProvider:
 
         model = self._select_model(complexity_hint)
         truncated_user = self._truncate(user_prompt)
+        safe_images = [img.strip() for img in (image_inputs or []) if str(img).strip()]
         cache_key = self.cache.build_key(model=model, system_prompt=system_prompt, user_prompt=truncated_user)
-        cached = await self.cache.get(cache_key) if not skip_cache else None
+        cached = await self.cache.get(cache_key) if (not skip_cache and not safe_images) else None
         if cached:
             cached_output = (cached.get('output', '') or '').strip()
             if cached_output:
@@ -80,11 +82,16 @@ class LLMProvider:
         else:
             if self.client is None:
                 raise RuntimeError('OpenAI client is not initialized')
+            user_content: Any = truncated_user
+            if safe_images:
+                user_content = [{'type': 'input_text', 'text': truncated_user}]
+                for image in safe_images[:4]:
+                    user_content.append({'type': 'input_image', 'image_url': image})
             kwargs: dict[str, Any] = {
                 'model': model,
                 'input': [
                     {'role': 'system', 'content': system_prompt},
-                    {'role': 'user', 'content': truncated_user},
+                    {'role': 'user', 'content': user_content},
                 ],
                 'max_output_tokens': max_output_tokens,
             }
@@ -108,7 +115,7 @@ class LLMProvider:
                     pass  # chat completions not available for this model
         # Cache meaningful outputs (code blocks, JSON specs, substantial text)
         # Skip caching refusals, empty outputs, and skip_cache calls
-        if not skip_cache:
+        if not skip_cache and not safe_images:
             stripped = output.strip()
             is_refusal = stripped.lower().startswith("i'm sorry") or stripped.lower().startswith("i can't")
             if stripped and len(stripped) > 50 and not is_refusal:
