@@ -19,8 +19,7 @@ export default function Navbar() {
     <header className='navbar-shell'>
       <div className='container navbar-inner'>
         <Link href='/' style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink)', textDecoration: 'none' }}>
-          <span className='brand-mark' />
-          Tiqr
+          <img src='/media/tiqr-logo.svg' alt='Tiqr' className='navbar-wordmark' />
         </Link>
         <nav style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <LangToggle style={{ marginRight: 4 }} />

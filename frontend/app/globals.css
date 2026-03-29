@@ -149,6 +149,13 @@ body::before {
   animation: pulse-brand 3s ease-in-out infinite;
 }
 
+.navbar-wordmark {
+  width: clamp(112px, 11vw, 148px);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 16px rgba(45, 212, 191, 0.2));
+}
+
 @keyframes pulse-brand {
   0%, 100% { box-shadow: 0 0 20px rgba(13, 148, 136, 0.6), 0 0 40px rgba(13, 148, 136, 0.3); }
   50% { box-shadow: 0 0 30px rgba(13, 148, 136, 0.9), 0 0 60px rgba(13, 148, 136, 0.5); }

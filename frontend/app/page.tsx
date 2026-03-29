@@ -143,10 +143,60 @@ function RapidType({ lines }: { lines: string[] }) {
   );
 }
 
+function SeatedPixel({ palette, facing = 'front' }: { palette: number; facing?: 'front' | 'side' | 'back' }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.src = `/pixel-office/assets/characters/char_${palette}.png`;
+
+    const IDLE_FRAME = 1;
+    const SRC_W = 16;
+    const SRC_H = 32;
+    const DST_W = 18;
+    const DST_H = 36;
+
+    img.onload = () => {
+      const row = facing === 'front' ? 0 : facing === 'side' ? 1 : 2;
+      const sx = IDLE_FRAME * SRC_W;
+      const sy = row * SRC_H;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, sx, sy, SRC_W, SRC_H, 0, 0, DST_W, DST_H);
+    };
+  }, [palette, facing]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={18}
+      height={36}
+      style={{
+        width: 18,
+        height: 36,
+        imageRendering: 'pixelated',
+        display: 'block',
+        flexShrink: 0,
+        filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.55))',
+      }}
+    />
+  );
+}
+
 export default function HomePage() {
   const { t } = useLocale();
   const flowWords = t('landing.flowShowcaseWords').split(' ');
   const patronLines = [t('landing.patronLine1'), t('landing.patronLine2'), t('landing.patronLine3')];
+  const timelineItems = [
+    { text: t('landing.timeline1'), palette: 0, facing: 'back' as const },
+    { text: t('landing.timeline2'), palette: 3, facing: 'front' as const },
+    { text: t('landing.timeline3'), palette: 6, facing: 'front' as const },
+  ];
   const integrations = [
     { key: 'azure', logo: '/media/azure-logo.svg', name: t('landing.integrationAzure') },
     { key: 'jira', logo: '/media/jira-logo.svg', name: t('landing.integrationJira') },
@@ -247,9 +297,12 @@ export default function HomePage() {
             </div>
 
             <div className='timeline-mini'>
-              <span>{t('landing.timeline1')}</span>
-              <span>{t('landing.timeline2')}</span>
-              <span>{t('landing.timeline3')}</span>
+              {timelineItems.map((item) => (
+                <span key={item.text}>
+                  <SeatedPixel palette={item.palette} facing={item.facing} />
+                  <em style={{ fontStyle: 'normal' }}>{item.text}</em>
+                </span>
+              ))}
             </div>
 
             {/* Glow line at bottom */}

@@ -1,0 +1,27 @@
+<svg width="360" height="96" viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cronaRing" x1="10" y1="10" x2="86" y2="86" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+    <linearGradient id="cronaWord" x1="110" y1="24" x2="328" y2="74" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E2F7FF"/>
+      <stop offset="1" stop-color="#9BE7D8"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="108" height="108" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(6 6)">
+    <circle cx="42" cy="42" r="34" stroke="url(#cronaRing)" stroke-width="6"/>
+    <circle cx="42" cy="42" r="16" fill="#0B1726" stroke="#5EEAD4" stroke-width="3"/>
+    <path d="M42 12L48 30L66 36L48 42L42 60L36 42L18 36L36 30L42 12Z" fill="#22D3EE" fill-opacity="0.26"/>
+    <circle cx="42" cy="42" r="6" fill="#7DD3FC"/>
+    <circle cx="42" cy="42" r="18" stroke="#7DD3FC" stroke-opacity="0.4" stroke-width="1.5" stroke-dasharray="3 4"/>
+    <circle cx="42" cy="42" r="38" stroke="#22D3EE" stroke-opacity="0.22" stroke-width="2" filter="url(#glow)"/>
+  </g>
+
+  <text x="104" y="58" fill="url(#cronaWord)" font-family="Sora, 'Segoe UI', Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="1.8">TIQR</text>
+  <text x="106" y="78" fill="#94A3B8" font-family="Sora, 'Segoe UI', Arial, sans-serif" font-size="12" letter-spacing="2.2">AUTONOMOUS SPRINT SYSTEM</text>
+</svg>
