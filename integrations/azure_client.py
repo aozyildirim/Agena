@@ -106,6 +106,45 @@ class AzureDevOpsClient:
             )
         return [self._to_external_task(item) for item in details_payload]
 
+    async def writeback_refinement(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+        suggested_story_points: int,
+        comment: str,
+    ) -> None:
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        item_id = str(work_item_id or '').strip()
+        if not item_id:
+            raise ValueError('work_item_id is required')
+
+        patch_ops: list[dict[str, Any]] = []
+        if int(suggested_story_points or 0) > 0:
+            patch_ops.append({
+                'op': 'add',
+                'path': '/fields/Microsoft.VSTS.Scheduling.StoryPoints',
+                'value': int(suggested_story_points),
+            })
+        if str(comment or '').strip():
+            patch_ops.append({
+                'op': 'add',
+                'path': '/fields/System.History',
+                'value': str(comment).strip(),
+            })
+        if not patch_ops:
+            return
+
+        url = f"{org_url.rstrip('/')}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
+        headers = self._headers(pat)
+        headers['Content-Type'] = 'application/json-patch+json'
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.patch(url, headers=headers, json=patch_ops)
+            response.raise_for_status()
+
     def _headers(self, pat: str) -> dict[str, str]:
         token = base64.b64encode(f':{pat}'.encode()).decode()
         return {'Authorization': f'Basic {token}', 'Content-Type': 'application/json'}

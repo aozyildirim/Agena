@@ -43,6 +43,7 @@ type RefinementItemsResponse = {
 type RefinementSuggestion = {
   item_id: string;
   title: string;
+  item_url?: string | null;
   current_story_points?: number | null;
   suggested_story_points: number;
   estimation_rationale: string;
@@ -52,6 +53,8 @@ type RefinementSuggestion = {
   ambiguities: string[];
   questions: string[];
   ready_for_planning: boolean;
+  fallback_applied?: boolean;
+  fallback_note?: string;
   error?: string | null;
 };
 
@@ -68,6 +71,14 @@ type RefinementAnalyzeResponse = {
   total_tokens: number;
   estimated_cost_usd: number;
   results: RefinementSuggestion[];
+};
+
+type RefinementWritebackResponse = {
+  provider: Provider;
+  total: number;
+  success_count: number;
+  failure_count: number;
+  results: Array<{ item_id: string; success: boolean; message: string }>;
 };
 
 type RunMessage = {
@@ -127,6 +138,10 @@ type Copy = {
   openResults: string;
   close: string;
   resultsTitle: string;
+  writeback: string;
+  writebackRunning: string;
+  signature: string;
+  openSource: string;
 };
 
 const COPY: Record<'tr' | 'en', Copy> = {
@@ -182,6 +197,10 @@ const COPY: Record<'tr' | 'en', Copy> = {
     openResults: 'Sonuclari Ac',
     close: 'Kapat',
     resultsTitle: 'Refinement Sonuclari',
+    writeback: 'Yaz (Azure/Jira)',
+    writebackRunning: 'Yaziliyor...',
+    signature: 'Yorum imzasi',
+    openSource: 'Kaynagi Ac',
   },
   en: {
     section: 'Refinement',
@@ -235,6 +254,10 @@ const COPY: Record<'tr' | 'en', Copy> = {
     openResults: 'Open Results',
     close: 'Close',
     resultsTitle: 'Refinement Results',
+    writeback: 'Write Back',
+    writebackRunning: 'Writing...',
+    signature: 'Comment signature',
+    openSource: 'Open Source',
   },
 };
 
@@ -332,6 +355,8 @@ export default function RefinementPage() {
   const [runMessage, setRunMessage] = useState<RunMessage | null>(null);
   const [autoFocusResults, setAutoFocusResults] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
+  const [writebackRunning, setWritebackRunning] = useState(false);
+  const [commentSignature, setCommentSignature] = useState('Tiqr AI');
   const availableModels = useMemo(() => modelsForProvider(agentProvider), [agentProvider]);
 
   const selectedAzureSprint = useMemo(
@@ -514,11 +539,14 @@ export default function RefinementPage() {
     ...response,
     results: (response.results || []).map((item) => ({
       ...item,
+      item_url: item.item_url || null,
       estimation_rationale: item.estimation_rationale || '',
       summary: item.summary || '',
       comment: item.comment || '',
       ambiguities: item.ambiguities || [],
       questions: item.questions || [],
+      fallback_applied: Boolean(item.fallback_applied),
+      fallback_note: item.fallback_note || '',
     })),
   }), []);
 
@@ -587,6 +615,59 @@ export default function RefinementPage() {
     }
     setAutoFocusResults(false);
   }, [autoFocusResults, results]);
+
+  const runWriteback = useCallback(async () => {
+    const rows = (results?.results || []).filter((item) => !item.error);
+    if (!rows.length) return;
+    setWritebackRunning(true);
+    setError('');
+    setRunMessage(null);
+    try {
+      const payload = provider === 'azure'
+        ? {
+          provider,
+          project: azureProject,
+          team: azureTeam,
+          sprint_path: azureSprint,
+          sprint_name: selectedAzureSprint?.name || azureSprint,
+          comment_signature: commentSignature,
+          items: rows.map((item) => ({
+            item_id: item.item_id,
+            suggested_story_points: item.suggested_story_points,
+            comment: item.comment,
+          })),
+        }
+        : {
+          provider,
+          board_id: jiraBoard,
+          sprint_id: jiraSprint,
+          sprint_name: selectedJiraSprint?.name || jiraSprint,
+          comment_signature: commentSignature,
+          items: rows.map((item) => ({
+            item_id: item.item_id,
+            suggested_story_points: item.suggested_story_points,
+            comment: item.comment,
+          })),
+        };
+      const response = await apiFetch<RefinementWritebackResponse>('/refinement/writeback', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if (response.failure_count === 0) {
+        setRunMessage({ kind: 'success', text: `${response.success_count}/${response.total} writeback basarili.` });
+      } else if (response.success_count === 0) {
+        setRunMessage({ kind: 'error', text: `Writeback basarisiz: ${response.failure_count}/${response.total}` });
+      } else {
+        setRunMessage({ kind: 'warning', text: `Writeback kismi: ${response.success_count} basarili, ${response.failure_count} hatali.` });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Writeback failed';
+      setError(message);
+      setRunMessage({ kind: 'error', text: message });
+    } finally {
+      setWritebackRunning(false);
+    }
+  }, [results, provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, commentSignature, jiraBoard, jiraSprint, selectedJiraSprint]);
 
   const sortedItems = useMemo(() => {
     const items = itemsData?.items || [];
@@ -689,6 +770,9 @@ export default function RefinementPage() {
                 style={inputStyle}
               />
             </Field>
+            <Field label={copy.signature}>
+              <input value={commentSignature} onChange={(e) => setCommentSignature(e.target.value)} style={inputStyle} />
+            </Field>
           </div>
 
           <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 14 }}>
@@ -718,6 +802,9 @@ export default function RefinementPage() {
             </button>
             <button onClick={() => setResultsModalOpen(true)} style={ghostButton} disabled={!results?.results.length}>
               {copy.openResults}
+            </button>
+            <button onClick={() => void runWriteback()} style={ghostButton} disabled={writebackRunning || !(results?.results || []).length}>
+              {writebackRunning ? copy.writebackRunning : copy.writeback}
             </button>
             <span style={{ fontSize: 12, color: 'var(--ink-35)' }}>{copy.selectionHint}</span>
           </div>
@@ -831,6 +918,11 @@ export default function RefinementPage() {
                   <div key={`${item.item_id}-summary`} style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.03)', padding: 14, display: 'grid', gap: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.4 }}>{item.title}</div>
+                    {item.item_url && (
+                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#93c5fd', textDecoration: 'none' }}>
+                        {copy.openSource}
+                      </a>
+                    )}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span style={resultPill}>{copy.currentEstimate}: {displaySuggestionEstimate(item.current_story_points)}</span>
                       <span style={resultPill}>{copy.suggestedEstimate}: {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}</span>
@@ -863,6 +955,11 @@ export default function RefinementPage() {
                   </div>
                 ) : (
                   <>
+                    {item.fallback_applied && item.fallback_note && (
+                      <div style={{ borderRadius: 10, border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.08)', color: '#fde68a', padding: '8px 10px', fontSize: 12 }}>
+                        {item.fallback_note}
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                       <ResultMetric label={copy.currentEstimate} value={displaySuggestionEstimate(item.current_story_points)} accent='var(--ink-80)' />
                       <ResultMetric label={copy.suggestedEstimate} value={displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })} accent='#fde68a' />
@@ -893,6 +990,11 @@ export default function RefinementPage() {
                 <div key={`modal-${item.item_id}`} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.02)', padding: 14, display: 'grid', gap: 10 }}>
                   <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{item.title}</div>
+                  {item.item_url && (
+                    <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#93c5fd', textDecoration: 'none' }}>
+                      {copy.openSource}
+                    </a>
+                  )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <span style={resultPill}>{copy.currentEstimate}: {displaySuggestionEstimate(item.current_story_points)}</span>
                     <span style={resultPill}>{copy.suggestedEstimate}: {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}</span>
@@ -904,6 +1006,11 @@ export default function RefinementPage() {
                     </div>
                   ) : (
                     <>
+                      {item.fallback_applied && item.fallback_note && (
+                        <div style={{ borderRadius: 10, border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.08)', color: '#fde68a', padding: '8px 10px', fontSize: 12 }}>
+                          {item.fallback_note}
+                        </div>
+                      )}
                       <Section title={copy.summary} body={item.summary} />
                       <Section title={copy.rationale} body={item.estimation_rationale} />
                       <Section title={copy.comment} body={item.comment} />

@@ -23,6 +23,9 @@ from schemas.refinement import (
     RefinementAnalyzeResponse,
     RefinementItemsResponse,
     RefinementSuggestion,
+    RefinementWritebackRequest,
+    RefinementWritebackResponse,
+    RefinementWritebackResult,
 )
 from schemas.task import ExternalTask
 from services.ai_usage_event_service import AIUsageEventService
@@ -217,6 +220,75 @@ class RefinementService:
             total_items=len(items_response.items),
             total_tokens=total_usage['total_tokens'],
             estimated_cost_usd=estimated_cost_usd,
+            results=results,
+        )
+
+    async def writeback(
+        self,
+        organization_id: int,
+        request: RefinementWritebackRequest,
+    ) -> RefinementWritebackResponse:
+        provider = request.provider.strip().lower()
+        items = [item for item in request.items if item.item_id.strip()]
+        if not items:
+            raise ValueError('No refinement items provided for writeback')
+
+        signature = str(request.comment_signature or '').strip()
+        results: list[RefinementWritebackResult] = []
+
+        if provider == 'azure':
+            config = await self.integration_service.get_config(organization_id, 'azure')
+            if config is None or not config.secret:
+                raise ValueError('Azure integration is not configured')
+            cfg = {
+                'org_url': config.base_url,
+                'project': request.project or '',
+                'pat': config.secret,
+            }
+            for item in items:
+                comment = self._with_signature(item.comment, signature)
+                try:
+                    await self.azure_client.writeback_refinement(
+                        cfg=cfg,
+                        work_item_id=item.item_id,
+                        suggested_story_points=item.suggested_story_points,
+                        comment=comment,
+                    )
+                    results.append(RefinementWritebackResult(item_id=item.item_id, success=True, message='ok'))
+                except Exception as exc:
+                    results.append(RefinementWritebackResult(item_id=item.item_id, success=False, message=str(exc)[:220]))
+        elif provider == 'jira':
+            config = await self.integration_service.get_config(organization_id, 'jira')
+            if config is None or not config.secret:
+                raise ValueError('Jira integration is not configured')
+            cfg = {
+                'base_url': config.base_url,
+                'email': config.username or '',
+                'api_token': config.secret,
+            }
+            for item in items:
+                comment = self._with_signature(item.comment, signature)
+                try:
+                    await self.jira_client.writeback_refinement(
+                        cfg=cfg,
+                        issue_key=item.item_id,
+                        suggested_story_points=item.suggested_story_points,
+                        comment=comment,
+                        board_id=request.board_id or '',
+                    )
+                    results.append(RefinementWritebackResult(item_id=item.item_id, success=True, message='ok'))
+                except Exception as exc:
+                    results.append(RefinementWritebackResult(item_id=item.item_id, success=False, message=str(exc)[:220]))
+        else:
+            raise ValueError(f'Unsupported provider: {request.provider}')
+
+        success_count = sum(1 for row in results if row.success)
+        failure_count = len(results) - success_count
+        return RefinementWritebackResponse(
+            provider=request.provider,
+            total=len(results),
+            success_count=success_count,
+            failure_count=failure_count,
             results=results,
         )
 
@@ -549,3 +621,12 @@ class RefinementService:
             except Exception:
                 return None
         return None
+
+    def _with_signature(self, comment: str, signature: str) -> str:
+        body = str(comment or '').strip()
+        sig = str(signature or '').strip()
+        if not body:
+            return ''
+        if not sig:
+            return body
+        return f'[{sig}] {body}'

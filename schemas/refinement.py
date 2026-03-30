@@ -65,3 +65,35 @@ class RefinementAnalyzeResponse(BaseModel):
     total_tokens: int = 0
     estimated_cost_usd: float = 0.0
     results: list[RefinementSuggestion] = Field(default_factory=list)
+
+
+class RefinementWritebackItem(BaseModel):
+    item_id: str
+    suggested_story_points: int = 0
+    comment: str = ''
+
+
+class RefinementWritebackRequest(BaseModel):
+    provider: Literal['azure', 'jira']
+    project: str | None = None
+    team: str | None = None
+    sprint_path: str | None = None
+    sprint_name: str | None = None
+    board_id: str | None = None
+    sprint_id: str | None = None
+    comment_signature: str | None = None
+    items: list[RefinementWritebackItem] = Field(default_factory=list)
+
+
+class RefinementWritebackResult(BaseModel):
+    item_id: str
+    success: bool
+    message: str = ''
+
+
+class RefinementWritebackResponse(BaseModel):
+    provider: Literal['azure', 'jira']
+    total: int
+    success_count: int
+    failure_count: int
+    results: list[RefinementWritebackResult] = Field(default_factory=list)

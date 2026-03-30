@@ -7,6 +7,8 @@ from schemas.refinement import (
     RefinementAnalyzeRequest,
     RefinementAnalyzeResponse,
     RefinementItemsResponse,
+    RefinementWritebackRequest,
+    RefinementWritebackResponse,
 )
 from services.refinement_service import RefinementService
 
@@ -50,5 +52,18 @@ async def analyze_refinement(
     service = RefinementService(db)
     try:
         return await service.analyze(tenant.organization_id, tenant.user_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post('/writeback', response_model=RefinementWritebackResponse)
+async def writeback_refinement(
+    payload: RefinementWritebackRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> RefinementWritebackResponse:
+    service = RefinementService(db)
+    try:
+        return await service.writeback(tenant.organization_id, payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
