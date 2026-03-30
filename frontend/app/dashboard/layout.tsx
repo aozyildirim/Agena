@@ -45,7 +45,7 @@ const PRIMARY_NAV_KEYS: NavItem[] = [
 
 const SECONDARY_NAV_KEYS = [
   { href: '/dashboard/notifications', key: 'nav.notifications', icon: '🔔' },
-  { href: '/dashboard/usage', key: 'nav.usage', icon: '📊', permission: 'billing:manage' as const },
+  { href: '/dashboard/usage', key: 'nav.usage', icon: '📊' },
   { href: '/dashboard/profile', key: 'nav.profile', icon: '👤' },
 ];
 

@@ -47,22 +47,56 @@ type ImportRes = { imported: number; skipped: number };
 const STATES_ORDER = ['Backlog','To Do','In Progress','Code Review','QA To Do','Done','Closed','Resolved','Active','New'];
 
 const STATE_COLORS: Record<string, { color: string; bg: string; border: string }> = {
-  'Backlog':      { color: '#6b7280', bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.2)' },
-  'To Do':        { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
-  'New':          { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
-  'In Progress':  { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
-  'Active':       { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
-  'Code Review':  { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
-  'QA To Do':     { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
-  'Done':         { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
-  'Closed':       { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
-  'Resolved':     { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
+  // Gray — Backlog / not started
+  'Backlog':        { color: '#6b7280', bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.2)' },
+  'Open':           { color: '#6b7280', bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.2)' },
+  // Amber — To do / new / selected
+  'To Do':          { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
+  'New':            { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
+  'Selected for Development': { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.2)' },
+  'Ready':          { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
+  'Approved':       { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
+  // Cyan — In progress / active / development
+  'In Progress':    { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
+  'Active':         { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
+  'In Development': { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
+  'Committed':      { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
+  // Purple — Review / testing
+  'Code Review':    { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
+  'In Review':      { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
+  'Review':         { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
+  // Pink — QA / testing
+  'QA To Do':       { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
+  'In QA':          { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
+  'Testing':        { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
+  'In Testing':     { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
+  // Red — Blocked
+  'Blocked':        { color: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.2)'   },
+  'Impediment':     { color: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.2)'   },
+  'On Hold':        { color: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.2)'   },
+  // Green — Done / closed / resolved
+  'Done':           { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
+  'Closed':         { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
+  'Resolved':       { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
+  'Complete':       { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
+  'Completed':      { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
 };
 const fallbackPalette = [
   { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' },
   { color: '#fb923c', bg: 'rgba(251,146,60,0.07)', border: 'rgba(251,146,60,0.2)' },
 ];
-const sc = (s: string, i: number) => STATE_COLORS[s] ?? fallbackPalette[i % fallbackPalette.length];
+const sc = (s: string, i: number) => {
+  if (STATE_COLORS[s]) return STATE_COLORS[s];
+  const low = s.toLowerCase();
+  if (['done','closed','resolved','complete','completed','tamam'].some(t => low.includes(t))) return STATE_COLORS['Done'];
+  if (['block','imped','hold','stuck','engel'].some(t => low.includes(t))) return STATE_COLORS['Blocked'];
+  if (['progress','active','develop','commit'].some(t => low.includes(t))) return STATE_COLORS['In Progress'];
+  if (['review','code review'].some(t => low.includes(t))) return STATE_COLORS['Code Review'];
+  if (['test','qa'].some(t => low.includes(t))) return STATE_COLORS['QA To Do'];
+  if (['todo','to do','new','ready','select','approved'].some(t => low.includes(t))) return STATE_COLORS['To Do'];
+  if (['backlog','open'].some(t => low.includes(t))) return STATE_COLORS['Backlog'];
+  return fallbackPalette[i % fallbackPalette.length];
+};
 const normalizeState = (value: string | null | undefined): string => String(value || '').trim().toLowerCase();
 
 const LS_PROJECT = 'agena_sprint_project';

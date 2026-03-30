@@ -1315,6 +1315,8 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
   onClose: () => void;
 }) {
   const { t } = useLocale();
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
   function getFeedbackFlags(run: FlowRunResult) {
     const feedbackStep = run.steps.find((step) => {
       const out = step.output;
@@ -1348,77 +1350,69 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
         </div>
       </div>
 
-      {selected ? (
-        <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={() => onSelect(null as unknown as FlowRunResult)}
-            style={{ alignSelf: 'flex-start', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-35)', fontSize: 11, cursor: 'pointer' }}>
-            {t('flows.back')}
-          </button>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{selected.flow_name}</div>
-          {selected.task_title && <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('flows.task')}: {selected.task_title}</div>}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[selected.status] ?? '#fff', padding: '2px 8px', borderRadius: 999, background: (STATUS_COLOR[selected.status] ?? '#fff') + '18', border: '1px solid ' + (STATUS_COLOR[selected.status] ?? '#fff') + '40' }}>{selected.status}</span>
-            <span style={{ fontSize: 10, color: 'var(--ink-30)' }}>{fmt(selected.started_at)}</span>
-            {getFeedbackFlags(selected).found && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', padding: '2px 8px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.35)' }}>
-                {t('flows.prFeedbackFound')}
-              </span>
-            )}
-            {getFeedbackFlags(selected).rerun && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.35)' }}>
-                {t('flows.developerRerunTriggered')}
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {selected.steps.map((step) => (
-              <div key={step.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-78)' }}>{step.node_label ?? step.node_id}</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: STATUS_COLOR[step.status] ?? '#fff' }}>{step.status}</span>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        {loading && <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-30)', fontSize: 12 }}>{t('flows.loading')}</div>}
+        {!loading && runs.length === 0 && (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-25)', fontSize: 12 }}>{t('flows.noRuns')}</div>
+        )}
+        {runs.map((run) => {
+          const isOpen = expandedId === run.id;
+          const sc = STATUS_COLOR[run.status] ?? '#fff';
+          const flags = getFeedbackFlags(run);
+          return (
+            <div key={run.id} style={{ borderBottom: '1px solid var(--glass)' }}>
+              <button onClick={() => setExpandedId(isOpen ? null : run.id)}
+                style={{ width: '100%', padding: '10px 16px', border: 'none', background: isOpen ? `${sc}08` : 'transparent', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4, transition: 'background 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-78)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{run.flow_name}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: sc }}>{run.status}</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-30)', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--ink-30)', marginBottom: step.output ? 6 : 0 }}>{step.node_type}</div>
-                {step.error_msg && <div style={{ fontSize: 11, color: '#f87171', marginTop: 4 }}>{step.error_msg}</div>}
-                {Boolean(step.output) && typeof step.output === 'object' && Boolean((step.output as Record<string, unknown>).output) && (
-                  <div style={{ fontSize: 10, color: 'var(--ink-45)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 80, overflow: 'hidden' }}>
-                    {String((step.output as Record<string, unknown>).output).slice(0, 200)}
+                {run.task_title && <div style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.task_title}</div>}
+                {flags.found && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', padding: '2px 7px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.35)' }}>
+                      {t('flows.prFeedbackFound')}
+                    </span>
+                    {flags.rerun && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.35)' }}>
+                        {t('flows.developerRerunTriggered')}
+                      </span>
+                    )}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-          {loading && <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-30)', fontSize: 12 }}>{t('flows.loading')}</div>}
-          {!loading && runs.length === 0 && (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-25)', fontSize: 12 }}>{t('flows.noRuns')}</div>
-          )}
-          {runs.map((run) => (
-            <button key={run.id} onClick={() => onSelect(run)}
-              style={{ width: '100%', padding: '10px 16px', border: 'none', borderBottom: '1px solid var(--glass)', background: 'transparent', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-78)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{run.flow_name}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: STATUS_COLOR[run.status] ?? '#fff' }}>{run.status}</span>
-              </div>
-              {run.task_title && <div style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.task_title}</div>}
-              {getFeedbackFlags(run).found && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', padding: '2px 7px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.35)' }}>
-                    {t('flows.prFeedbackFound')}
-                  </span>
-                  {getFeedbackFlags(run).rerun && (
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.35)' }}>
-                      {t('flows.developerRerunTriggered')}
-                    </span>
-                  )}
+                <div style={{ fontSize: 10, color: 'var(--ink-25)' }}>{fmt(run.started_at)} · {run.steps.length} {t('flows.steps')}</div>
+              </button>
+
+              {/* Expanded: step details inline */}
+              {isOpen && (
+                <div style={{ padding: '6px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6, borderLeft: `3px solid ${sc}40`, marginLeft: 12, marginBottom: 4 }}>
+                  {run.steps.map((step) => {
+                    const stepColor = STATUS_COLOR[step.status] ?? '#fff';
+                    return (
+                      <div key={step.id} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${stepColor}25`, background: `${stepColor}06` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-78)' }}>{step.node_label ?? step.node_id}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: stepColor, padding: '1px 6px', borderRadius: 999, background: `${stepColor}18` }}>{step.status}</span>
+                        </div>
+                        <div style={{ fontSize: 9, color: 'var(--ink-30)' }}>{step.node_type}</div>
+                        {step.error_msg && <div style={{ fontSize: 10, color: '#f87171', marginTop: 4 }}>{step.error_msg}</div>}
+                        {Boolean(step.output) && typeof step.output === 'object' && Boolean((step.output as Record<string, unknown>).output) && (
+                          <div style={{ fontSize: 9, color: 'var(--ink-45)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 60, overflow: 'hidden' }}>
+                            {String((step.output as Record<string, unknown>).output).slice(0, 200)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-              <div style={{ fontSize: 10, color: 'var(--ink-25)' }}>{fmt(run.started_at)} · {run.steps.length} {t('flows.steps')}</div>
-            </button>
-          ))}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
