@@ -5,6 +5,8 @@ refine_backlog_item:
     Use only the provided work item content.
     Do not assume implementation details that are not present.
     If information is missing, lower confidence and list explicit ambiguities and follow-up questions.
+    The "comment" field must be a direct actionable statement, not a question sentence.
+    Put all questions only in the "questions" array.
     Suggested story points must be chosen only from this Fibonacci scale: {point_scale}.
     Return valid JSON only.
   description: |

@@ -147,6 +147,9 @@ type Copy = {
   openSource: string;
   result: string;
   openResult: string;
+  writeShort: string;
+  confirmAzure: string;
+  confirmJira: string;
 };
 
 const COPY: Record<'tr' | 'en', Copy> = {
@@ -208,6 +211,9 @@ const COPY: Record<'tr' | 'en', Copy> = {
     openSource: 'Kaynagi Ac',
     result: 'Sonuc',
     openResult: 'Sonucu Ac',
+    writeShort: 'Yaz',
+    confirmAzure: 'Azure itemina yorum/puan yazilsin mi?',
+    confirmJira: 'Jira issueya yorum/puan yazilsin mi?',
   },
   en: {
     section: 'Refinement',
@@ -267,6 +273,9 @@ const COPY: Record<'tr' | 'en', Copy> = {
     openSource: 'Open Source',
     result: 'Result',
     openResult: 'Open Result',
+    writeShort: 'Write',
+    confirmAzure: 'Write comment/points to Azure item?',
+    confirmJira: 'Write comment/points to Jira issue?',
   },
 };
 
@@ -369,7 +378,7 @@ export default function RefinementPage() {
   const [runMessage, setRunMessage] = useState<RunMessage | null>(null);
   const [autoFocusResults, setAutoFocusResults] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
-  const [writebackRunning, setWritebackRunning] = useState(false);
+  const [writebackItemId, setWritebackItemId] = useState('');
   const [commentSignature, setCommentSignature] = useState('Tiqr AI');
   const [focusedResultId, setFocusedResultId] = useState('');
   const availableModels = useMemo(() => modelsForProvider(agentProvider), [agentProvider]);
@@ -631,10 +640,12 @@ export default function RefinementPage() {
     setAutoFocusResults(false);
   }, [autoFocusResults, results]);
 
-  const runWriteback = useCallback(async () => {
-    const rows = (results?.results || []).filter((item) => !item.error);
-    if (!rows.length) return;
-    setWritebackRunning(true);
+  const runWritebackForItem = useCallback(async (itemId: string) => {
+    const row = (results?.results || []).find((item) => item.item_id === itemId && !item.error);
+    if (!row) return;
+    const confirmed = window.confirm(provider === 'azure' ? copy.confirmAzure : copy.confirmJira);
+    if (!confirmed) return;
+    setWritebackItemId(itemId);
     setError('');
     setRunMessage(null);
     try {
@@ -646,11 +657,11 @@ export default function RefinementPage() {
           sprint_path: azureSprint,
           sprint_name: selectedAzureSprint?.name || azureSprint,
           comment_signature: commentSignature,
-          items: rows.map((item) => ({
-            item_id: item.item_id,
-            suggested_story_points: item.suggested_story_points,
-            comment: item.comment,
-          })),
+          items: [{
+            item_id: row.item_id,
+            suggested_story_points: row.suggested_story_points,
+            comment: row.comment,
+          }],
         }
         : {
           provider,
@@ -658,31 +669,31 @@ export default function RefinementPage() {
           sprint_id: jiraSprint,
           sprint_name: selectedJiraSprint?.name || jiraSprint,
           comment_signature: commentSignature,
-          items: rows.map((item) => ({
-            item_id: item.item_id,
-            suggested_story_points: item.suggested_story_points,
-            comment: item.comment,
-          })),
+          items: [{
+            item_id: row.item_id,
+            suggested_story_points: row.suggested_story_points,
+            comment: row.comment,
+          }],
         };
       const response = await apiFetch<RefinementWritebackResponse>('/refinement/writeback', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      if (response.failure_count === 0) {
-        setRunMessage({ kind: 'success', text: `${response.success_count}/${response.total} writeback basarili.` });
+      if (response.success_count > 0 && response.failure_count === 0) {
+        setRunMessage({ kind: 'success', text: `${row.item_id} writeback basarili.` });
       } else if (response.success_count === 0) {
-        setRunMessage({ kind: 'error', text: `Writeback basarisiz: ${response.failure_count}/${response.total}` });
+        setRunMessage({ kind: 'error', text: `${row.item_id} writeback basarisiz.` });
       } else {
-        setRunMessage({ kind: 'warning', text: `Writeback kismi: ${response.success_count} basarili, ${response.failure_count} hatali.` });
+        setRunMessage({ kind: 'warning', text: `${row.item_id} writeback kismi.` });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Writeback failed';
       setError(message);
       setRunMessage({ kind: 'error', text: message });
     } finally {
-      setWritebackRunning(false);
+      setWritebackItemId('');
     }
-  }, [results, provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, commentSignature, jiraBoard, jiraSprint, selectedJiraSprint]);
+  }, [results, provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, commentSignature, jiraBoard, jiraSprint, selectedJiraSprint, copy.confirmAzure, copy.confirmJira]);
 
   const sortedItems = useMemo(() => {
     const items = itemsData?.items || [];
@@ -847,12 +858,6 @@ export default function RefinementPage() {
             <button onClick={() => void runRefinement()} style={secondaryButton} disabled={running || !selectedIds.length}>
               {running ? copy.analyzing : copy.analyze}
             </button>
-            <button onClick={() => { setFocusedResultId(''); setResultsModalOpen(true); }} style={ghostButton} disabled={!results?.results.length}>
-              {copy.openResults}
-            </button>
-            <button onClick={() => void runWriteback()} style={ghostButton} disabled={writebackRunning || !(results?.results || []).length}>
-              {writebackRunning ? copy.writebackRunning : copy.writeback}
-            </button>
             <span style={{ fontSize: 12, color: 'var(--ink-35)' }}>{copy.selectionHint}</span>
           </div>
 
@@ -938,16 +943,27 @@ export default function RefinementPage() {
                       </td>
                       <td style={tdStyle}>
                         {resultByItemId.has(item.id) ? (
-                          <button
-                            type='button'
-                            style={{ ...ghostButton, padding: '6px 10px', fontSize: 12 }}
-                            onClick={() => {
-                              setFocusedResultId(item.id);
-                              setResultsModalOpen(true);
-                            }}
-                          >
-                            {copy.openResult}
-                          </button>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <button
+                              type='button'
+                              style={{ ...ghostButton, padding: '4px 8px', fontSize: 11 }}
+                              onClick={() => {
+                                setFocusedResultId(item.id);
+                                setResultsModalOpen(true);
+                              }}
+                            >
+                              Ac
+                            </button>
+                            <button
+                              type='button'
+                              style={{ ...ghostButton, padding: '4px 8px', fontSize: 11 }}
+                              onClick={() => void runWritebackForItem(item.id)}
+                              disabled={writebackItemId === item.id}
+                              title={provider === 'azure' ? copy.writeback : copy.writeback}
+                            >
+                              {writebackItemId === item.id ? '...' : provider === 'azure' ? 'AZ' : 'JR'}
+                            </button>
+                          </div>
                         ) : '-'}
                       </td>
                       <td style={{ ...tdStyle, minWidth: 360 }}>
