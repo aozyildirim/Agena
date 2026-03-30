@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
+import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
 import { useLocale } from '@/lib/i18n';
 
 type TaskDetail = {
@@ -227,6 +228,7 @@ export default function TaskDetailPage() {
   const [logFilter, setLogFilter] = useState<'all' | 'errors' | 'code'>('all');
   const [activeCodeTab, setActiveCodeTab] = useState(0);
   const [isRerunBusy, setIsRerunBusy] = useState(false);
+  const [showRunConfig, setShowRunConfig] = useState(false);
   const [isCancelBusy, setIsCancelBusy] = useState(false);
   const [isDepsBusy, setIsDepsBusy] = useState(false);
   const [selectedDependencyIds, setSelectedDependencyIds] = useState<number[]>([]);
@@ -498,10 +500,30 @@ export default function TaskDetailPage() {
     return fallback;
   }, [task, latestLog, latestFailure, isLatestRun, activeRunIndex, activeRunLogs]);
 
-  async function rerunTask() {
+  function handleRunClick() {
+    // Check if task already has repo config in description
+    const desc = (task?.description || '').toLowerCase();
+    const hasRepo = desc.includes('local repo path') || desc.includes('remote repo');
+    const hasAgent = Boolean(task?.preferred_agent_provider || task?.preferred_agent_model);
+    if (hasRepo && hasAgent) {
+      void rerunTask();
+    } else {
+      setShowRunConfig(true);
+    }
+  }
+
+  async function rerunTask(extraDesc?: string) {
     if (!taskId) return;
     try {
       setIsRerunBusy(true);
+      setShowRunConfig(false);
+      // If extra config provided, append to description
+      if (extraDesc) {
+        await apiFetch('/tasks/' + taskId, {
+          method: 'PATCH',
+          body: JSON.stringify({ description: (task?.description || '') + '\n\n---\n' + extraDesc }),
+        }).catch(() => {});
+      }
       await apiFetch('/tasks/' + taskId + '/assign', {
         method: 'POST',
         body: JSON.stringify({
@@ -712,7 +734,7 @@ export default function TaskDetailPage() {
                 ) : null}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                <button className='button button-primary' onClick={() => void rerunTask()} disabled={isRerunBusy} style={{ flex: 1 }}>
+                <button className='button button-primary' onClick={handleRunClick} disabled={isRerunBusy} style={{ flex: 1 }}>
                   {isRerunBusy ? t('taskDetail.rerunning') : t('taskDetail.rerunTask')}
                 </button>
                 <button
@@ -1170,6 +1192,133 @@ export default function TaskDetailPage() {
             </div>
           </section>
         </section>
+      </div>
+
+      {/* ── Run Config Popup ── */}
+      {showRunConfig && (
+        <RunConfigModal
+          task={task}
+          onRun={(extraDesc) => void rerunTask(extraDesc)}
+          onClose={() => setShowRunConfig(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function RunConfigModal({ task, onRun, onClose }: {
+  task: TaskDetail | null;
+  onRun: (extraDesc?: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useLocale();
+  const [repoSel, setRepoSel] = useState<RemoteRepoSelection | null>(null);
+  const [agentProvider, setAgentProvider] = useState(task?.preferred_agent_provider || 'openai');
+  const [agentModel, setAgentModel] = useState(task?.preferred_agent_model || '');
+  const [createPr, setCreatePr] = useState(true);
+
+  const desc = (task?.description || '').toLowerCase();
+  const hasRepo = desc.includes('local repo path') || desc.includes('remote repo');
+  const hasAgent = Boolean(task?.preferred_agent_provider);
+
+  function handleRun() {
+    const parts: string[] = [];
+    if (!hasRepo && repoSel) {
+      parts.push(`Remote Repo: ${repoSel.meta}`);
+    }
+    if (!hasAgent) {
+      if (agentProvider) parts.push(`Preferred Agent Provider: ${agentProvider}`);
+      if (agentModel) parts.push(`Preferred Agent Model: ${agentModel}`);
+    }
+    onRun(parts.length > 0 ? parts.join('\n') : undefined);
+  }
+
+  const providers = [
+    { value: 'openai', label: 'OpenAI', models: ['o3', 'o4-mini', 'gpt-5', 'gpt-5-codex', 'gpt-5.2-codex', 'gpt-4.1'] },
+    { value: 'gemini', label: 'Gemini', models: ['gemini-2.5-pro', 'gemini-2.5-flash'] },
+    { value: 'codex_cli', label: 'Codex CLI', models: ['codex'] },
+    { value: 'claude_cli', label: 'Claude CLI', models: ['claude-sonnet-4-6'] },
+  ];
+  const currentModels = providers.find((p) => p.value === agentProvider)?.models || [];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ width: 'min(480px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ height: 3, background: 'linear-gradient(90deg, #0d9488, #7c3aed, #f59e0b)' }} />
+        <div style={{ padding: '18px 20px', display: 'grid', gap: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>Run Configuration</h3>
+            <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>×</button>
+          </div>
+
+          {/* Task info */}
+          <div style={{ fontSize: 12, color: 'var(--ink-50)', padding: '8px 10px', borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border)' }}>
+            <strong style={{ color: 'var(--ink-78)' }}>#{task?.id}</strong> {task?.title}
+          </div>
+
+          {/* Repo selection */}
+          {!hasRepo && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Target Repository</div>
+              <RemoteRepoSelector onChange={setRepoSel} />
+            </div>
+          )}
+          {hasRepo && (
+            <div style={{ fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+              Repo configured
+            </div>
+          )}
+
+          {/* Agent selection */}
+          {!hasAgent && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Agent / Model</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+                {providers.map((p) => (
+                  <button key={p.value} onClick={() => { setAgentProvider(p.value); setAgentModel(p.models[0] || ''); }}
+                    style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      border: agentProvider === p.value ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                      background: agentProvider === p.value ? 'rgba(94,234,212,0.12)' : 'transparent',
+                      color: agentProvider === p.value ? '#5eead4' : 'var(--ink-45)' }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <select value={agentModel} onChange={(e) => setAgentModel(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}>
+                <option value=''>Select model...</option>
+                {currentModels.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          )}
+          {hasAgent && (
+            <div style={{ fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+              Agent: {task?.preferred_agent_provider} / {task?.preferred_agent_model}
+            </div>
+          )}
+
+          {/* Create PR toggle */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-65)', cursor: 'pointer' }}>
+            <input type='checkbox' checked={createPr} onChange={(e) => setCreatePr(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#0d9488' }} />
+            Create Pull Request
+          </label>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} className='button button-outline' style={{ flex: 1, justifyContent: 'center' }}>
+              Cancel
+            </button>
+            <button onClick={handleRun}
+              disabled={!hasRepo && !repoSel}
+              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel) ? 0.5 : 1 }}>
+              Run Task
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
