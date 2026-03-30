@@ -3,6 +3,7 @@
 const TOKEN_KEY = 'tiqr_token';
 const TOKEN_EXP_KEY = 'tiqr_token_exp';
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+const NETWORK_RETRY_DELAYS_MS = [350, 900];
 const USER_CACHE_KEYS = [
   'tiqr_sprint_project',
   'tiqr_sprint_team',
@@ -84,6 +85,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   };
+  const method = (init?.method || 'GET').toUpperCase();
 
   if (auth) {
     const token = getToken();
@@ -94,11 +96,31 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
   const slug = getOrgSlug();
   if (slug) headers['X-Tenant-Slug'] = slug;
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
+  let response: Response;
+  let lastNetworkError: unknown = null;
+  for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      response = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers,
+        cache: 'no-store',
+      });
+      break;
+    } catch (error) {
+      lastNetworkError = error;
+      const canRetry = method === 'GET' && attempt < NETWORK_RETRY_DELAYS_MS.length;
+      if (!canRetry) {
+        throw error;
+      }
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, NETWORK_RETRY_DELAYS_MS[attempt]);
+      });
+    }
+  }
+
+  if (!response!) {
+    throw lastNetworkError instanceof Error ? lastNetworkError : new Error('Network request failed');
+  }
 
   const text = response.ok ? '' : await response.text();
 
