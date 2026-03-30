@@ -377,54 +377,58 @@ export default function FlowsPage() {
   return (
     <div className="flow-page-root" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 104px)', gap: 0 }}>
       {/* Top bar */}
-      <div className="flow-top-bar" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 0 16px', flexShrink: 0 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="section-label">{t('nav.flows')}</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', margin: '4px 0 0' }}>{t('flows.title')}</h1>
-        </div>
-        {/* Flow tabs */}
-        <div className="flow-tabs" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          {flows.map((f) => (
-            <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-              <button onClick={() => setActiveFlow(f.id)}
-                style={{ padding: '7px 14px', borderRadius: activeFlow === f.id ? '10px 0 0 10px' : 10, border: '1px solid ' + (activeFlow === f.id ? 'var(--border)' : 'var(--panel-border-3)'), borderRight: activeFlow === f.id ? 'none' : undefined, background: activeFlow === f.id ? 'var(--panel)' : 'var(--panel-alt)', color: activeFlow === f.id ? 'var(--ink)' : 'var(--ink-50)', fontWeight: activeFlow === f.id ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
-                {f.name}
-              </button>
-              {activeFlow === f.id && (
-                <button onClick={() => requestDeleteFlow(f)} title={t('flows.deleteFlow')}
-                  style={{ padding: '7px 8px', borderRadius: '0 10px 10px 0', border: '1px solid rgba(248,113,113,0.25)', borderLeft: 'none', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 12, cursor: 'pointer' }}>×</button>
-              )}
-            </div>
-          ))}
-          {creating ? (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input value={newFlowName} onChange={(e) => setNewFlowName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && createFlow()}
-                placeholder={t('flows.newPlaceholder')} autoFocus
-                style={{ padding: '7px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 13, outline: 'none', width: 140 }} />
-              <button onClick={createFlow} style={{ padding: '7px 12px', borderRadius: 10, border: 'none', background: '#0d9488', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>+</button>
-              <button onClick={() => setCreating(false)} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-35)', fontSize: 13, cursor: 'pointer' }}>×</button>
-            </div>
-          ) : (
+      <div className="flow-top-bar" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 0 14px', flexShrink: 0 }}>
+        {/* Row 1: Title + Flow tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', margin: 0, whiteSpace: 'nowrap' }}>{t('flows.title')}</h1>
+          <div className="flow-tabs" style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+            {flows.map((f) => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                <button onClick={() => setActiveFlow(f.id)}
+                  style={{ padding: '6px 12px', borderRadius: activeFlow === f.id ? '8px 0 0 8px' : 8, border: '1px solid ' + (activeFlow === f.id ? 'var(--border)' : 'var(--panel-border-3)'), borderRight: activeFlow === f.id ? 'none' : undefined, background: activeFlow === f.id ? 'var(--panel)' : 'transparent', color: activeFlow === f.id ? 'var(--ink)' : 'var(--ink-50)', fontWeight: activeFlow === f.id ? 700 : 400, fontSize: 12, cursor: 'pointer' }}>
+                  {f.name}
+                </button>
+                {activeFlow === f.id && (
+                  <button onClick={() => requestDeleteFlow(f)} title={t('flows.deleteFlow')}
+                    style={{ padding: '6px 7px', borderRadius: '0 8px 8px 0', border: '1px solid rgba(248,113,113,0.25)', borderLeft: 'none', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 11, cursor: 'pointer' }}>×</button>
+                )}
+              </div>
+            ))}
+            {creating ? (
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input value={newFlowName} onChange={(e) => setNewFlowName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createFlow()}
+                  placeholder={t('flows.newPlaceholder')} autoFocus
+                  style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12, outline: 'none', width: 120 }} />
+                <button onClick={createFlow} style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: '#0d9488', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>+</button>
+                <button onClick={() => setCreating(false)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-35)', fontSize: 12, cursor: 'pointer' }}>×</button>
+              </div>
+            ) : (
               <button onClick={() => setCreating(true)}
-              style={{ padding: '7px 14px', borderRadius: 10, border: '1px dashed var(--ink-25)', background: 'transparent', color: 'var(--ink-35)', fontSize: 13, cursor: 'pointer' }}>
-              {t('flows.new')}
-            </button>
-          )}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--ink-25)', background: 'transparent', color: 'var(--ink-35)', fontSize: 12, cursor: 'pointer' }}>
+                + {t('flows.new')}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Actions — grouped and compact */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={toggleRuns}
-            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid ' + (showRuns ? 'var(--border)' : 'var(--panel-border-3)'), background: showRuns ? 'var(--panel)' : 'var(--panel-alt)', color: showRuns ? 'var(--ink)' : 'var(--ink-45)', fontSize: 13, cursor: 'pointer', fontWeight: showRuns ? 700 : 400 }}>
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (showRuns ? 'rgba(94,234,212,0.4)' : 'var(--panel-border-3)'), background: showRuns ? 'rgba(94,234,212,0.1)' : 'transparent', color: showRuns ? '#5eead4' : 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.runHistory')}
           </button>
           <Link href='/dashboard/templates'
-            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-58)', fontSize: 13, textDecoration: 'none' }}>
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}>
             {t('flows.templates')}
           </Link>
+          <div style={{ width: 1, height: 16, background: 'var(--panel-border-2)' }} />
           <button onClick={saveManualVersion}
-            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-50)', fontSize: 13, cursor: 'pointer' }}>
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.saveVersion')}
           </button>
           <select value={selectedVersionId} onChange={(e) => setSelectedVersionId(e.target.value)}
-            style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-78)', fontSize: 12 }}>
+            style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-58)', fontSize: 11, maxWidth: 180 }}>
             <option value=''>{t('flows.selectVersion')}</option>
             {(versionsByFlow[activeFlow] ?? []).map((v) => (
               <option key={v.id} value={v.id} style={{ background: 'var(--surface)' }}>
@@ -433,11 +437,12 @@ export default function FlowsPage() {
             ))}
           </select>
           <button onClick={rollbackToVersion} disabled={!selectedVersionId}
-            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.25)', background: selectedVersionId ? 'rgba(248,113,113,0.08)' : 'var(--panel-alt)', color: selectedVersionId ? '#f87171' : 'var(--ink-25)', fontSize: 13, cursor: selectedVersionId ? 'pointer' : 'not-allowed' }}>
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.25)', background: selectedVersionId ? 'rgba(248,113,113,0.08)' : 'transparent', color: selectedVersionId ? '#f87171' : 'var(--ink-25)', fontSize: 11, cursor: selectedVersionId ? 'pointer' : 'not-allowed', fontWeight: 600 }}>
             {t('flows.rollback')}
           </button>
+          <div style={{ width: 1, height: 16, background: 'var(--panel-border-2)' }} />
           <button onClick={() => void runDrySimulation()} disabled={runningDryRun || !current}
-            style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid rgba(34,197,94,0.25)', background: runningDryRun ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.12)', color: '#22c55e', fontSize: 13, cursor: runningDryRun ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+            style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.1)', color: '#22c55e', fontSize: 11, cursor: runningDryRun ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
             {runningDryRun ? t('flows.dryRunning') : t('flows.dryRun')}
           </button>
         </div>
@@ -701,16 +706,15 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
   }, [connecting, canvasOffset]);
 
   function getNextNodePosition() {
-    const viewW = Math.max(420, (canvasRef.current?.clientWidth ?? 980));
-    const viewH = Math.max(260, (canvasRef.current?.clientHeight ?? 560));
-    const left = Math.max(24, -canvasOffset.x + 24);
-    const top = Math.max(24, -canvasOffset.y + 24);
-    const horizontalGap = NODE_W + 36;
-    const verticalGap = NODE_H + 28;
-    const cols = Math.max(1, Math.floor((viewW - 48) / horizontalGap));
-    const rowCapacity = Math.max(1, Math.floor((viewH - 48) / verticalGap));
+    const viewW = Math.max(360, (canvasRef.current?.clientWidth ?? 700));
+    const viewH = Math.max(260, (canvasRef.current?.clientHeight ?? 400));
+    const left = Math.max(16, -canvasOffset.x + 16);
+    const top = Math.max(16, -canvasOffset.y + 16);
+    const horizontalGap = NODE_W + 28;
+    const verticalGap = NODE_H + 24;
+    const cols = Math.max(1, Math.floor((viewW - 32) / horizontalGap));
     const index = flow.nodes.length;
-    const row = Math.floor(index / cols) % rowCapacity;
+    const row = Math.floor(index / cols);
     const col = index % cols;
     return {
       x: left + col * horizontalGap,
