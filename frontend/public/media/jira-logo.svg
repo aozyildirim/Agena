@@ -1,5 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#0052CC"/>
-  <path d="M20 20H36L44 28L36 36H20L12 28L20 20Z" fill="#79A7FF"/>
-  <path d="M28 28H44L52 36L44 44H28L20 36L28 28Z" fill="#B3CCFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="j1" x1="34.64" y1="15.35" x2="19" y2="31.72" gradientUnits="userSpaceOnUse">
+      <stop offset=".18" stop-color="#0052cc"/>
+      <stop offset="1" stop-color="#2684ff"/>
+    </linearGradient>
+    <linearGradient id="j2" x1="29.96" y1="33.29" x2="45.17" y2="48.13" gradientUnits="userSpaceOnUse">
+      <stop offset=".18" stop-color="#0052cc"/>
+      <stop offset="1" stop-color="#2684ff"/>
+    </linearGradient>
+  </defs>
+  <path d="M55.72 30.27L34.61 8.28 32 5.6 12.28 26l-4 4.27a2.78 2.78 0 000 3.88L26.61 53 32 58.4l19.72-20.13 1-.97 3-3.15a2.78 2.78 0 000-3.88zM32 22.31l9.68 9.93H22.32z" fill="#2684ff"/>
+  <path d="M32 22.31a14.86 14.86 0 01-.15-20.43L12.16 22.3l9.84 10.14z" fill="url(#j1)"/>
+  <path d="M41.76 32.14L32 42.07a14.88 14.88 0 010 20.49l19.87-20.28z" fill="url(#j2)"/>
 </svg>

@@ -1,5 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#0078D4"/>
-  <path d="M14 48L30 18L40 30L28 48H14Z" fill="#BFE5FF"/>
-  <path d="M31 18L50 48H38L27 31L31 18Z" fill="#E8F6FF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <defs>
+    <linearGradient id="az1" x1="58.97" y1="7.64" x2="24.19" y2="84.39" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#114a8b"/>
+      <stop offset="1" stop-color="#0669bc"/>
+    </linearGradient>
+    <linearGradient id="az2" x1="56.26" y1="44.15" x2="49.99" y2="46.75" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-opacity=".3"/>
+      <stop offset=".07" stop-opacity=".2"/>
+      <stop offset=".32" stop-opacity=".1"/>
+      <stop offset=".62" stop-opacity=".05"/>
+      <stop offset="1" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="az3" x1="50.15" y1="6.37" x2="74.54" y2="83.8" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3ccbf4"/>
+      <stop offset="1" stop-color="#2892df"/>
+    </linearGradient>
+  </defs>
+  <path d="M33.34 8h23.77L32.93 82.44a5.18 5.18 0 01-4.87 3.43H12.16a5.18 5.18 0 01-4.89-6.87L30.48 11.44A5.18 5.18 0 0133.34 8z" fill="url(#az1)"/>
+  <path d="M65.9 57.63H34.55a2.37 2.37 0 00-1.62 4.1l20.24 18.88a5.23 5.23 0 003.56 1.4h18.5z" fill="url(#az2)"/>
+  <path d="M33.34 8a5.13 5.13 0 00-4.95 3.66L7.34 78.82a5.17 5.17 0 004.88 7.05h17.16a5.33 5.33 0 004.63-3.43l4.69-13.16 16.42 15.33a5.26 5.26 0 003.38 1.26h18.6L62.67 57.63H38.12L57.11 8z" fill="url(#az3)"/>
 </svg>
