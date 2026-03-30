@@ -18,6 +18,7 @@ frontend/out/
 
 # Docker
 *.log
+data/agents_md/
 
 # OS
 .DS_Store
