@@ -10,17 +10,6 @@ from openai import AsyncOpenAI
 from core.settings import get_settings
 from services.llm.cache import PromptCache
 
-# Reasoning models that do not support the temperature parameter
-_NO_TEMP_PATTERNS = {'o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o3-pro', 'codex'}
-
-
-def _skip_temperature(model: str) -> bool:
-    m = model.lower()
-    for pat in _NO_TEMP_PATTERNS:
-        if pat in m:
-            return True
-    return False
-
 
 class LLMProvider:
     def __init__(
@@ -95,8 +84,6 @@ class LLMProvider:
                 ],
                 'max_output_tokens': max_output_tokens,
             }
-            if not _skip_temperature(model):
-                kwargs['temperature'] = 0.2
             response = await self.client.responses.create(**kwargs)
             output = self._extract_openai_output_text(response)
             usage = self._parse_usage(response)
@@ -213,8 +200,6 @@ class LLMProvider:
             ],
             'max_tokens': max_output_tokens,
         }
-        if not _skip_temperature(model):
-            chat_kwargs['temperature'] = 0.2
         chat = await self.client.chat.completions.create(**chat_kwargs)
         text = ''
         if chat.choices:

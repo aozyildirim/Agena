@@ -516,6 +516,7 @@ async def scan_repo_profile(
         system_prompt = (
             'You are a principal software architect and technical writer.\n'
             'Analyze repository snapshot and return STRICT JSON object only.\n'
+            'Do not write high-level architecture prose. Prefer concrete repo facts.\n'
             'Return keys:\n'
             '- stack: string[]\n'
             '- package_manager: string|null\n'
@@ -526,7 +527,10 @@ async def scan_repo_profile(
             '- repo_rules: string[]\n'
             'Rules:\n'
             '- No placeholders, no "etc", no "..."\n'
-            '- Include concrete file/path references wherever possible\n'
+            '- top_directories MUST be real directories from the snapshot, verbatim\n'
+            '- top_files MUST be real file paths from the snapshot, verbatim\n'
+            '- Every repo_rules item MUST mention at least one concrete file or directory path\n'
+            '- Prefer package/module names and concrete file paths over generic system-overview language\n'
         )
         user_prompt = (
             f"Mapping Name: {payload.mapping_name}\n"
@@ -727,5 +731,4 @@ async def get_agents_md(
             except Exception:
                 pass
     return {'mapping_id': mapping_id, 'path': md_path, 'content': content, 'size': len(content)}
-
 

@@ -24,6 +24,7 @@ const PRIMARY_NAV_KEYS: NavItem[] = [
   { href: '/dashboard/office', key: 'nav.office', icon: '🏢' },
   { href: '/dashboard/tasks', key: 'nav.tasks', icon: '✅', permission: 'tasks:read' as const },
   { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const },
+  { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🧪', permission: 'tasks:read' as const },
   { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const },
   { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
   { href: '/dashboard/flows', key: 'nav.flows', icon: '🧠' },

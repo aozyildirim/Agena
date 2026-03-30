@@ -274,6 +274,11 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
     lines.append('')
     lines.append('> Auto-generated repository analysis. AI agents use this document to understand the codebase.')
     lines.append('')
+    lines.append('## AI Rules')
+    lines.append('- Trust only concrete file paths, package names, and signatures listed in this document.')
+    lines.append('- Do not invent services, handlers, packages, or test files that are not explicitly referenced below.')
+    lines.append('- Prefer files listed in `Package Map`, `Critical Files`, and `Code Signatures` before broad repo guesses.')
+    lines.append('')
 
     # Stats
     stats = scan_data.get('stats', {})
@@ -298,6 +303,34 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
                 lines.append(f'- **Dependencies:** {", ".join(f"`{d}`" for d in deps["node_deps"][:15])}')
         lines.append('')
 
+    source_files = scan_data.get('source_files', [])
+    sigs = scan_data.get('signatures', [])
+    signature_counts = _signature_counts_by_file(sigs)
+    if source_files:
+        package_summary = _summarize_packages(source_files, signature_counts)
+        if package_summary:
+            lines.append('## Package Map')
+            lines.append('| Package | Files | Tests | Signatures | Representative Files |')
+            lines.append('|---------|-------|-------|------------|----------------------|')
+            for item in package_summary[:80]:
+                lines.append(
+                    f'| `{item["package"]}` | {item["files"]} | {item["tests"]} | {item["signatures"]} | '
+                    f'{", ".join(f"`{path}`" for path in item["representative_files"])} |'
+                )
+            lines.append('')
+
+        hot_files = _pick_hot_files(source_files, signature_counts)
+        if hot_files:
+            lines.append('## Critical Files')
+            lines.append('| File | Package | Lines | Signatures | Tests |')
+            lines.append('|------|---------|-------|------------|-------|')
+            for item in hot_files[:80]:
+                lines.append(
+                    f'| `{item["path"]}` | `{item["package"]}` | {item["lines"]} | {item["signatures"]} | '
+                    f'{"yes" if item["is_test"] else "no"} |'
+                )
+            lines.append('')
+
     # File tree (grouped by directory)
     file_tree = scan_data.get('file_tree', [])
     if file_tree:
@@ -311,17 +344,19 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
         lines.append('')
 
     # Source files summary
-    source_files = scan_data.get('source_files', [])
     if source_files:
         lines.append('## Source Files')
-        lines.append('| File | Language | Lines | Size |')
-        lines.append('|------|----------|-------|------|')
+        lines.append('| File | Package | Language | Lines | Size | Signatures |')
+        lines.append('|------|---------|----------|-------|------|------------|')
         for sf in source_files:
-            lines.append(f'| `{sf["path"]}` | {sf["lang"]} | {sf["lines"]} | {sf["size"]:,}B |')
+            package_name = _package_name_for_path(sf['path'])
+            lines.append(
+                f'| `{sf["path"]}` | `{package_name}` | {sf["lang"]} | {sf["lines"]} | '
+                f'{sf["size"]:,}B | {signature_counts.get(sf["path"], 0)} |'
+            )
         lines.append('')
 
     # Signatures — struct bodies (compact, no tags) + func signatures
-    sigs = scan_data.get('signatures', [])
     if sigs:
         lines.append('## Code Signatures')
         lines.append('')
@@ -337,17 +372,22 @@ def generate_agents_md(scan_data: dict[str, Any], repo_name: str) -> str:
                 name = s.get('name', '')
                 sig = s.get('signature', '')
                 body = s.get('body', '')
+                line_no = s.get('line', '')
 
                 if body:
                     # Struct/interface — compact: remove tags and extra whitespace
                     compact = _compact_struct_body(body)
+                    if kind or name or line_no:
+                        lines.append(f'- **{kind or "symbol"}** `{name}` (line {line_no})')
                     lines.append(f'```')
                     lines.append(compact)
                     lines.append('```')
                 elif sig:
-                    lines.append(f'- `{sig}`')
+                    line_text = f' (line {line_no})' if line_no else ''
+                    lines.append(f'- `{sig}`{line_text}')
                 else:
-                    lines.append(f'- {kind} `{name}`')
+                    line_text = f' (line {line_no})' if line_no else ''
+                    lines.append(f'- {kind} `{name}`{line_text}')
             lines.append('')
 
     return '\n'.join(lines)
@@ -368,6 +408,9 @@ def generate_package_mds(scan_data: dict[str, Any]) -> dict[str, str]:
     for pkg, pkg_sigs in sorted(by_pkg.items()):
         lines: list[str] = []
         lines.append(f'# Package: {pkg}')
+        lines.append('')
+        lines.append('- Use only file paths and signatures explicitly listed below.')
+        lines.append('- Do not infer sibling packages or test files unless they are present here.')
         lines.append('')
 
         # Group by file within package
@@ -415,11 +458,86 @@ def _group_by_package(sigs: list[dict]) -> dict[str, list[dict]]:
     """Group signatures by their top-level package directory."""
     by_pkg: dict[str, list[dict]] = {}
     for s in sigs:
-        parts = s['file'].split('/')
-        # Use first directory as package, or 'root' for top-level files
-        pkg = parts[0] if len(parts) > 1 else '_root'
-        # For deeper nesting like pkg/esindexer/file.go, use first two dirs
-        if len(parts) > 2:
-            pkg = '/'.join(parts[:2])
+        pkg = _package_name_for_path(s['file'])
         by_pkg.setdefault(pkg, []).append(s)
     return by_pkg
+
+
+def _package_name_for_path(path: str) -> str:
+    parts = str(path or '').split('/')
+    pkg = parts[0] if len(parts) > 1 else '_root'
+    if len(parts) > 2:
+        pkg = '/'.join(parts[:2])
+    return pkg
+
+
+def _signature_counts_by_file(sigs: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for sig in sigs:
+        path = str(sig.get('file', '') or '').strip()
+        if not path:
+            continue
+        counts[path] = counts.get(path, 0) + 1
+    return counts
+
+
+def _summarize_packages(source_files: list[dict], signature_counts: dict[str, int]) -> list[dict[str, Any]]:
+    package_stats: dict[str, dict[str, Any]] = {}
+    for sf in source_files:
+        path = str(sf.get('path', '') or '')
+        if not path:
+            continue
+        pkg = _package_name_for_path(path)
+        entry = package_stats.setdefault(pkg, {
+            'package': pkg,
+            'files': 0,
+            'tests': 0,
+            'signatures': 0,
+            'representative_files': [],
+        })
+        entry['files'] += 1
+        if _is_test_file(path):
+            entry['tests'] += 1
+        entry['signatures'] += signature_counts.get(path, 0)
+        rep_files = entry['representative_files']
+        if len(rep_files) < 3 and path not in rep_files:
+            rep_files.append(path)
+
+    return sorted(
+        package_stats.values(),
+        key=lambda item: (-item['signatures'], -item['files'], item['package']),
+    )
+
+
+def _pick_hot_files(source_files: list[dict], signature_counts: dict[str, int]) -> list[dict[str, Any]]:
+    ranked: list[dict[str, Any]] = []
+    for sf in source_files:
+        path = str(sf.get('path', '') or '')
+        if not path:
+            continue
+        ranked.append({
+            'path': path,
+            'package': _package_name_for_path(path),
+            'lines': int(sf.get('lines', 0) or 0),
+            'signatures': int(signature_counts.get(path, 0) or 0),
+            'is_test': _is_test_file(path),
+        })
+    return sorted(
+        ranked,
+        key=lambda item: (-item['signatures'], -item['lines'], item['path']),
+    )
+
+
+def _is_test_file(path: str) -> bool:
+    lower = str(path or '').lower()
+    return (
+        lower.endswith('_test.go')
+        or lower.endswith('_test.py')
+        or lower.endswith('.test.ts')
+        or lower.endswith('.test.tsx')
+        or lower.endswith('.spec.ts')
+        or lower.endswith('.spec.tsx')
+        or lower.endswith('test.php')
+        or '/tests/' in f'/{lower}'
+        or lower.startswith('tests/')
+    )

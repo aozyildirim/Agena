@@ -15,5 +15,6 @@ redis==5.2.1
 tenacity==9.1.2
 qdrant-client==1.15.1
 python-dotenv==1.1.1
+PyYAML==6.0.2
 python-jose==3.5.0
 passlib[bcrypt]==1.7.4

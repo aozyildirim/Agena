@@ -276,6 +276,35 @@ class CrewAIAgentRunner:
         )
         return content, usage, model
 
+    async def run_configured_task(
+        self,
+        *,
+        role: str,
+        goal: str,
+        backstory: str,
+        system_prompt: str,
+        user_prompt: str,
+        expected_output: str,
+        complexity_hint: str = 'normal',
+        max_output_tokens: int = 8_000,
+        structured_output: type[BaseModel] | None = None,
+        reasoning: bool = True,
+        skip_cache: bool = False,
+    ) -> tuple[str, dict[str, int], str, dict[str, Any] | None]:
+        return await self._run_with_crewai_or_llm(
+            role=role,
+            goal=goal,
+            backstory=backstory,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            expected_output=expected_output,
+            complexity_hint=complexity_hint,
+            max_output_tokens=max_output_tokens,
+            structured_output=structured_output,
+            reasoning=reasoning,
+            skip_cache=skip_cache,
+        )
+
     async def _run_with_crewai_or_llm(
         self,
         role: str,
@@ -284,6 +313,7 @@ class CrewAIAgentRunner:
         user_prompt: str,
         expected_output: str,
         complexity_hint: str,
+        backstory: str | None = None,
         max_output_tokens: int = 2500,
         skip_cache: bool = False,
         image_inputs: list[str] | None = None,
@@ -301,8 +331,12 @@ class CrewAIAgentRunner:
                 'role': role,
                 'goal': goal,
                 'backstory': (
-                    f'You are {role} inside Tiqr. '
-                    'Follow the provided system instructions exactly and return only the requested output.'
+                    backstory.strip()
+                    if backstory and backstory.strip()
+                    else (
+                        f'You are {role} inside Tiqr. '
+                        'Follow the provided system instructions exactly and return only the requested output.'
+                    )
                 ),
                 'llm': llm,
                 'verbose': False,
@@ -375,7 +409,9 @@ class CrewAIAgentRunner:
             'max_completion_tokens': effective_max_tokens,
             'max_tokens': effective_max_tokens,
         }
-        if 'codex' not in crewai_model and '/o1' not in crewai_model and '/o3' not in crewai_model:
+        normalized = crewai_model.lower()
+        # Avoid temperature for newer OpenAI reasoning/foundation models that reject it.
+        if normalized.startswith('gemini/'):
             kwargs['temperature'] = 0.2
         if any(token in crewai_model for token in ('gpt-5', 'codex', '/o1', '/o3')):
             kwargs['reasoning_effort'] = 'high' if complexity_hint == 'high' else 'medium'
