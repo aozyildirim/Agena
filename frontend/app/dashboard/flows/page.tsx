@@ -375,7 +375,7 @@ export default function FlowsPage() {
   const current = flows.find((f) => f.id === activeFlow);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 104px)', gap: 0 }}>
+    <div className="flow-page-root" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 104px)', gap: 0 }}>
       {/* Top bar */}
       <div className="flow-top-bar" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 0 16px', flexShrink: 0 }}>
         <div style={{ flex: 1, minWidth: 0 }}>

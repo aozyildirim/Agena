@@ -841,7 +841,7 @@ export default function OfficePage() {
   const [officeAgents, setOfficeAgents] = useState<OfficeAgent[]>([]);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<'office' | 'split'>('split');
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [panelCollapsed, setPanelCollapsed] = useState(true);
   const [assignAgent, setAssignAgent] = useState<OfficeAgent | null>(null);
   const [showAddAgent, setShowAddAgent] = useState(false);
   const [previewTaskId, setPreviewTaskId] = useState<number | null>(null);
@@ -1031,6 +1031,7 @@ export default function OfficePage() {
             </div>
           )}
           <iframe ref={iframeRef} src="/pixel-office/index.html" onLoad={() => setIframeLoaded(true)}
+            className="pixel-office-iframe"
             style={{ width: '100%', height: '100%', border: 'none', display: iframeLoaded ? 'block' : 'none' }} title={t('office.title')} />
         </div>
 
