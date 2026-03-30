@@ -43,7 +43,7 @@ class AuthService:
 
         membership = OrganizationMember(organization_id=org.id, user_id=user.id, role='owner')
         self.db.add(membership)
-        self.db.add(Subscription(organization_id=org.id, plan_name='free', status='active'))
+        self.db.add(Subscription(organization_id=org.id, plan_name='pro', status='active'))
         await self.db.commit()
 
         token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id)

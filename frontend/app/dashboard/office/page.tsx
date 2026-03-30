@@ -863,7 +863,7 @@ export default function OfficePage() {
   const [officeAgents, setOfficeAgents] = useState<OfficeAgent[]>([]);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<'office' | 'split'>('split');
-  const [panelCollapsed, setPanelCollapsed] = useState(true);
+  const [panelCollapsed, setPanelCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth <= 768);
   const [assignAgent, setAssignAgent] = useState<OfficeAgent | null>(null);
   const [showAddAgent, setShowAddAgent] = useState(false);
   const [previewTaskId, setPreviewTaskId] = useState<number | null>(null);

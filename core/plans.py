@@ -7,16 +7,16 @@ from typing import Any
 PLANS: dict[str, dict[str, Any]] = {
     'free': {
         'name': 'Free',
-        'max_tasks_per_month': 5,
-        'max_members': 3,
-        'max_agents': 3,
-        'features': ['basic_orchestration'],
+        'max_tasks_per_month': 50,
+        'max_members': 10,
+        'max_agents': 10,
+        'features': ['basic_orchestration', 'advanced_analytics', 'custom_agents'],
     },
     'pro': {
         'name': 'Pro',
-        'max_tasks_per_month': 500,
-        'max_members': 20,
-        'max_agents': 10,
+        'max_tasks_per_month': -1,  # unlimited
+        'max_members': -1,
+        'max_agents': -1,
         'features': ['basic_orchestration', 'advanced_analytics', 'priority_queue', 'custom_agents'],
     },
     'enterprise': {

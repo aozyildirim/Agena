@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
+import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
 
 type Opt = {
   id: string;
@@ -682,12 +683,12 @@ export default function SprintsPage() {
       setMsg(t('sprints.importedSingle'));
       // Open detail panel for agent assignment
       setSelected(item);
-    } catch {
-      setErr(t('sprints.importFailed'));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t('sprints.importFailed'));
     }
   }
 
-  async function assignAI(item: WorkItem, options?: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string; createPr?: boolean }) {
+  async function assignAI(item: WorkItem, options?: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string; createPr?: boolean; remoteRepo?: string }) {
     setAiLoading(true); setAiResult('');
     try {
       let taskId = taskMapByExternalId[item.id];
@@ -705,6 +706,7 @@ export default function SprintsPage() {
           options?.agentProvider ? `Preferred Agent Provider: ${options.agentProvider}` : '',
           options?.agentModel ? `Preferred Agent Model: ${options.agentModel}` : '',
           options?.executionPrompt ? `Execution Prompt: ${options.executionPrompt.replace(/\n+/g, ' ').trim()}` : '',
+          options?.remoteRepo ? `Remote Repo: ${options.remoteRepo}` : '',
         ].filter(Boolean);
         const created = await apiFetch<TaskRecord>('/tasks', {
           method: 'POST',
@@ -1099,6 +1101,8 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   const sanitizedDescriptionHtml = useMemo(() => sanitizeWorkItemDescriptionHtml(item.description), [item.description]);
 
   const [selLocalRepoMappingId, setSelLocalRepoMappingId] = useState(repoMappings[0]?.id ?? '');
+  const [repoSource, setRepoSource] = useState<'mapping' | 'remote'>(repoMappings.length ? 'mapping' : 'remote');
+  const [remoteRepoSel, setRemoteRepoSel] = useState<RemoteRepoSelection | null>(null);
   const [selAgent, setSelAgent] = useState('');
   const [selFlow, setSelFlow] = useState(savedFlows[0]?.id ?? '');
   const [executionPrompt, setExecutionPrompt] = useState('');
@@ -1203,28 +1207,38 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
         <div style={{ borderTop: '1px solid var(--panel-border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-25)' }}>{t('sprints.aiAssignSettings')}</div>
 
-          {/* Repo Mapping */}
+          {/* Repo Source */}
           <div>
-            <label style={dpLabelStyle}>{t('sprints.repoMapping')}</label>
-            {repoMappings.length > 0 ? (
-              <select value={selLocalRepoMappingId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelLocalRepoMappingId(e.target.value)}
-                style={{ ...dpSelectStyle, marginBottom: 6 }}>
-                <option value="" style={{ background: 'var(--surface)' }}>{t('sprints.selectMapping')}</option>
-                {repoMappings.map((m) => <option key={m.id} value={m.id} style={{ background: 'var(--surface)' }}>{m.azure_project} · {m.azure_repo_name || m.name}</option>)}
-              </select>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--ink-25)' }}>{t('sprints.noMappingYet')}</div>
-            )}
-            {selectedLocalMapping && (
-              <div style={{ marginTop: 4, fontSize: 10, color: 'var(--ink-25)', lineHeight: 1.5 }}>
-                <div>{t('sprints.azure')}: {selectedLocalMapping.azure_project || '-'} · {selectedLocalMapping.azure_repo_name || selectedLocalMapping.name}</div>
-                <div style={{ wordBreak: 'break-all' }}>{t('sprints.local')}: {selectedLocalMapping.local_path}</div>
-                {selectedLocalMapping.repo_playbook && (
-                  <div style={{ marginTop: 5, color: 'var(--ink-35)' }}>
-                    {t('sprints.playbook')}: {selectedLocalMapping.repo_playbook.length > 140 ? selectedLocalMapping.repo_playbook.slice(0, 140).trimEnd() + '…' : selectedLocalMapping.repo_playbook}
+            <label style={dpLabelStyle}>REPO</label>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              {repoMappings.length > 0 && (
+                <button onClick={() => setRepoSource('mapping')}
+                  style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoSource === 'mapping' ? '1px solid rgba(56,189,248,0.5)' : '1px solid var(--panel-border-2)', background: repoSource === 'mapping' ? 'rgba(56,189,248,0.12)' : 'transparent', color: repoSource === 'mapping' ? '#7dd3fc' : 'var(--ink-45)' }}>
+                  Mapping
+                </button>
+              )}
+              <button onClick={() => setRepoSource('remote')}
+                style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoSource === 'remote' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)', background: repoSource === 'remote' ? 'rgba(94,234,212,0.12)' : 'transparent', color: repoSource === 'remote' ? '#5eead4' : 'var(--ink-45)' }}>
+                Remote Repo
+              </button>
+            </div>
+            {repoSource === 'mapping' && repoMappings.length > 0 && (
+              <>
+                <select value={selLocalRepoMappingId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelLocalRepoMappingId(e.target.value)}
+                  style={{ ...dpSelectStyle, marginBottom: 6 }}>
+                  <option value="" style={{ background: 'var(--surface)' }}>{t('sprints.selectMapping')}</option>
+                  {repoMappings.map((m) => <option key={m.id} value={m.id} style={{ background: 'var(--surface)' }}>{m.azure_project} · {m.azure_repo_name || m.name}</option>)}
+                </select>
+                {selectedLocalMapping && (
+                  <div style={{ marginTop: 4, fontSize: 10, color: 'var(--ink-25)', lineHeight: 1.5 }}>
+                    <div>{t('sprints.azure')}: {selectedLocalMapping.azure_project || '-'} · {selectedLocalMapping.azure_repo_name || selectedLocalMapping.name}</div>
+                    <div style={{ wordBreak: 'break-all' }}>{t('sprints.local')}: {selectedLocalMapping.local_path}</div>
                   </div>
                 )}
-              </div>
+              </>
+            )}
+            {repoSource === 'remote' && (
+              <RemoteRepoSelector compact onChange={setRemoteRepoSel} />
             )}
             <Link href='/dashboard/mappings' style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#38bdf8', textDecoration: 'none' }}>
               + {t('sprints.manageMapping')} →
@@ -1315,9 +1329,12 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
             {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.flowRunning')}</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? t('sprints.runFlow') : t('sprints.selectFlow')}</>}
           </button>
         )}
-        <button onClick={() => onAssignAI({ project: selectedLocalMapping?.azure_project, azureRepo: selectedLocalMapping?.azure_repo_url, localRepoMapping: selectedLocalMapping?.name, localRepoPath: selectedLocalMapping?.local_path, repoPlaybook: selectedLocalMapping?.repo_playbook, agentRole: selAgent || undefined, agentProvider: selectedAgent?.provider, agentModel: selectedAgent?.custom_model || selectedAgent?.model, executionPrompt: executionPrompt.trim() || undefined, createPr: selectedAgent?.create_pr ?? false })} disabled={aiLoading || !selAgent || !selectedLocalMapping}
+        <button onClick={() => {
+          const remoteM = repoSource === 'remote' && remoteRepoSel ? remoteRepoSel.meta : undefined;
+          onAssignAI({ project: selectedLocalMapping?.azure_project || remoteRepoSel?.project, azureRepo: selectedLocalMapping?.azure_repo_url || remoteRepoSel?.repoUrl, localRepoMapping: repoSource === 'mapping' ? selectedLocalMapping?.name : undefined, localRepoPath: repoSource === 'mapping' ? selectedLocalMapping?.local_path : undefined, repoPlaybook: selectedLocalMapping?.repo_playbook, agentRole: selAgent || undefined, agentProvider: selectedAgent?.provider, agentModel: selectedAgent?.custom_model || selectedAgent?.model, executionPrompt: executionPrompt.trim() || undefined, createPr: selectedAgent?.create_pr ?? false, ...(remoteM ? { remoteRepo: remoteM } : {}) });
+        }} disabled={aiLoading || !selAgent || (repoSource === 'mapping' ? !selectedLocalMapping : !remoteRepoSel)}
           style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(13,148,136,0.3)' : selAgent ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'var(--panel-border)', color: selAgent ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? (selectedLocalMapping ? t('sprints.assignAi') : t('sprints.selectMappingShort')) : t('sprints.selectAgent')}</>}
+          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? ((repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? t('sprints.assignAi') : t('sprints.selectMappingShort')) : t('sprints.selectAgent')}</>}
         </button>
         <div style={{ fontSize: 10, color: 'var(--ink-25)', textAlign: 'center' }}>{t('sprints.aiHint')}</div>
       </div>
