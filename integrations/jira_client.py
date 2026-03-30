@@ -241,6 +241,50 @@ class JiraClient:
                     break
         return items
 
+    async def writeback_refinement(
+        self,
+        *,
+        cfg: dict[str, str] | None,
+        issue_key: str,
+        suggested_story_points: int,
+        comment: str,
+        board_id: str,
+    ) -> None:
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(issue_key or '').strip()
+        if not base_url or not key:
+            raise ValueError('Jira base_url or issue key is missing')
+
+        story_field = await self._fetch_story_point_field_id(
+            base_url=base_url,
+            email=email,
+            api_token=api_token,
+            board_id=board_id,
+        ) if board_id else None
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            if story_field and int(suggested_story_points or 0) > 0:
+                issue_url = f"{base_url.rstrip('/')}/rest/api/3/issue/{key}"
+                payload = {'fields': {story_field: int(suggested_story_points)}}
+                response = await client.put(issue_url, json=payload, auth=(email, api_token))
+                response.raise_for_status()
+
+            comment_text = str(comment or '').strip()
+            if comment_text:
+                comment_url = f"{base_url.rstrip('/')}/rest/api/3/issue/{key}/comment"
+                comment_payload = {
+                    'body': {
+                        'type': 'doc',
+                        'version': 1,
+                        'content': [{
+                            'type': 'paragraph',
+                            'content': [{'type': 'text', 'text': comment_text}],
+                        }],
+                    },
+                }
+                response = await client.post(comment_url, json=comment_payload, auth=(email, api_token))
+                response.raise_for_status()
+
     def _resolve_config(self, cfg: dict[str, str] | None) -> tuple[str, str, str]:
         cfg = cfg or {}
         base_url = cfg.get('base_url') or self.settings.jira_base_url
