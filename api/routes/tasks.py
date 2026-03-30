@@ -350,6 +350,39 @@ async def list_azure_repos(
     ]
 
 
+@router.get('/github/repos')
+async def list_github_repos(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[dict[str, Any]]:
+    """GitHub kullanıcısının repolarını listeler."""
+    from core.settings import get_settings
+    settings = get_settings()
+    token = settings.github_token or ''
+    if not token:
+        service = IntegrationConfigService(db)
+        config = await service.get_config(tenant.organization_id, 'github')
+        if config and config.secret:
+            token = config.secret
+    if not token:
+        return []
+    headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get('https://api.github.com/user/repos?per_page=100&sort=updated', headers=headers)
+        if r.status_code != 200:
+            return []
+    return [
+        {
+            'id': repo['id'],
+            'name': repo['full_name'],
+            'default_branch': repo.get('default_branch', 'main'),
+            'private': repo.get('private', False),
+            'web_url': repo.get('html_url', ''),
+        }
+        for repo in r.json()
+    ]
+
+
 @router.get('/azure/states')
 async def list_azure_states(    project: str = Query(...),
     team: str = Query(...),

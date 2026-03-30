@@ -54,6 +54,7 @@ class TaskRouting:
     preferred_agent_provider: str | None
     preferred_agent_model: str | None
     execution_prompt: str | None
+    remote_repo: str | None = None  # "github:owner/repo" or "azure:project/repo"
 
 
 @dataclass
@@ -142,6 +143,7 @@ class OrchestrationService:
                 user_id=task.created_by_user_id,
                 task_title=task.title or '',
                 task_description=task.description or '',
+                remote_repo=routing.remote_repo,
             ),
             task.story_context,
             task.acceptance_criteria,
@@ -243,6 +245,7 @@ class OrchestrationService:
                     user_id=task.created_by_user_id,
                     task_title=task.title or '',
                     task_description=task.description or '',
+                    remote_repo=routing.remote_repo,
                 )
                 await task_service.add_log(task.id, organization_id, 'agent',
                     f'Repo context built: {len(_repo_ctx or "")} chars, '
@@ -1344,6 +1347,7 @@ class OrchestrationService:
             preferred_agent_provider=meta.get('preferred agent provider') or None,
             preferred_agent_model=meta.get('preferred agent model') or None,
             execution_prompt=meta.get('execution prompt') or None,
+            remote_repo=meta.get('remote repo') or None,
         )
 
     def _can_create_github_pr(self) -> bool:
@@ -2053,8 +2057,16 @@ class OrchestrationService:
         user_id: int | None,
         task_title: str = '',
         task_description: str = '',
+        remote_repo: str | None = None,
     ) -> str | None:
         repo_path = (local_repo_path or '').strip()
+
+        # If no local path, try remote repo via API
+        if not repo_path and remote_repo:
+            return await self._build_remote_repo_context(
+                remote_repo, organization_id, task_title, task_description,
+            )
+
         if not repo_path:
             return None
         try:
@@ -2093,6 +2105,55 @@ class OrchestrationService:
             return self._build_full_scan_context(root, task_title, task_description)
         except Exception as exc:
             return f'Repo context unavailable for {repo_path}: {str(exc)[:180]}'
+
+    async def _build_remote_repo_context(
+        self,
+        remote_repo: str,
+        organization_id: int,
+        task_title: str,
+        task_description: str,
+    ) -> str | None:
+        """Build repo context by reading files via GitHub/Azure API."""
+        from services.remote_repo_service import RemoteRepoService
+        from services.integration_config_service import IntegrationConfigService
+        svc = RemoteRepoService()
+        try:
+            if remote_repo.startswith('github:'):
+                # Format: github:owner/repo or github:owner/repo@branch
+                spec = remote_repo[len('github:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                owner, repo = spec.split('/', 1)
+                # Get GitHub token from settings or integration
+                token = self.settings.github_token or ''
+                if not token:
+                    cfg_svc = IntegrationConfigService(self.db)
+                    gh_cfg = await cfg_svc.get_config(organization_id, 'github')
+                    if gh_cfg and gh_cfg.secret:
+                        token = gh_cfg.secret
+                if not token:
+                    return 'Remote repo configured but no GitHub token available'
+                return await svc.github_repo_context(owner, repo, token, branch, task_title, task_description)
+
+            elif remote_repo.startswith('azure:'):
+                # Format: azure:project/repo or azure:project/repo@branch
+                spec = remote_repo[len('azure:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                project, repo = spec.split('/', 1)
+                cfg_svc = IntegrationConfigService(self.db)
+                az_cfg = await cfg_svc.get_config(organization_id, 'azure')
+                if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
+                    return 'Remote repo configured but no Azure DevOps credentials available'
+                return await svc.azure_repo_context(az_cfg.base_url, project, repo, az_cfg.secret, branch, task_title, task_description)
+
+            else:
+                return f'Unknown remote repo format: {remote_repo}'
+        except Exception as exc:
+            logger.error('Remote repo context failed for %s: %s', remote_repo, exc)
+            return f'Remote repo context unavailable: {str(exc)[:200]}'
 
     def _find_relevant_source_files(
         self,
