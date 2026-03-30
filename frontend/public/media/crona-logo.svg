@@ -22,6 +22,6 @@
     <circle cx="42" cy="42" r="38" stroke="#22D3EE" stroke-opacity="0.22" stroke-width="2" filter="url(#glow)"/>
   </g>
 
-  <text x="104" y="58" fill="url(#cronaWord)" font-family="Sora, 'Segoe UI', Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="1.8">TIQR</text>
-  <text x="106" y="78" fill="#94A3B8" font-family="Sora, 'Segoe UI', Arial, sans-serif" font-size="12" letter-spacing="2.2">AUTONOMOUS SPRINT SYSTEM</text>
+  <text x="104" y="58" fill="url(#cronaWord)" font-family="Sora, 'Segoe UI', Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="1.8">AGENA</text>
+  <text x="106" y="78" fill="#94A3B8" font-family="Sora, 'Segoe UI', Arial, sans-serif" font-size="12" letter-spacing="2.2">AUTONOMOUS GENERATIVE AGENT NETWORK</text>
 </svg>

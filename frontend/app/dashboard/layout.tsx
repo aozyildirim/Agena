@@ -14,10 +14,10 @@ import { WebSocketProvider } from '@/lib/useWebSocket';
 type NavChild = { href: string; key: string; icon: string; permission?: string };
 type NavItem = { href: string; key: string; icon: string; permission?: string; children?: NavChild[] };
 
-const NOTIF_EVENT = 'tiqr:notification';
-const NOTIF_SYNC_EVENT = 'tiqr:notification-sync';
-const LS_UNREAD_KEY = 'tiqr_notification_unread_count';
-const LS_SIDEBAR_COLLAPSED = 'tiqr_sidebar_collapsed';
+const NOTIF_EVENT = 'agena:notification';
+const NOTIF_SYNC_EVENT = 'agena:notification-sync';
+const LS_UNREAD_KEY = 'agena_notification_unread_count';
+const LS_SIDEBAR_COLLAPSED = 'agena_sidebar_collapsed';
 
 const PRIMARY_NAV_KEYS: NavItem[] = [
   { href: '/dashboard', key: 'nav.overview', icon: '🧭' },
@@ -77,8 +77,8 @@ function DashboardInner({ children }: { children: ReactNode }) {
   // Clear task badges when visiting tasks page
   useEffect(() => {
     if (pathname.startsWith('/dashboard/tasks')) {
-      const current = localStorage.getItem('tiqr_task_current_counts');
-      if (current) localStorage.setItem('tiqr_task_seen_counts', current);
+      const current = localStorage.getItem('agena_task_current_counts');
+      if (current) localStorage.setItem('agena_task_seen_counts', current);
       setTaskBadges({});
     }
   }, [pathname]);
@@ -163,7 +163,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
         const counts: Record<string, number> = {};
         for (const tk of tasks) counts[tk.status] = (counts[tk.status] || 0) + 1;
         // Compare with last seen
-        const seenRaw = localStorage.getItem('tiqr_task_seen_counts');
+        const seenRaw = localStorage.getItem('agena_task_seen_counts');
         const seen: Record<string, number> = seenRaw ? JSON.parse(seenRaw) : {};
         const badges: Record<string, number> = {};
         for (const [status, count] of Object.entries(counts)) {
@@ -172,7 +172,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
         }
         setTaskBadges(badges);
         // Store current counts so we can diff next time
-        localStorage.setItem('tiqr_task_current_counts', JSON.stringify(counts));
+        localStorage.setItem('agena_task_current_counts', JSON.stringify(counts));
       }).catch(() => {});
 
       // Initialize org info from localStorage in case /me hasn't responded yet
@@ -397,13 +397,13 @@ function DashboardInner({ children }: { children: ReactNode }) {
             </div>
             {orgSlug && (
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace', marginTop: 2 }}>
-                {orgSlug}.tiqr.app
+                {orgSlug}.agena.app
               </div>
             )}
           </div>
         )}
         {sidebarCollapsed && orgSlug && (
-          <div title={`${orgNameDisplay || orgSlug} (${orgSlug}.tiqr.app)`} style={{ textAlign: 'center', marginBottom: 8, fontSize: 14, fontWeight: 800, color: 'var(--nav-active)' }}>
+          <div title={`${orgNameDisplay || orgSlug} (${orgSlug}.agena.app)`} style={{ textAlign: 'center', marginBottom: 8, fontSize: 14, fontWeight: 800, color: 'var(--nav-active)' }}>
             {(orgNameDisplay || orgSlug)[0]?.toUpperCase()}
           </div>
         )}

@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', case_sensitive=False)
 
-    app_name: str = 'Tiqr AI Agent SaaS'
+    app_name: str = 'AGENA AI Agent SaaS'
     app_env: str = Field(default='development', alias='APP_ENV')
     app_host: str = Field(default='0.0.0.0', alias='APP_HOST')
     app_port: int = Field(default=8010, alias='APP_PORT')
@@ -80,8 +80,8 @@ class Settings(BaseSettings):
     smtp_port: int = Field(default=587, alias='SMTP_PORT')
     smtp_user: str = Field(default='', alias='SMTP_USER')
     smtp_password: str = Field(default='', alias='SMTP_PASSWORD')
-    smtp_from_email: str = Field(default='noreply@tiqr.local', alias='SMTP_FROM_EMAIL')
-    smtp_from_name: str = Field(default='Tiqr AI', alias='SMTP_FROM_NAME')
+    smtp_from_email: str = Field(default='noreply@agena.local', alias='SMTP_FROM_EMAIL')
+    smtp_from_name: str = Field(default='AGENA AI', alias='SMTP_FROM_NAME')
     smtp_use_tls: bool = Field(default=True, alias='SMTP_USE_TLS')
     smtp_use_ssl: bool = Field(default=False, alias='SMTP_USE_SSL')
     pr_webhook_secret: str = Field(default='', alias='PR_WEBHOOK_SECRET')

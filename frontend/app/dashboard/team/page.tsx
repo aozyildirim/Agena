@@ -13,13 +13,13 @@ const STATE_COLORS: Record<string, string> = {
 };
 const sc = (s: string) => STATE_COLORS[s] ?? '#5eead4';
 
-const LS_PROJECT  = 'tiqr_sprint_project';
-const LS_TEAM     = 'tiqr_sprint_team';
-const LS_SPRINT   = 'tiqr_sprint_path';
-const LS_PROVIDER = 'tiqr_sprint_provider';
-const LS_JIRA_PROJECT = 'tiqr_jira_project';
-const LS_JIRA_BOARD = 'tiqr_jira_board';
-const LS_JIRA_SPRINT = 'tiqr_jira_sprint';
+const LS_PROJECT  = 'agena_sprint_project';
+const LS_TEAM     = 'agena_sprint_team';
+const LS_SPRINT   = 'agena_sprint_path';
+const LS_PROVIDER = 'agena_sprint_provider';
+const LS_JIRA_PROJECT = 'agena_jira_project';
+const LS_JIRA_BOARD = 'agena_jira_board';
+const LS_JIRA_SPRINT = 'agena_jira_sprint';
 
 const GRADIENTS = [
   ['#0d9488','#22c55e'], ['#7c3aed','#a78bfa'], ['#0ea5e9','#38bdf8'],

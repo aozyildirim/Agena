@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiFetch, type RepoMapping } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
-const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
+const LS_REPO_MAPPINGS = 'agena_repo_mappings';
 
 interface RepoSelectorProps {
   value: string | null;

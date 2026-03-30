@@ -37,7 +37,7 @@ type IntegrationConfig = {
   username?: string;
   has_secret?: boolean;
 };
-const LS_AGENTS = 'tiqr_agent_configs';
+const LS_AGENTS = 'agena_agent_configs';
 function loadAgentConfigs(): AgentConfig[] {
   if (typeof window === 'undefined') return [];
   try { return JSON.parse(localStorage.getItem(LS_AGENTS) || '[]') as AgentConfig[]; } catch { return []; }
@@ -65,13 +65,13 @@ const fallbackPalette = [
 const sc = (s: string, i: number) => STATE_COLORS[s] ?? fallbackPalette[i % fallbackPalette.length];
 const normalizeState = (value: string | null | undefined): string => String(value || '').trim().toLowerCase();
 
-const LS_PROJECT = 'tiqr_sprint_project';
-const LS_TEAM    = 'tiqr_sprint_team';
-const LS_SPRINT  = 'tiqr_sprint_path';
-const LS_PROVIDER = 'tiqr_sprint_provider';
-const LS_JIRA_PROJECT = 'tiqr_jira_project';
-const LS_JIRA_BOARD = 'tiqr_jira_board';
-const LS_JIRA_SPRINT = 'tiqr_jira_sprint';
+const LS_PROJECT = 'agena_sprint_project';
+const LS_TEAM    = 'agena_sprint_team';
+const LS_SPRINT  = 'agena_sprint_path';
+const LS_PROVIDER = 'agena_sprint_provider';
+const LS_JIRA_PROJECT = 'agena_jira_project';
+const LS_JIRA_BOARD = 'agena_jira_board';
+const LS_JIRA_SPRINT = 'agena_jira_sprint';
 
 function elapsed(from?: string, to?: string): string | null {
   if (!from) return null;
@@ -1006,7 +1006,7 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, isImported }
           {onImport && !isImported && (
             <button onClick={(e) => { e.stopPropagation(); onImport(); }}
               style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)', color: '#5eead4', cursor: 'pointer' }}
-              title={t('sprints.importToTiqr')}>
+              title={t('sprints.importToAgena')}>
               ↓
             </button>
           )}

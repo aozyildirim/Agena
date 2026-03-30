@@ -150,7 +150,7 @@ function presetFlows(t: ReturnType<typeof useLocale>['t']): Flow[] {
   ];
 }
 
-const LS_FLOWS = 'tiqr_flows';
+const LS_FLOWS = 'agena_flows';
 
 function localizePresetFlow(flow: Flow, t: ReturnType<typeof useLocale>['t']): Flow {
   const preset = presetFlows(t).find((p) => p.id === flow.id);

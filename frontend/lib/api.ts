@@ -1,18 +1,18 @@
 'use client';
 
-const TOKEN_KEY = 'tiqr_token';
-const TOKEN_EXP_KEY = 'tiqr_token_exp';
+const TOKEN_KEY = 'agena_token';
+const TOKEN_EXP_KEY = 'agena_token_exp';
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 const NETWORK_RETRY_DELAYS_MS = [350, 900];
 const USER_CACHE_KEYS = [
-  'tiqr_sprint_project',
-  'tiqr_sprint_team',
-  'tiqr_sprint_path',
-  'tiqr_my_team',
-  'tiqr_agent_configs',
-  'tiqr_flows',
-  'tiqr_repo_mappings',
-  'tiqr_profile_settings',
+  'agena_sprint_project',
+  'agena_sprint_team',
+  'agena_sprint_path',
+  'agena_my_team',
+  'agena_agent_configs',
+  'agena_flows',
+  'agena_repo_mappings',
+  'agena_profile_settings',
 ] as const;
 
 export function resolveApiBase(): string {
@@ -45,8 +45,8 @@ export function removeToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(TOKEN_EXP_KEY);
-  localStorage.removeItem('tiqr_org_slug');
-  localStorage.removeItem('tiqr_org_name');
+  localStorage.removeItem('agena_org_slug');
+  localStorage.removeItem('agena_org_name');
   USER_CACHE_KEYS.forEach((k) => localStorage.removeItem(k));
 }
 
@@ -56,8 +56,8 @@ export function isLoggedIn(): boolean {
 
 // ── Org slug helpers ──────────────────────────────────────────────────────────
 
-const ORG_SLUG_KEY = 'tiqr_org_slug';
-const ORG_NAME_KEY = 'tiqr_org_name';
+const ORG_SLUG_KEY = 'agena_org_slug';
+const ORG_NAME_KEY = 'agena_org_name';
 
 export function setOrgSlug(slug: string): void {
   if (typeof window === 'undefined') return;
@@ -214,11 +214,11 @@ export interface RepoProfileSummary {
   repo_rules?: string[];
 }
 
-const LS_PROJECT = 'tiqr_sprint_project';
-const LS_TEAM    = 'tiqr_sprint_team';
-const LS_SPRINT  = 'tiqr_sprint_path';
-const LS_MY_TEAM = 'tiqr_my_team';
-const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
+const LS_PROJECT = 'agena_sprint_project';
+const LS_TEAM    = 'agena_sprint_team';
+const LS_SPRINT  = 'agena_sprint_path';
+const LS_MY_TEAM = 'agena_my_team';
+const LS_REPO_MAPPINGS = 'agena_repo_mappings';
 
 /** DB'den tercihleri çek, localStorage'a da yaz (cache) */
 export async function loadPrefs(): Promise<UserPrefs> {
@@ -227,10 +227,10 @@ export async function loadPrefs(): Promise<UserPrefs> {
   if (prefs.azure_team)        localStorage.setItem(LS_TEAM,    prefs.azure_team);
   if (prefs.azure_sprint_path) localStorage.setItem(LS_SPRINT,  prefs.azure_sprint_path);
   if (prefs.my_team?.length)   localStorage.setItem(LS_MY_TEAM, JSON.stringify(prefs.my_team));
-  if (prefs.agents?.length)    localStorage.setItem('tiqr_agent_configs', JSON.stringify(prefs.agents));
-  if (prefs.flows?.length)     localStorage.setItem('tiqr_flows', JSON.stringify(prefs.flows));
+  if (prefs.agents?.length)    localStorage.setItem('agena_agent_configs', JSON.stringify(prefs.agents));
+  if (prefs.flows?.length)     localStorage.setItem('agena_flows', JSON.stringify(prefs.flows));
   if (prefs.repo_mappings)     localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(prefs.repo_mappings));
-  if (prefs.profile_settings)  localStorage.setItem('tiqr_profile_settings', JSON.stringify(prefs.profile_settings));
+  if (prefs.profile_settings)  localStorage.setItem('agena_profile_settings', JSON.stringify(prefs.profile_settings));
   return prefs;
 }
 
@@ -250,10 +250,10 @@ export async function savePrefs(partial: Partial<{
   if (partial.azure_team !== undefined)        localStorage.setItem(LS_TEAM,    partial.azure_team);
   if (partial.azure_sprint_path !== undefined) localStorage.setItem(LS_SPRINT,  partial.azure_sprint_path);
   if (partial.my_team !== undefined)           localStorage.setItem(LS_MY_TEAM, JSON.stringify(partial.my_team));
-  if (partial.agents !== undefined)            localStorage.setItem('tiqr_agent_configs', JSON.stringify(partial.agents));
-  if (partial.flows !== undefined)             localStorage.setItem('tiqr_flows', JSON.stringify(partial.flows));
+  if (partial.agents !== undefined)            localStorage.setItem('agena_agent_configs', JSON.stringify(partial.agents));
+  if (partial.flows !== undefined)             localStorage.setItem('agena_flows', JSON.stringify(partial.flows));
   if (partial.repo_mappings !== undefined)     localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(partial.repo_mappings));
-  if (partial.profile_settings !== undefined)  localStorage.setItem('tiqr_profile_settings', JSON.stringify(partial.profile_settings));
+  if (partial.profile_settings !== undefined)  localStorage.setItem('agena_profile_settings', JSON.stringify(partial.profile_settings));
   await apiFetch('/preferences', {
     method: 'PUT',
     body: JSON.stringify({

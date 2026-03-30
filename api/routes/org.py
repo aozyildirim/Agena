@@ -64,7 +64,7 @@ def _build_invite_url(token: str) -> str:
     settings = get_settings()
     base = 'http://localhost:3000'
     if settings.app_env == 'production':
-        base = 'https://app.tiqr.dev'
+        base = 'https://app.agena.dev'
     return f'{base}/invite?token={token}'
 
 
@@ -85,13 +85,13 @@ async def _send_invite_email(
     inviter = inviter_result.scalar_one_or_none()
     inviter_name = (inviter.full_name if inviter else None) or 'A team member'
 
-    subject = f'[Tiqr] You\'ve been invited to join {org_name}'
+    subject = f'[AGENA] You\'ve been invited to join {org_name}'
     body = (
-        f'{inviter_name} has invited you to join {org_name} on Tiqr.\n\n'
+        f'{inviter_name} has invited you to join {org_name} on AGENA.\n\n'
         f'Click the link below to accept the invitation:\n'
         f'{invite_url}\n\n'
-        f'If you don\'t have a Tiqr account yet, you\'ll be able to sign up when you click the link.\n\n'
-        f'-- Tiqr AI'
+        f'If you don\'t have an AGENA account yet, you\'ll be able to sign up when you click the link.\n\n'
+        f'-- AGENA AI'
     )
 
     notifier._send_email(invite_email, subject, body)

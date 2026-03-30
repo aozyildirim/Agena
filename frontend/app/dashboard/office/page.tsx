@@ -47,7 +47,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
   { role: 'qa', label: 'QA Engineer', icon: '🔍', color: '#f472b6', enabled: true, palette: 4 },
 ];
 
-const LS_AGENTS = 'tiqr_agent_configs';
+const LS_AGENTS = 'agena_agent_configs';
 
 function loadAgentConfigs(): AgentConfig[] {
   if (typeof window === 'undefined') return DEFAULT_AGENTS;
@@ -234,7 +234,7 @@ function usePixelOfficeBridge(
 
     const safeSend = (ref: React.RefObject<HTMLIFrameElement | null>, p: unknown) => {
       const w = ref.current?.contentWindow;
-      if (w) w.postMessage({ source: 'tiqr-bridge', payload: p }, '*');
+      if (w) w.postMessage({ source: 'agena-bridge', payload: p }, '*');
     };
 
     const startTimer = setTimeout(() => {
@@ -314,14 +314,14 @@ function AssignTaskModal({
     setSprintLoading(true);
     try {
       // Load repo mappings
-      const mappingsRaw = localStorage.getItem('tiqr_repo_mappings');
+      const mappingsRaw = localStorage.getItem('agena_repo_mappings');
       const mappings: RepoMappingItem[] = mappingsRaw ? JSON.parse(mappingsRaw) : [];
       setRepoMappings(mappings);
       if (mappings.length > 0 && !selectedMapping) setSelectedMapping(mappings[0].id);
 
-      const project = localStorage.getItem('tiqr_sprint_project') || '';
-      const team = localStorage.getItem('tiqr_sprint_team') || '';
-      const sprint = localStorage.getItem('tiqr_sprint_path') || '';
+      const project = localStorage.getItem('agena_sprint_project') || '';
+      const team = localStorage.getItem('agena_sprint_team') || '';
+      const sprint = localStorage.getItem('agena_sprint_path') || '';
       if (!sprint) { setSprintItems([]); return; }
       const states = ['New', 'Active', 'To Do', 'In Progress', 'Backlog'];
       const all: SprintWorkItem[] = [];
@@ -344,7 +344,7 @@ function AssignTaskModal({
     const item = selectedSprintItem;
     setSprintAssigning(item.id);
     try {
-      const project = localStorage.getItem('tiqr_sprint_project') || '';
+      const project = localStorage.getItem('agena_sprint_project') || '';
       const mapping = repoMappings.find((m) => m.id === selectedMapping) || repoMappings[0];
       const ctxParts = [
         `External Source: Azure #${item.id}`,
@@ -822,7 +822,7 @@ export default function OfficePage() {
         const layout = prefs.profile_settings?.office_layout;
         if (layout) {
           iframeRef.current?.contentWindow?.postMessage(
-            { source: 'tiqr-bridge', payload: { type: 'layoutLoaded', layout } }, '*',
+            { source: 'agena-bridge', payload: { type: 'layoutLoaded', layout } }, '*',
           );
         }
       } catch { /* silent */ }

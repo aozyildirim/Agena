@@ -1647,10 +1647,10 @@ class OrchestrationService:
             except Exception as exc:
                 logger.warning('Failed to read repo guide %s: %s', guide, exc)
 
-        tiqr_dir = root / '.tiqr' / 'agents'
-        if tiqr_dir.is_dir():
+        agena_dir = root / '.agena' / 'agents'
+        if agena_dir.is_dir():
             md_files = sorted(
-                (f for f in tiqr_dir.rglob('*.md') if f.is_file()),
+                (f for f in agena_dir.rglob('*.md') if f.is_file()),
                 key=lambda f: f.stat().st_mtime,
                 reverse=True,
             )
@@ -1659,11 +1659,11 @@ class OrchestrationService:
                     pkg_dir = md_file.parent / 'packages'
                     return (
                         md_file.read_text(errors='replace'),
-                        f'.tiqr:{md_file.relative_to(root)}',
+                        f'.agena:{md_file.relative_to(root)}',
                         str(pkg_dir) if pkg_dir.is_dir() else '',
                     )
                 except Exception as exc:
-                    logger.warning('Failed to read .tiqr repo guide %s: %s', md_file, exc)
+                    logger.warning('Failed to read .agena repo guide %s: %s', md_file, exc)
 
         return '', '', ''
 

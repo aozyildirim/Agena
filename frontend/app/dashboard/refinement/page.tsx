@@ -343,7 +343,7 @@ function defaultSprint(list: Opt[], provider: Provider): string {
 
 function buildSnapshotKey(provider: Provider, sprintRef: string): string {
   const clean = (sprintRef || 'unknown').replace(/\s+/g, '_');
-  return `tiqr_refinement_snapshot_${provider}_${clean}`;
+  return `agena_refinement_snapshot_${provider}_${clean}`;
 }
 
 export default function RefinementPage() {
@@ -381,7 +381,7 @@ export default function RefinementPage() {
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [writebackItemId, setWritebackItemId] = useState('');
   const [confirmWritebackItemId, setConfirmWritebackItemId] = useState('');
-  const [commentSignature, setCommentSignature] = useState('Tiqr AI');
+  const [commentSignature, setCommentSignature] = useState('AGENA AI');
   const [focusedResultId, setFocusedResultId] = useState('');
   const availableModels = useMemo(() => modelsForProvider(agentProvider), [agentProvider]);
 

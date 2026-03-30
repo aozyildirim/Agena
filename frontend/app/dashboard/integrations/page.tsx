@@ -14,7 +14,7 @@ type IntegrationConfig = {
   updated_at: string;
 };
 
-const SECRET_PREVIEW_LS_PREFIX = 'tiqr_secret_preview_';
+const SECRET_PREVIEW_LS_PREFIX = 'agena_secret_preview_';
 
 function maskSecretPreview(secret: string): string {
   const s = secret.trim();

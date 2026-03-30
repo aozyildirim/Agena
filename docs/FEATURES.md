@@ -1,4 +1,4 @@
-# Tiqr Feature Catalog
+# AGENA Feature Catalog
 
 This file is the single source of truth for currently implemented product capabilities in this repository.
 

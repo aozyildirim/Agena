@@ -57,7 +57,7 @@ class NotificationService:
         event_type = 'task_completed' if is_completed else 'task_failed'
         title = f"Task #{task_id} {'completed' if is_completed else 'failed'}"
         message = task_title if is_completed else (failure_reason or task_title)
-        subject = f"[Tiqr] Task #{task_id} {status.upper()}: {task_title}"
+        subject = f"[AGENA] Task #{task_id} {status.upper()}: {task_title}"
         if is_completed:
             email_body = (
                 f"Task completed successfully.\n\n"
@@ -125,7 +125,7 @@ class NotificationService:
         if should_email:
             recipient = await self._resolve_recipient(user_id)
             if recipient:
-                subject = email_subject or f"[Tiqr] {title}"
+                subject = email_subject or f"[AGENA] {title}"
                 body = email_body or f"{title}\n\n{message}"
                 sent_any = self._send_email(recipient, subject, body) or sent_any
 

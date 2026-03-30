@@ -9,8 +9,8 @@ type TaskLite = {
   status: string;
 };
 
-const LS_STATUS_KEY = 'tiqr_last_task_status_map';
-const NOTIF_EVENT = 'tiqr:notification';
+const LS_STATUS_KEY = 'agena_last_task_status_map';
+const NOTIF_EVENT = 'agena:notification';
 
 function loadLastMap(): Record<string, string> {
   try {

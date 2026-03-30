@@ -1,4 +1,4 @@
-# Contributing to Tiqr
+# Contributing to AGENA
 
 Thanks for contributing.
 

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
-  title: 'Tiqr AI Agent SaaS',
+  title: 'AGENA AI Agent SaaS',
   description: 'Multi-tenant AI agent orchestration with PR automation',
 };
 

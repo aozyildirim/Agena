@@ -1,8 +1,8 @@
-# Tiqr AI Pipeline — Calisma Mantigi
+# AGENA AI Pipeline — Calisma Mantigi
 
 ## Genel Bakis
 
-Tiqr'de bir task'a AI atandiginda 2 farkli mod var:
+AGENA'da bir task'a AI atandiginda 2 farkli mod var:
 
 ### 1. AI Mode (Direkt Developer)
 Kullanici "AI Ata" butonuna tiklar → Agent secer → Secilen agent'in model/provider'i kullanilir.
@@ -64,8 +64,8 @@ Repo tarandiginda otomatik olusan dosya. Icerigi:
 
 ### Nerede aranir? (oncelik sirasi)
 1. **Repo'nun kendi agents.md'si** — `{repo_root}/agents.md` veya `AGENTS.md`
-2. **Tiqr'in olusturdugu** — DB profilinde kayitli path (`profile_settings.repo_profiles[id].agents_md_path`)
-3. **`.tiqr/agents/` dizini** — eski format md dosyalari
+2. **AGENA'nin olusturdugu** — DB profilinde kayitli path (`profile_settings.repo_profiles[id].agents_md_path`)
+3. **`.agena/agents/` dizini** — eski format md dosyalari
 4. **Fallback** — agents.md yoksa tum repo dosyalarini tarar (cok token harcar)
 
 ### Nasil olusturulur?

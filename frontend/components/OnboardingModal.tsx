@@ -87,9 +87,9 @@ export default function OnboardingModal({ userName, onClose }: Props) {
   async function goToSprints() {
     if (sprint) {
       // localStorage'a da yaz (hızlı erişim için)
-      localStorage.setItem('tiqr_sprint_project', project);
-      localStorage.setItem('tiqr_sprint_team', team);
-      localStorage.setItem('tiqr_sprint_path', sprint);
+      localStorage.setItem('agena_sprint_project', project);
+      localStorage.setItem('agena_sprint_team', team);
+      localStorage.setItem('agena_sprint_path', sprint);
       // DB'ye kaydet ve bekle
       try {
         await savePrefs({ azure_project: project, azure_team: team, azure_sprint_path: sprint });

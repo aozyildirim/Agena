@@ -104,7 +104,7 @@ export default function SignUpPage() {
       <div style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 1 }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <Link href='/' style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <img src='/media/tiqr-logo.svg' alt='Tiqr' loading='lazy' style={{ width: 138, height: 'auto', display: 'block' }} />
+            <img src='/media/agena-logo.svg' alt='AGENA' loading='lazy' style={{ width: 138, height: 'auto', display: 'block' }} />
           </Link>
           <p style={{ marginTop: 16, fontSize: 14, color: 'var(--ink-35)' }}>{t('signup.tagline')}</p>
         </div>
@@ -135,7 +135,7 @@ export default function SignUpPage() {
               {/* Slug preview */}
               <div style={{ marginTop: 6, fontSize: 12, color: slugColor, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ color: 'var(--ink-30)' }}>{t('signup.slugPreview')}:</span>
-                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{orgSlug || '...'}.tiqr.app</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{orgSlug || '...'}.agena.app</span>
                 {slugStatus === 'checking' && <span style={{ color: 'var(--ink-30)' }}>...</span>}
                 {slugStatus === 'available' && <span>{t('signup.slugAvailable')}</span>}
                 {slugStatus === 'taken' && <span>{t('signup.slugTaken')}</span>}

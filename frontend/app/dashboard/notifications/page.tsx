@@ -6,8 +6,8 @@ import { clearAllNotifications, listNotifications, markAllNotificationsRead, mar
 import { useLocale } from '@/lib/i18n';
 
 type GroupKey = 'all' | 'tasks' | 'prs' | 'failures' | 'queue' | 'integrations' | 'other';
-const NOTIF_SYNC_EVENT = 'tiqr:notification-sync';
-const LS_UNREAD_KEY = 'tiqr_notification_unread_count';
+const NOTIF_SYNC_EVENT = 'agena:notification-sync';
+const LS_UNREAD_KEY = 'agena_notification_unread_count';
 
 const GROUP_META: Record<Exclude<GroupKey, 'all'>, { color: string; icon: string }> = {
   tasks: { color: '#22c55e', icon: '○' },

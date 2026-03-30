@@ -20,7 +20,7 @@ export MYSQL_HOST=localhost
 export MYSQL_PORT=3307
 export QDRANT_URL=http://localhost:6333
 
-echo "=== Tiqr Host Worker ==="
+echo "=== AGENA Host Worker ==="
 echo "  Redis: $REDIS_HOST:$REDIS_PORT"
 echo "  MySQL: $MYSQL_HOST:$MYSQL_PORT"
 echo "  codex: $(which codex 2>/dev/null || echo 'not found')"

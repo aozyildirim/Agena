@@ -198,7 +198,7 @@ function defaultAgents(t: ReturnType<typeof useLocale>['t']): AgentConfig[] {
   ];
 }
 
-const LS_AGENTS = 'tiqr_agent_configs';
+const LS_AGENTS = 'agena_agent_configs';
 
 function localizedAgentLabel(agent: AgentConfig, t: ReturnType<typeof useLocale>['t']) {
   const keys = BUILTIN_ROLE_KEYS[agent.role as keyof typeof BUILTIN_ROLE_KEYS];
@@ -488,7 +488,7 @@ export default function AgentsPage() {
           {t('agents.cliDesc')}
         </div>
         <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.4)', border: '1px solid var(--panel-border-2)', fontFamily: 'monospace', fontSize: 11, color: '#5eead4', overflowX: 'auto' }}>
-          tiqr agent run --role lead_developer --task &lt;task-id&gt; --model {agents.find(a => a.role === 'lead_developer')?.model || 'gpt-4o'}
+          agena agent run --role lead_developer --task &lt;task-id&gt; --model {agents.find(a => a.role === 'lead_developer')?.model || 'gpt-4o'}
         </div>
       </div>
 

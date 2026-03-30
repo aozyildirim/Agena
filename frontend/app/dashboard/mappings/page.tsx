@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, loadPrefs, RepoMapping, RepoProfileSummary, savePrefs, scanRepoProfile } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
-const LS_REPO_MAPPINGS = 'tiqr_repo_mappings';
+const LS_REPO_MAPPINGS = 'agena_repo_mappings';
 type Opt = { id: string; name: string };
 type AzureRepo = { id: string; name: string; remote_url: string; web_url: string };
 type GithubRepo = { id: string; name: string; full_name: string; private: boolean };

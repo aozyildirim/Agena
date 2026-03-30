@@ -6,7 +6,7 @@ export default function ThemeToggle({ style }: { style?: React.CSSProperties }) 
   const [light, setLight] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('tiqr_theme');
+    const saved = localStorage.getItem('agena_theme');
     if (saved === 'light') {
       document.documentElement.classList.add('light');
       setLight(true);
@@ -18,10 +18,10 @@ export default function ThemeToggle({ style }: { style?: React.CSSProperties }) 
     setLight(next);
     if (next) {
       document.documentElement.classList.add('light');
-      localStorage.setItem('tiqr_theme', 'light');
+      localStorage.setItem('agena_theme', 'light');
     } else {
       document.documentElement.classList.remove('light');
-      localStorage.setItem('tiqr_theme', 'dark');
+      localStorage.setItem('agena_theme', 'dark');
     }
   }
 

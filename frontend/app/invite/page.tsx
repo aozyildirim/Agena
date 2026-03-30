@@ -118,7 +118,7 @@ export default function InvitePage() {
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <Link href='/' style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             <span style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: '#fff' }}>T</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)' }}>Tiqr</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)' }}>AGENA</span>
           </Link>
         </div>
 

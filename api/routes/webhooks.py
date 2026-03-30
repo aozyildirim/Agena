@@ -79,13 +79,13 @@ def _extract_pr_id(pr_url: str) -> str | None:
 @router.post('/pr-comment')
 async def pr_comment_webhook(
     request: Request,
-    x_tiqr_webhook_secret: str | None = Header(default=None, alias='X-Tiqr-Webhook-Secret'),
+    x_agena_webhook_secret: str | None = Header(default=None, alias='X-Agena-Webhook-Secret'),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     settings = get_settings()
     expected = (settings.pr_webhook_secret or '').strip()
     if expected:
-        provided = (x_tiqr_webhook_secret or '').strip()
+        provided = (x_agena_webhook_secret or '').strip()
         if provided != expected:
             raise HTTPException(status_code=401, detail='Invalid webhook secret')
 
@@ -98,7 +98,7 @@ async def pr_comment_webhook(
         raise HTTPException(status_code=400, detail='PR URL not found in payload')
 
     comment_text = _extract_comment_text(payload)
-    if comment_text and 'tiqr pr review' in comment_text.lower():
+    if comment_text and 'agena pr review' in comment_text.lower():
         return {'status': 'ignored', 'reason': 'bot_comment', 'pr_url': pr_url}
 
     task_result = await db.execute(select(TaskRecord).where(TaskRecord.pr_url == pr_url).order_by(TaskRecord.id.desc()))

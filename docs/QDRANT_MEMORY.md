@@ -1,6 +1,6 @@
 # Qdrant Memory Guide
 
-This document explains how vector memory works in Tiqr, what is stored, and how to verify it via Swagger/API.
+This document explains how vector memory works in AGENA, what is stored, and how to verify it via Swagger/API.
 
 ## Purpose
 

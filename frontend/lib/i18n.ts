@@ -9,7 +9,7 @@ import it from '@/locales/it.json';
 import de from '@/locales/de.json';
 import ja from '@/locales/ja.json';
 
-const LS_KEY = 'tiqr_lang';
+const LS_KEY = 'agena_lang';
 
 export type Lang = 'tr' | 'en' | 'es' | 'zh' | 'it' | 'de' | 'ja';
 

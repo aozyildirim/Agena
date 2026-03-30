@@ -211,7 +211,7 @@ def _is_fix_request_comment(content: str) -> bool:
         return False
     triggers = (
         '/fix',
-        '/tiqr fix',
+        '/agena fix',
         'request changes',
         'needs changes',
         'please fix',
@@ -813,14 +813,14 @@ async def _run_lead_pr_review_node(
             if not (review or '').strip():
                 raise RuntimeError('Empty review output')
             return (
-                '[Tiqr PR Review]\n'
+                '[AGENA PR Review]\n'
                 f'_Lead AI model: {model}_\n\n'
                 f'{review.strip()}\n\n'
                 f'_Usage: total={int(usage.get("total_tokens", 0))} tokens_'
             )
         except Exception as exc:
             return (
-                '[Tiqr PR Review]\n'
+                '[AGENA PR Review]\n'
                 'Lead review pass completed but AI review details are unavailable.\n'
                 f'Reason: {str(exc)[:220]}'
             )
@@ -828,8 +828,8 @@ async def _run_lead_pr_review_node(
     candidate_comments = [
         c for c in comments
         if c.get('content')
-        and '[Tiqr PR Review]' not in c.get('content', '')
-        and 'tiqr' not in c.get('author', '').lower()
+        and '[AGENA PR Review]' not in c.get('content', '')
+        and 'agena' not in c.get('author', '').lower()
     ]
     max_seen_id = 0
     for c in candidate_comments:
@@ -928,12 +928,12 @@ async def _run_lead_pr_review_node(
             comment_ref = await AzurePRService(db).post_pr_comment(
                 organization_id,
                 pr_url=pr_url,
-                comment='[Tiqr PR Review] Review comments captured. Auto-fix is disabled for this node.',
+                comment='[AGENA PR Review] Review comments captured. Auto-fix is disabled for this node.',
             )
         else:
             comment_ref = await GitHubService().post_pr_comment(
                 pr_url=pr_url,
-                comment='[Tiqr PR Review] Review comments captured. Auto-fix is disabled for this node.',
+                comment='[AGENA PR Review] Review comments captured. Auto-fix is disabled for this node.',
             )
         return {
             'status': 'ok',
@@ -949,16 +949,16 @@ async def _run_lead_pr_review_node(
                 organization_id,
                 pr_url=pr_url,
                 comment=(
-                    '[Tiqr PR Review] New comments captured, but no explicit fix trigger found. '
-                    "To run auto-fix, add one of: '/fix', '/tiqr fix', 'request changes', 'please fix'."
+                    '[AGENA PR Review] New comments captured, but no explicit fix trigger found. '
+                    "To run auto-fix, add one of: '/fix', '/agena fix', 'request changes', 'please fix'."
                 ),
             )
         else:
             comment_ref = await GitHubService().post_pr_comment(
                 pr_url=pr_url,
                 comment=(
-                    '[Tiqr PR Review] New comments captured, but no explicit fix trigger found. '
-                    "To run auto-fix, add one of: '/fix', '/tiqr fix', 'request changes', 'please fix'."
+                    '[AGENA PR Review] New comments captured, but no explicit fix trigger found. '
+                    "To run auto-fix, add one of: '/fix', '/agena fix', 'request changes', 'please fix'."
                 ),
             )
         return {
@@ -979,7 +979,7 @@ async def _run_lead_pr_review_node(
             organization_id,
             pr_url=pr_url,
             comment=(
-                '[Tiqr PR Review] Reviewer feedback detected. '
+                '[AGENA PR Review] Reviewer feedback detected. '
                 f'Auto-fix run completed. New PR: {rerun.pr_url or "n/a"}'
             ),
         )
@@ -987,7 +987,7 @@ async def _run_lead_pr_review_node(
         comment_ref = await GitHubService().post_pr_comment(
             pr_url=pr_url,
             comment=(
-                '[Tiqr PR Review] Reviewer feedback detected. '
+                '[AGENA PR Review] Reviewer feedback detected. '
                 f'Auto-fix run completed. New PR: {rerun.pr_url or "n/a"}'
             ),
         )

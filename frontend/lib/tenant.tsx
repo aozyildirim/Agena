@@ -2,18 +2,18 @@
 
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 
-const TENANT_SLUG_KEY = 'tiqr_tenant_slug';
-const TENANT_NAME_KEY = 'tiqr_tenant_name';
+const TENANT_SLUG_KEY = 'agena_tenant_slug';
+const TENANT_NAME_KEY = 'agena_tenant_name';
 
 /**
  * Extract the tenant slug from the current hostname.
- * e.g. "acme.tiqr.app" -> "acme", "localhost" -> null
+ * e.g. "acme.agena.app" -> "acme", "localhost" -> null
  */
 export function getTenantSlug(): string | null {
   if (typeof window === 'undefined') return null;
   const hostname = window.location.hostname;
   const parts = hostname.split('.');
-  // Need at least 3 parts for a subdomain (e.g. acme.tiqr.app)
+  // Need at least 3 parts for a subdomain (e.g. acme.agena.app)
   if (parts.length < 3) return null;
   const sub = parts[0];
   // Ignore common non-tenant subdomains
@@ -79,7 +79,7 @@ export function useTenant() {
 
 /**
  * In production, redirect the user to their org's subdomain if they're
- * on the bare domain (tiqr.dev) or wrong subdomain.
+ * on the bare domain (agena.dev) or wrong subdomain.
  * On localhost, this is a no-op (subdomains don't work locally).
  */
 export function redirectToTenantSubdomain(slug: string): boolean {
@@ -93,7 +93,7 @@ export function redirectToTenantSubdomain(slug: string): boolean {
 
   // Build the target URL: slug.domain.tld
   const parts = hostname.split('.');
-  // Remove existing subdomain if any (e.g. wrong-slug.tiqr.dev → tiqr.dev)
+  // Remove existing subdomain if any (e.g. wrong-slug.agena.dev → agena.dev)
   const baseDomain = parts.length >= 3 ? parts.slice(1).join('.') : hostname;
   const port = window.location.port ? `:${window.location.port}` : '';
   const target = `${window.location.protocol}//${slug}.${baseDomain}${port}${window.location.pathname}`;

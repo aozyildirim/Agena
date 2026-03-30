@@ -424,8 +424,8 @@ async def save_preferences(
             try:
                 notif_svc._send_email(
                     email_addr,
-                    'You are invited to Tiqr',
-                    f'You have been invited to join an organization on Tiqr.\n\nVisit http://localhost:3010/invite to accept.',
+                    'You are invited to AGENA',
+                    f'You have been invited to join an organization on AGENA.\n\nVisit http://localhost:3010/invite to accept.',
                 )
             except Exception:
                 pass  # email sending is best-effort
@@ -578,7 +578,7 @@ async def scan_repo_profile(
         from services.repo_scanner import scan_repo, generate_agents_md, generate_package_mds
         scan_data = scan_repo(payload.local_path)
         agents_md_content = generate_agents_md(scan_data, payload.mapping_name)
-        # Save agents.md to Tiqr's data dir (org-scoped)
+        # Save agents.md to AGENA's data dir (org-scoped)
         _ab = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
         _od = _ab / f'org_{tenant.organization_id}'
         _od.mkdir(parents=True, exist_ok=True)

@@ -1,12 +1,12 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="tiqrFaviconStroke" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+    <linearGradient id="agenaFaviconStroke" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
       <stop stop-color="#22D3EE"/>
       <stop offset="1" stop-color="#14B8A6"/>
     </linearGradient>
   </defs>
 
-  <rect x="6" y="8" width="52" height="48" rx="10" fill="#0A1625" stroke="url(#tiqrFaviconStroke)" stroke-width="3"/>
+  <rect x="6" y="8" width="52" height="48" rx="10" fill="#0A1625" stroke="url(#agenaFaviconStroke)" stroke-width="3"/>
   <circle cx="6" cy="32" r="5" fill="#070F1A"/>
   <circle cx="58" cy="32" r="5" fill="#070F1A"/>
 

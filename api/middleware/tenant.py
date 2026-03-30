@@ -1,7 +1,7 @@
 """Subdomain-based tenant resolution middleware.
 
 Extracts the organization slug from the ``Host`` header (e.g.
-``acme.tiqr.app`` -> ``acme``) or from the ``X-Tenant-Slug`` header
+``acme.agena.app`` -> ``acme``) or from the ``X-Tenant-Slug`` header
 (useful for local development where real subdomains aren't available).
 
 The resolved ``organization_id`` is stored in ``request.state.tenant_org_id``
@@ -40,7 +40,7 @@ _BARE_HOST_RE = re.compile(
 
 
 def _extract_slug_from_host(host: str) -> str | None:
-    """Return the subdomain slug from a host like ``acme.tiqr.app:3010``.
+    """Return the subdomain slug from a host like ``acme.agena.app:3010``.
 
     Returns ``None`` when the host is a bare domain, IP, or localhost.
     """
@@ -48,7 +48,7 @@ def _extract_slug_from_host(host: str) -> str | None:
     hostname = host.split(':')[0]
     parts = hostname.split('.')
     if len(parts) < 3:
-        # e.g. "tiqr.app" or "localhost" -- no subdomain
+        # e.g. "agena.app" or "localhost" -- no subdomain
         return None
     subdomain = parts[0]
     if _BARE_HOST_RE.match(subdomain):

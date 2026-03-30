@@ -334,7 +334,7 @@ class CrewAIAgentRunner:
                     backstory.strip()
                     if backstory and backstory.strip()
                     else (
-                        f'You are {role} inside Tiqr. '
+                        f'You are {role} inside AGENA. '
                         'Follow the provided system instructions exactly and return only the requested output.'
                     )
                 ),
@@ -476,7 +476,7 @@ class CrewAIAgentRunner:
             return []
 
         result: list[str] = []
-        tmp_dir = Path(tempfile.gettempdir()) / 'tiqr-crewai-images'
+        tmp_dir = Path(tempfile.gettempdir()) / 'agena-crewai-images'
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         for raw in image_inputs:

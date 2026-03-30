@@ -22,4 +22,4 @@ Examples of unacceptable behavior:
 
 Project maintainers are responsible for clarifying and enforcing standards of acceptable behavior.
 
-Report incidents to: `security@tiqr.dev` (replace with your active address if needed).
+Report incidents to: `security@agena.dev` (replace with your active address if needed).

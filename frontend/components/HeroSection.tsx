@@ -8,7 +8,7 @@ export default function HeroSection() {
         From backlog ticket to reviewed GitHub PR automatically
       </h1>
       <p style={{ color: '#475467', maxWidth: 750 }}>
-        Tiqr orchestrates Product Manager, Developer, and Reviewer AI agents with tenant-safe pipelines, usage
+        AGENA orchestrates Product Manager, Developer, and Reviewer AI agents with tenant-safe pipelines, usage
         controls, and payment-ready SaaS billing.
       </p>
       <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>

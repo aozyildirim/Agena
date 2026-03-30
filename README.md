@@ -1,6 +1,6 @@
-[![Sponsor Tiqr](https://img.shields.io/badge/Sponsor-Tiqr-ff69b4?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/aozyildirim)
+[![Sponsor AGENA](https://img.shields.io/badge/Sponsor-AGENA-ff69b4?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/aozyildirim)
 
-# Tiqr AI Agent SaaS
+# AGENA — Autonomous Generative Agent Network Architecture
 
 Production-ready, multi-tenant AI agent orchestration platform built with FastAPI + CrewAI + LangGraph + Redis + MySQL, including GitHub PR automation and a Next.js 14 dashboard.
 
@@ -303,7 +303,7 @@ This repository is open-source under the MIT License.
 
 ## Donate / Sponsor
 
-If Tiqr helps your team, you can support development:
+If AGENA helps your team, you can support development:
 
 - GitHub Sponsors: https://github.com/sponsors/aozyildirim
 
@@ -311,6 +311,6 @@ After pushing this repo public, GitHub will also show a **Sponsor** button autom
 
 ---
 
-## Support Tiqr
+## Support AGENA
 
 Sponsor: https://github.com/sponsors/aozyildirim
