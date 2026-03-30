@@ -1041,6 +1041,9 @@ class TaskService:
             lines.append(f'Azure Repo: {azure_repo_url}')
         if repo_playbook and 'repo playbook' not in existing:
             lines.append(f'Repo Playbook: {repo_playbook}')
+        remote_repo = str(chosen.get('remote_repo') or '').strip()
+        if remote_repo and 'remote repo' not in existing:
+            lines.append(f'Remote Repo: {remote_repo}')
 
         if not lines:
             return False
