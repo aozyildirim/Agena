@@ -102,6 +102,75 @@ PYTHONPATH=. python3 scripts/export_openapi.py
 - Org-scoped integration credentials and settings
 - Repo mapping UX for Azure repo ↔ local path workflows
 
+## Screenshots
+
+### Boss Mode — Pixel Office
+Manage your AI team in a retro pixel-art office. Each agent is a character you can click, assign tasks, and monitor in real time.
+
+![Boss Mode](frontend/public/readmeimg/boss.png)
+
+### Agent Management
+Configure AI agents with different roles (Manager, PM, Lead Developer, Developer, QA). View performance analytics — flow coverage, activity share, latency, and success index per agent.
+
+![Agent Management](frontend/public/readmeimg/agentmanage.png)
+
+### Create Agent — Pick Character, Type & Model
+Three-step wizard: pick a pixel character and name, choose provider (OpenAI, Gemini, Codex CLI, Claude CLI, Custom), then select a model.
+
+| Step 1 — Character | Step 2 — Provider | Step 3 — Model |
+|---|---|---|
+| ![Pick Character](frontend/public/readmeimg/bossagentadd1.png) | ![Select Type](frontend/public/readmeimg/bossagentadd4.png) | ![Choose Model](frontend/public/readmeimg/bossagentadd2.png) |
+
+### Create Agent — Advanced (Agents Page)
+Full agent creation form with character picker, label, color, provider, model name, system prompt, Create PR toggle, and enable/disable switch.
+
+![Create Agent Advanced](frontend/public/readmeimg/createagent.png)
+
+### Agent Detail — Assign & Run Tasks
+Click any agent to see its config, assign sprint tasks or create new ones, and trigger runs directly.
+
+![Agent Detail](frontend/public/readmeimg/bossagentadd3.png)
+
+### AI Team Panel
+The sidebar shows all AI team members with their pixel avatars. Click "+" to add a new agent to the team.
+
+![AI Team](frontend/public/readmeimg/bossagent.png)
+
+### Agent Flows — Visual Pipeline Builder
+Drag-and-drop flow editor with nodes for PM Analysis, Technical Plan, Development, and QA Test. Includes approval gates, run history, version control, dry run, and flow templates.
+
+![Agent Flows](frontend/public/readmeimg/flow.png)
+
+### Sprint Board
+Kanban-style board with color-coded columns per state (Backlog, Blocked, Ready for Production, UAT, Code Review, Done). Import tasks directly from Azure DevOps or Jira sprints.
+
+![Sprint Board](frontend/public/readmeimg/Sprintboard.png)
+
+### Sprint Performance
+Team health dashboard with circular gauge score, timeline progress, completion tracking, and per-member expandable cards showing individual task status (green/yellow/red).
+
+![Sprint Performance](frontend/public/readmeimg/sprintperformance.png)
+
+### Task Feed — Create & Manage
+Create tasks with title, description, story context, acceptance criteria, edge cases, and cost guardrails. Filter by status (New, Queued, Running, Completed, Failed) and source (Azure, Jira).
+
+![Task Feed](frontend/public/readmeimg/new_task.png)
+
+### Task Deletion Confirmation
+Safe deletion modal with task title preview and confirmation step.
+
+![Delete Task](frontend/public/readmeimg/delete_task.png)
+
+### Repo Mappings
+Map Azure DevOps repositories to local paths for code generation. Scan repos and auto-generate agent configuration files.
+
+![Repo Mappings](frontend/public/readmeimg/repomapp.png)
+
+### Team Member Selection
+Search and select team members from your Azure DevOps or Jira organization to track sprint performance.
+
+![Select Team Members](frontend/public/readmeimg/selectteammembers.png)
+
 ## Architecture
 
 Task Fetch/Create -> Save TaskRecord -> Queue Redis -> Worker -> Agent Pipeline -> GitHub PR -> Save Result + Logs + Usage
