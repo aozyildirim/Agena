@@ -59,7 +59,8 @@ class AzureDevOpsClient:
                 org_url=org_url,
                 fields_param=(
                     'System.Id,System.Title,System.Description,'
-                    'System.AssignedTo,System.CreatedDate,Microsoft.VSTS.Common.ActivatedDate'
+                    'System.AssignedTo,System.CreatedDate,Microsoft.VSTS.Common.ActivatedDate,'
+                    'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
                 ),
             )
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
@@ -102,7 +103,8 @@ class AzureDevOpsClient:
                     'System.AssignedTo,System.CreatedDate,Microsoft.VSTS.Common.ActivatedDate,'
                     'System.WorkItemType,System.IterationPath,'
                     'Microsoft.VSTS.Scheduling.StoryPoints,Microsoft.VSTS.Scheduling.Effort,'
-                    'Microsoft.VSTS.Scheduling.Size'
+                    'Microsoft.VSTS.Scheduling.Size,'
+                    'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
                 ),
             )
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
@@ -210,10 +212,17 @@ class AzureDevOpsClient:
                 project=(fields.get('System.TeamProject') or project or ''),
                 item_id=item_id,
             )
+        description_parts = [
+            str(fields.get('System.Description') or '').strip(),
+            str(fields.get('Microsoft.VSTS.Common.AcceptanceCriteria') or '').strip(),
+            str(fields.get('Microsoft.VSTS.TCM.ReproSteps') or '').strip(),
+        ]
+        merged_description = '\n\n'.join(part for part in description_parts if part)
+
         return ExternalTask(
             id=item_id,
             title=fields.get('System.Title', ''),
-            description=fields.get('System.Description', '') or '',
+            description=merged_description,
             source='azure',
             state=fields.get('System.State'),
             assigned_to=assigned_to,
