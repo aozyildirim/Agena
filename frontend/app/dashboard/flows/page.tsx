@@ -519,7 +519,7 @@ export default function FlowsPage() {
       )}
 
       {/* Canvas + Run History */}
-      <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0, overflow: 'hidden' }}>
+      <div className="flow-canvas-area" style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0, overflow: 'hidden' }}>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {current ? (
             <FlowCanvas flow={current} onChange={updateFlow} />
