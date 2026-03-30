@@ -24,6 +24,7 @@ type ExternalTask = {
   title: string;
   description?: string;
   source: string;
+  web_url?: string | null;
   state?: string | null;
   assigned_to?: string | null;
   story_points?: number | null;
@@ -379,6 +380,7 @@ export default function RefinementPage() {
   const [autoFocusResults, setAutoFocusResults] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [writebackItemId, setWritebackItemId] = useState('');
+  const [confirmWritebackItemId, setConfirmWritebackItemId] = useState('');
   const [commentSignature, setCommentSignature] = useState('Tiqr AI');
   const [focusedResultId, setFocusedResultId] = useState('');
   const availableModels = useMemo(() => modelsForProvider(agentProvider), [agentProvider]);
@@ -643,8 +645,6 @@ export default function RefinementPage() {
   const runWritebackForItem = useCallback(async (itemId: string) => {
     const row = (results?.results || []).find((item) => item.item_id === itemId && !item.error);
     if (!row) return;
-    const confirmed = window.confirm(provider === 'azure' ? copy.confirmAzure : copy.confirmJira);
-    if (!confirmed) return;
     setWritebackItemId(itemId);
     setError('');
     setRunMessage(null);
@@ -693,7 +693,13 @@ export default function RefinementPage() {
     } finally {
       setWritebackItemId('');
     }
-  }, [results, provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, commentSignature, jiraBoard, jiraSprint, selectedJiraSprint, copy.confirmAzure, copy.confirmJira]);
+  }, [results, provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, commentSignature, jiraBoard, jiraSprint, selectedJiraSprint]);
+
+  const requestWritebackForItem = useCallback((itemId: string) => {
+    const row = (results?.results || []).find((item) => item.item_id === itemId && !item.error);
+    if (!row) return;
+    setConfirmWritebackItemId(itemId);
+  }, [results]);
 
   const sortedItems = useMemo(() => {
     const items = itemsData?.items || [];
@@ -930,6 +936,7 @@ export default function RefinementPage() {
                 {sortedItems.map((item) => {
                   const estimated = hasEstimate(item);
                   const checked = selectedIds.includes(item.id);
+                  const itemSourceUrl = resultByItemId.get(item.id)?.item_url || item.web_url || '';
                   return (
                     <tr key={item.id} style={{ background: checked ? 'rgba(59,130,246,0.08)' : 'transparent' }}>
                       <td style={tdStyle}>
@@ -957,7 +964,7 @@ export default function RefinementPage() {
                             <button
                               type='button'
                               style={{ ...ghostButton, padding: '4px 8px', fontSize: 11 }}
-                              onClick={() => void runWritebackForItem(item.id)}
+                              onClick={() => requestWritebackForItem(item.id)}
                               disabled={writebackItemId === item.id}
                               title={provider === 'azure' ? copy.writeback : copy.writeback}
                             >
@@ -967,7 +974,13 @@ export default function RefinementPage() {
                         ) : '-'}
                       </td>
                       <td style={{ ...tdStyle, minWidth: 360 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
+                        {itemSourceUrl ? (
+                          <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ fontWeight: 600, color: '#93c5fd', textDecoration: 'none' }}>
+                            {item.title}
+                          </a>
+                        ) : (
+                          <div style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
+                        )}
                         {item.refined_before && (
                           <div style={{ fontSize: 12, color: '#fde68a', marginTop: 4 }}>
                             Daha once yorumlandi ({item.refinement_count || 1})
@@ -1000,7 +1013,13 @@ export default function RefinementPage() {
                 {results.results.map((item) => (
                   <div key={`${item.item_id}-summary`} style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.03)', padding: 14, display: 'grid', gap: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.4 }}>{item.title}</div>
+                    {item.item_url ? (
+                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 15, fontWeight: 700, color: '#93c5fd', lineHeight: 1.4, textDecoration: 'none' }}>
+                        {item.title}
+                      </a>
+                    ) : (
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.4 }}>{item.title}</div>
+                    )}
                     {item.item_url && (
                       <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#93c5fd', textDecoration: 'none' }}>
                         {copy.openSource}
@@ -1021,7 +1040,13 @@ export default function RefinementPage() {
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
-                    <h3 style={{ margin: '4px 0 0', fontSize: 18, color: 'var(--ink-90)' }}>{item.title}</h3>
+                    {item.item_url ? (
+                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ margin: '4px 0 0', fontSize: 18, color: '#93c5fd', textDecoration: 'none', fontWeight: 700, display: 'inline-block' }}>
+                        {item.title}
+                      </a>
+                    ) : (
+                      <h3 style={{ margin: '4px 0 0', fontSize: 18, color: 'var(--ink-90)' }}>{item.title}</h3>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <span style={resultPill}>{copy.suggestedEstimate}: {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}</span>
@@ -1105,6 +1130,35 @@ export default function RefinementPage() {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmWritebackItemId && (
+        <div style={modalOverlay} onClick={() => setConfirmWritebackItemId('')}>
+          <div style={{ ...modalCard, width: 'min(520px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
+              {provider === 'azure' ? copy.confirmAzure : copy.confirmJira}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-35)', fontFamily: 'monospace' }}>
+              {confirmWritebackItemId}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type='button' style={ghostButton} onClick={() => setConfirmWritebackItemId('')}>
+                {copy.close}
+              </button>
+              <button
+                type='button'
+                style={secondaryButton}
+                onClick={() => {
+                  const itemId = confirmWritebackItemId;
+                  setConfirmWritebackItemId('');
+                  void runWritebackForItem(itemId);
+                }}
+              >
+                {copy.writeShort}
+              </button>
             </div>
           </div>
         </div>
