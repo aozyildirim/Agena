@@ -1923,7 +1923,7 @@ input:focus, textarea:focus {
   }
   .dashboard-main {
     margin-left: 0 !important;
-    padding: 16px 12px !important;
+    padding: 48px 12px 16px !important;
   }
   .dash-grid-responsive {
     grid-template-columns: 1fr !important;

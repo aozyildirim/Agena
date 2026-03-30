@@ -366,16 +366,17 @@ function DashboardInner({ children }: { children: ReactNode }) {
   return (
     <RoleContext.Provider value={{ role: userRole }}>
     <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 72 }}>
-      {/* Mobile sidebar toggle */}
+      {/* Mobile sidebar toggle — fixed in top-left, below navbar */}
       <button
         className='dashboard-sidebar-toggle'
         onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         style={{
-          display: 'none', position: 'fixed', top: 80, left: 8, zIndex: 60,
-          width: 36, height: 36, borderRadius: 10,
-          border: '1px solid var(--panel-border-2)', background: 'var(--surface)',
-          color: 'var(--ink-65)', cursor: 'pointer',
-          alignItems: 'center', justifyContent: 'center', fontSize: 18,
+          display: 'none', position: 'fixed', top: 78, left: 6, zIndex: 60,
+          width: 32, height: 32, borderRadius: 8,
+          border: '1px solid var(--panel-border-3)', background: 'var(--surface)',
+          color: 'var(--ink-58)', cursor: 'pointer',
+          alignItems: 'center', justifyContent: 'center', fontSize: 15,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         }}
       >
         {mobileSidebarOpen ? '✕' : '☰'}

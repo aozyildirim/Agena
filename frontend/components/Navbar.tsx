@@ -22,17 +22,15 @@ export default function Navbar() {
     setMenuOpen(false);
   }, [pathname]);
 
-  const isDashboard = pathname.startsWith('/dashboard');
-
   return (
     <header className='navbar-shell'>
       <div className='container navbar-inner'>
-        <Link href={isDashboard ? '/dashboard' : '/'} title={t('tooltip.nav.home')} style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink)', textDecoration: 'none', flexShrink: 0 }}>
+        <Link href='/' title={t('tooltip.nav.home')} style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink)', textDecoration: 'none', flexShrink: 0 }}>
           <img src='/media/agena-logo.svg' alt='AGENA' className='navbar-wordmark' />
         </Link>
 
-        {/* Desktop nav — hidden on dashboard (has its own sidebar) */}
-        {!isDashboard && <nav className='navbar-desktop' style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        {/* Desktop nav */}
+        <nav className='navbar-desktop' style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <LangToggle style={{ marginRight: 4 }} />
           <ThemeToggle style={{ marginRight: 4 }} />
           <span className='chip' style={{ marginRight: 8 }}>{t('nav.aiOrchestration')}</span>
@@ -73,10 +71,10 @@ export default function Navbar() {
               </Link>
             </>
           )}
-        </nav>}
+        </nav>
 
-        {/* Mobile controls — hidden on dashboard */}
-        {!isDashboard && <div className='navbar-mobile-controls'>
+        {/* Mobile controls */}
+        <div className='navbar-mobile-controls'>
           <LangToggle />
           <ThemeToggle />
           <button
@@ -92,11 +90,11 @@ export default function Navbar() {
               )}
             </svg>
           </button>
-        </div>}
+        </div>
       </div>
 
       {/* Mobile menu dropdown */}
-      {!isDashboard && menuOpen && (
+      {menuOpen && (
         <div className='navbar-mobile-menu'>
           <span className='chip' style={{ marginBottom: 8, alignSelf: 'flex-start' }}>{t('nav.aiOrchestration')}</span>
           <a
