@@ -142,6 +142,8 @@ type Copy = {
   writebackRunning: string;
   signature: string;
   openSource: string;
+  result: string;
+  openResult: string;
 };
 
 const COPY: Record<'tr' | 'en', Copy> = {
@@ -201,6 +203,8 @@ const COPY: Record<'tr' | 'en', Copy> = {
     writebackRunning: 'Yaziliyor...',
     signature: 'Yorum imzasi',
     openSource: 'Kaynagi Ac',
+    result: 'Sonuc',
+    openResult: 'Sonucu Ac',
   },
   en: {
     section: 'Refinement',
@@ -258,6 +262,8 @@ const COPY: Record<'tr' | 'en', Copy> = {
     writebackRunning: 'Writing...',
     signature: 'Comment signature',
     openSource: 'Open Source',
+    result: 'Result',
+    openResult: 'Open Result',
   },
 };
 
@@ -322,6 +328,11 @@ function defaultSprint(list: Opt[], provider: Provider): string {
   );
 }
 
+function buildSnapshotKey(provider: Provider, sprintRef: string): string {
+  const clean = (sprintRef || 'unknown').replace(/\s+/g, '_');
+  return `tiqr_refinement_snapshot_${provider}_${clean}`;
+}
+
 export default function RefinementPage() {
   const { lang } = useLocale();
   const copy = lang === 'tr' ? COPY.tr : COPY.en;
@@ -357,6 +368,7 @@ export default function RefinementPage() {
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [writebackRunning, setWritebackRunning] = useState(false);
   const [commentSignature, setCommentSignature] = useState('Tiqr AI');
+  const [focusedResultId, setFocusedResultId] = useState('');
   const availableModels = useMemo(() => modelsForProvider(agentProvider), [agentProvider]);
 
   const selectedAzureSprint = useMemo(
@@ -674,6 +686,38 @@ export default function RefinementPage() {
     return [...items].sort((a, b) => Number(hasEstimate(a)) - Number(hasEstimate(b)) || a.title.localeCompare(b.title));
   }, [itemsData]);
 
+  const resultByItemId = useMemo(() => {
+    const map = new Map<string, RefinementSuggestion>();
+    for (const row of results?.results || []) map.set(row.item_id, row);
+    return map;
+  }, [results]);
+
+  useEffect(() => {
+    if (!itemsData || !results) return;
+    const key = buildSnapshotKey(itemsData.provider, itemsData.sprint_ref);
+    const payload = {
+      saved_at: Date.now(),
+      itemsData,
+      results,
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
+  }, [itemsData, results]);
+
+  useEffect(() => {
+    const sprintRef = provider === 'azure' ? azureSprint : jiraSprint;
+    if (!sprintRef) return;
+    const key = buildSnapshotKey(provider, sprintRef);
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as { itemsData?: RefinementItemsResponse; results?: RefinementAnalyzeResponse };
+      if (parsed.itemsData?.items?.length) setItemsData(parsed.itemsData);
+      if (parsed.results?.results?.length) setResults(normalizeAnalyzeResponse(parsed.results));
+    } catch {
+      // ignore corrupted snapshot
+    }
+  }, [provider, azureSprint, jiraSprint, normalizeAnalyzeResponse]);
+
   return (
     <div style={{ display: 'grid', gap: 18, maxWidth: 1200 }}>
       <div>
@@ -800,7 +844,7 @@ export default function RefinementPage() {
             <button onClick={() => void runRefinement()} style={secondaryButton} disabled={running || !selectedIds.length}>
               {running ? copy.analyzing : copy.analyze}
             </button>
-            <button onClick={() => setResultsModalOpen(true)} style={ghostButton} disabled={!results?.results.length}>
+            <button onClick={() => { setFocusedResultId(''); setResultsModalOpen(true); }} style={ghostButton} disabled={!results?.results.length}>
               {copy.openResults}
             </button>
             <button onClick={() => void runWriteback()} style={ghostButton} disabled={writebackRunning || !(results?.results || []).length}>
@@ -870,6 +914,7 @@ export default function RefinementPage() {
                   <th style={thStyle}>{copy.type}</th>
                   <th style={thStyle}>{copy.state}</th>
                   <th style={thStyle}>{copy.estimate}</th>
+                  <th style={thStyle}>{copy.result}</th>
                   <th style={thStyle}>Title</th>
                 </tr>
               </thead>
@@ -887,6 +932,20 @@ export default function RefinementPage() {
                       <td style={tdStyle}>{item.state || '-'}</td>
                       <td style={tdStyle}>
                         <span style={estimated ? estimatedPill : unestimatedPill}>{displayEstimate(item)}</span>
+                      </td>
+                      <td style={tdStyle}>
+                        {resultByItemId.has(item.id) ? (
+                          <button
+                            type='button'
+                            style={{ ...ghostButton, padding: '6px 10px', fontSize: 12 }}
+                            onClick={() => {
+                              setFocusedResultId(item.id);
+                              setResultsModalOpen(true);
+                            }}
+                          >
+                            {copy.openResult}
+                          </button>
+                        ) : '-'}
                       </td>
                       <td style={{ ...tdStyle, minWidth: 360 }}>
                         <div style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
@@ -979,14 +1038,16 @@ export default function RefinementPage() {
       </div>
 
       {resultsModalOpen && (
-        <div style={modalOverlay} onClick={() => setResultsModalOpen(false)}>
+        <div style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
           <div style={modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</div>
-              <button type='button' style={ghostButton} onClick={() => setResultsModalOpen(false)}>{copy.close}</button>
+              <button type='button' style={ghostButton} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>{copy.close}</button>
             </div>
             <div style={{ display: 'grid', gap: 12, maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
-              {(results?.results || []).map((item) => (
+              {(results?.results || [])
+                .filter((item) => !focusedResultId || item.item_id === focusedResultId)
+                .map((item) => (
                 <div key={`modal-${item.item_id}`} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.02)', padding: 14, display: 'grid', gap: 10 }}>
                   <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{item.title}</div>
