@@ -1342,19 +1342,25 @@ class OrchestrationService:
             except Exception:
                 pass
 
+        remote_repo = meta.get('remote repo') or None
+        # If remote repo is set, ignore local repo path (remote takes priority)
+        local_repo_path = meta.get('local repo path') or None
+        if remote_repo:
+            local_repo_path = None
+
         return TaskRouting(
             effective_source=effective_source,
             external_source=external_source,
             azure_project=azure_project,
             azure_repo_url=azure_repo_url,
             local_repo_mapping=meta.get('local repo mapping') or None,
-            local_repo_path=meta.get('local repo path') or None,
+            local_repo_path=local_repo_path,
             repo_playbook=meta.get('repo playbook') or None,
             preferred_agent=meta.get('preferred agent') or None,
             preferred_agent_provider=meta.get('preferred agent provider') or None,
             preferred_agent_model=meta.get('preferred agent model') or None,
             execution_prompt=meta.get('execution prompt') or None,
-            remote_repo=meta.get('remote repo') or None,
+            remote_repo=remote_repo,
         )
 
     def _can_create_github_pr(self) -> bool:

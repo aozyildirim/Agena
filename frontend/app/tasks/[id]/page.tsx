@@ -512,12 +512,11 @@ export default function TaskDetailPage() {
     }
   }
 
-  async function rerunTask(extraDesc?: string) {
+  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean }) {
     if (!taskId) return;
     try {
       setIsRerunBusy(true);
       setShowRunConfig(false);
-      // If extra config provided, append to description
       if (extraDesc) {
         await apiFetch('/tasks/' + taskId, {
           method: 'PATCH',
@@ -527,10 +526,10 @@ export default function TaskDetailPage() {
       await apiFetch('/tasks/' + taskId + '/assign', {
         method: 'POST',
         body: JSON.stringify({
-          create_pr: defaultCreatePr,
+          create_pr: agentOpts?.createPr ?? defaultCreatePr,
           mode: task?.last_mode || 'ai',
-          agent_model: task?.preferred_agent_model || undefined,
-          agent_provider: task?.preferred_agent_provider || undefined,
+          agent_model: agentOpts?.model || task?.preferred_agent_model || undefined,
+          agent_provider: agentOpts?.provider || task?.preferred_agent_provider || undefined,
         }),
       });
       setSelectedRunIndex(-1);
@@ -1198,7 +1197,7 @@ export default function TaskDetailPage() {
       {showRunConfig && (
         <RunConfigModal
           task={task}
-          onRun={(extraDesc) => void rerunTask(extraDesc)}
+          onRun={(extraDesc, agentOpts) => void rerunTask(extraDesc, agentOpts)}
           onClose={() => setShowRunConfig(false)}
         />
       )}
@@ -1208,7 +1207,7 @@ export default function TaskDetailPage() {
 
 function RunConfigModal({ task, onRun, onClose }: {
   task: TaskDetail | null;
-  onRun: (extraDesc?: string) => void;
+  onRun: (extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean }) => void;
   onClose: () => void;
 }) {
   const { t } = useLocale();
@@ -1230,7 +1229,10 @@ function RunConfigModal({ task, onRun, onClose }: {
       if (agentProvider) parts.push(`Preferred Agent Provider: ${agentProvider}`);
       if (agentModel) parts.push(`Preferred Agent Model: ${agentModel}`);
     }
-    onRun(parts.length > 0 ? parts.join('\n') : undefined);
+    onRun(
+      parts.length > 0 ? parts.join('\n') : undefined,
+      { provider: agentProvider || undefined, model: agentModel || undefined, createPr },
+    );
   }
 
   const providers = [
