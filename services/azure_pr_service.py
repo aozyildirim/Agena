@@ -157,6 +157,102 @@ class AzurePRService:
         web = (links.get('web') or {}).get('href') if isinstance(links, dict) else None
         return web or pr.get('url') or None
 
+    async def push_files_and_create_pr(
+        self,
+        organization_id: int,
+        *,
+        project: str,
+        repo_name: str,
+        branch_name: str,
+        target_branch: str,
+        title: str,
+        description: str,
+        files: list[dict],
+        commit_message: str,
+    ) -> str:
+        """Push file changes via Azure Pushes API and create a PR — no local repo needed."""
+        config = await IntegrationConfigService(self.db).get_config(organization_id, 'azure')
+        if config is None or not config.secret:
+            raise ValueError('Azure integration not configured')
+        org_url = config.base_url.rstrip('/')
+        headers = self._headers(config.secret)
+
+        # 1. Get latest commit on target branch
+        refs_api = (
+            f'{org_url}/{project}/_apis/git/repositories/{repo_name}'
+            f'/refs?filter=heads/{target_branch}&api-version=7.1-preview.1'
+        )
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(refs_api, headers=headers)
+            r.raise_for_status()
+        refs = r.json().get('value', [])
+        if not refs:
+            raise ValueError(f'Target branch {target_branch} not found in {project}/{repo_name}')
+        old_object_id = refs[0]['objectId']
+
+        # 2. Build push payload with file changes
+        changes = []
+        for f in files:
+            path = f.get('path', '')
+            content = f.get('content', '')
+            if not path or not content:
+                continue
+            # Ensure path starts with /
+            if not path.startswith('/'):
+                path = '/' + path
+            changes.append({
+                'changeType': 'edit',  # edit existing or add new
+                'item': {'path': path},
+                'newContent': {
+                    'content': content,
+                    'contentType': 'rawtext',
+                },
+            })
+        if not changes:
+            raise ValueError('No file changes to push')
+
+        push_api = (
+            f'{org_url}/{project}/_apis/git/repositories/{repo_name}'
+            f'/pushes?api-version=7.1-preview.2'
+        )
+        push_payload = {
+            'refUpdates': [{
+                'name': f'refs/heads/{branch_name}',
+                'oldObjectId': old_object_id,
+            }],
+            'commits': [{
+                'comment': commit_message,
+                'changes': changes,
+            }],
+        }
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(push_api, headers=headers, json=push_payload)
+            if r.status_code == 409:
+                # Branch may already exist — get its latest commit and retry
+                branch_refs_api = (
+                    f'{org_url}/{project}/_apis/git/repositories/{repo_name}'
+                    f'/refs?filter=heads/{branch_name}&api-version=7.1-preview.1'
+                )
+                br = await client.get(branch_refs_api, headers=headers)
+                if br.status_code == 200:
+                    branch_refs = br.json().get('value', [])
+                    if branch_refs:
+                        push_payload['refUpdates'][0]['oldObjectId'] = branch_refs[0]['objectId']
+                        r = await client.post(push_api, headers=headers, json=push_payload)
+            r.raise_for_status()
+
+        # 3. Create PR
+        repo_url = f'{org_url}/{project}/_git/{repo_name}'
+        return await self.create_pr(
+            organization_id,
+            project=project,
+            repo_url=repo_url,
+            source_branch=branch_name,
+            target_branch=target_branch,
+            title=title,
+            description=description,
+        )
+
     def _headers(self, pat: str) -> dict[str, str]:
         token = base64.b64encode(f':{pat}'.encode()).decode()
         return {'Authorization': f'Basic {token}', 'Content-Type': 'application/json'}

@@ -711,6 +711,96 @@ class OrchestrationService:
                             'pr',
                             'Local push completed but PR target was not resolved from task mapping',
                         )
+            elif create_pr and routing.remote_repo and routing.remote_repo.startswith('azure:'):
+                # Remote mode: push files via Azure API and create PR
+                try:
+                    spec = routing.remote_repo[len('azure:'):]
+                    remote_branch = 'main'
+                    if '@' in spec:
+                        spec, remote_branch = spec.rsplit('@', 1)
+                    remote_project, remote_repo_name = spec.split('/', 1)
+                    await task_service.add_log(task.id, organization_id, 'pr',
+                        f'Pushing {len(pr_payload.files)} file(s) to Azure via API: {remote_project}/{remote_repo_name}')
+                    pr_url = await self.azure_pr_service.push_files_and_create_pr(
+                        organization_id,
+                        project=remote_project,
+                        repo_name=remote_repo_name,
+                        branch_name=pr_payload.branch_name,
+                        target_branch=remote_branch,
+                        title=pr_payload.title,
+                        description=pr_payload.body,
+                        files=[{'path': f.path, 'content': f.content} for f in pr_payload.files],
+                        commit_message=pr_payload.commit_message,
+                    )
+                    branch_name = pr_payload.branch_name
+                    await task_service.add_log(task.id, organization_id, 'pr', f'Azure PR created: {pr_url}')
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_created',
+                        title=f'PR created for task #{task.id}',
+                        message=pr_url or 'Azure PR created',
+                        severity='success',
+                        task_id=task.id,
+                        payload={'pr_url': pr_url},
+                    )
+                except Exception as pr_exc:
+                    await task_service.add_log(task.id, organization_id, 'pr',
+                        f'Azure remote PR failed: {str(pr_exc)[:300]}')
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_failed',
+                        title=f'PR failed for task #{task.id}',
+                        message=str(pr_exc)[:240],
+                        severity='error',
+                        task_id=task.id,
+                    )
+            elif create_pr and routing.remote_repo and routing.remote_repo.startswith('github:'):
+                # Remote mode: push files via GitHub API and create PR
+                try:
+                    spec = routing.remote_repo[len('github:'):]
+                    remote_branch = 'main'
+                    if '@' in spec:
+                        spec, remote_branch = spec.rsplit('@', 1)
+                    gh_owner, gh_repo = spec.split('/', 1)
+                    await task_service.add_log(task.id, organization_id, 'pr',
+                        f'Pushing {len(pr_payload.files)} file(s) to GitHub via API: {gh_owner}/{gh_repo}')
+                    pr_url = await self.github_service.push_files_and_create_pr(
+                        owner=gh_owner,
+                        repo=gh_repo,
+                        branch_name=pr_payload.branch_name,
+                        target_branch=remote_branch,
+                        title=pr_payload.title,
+                        body=pr_payload.body,
+                        files=[{'path': f.path, 'content': f.content} for f in pr_payload.files],
+                        commit_message=pr_payload.commit_message,
+                        organization_id=organization_id,
+                    )
+                    branch_name = pr_payload.branch_name
+                    await task_service.add_log(task.id, organization_id, 'pr', f'GitHub PR created: {pr_url}')
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_created',
+                        title=f'PR created for task #{task.id}',
+                        message=pr_url or 'GitHub PR created',
+                        severity='success',
+                        task_id=task.id,
+                        payload={'pr_url': pr_url},
+                    )
+                except Exception as pr_exc:
+                    await task_service.add_log(task.id, organization_id, 'pr',
+                        f'GitHub remote PR failed: {str(pr_exc)[:300]}')
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_failed',
+                        title=f'PR failed for task #{task.id}',
+                        message=str(pr_exc)[:240],
+                        severity='error',
+                        task_id=task.id,
+                    )
             elif create_pr and routing.effective_source == 'azure':
                 await task_service.add_log(
                     task.id,
