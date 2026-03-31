@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
-import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
+import RemoteRepoSelector, { type RemoteRepoSelection, type RepoDefault } from '@/components/RemoteRepoSelector';
 import { useLocale } from '@/lib/i18n';
 
 type TaskDetail = {
@@ -504,12 +504,8 @@ export default function TaskDetailPage() {
     // Check if task already has repo config in description
     const desc = (task?.description || '').toLowerCase();
     const hasRepo = desc.includes('local repo path') || desc.includes('remote repo');
-    const hasAgent = Boolean(task?.preferred_agent_provider || task?.preferred_agent_model);
-    if (hasRepo && hasAgent) {
-      void rerunTask();
-    } else {
-      setShowRunConfig(true);
-    }
+    // Always show run config so user can pick model/provider each time
+    setShowRunConfig(true);
   }
 
   async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean }) {
@@ -1206,23 +1202,35 @@ function RunConfigModal({ task, onRun, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useLocale();
+
+  // Parse previous repo selection from task description
+  const rawDesc = task?.description || '';
+  const repoDefault = (() => {
+    // azure:Project/Repo@branch or Remote Repo: azure:Project/Repo@branch
+    const azureMetaMatch = rawDesc.match(/(?:Remote Repo:\s*)?azure:([^/]+)\/([^@\s]+)@(\S+)/);
+    if (azureMetaMatch) return { provider: 'azure' as const, project: azureMetaMatch[1], repo: azureMetaMatch[2], branch: azureMetaMatch[3] };
+    // Azure Repo URL → extract project + repo name
+    const azureUrlMatch = rawDesc.match(/Azure Repo:\s*https?:\/\/\S+\/([^/]+)\/_git\/(\S+)/);
+    const azureProjectMatch = rawDesc.match(/Project:\s*(.+)/);
+    if (azureUrlMatch) return { provider: 'azure' as const, project: azureProjectMatch?.[1]?.trim() || azureUrlMatch[1], repo: azureUrlMatch[2].trim() };
+    // github:owner/repo@branch
+    const ghMatch = rawDesc.match(/(?:Remote Repo:\s*)?github:([^@\s]+)@(\S+)/);
+    if (ghMatch) return { provider: 'github' as const, repo: ghMatch[1], branch: ghMatch[2] };
+    return null;
+  })() as RepoDefault | null;
+
   const [repoSel, setRepoSel] = useState<RemoteRepoSelection | null>(null);
-  const [agentProvider, setAgentProvider] = useState(task?.preferred_agent_provider || 'openai');
+  const [agentProvider, setAgentProvider] = useState(task?.preferred_agent_provider || 'gemini');
   const [agentModel, setAgentModel] = useState(task?.preferred_agent_model || '');
   const [createPr, setCreatePr] = useState(true);
 
-  const desc = (task?.description || '').toLowerCase();
-  const hasRepo = desc.includes('local repo path') || desc.includes('remote repo');
-  const hasAgent = Boolean(task?.preferred_agent_provider);
+  const desc = rawDesc.toLowerCase();
+  const hasRepo = desc.includes('local repo path') || desc.includes('remote repo') || desc.includes('azure repo');
 
   function handleRun() {
     const parts: string[] = [];
-    if (!hasRepo && repoSel) {
+    if (repoSel) {
       parts.push(`Remote Repo: ${repoSel.meta}`);
-    }
-    if (!hasAgent) {
-      if (agentProvider) parts.push(`Preferred Agent Provider: ${agentProvider}`);
-      if (agentModel) parts.push(`Preferred Agent Model: ${agentModel}`);
     }
     onRun(
       parts.length > 0 ? parts.join('\n') : undefined,
@@ -1254,48 +1262,34 @@ function RunConfigModal({ task, onRun, onClose }: {
             <strong style={{ color: 'var(--ink-78)' }}>#{task?.id}</strong> {task?.title}
           </div>
 
-          {/* Repo selection */}
-          {!hasRepo && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Target Repository</div>
-              <RemoteRepoSelector onChange={setRepoSel} />
+          {/* Repo selection – always shown so user can change repo on rerun */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
+              Target Repository {hasRepo && <span style={{ fontSize: 9, color: 'var(--ink-25)', fontWeight: 400 }}>(already configured — select to override)</span>}
             </div>
-          )}
-          {hasRepo && (
-            <div style={{ fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
-              Repo configured
-            </div>
-          )}
+            <RemoteRepoSelector onChange={setRepoSel} defaultValue={repoDefault} />
+          </div>
 
-          {/* Agent selection */}
-          {!hasAgent && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Agent / Model</div>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-                {providers.map((p) => (
-                  <button key={p.value} onClick={() => { setAgentProvider(p.value); setAgentModel(p.models[0] || ''); }}
-                    style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                      border: agentProvider === p.value ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
-                      background: agentProvider === p.value ? 'rgba(94,234,212,0.12)' : 'transparent',
-                      color: agentProvider === p.value ? '#5eead4' : 'var(--ink-45)' }}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              <select value={agentModel} onChange={(e) => setAgentModel(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}>
-                <option value=''>Select model...</option>
-                {currentModels.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+          {/* Agent selection – always shown so user can change model on rerun */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Agent / Model</div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+              {providers.map((p) => (
+                <button key={p.value} onClick={() => { setAgentProvider(p.value); setAgentModel(p.models[0] || ''); }}
+                  style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    border: agentProvider === p.value ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                    background: agentProvider === p.value ? 'rgba(94,234,212,0.12)' : 'transparent',
+                    color: agentProvider === p.value ? '#5eead4' : 'var(--ink-45)' }}>
+                  {p.label}
+                </button>
+              ))}
             </div>
-          )}
-          {hasAgent && (
-            <div style={{ fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
-              Agent: {task?.preferred_agent_provider} / {task?.preferred_agent_model}
-            </div>
-          )}
+            <select value={agentModel} onChange={(e) => setAgentModel(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}>
+              <option value=''>Select model...</option>
+              {currentModels.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
 
           {/* Create PR toggle */}
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-65)', cursor: 'pointer' }}>
@@ -1311,7 +1305,7 @@ function RunConfigModal({ task, onRun, onClose }: {
             </button>
             <button onClick={handleRun}
               disabled={!hasRepo && !repoSel}
-              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel) ? 0.5 : 1 }}>
+              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel) ? 0.5 : 1, minHeight: 38 }}>
               Run Task
             </button>
           </div>

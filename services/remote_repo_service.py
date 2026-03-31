@@ -29,7 +29,7 @@ IGNORE_DIRS = {
 }
 IGNORE_FILES = {'go.sum', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'}
 MAX_FILE_SIZE = 200_000  # skip files larger than 200KB
-MAX_TOTAL_CHARS = 1_500_000
+MAX_TOTAL_CHARS = 120_000  # ~30K tokens — keeps context within LLM-friendly limits
 
 
 class RemoteRepoService:

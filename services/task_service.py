@@ -938,22 +938,38 @@ class TaskService:
             select(UserPreference).where(UserPreference.user_id == user_id)
         )
         pref = pref_result.scalar_one_or_none()
-        if pref is None or not pref.agents_json:
+        if pref is None:
             return None, None
-        try:
-            agents = json.loads(pref.agents_json)
-            dev_agent = next(
-                (a for a in agents if str(a.get('role', '')).lower() == 'developer' and a.get('enabled', True)),
-                None,
-            )
-            if not dev_agent:
-                return None, None
-            return (
-                str(dev_agent.get('custom_model') or dev_agent.get('model') or '').strip() or None,
-                str(dev_agent.get('provider') or '').strip() or None,
-            )
-        except Exception:
-            return None, None
+
+        model: str | None = None
+        provider: str | None = None
+
+        # Try developer agent config first
+        if pref.agents_json:
+            try:
+                agents = json.loads(pref.agents_json)
+                dev_agent = next(
+                    (a for a in agents if str(a.get('role', '')).lower() == 'developer' and a.get('enabled', True)),
+                    None,
+                )
+                if dev_agent:
+                    model = str(dev_agent.get('custom_model') or dev_agent.get('model') or '').strip() or None
+                    provider = str(dev_agent.get('provider') or '').strip() or None
+            except Exception:
+                pass
+
+        # Fallback to profile_settings preferred_provider / preferred_model
+        if not provider or not model:
+            try:
+                profile = json.loads(pref.profile_settings_json or '{}')
+                if not provider:
+                    provider = str(profile.get('preferred_provider') or '').strip() or None
+                if not model:
+                    model = str(profile.get('preferred_model') or '').strip() or None
+            except Exception:
+                pass
+
+        return model, provider
 
     async def _attach_default_repo_mapping(self, organization_id: int, task: TaskRecord) -> bool:
         if self.db is None:

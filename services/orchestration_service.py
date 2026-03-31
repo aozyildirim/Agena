@@ -362,9 +362,14 @@ class OrchestrationService:
                         )
                         agents_md_source = 'fallback:full_scan'
                     if not agents_md_content:
-                        # Use remote repo context or flow context as fallback
-                        agents_md_content = flow_state.get('context_summary', '')
-                        agents_md_source = 'fallback:flow_context'
+                        # Prefer the full remote repo context (file tree + sources)
+                        # over the LLM-summarised context_summary
+                        if _repo_ctx and len(_repo_ctx) > len(flow_state.get('context_summary', '')):
+                            agents_md_content = _repo_ctx
+                            agents_md_source = 'fallback:remote_repo_context'
+                        else:
+                            agents_md_content = flow_state.get('context_summary', '')
+                            agents_md_source = 'fallback:flow_context'
 
                     # Build planner input: index + relevant package signatures
                     planner_md = agents_md_content
@@ -410,15 +415,24 @@ class OrchestrationService:
                         f'  changes: {json.dumps(plan_changes, ensure_ascii=False)[:400]}'
                     )
 
-                    # Step 2b: Read the actual files from disk
-                    file_contents, total_read, found_files, missing_files = self._read_plan_files(
-                        repo_root,
-                        plan_files,
-                        task.title,
-                        task_description_for_ai,
-                    )
+                    # Step 2b: Read the actual files from disk (or remote API)
+                    if repo_root:
+                        file_contents, total_read, found_files, missing_files = self._read_plan_files(
+                            repo_root,
+                            plan_files,
+                            task.title,
+                            task_description_for_ai,
+                        )
+                    elif routing.remote_repo and plan_files:
+                        file_contents, total_read, found_files, missing_files = await self._read_plan_files_remote(
+                            routing.remote_repo,
+                            organization_id,
+                            plan_files,
+                        )
+                    else:
+                        file_contents, total_read, found_files, missing_files = '', 0, [], list(plan_files)
 
-                    if plan_files and total_read == 0:
+                    if plan_files and total_read == 0 and repo_root:
                         fallback_planner_md = self._build_full_scan_context(
                             repo_root,
                             task.title,
@@ -2063,6 +2077,85 @@ class OrchestrationService:
 
         return '\n'.join(file_contents_parts), total_read, found_files, missing_files
 
+    async def _read_plan_files_remote(
+        self,
+        remote_repo: str,
+        organization_id: int,
+        plan_files: list[str],
+    ) -> tuple[str, int, list[str], list[str]]:
+        """Read planner-selected files from remote repo via API."""
+        from services.remote_repo_service import RemoteRepoService
+        from services.integration_config_service import IntegrationConfigService
+
+        svc = RemoteRepoService()
+        parts: list[str] = []
+        total_read = 0
+        found: list[str] = []
+        missing: list[str] = []
+        max_total = max(2500, self.settings.max_code_context_chars - 2500)
+
+        try:
+            if remote_repo.startswith('github:'):
+                spec = remote_repo[len('github:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                owner, repo = spec.split('/', 1)
+                token = self.settings.github_token or ''
+                if not token:
+                    cfg_svc = IntegrationConfigService(self.db_session)
+                    gh_cfg = await cfg_svc.get_config(organization_id, 'github')
+                    if gh_cfg and gh_cfg.secret:
+                        token = gh_cfg.secret
+                if not token:
+                    return '', 0, [], list(plan_files)
+                for fp in plan_files:
+                    normalized = str(fp or '').strip().replace('\\', '/').lstrip('./')
+                    if not normalized:
+                        continue
+                    content = await svc.github_file_content(owner, repo, token, normalized, branch)
+                    if content is None:
+                        missing.append(normalized)
+                        parts.append(f'\n--- {normalized} (not found in remote) ---\n')
+                        continue
+                    if total_read + len(content) > max_total:
+                        content = content[:max(400, max_total - total_read)]
+                    parts.append(f'\n--- {normalized} ({len(content)} chars) ---\n{content}')
+                    total_read += len(content)
+                    found.append(normalized)
+
+            elif remote_repo.startswith('azure:'):
+                spec = remote_repo[len('azure:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                project, repo = spec.split('/', 1)
+                cfg_svc = IntegrationConfigService(self.db_session)
+                az_cfg = await cfg_svc.get_config(organization_id, 'azure')
+                if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
+                    return '', 0, [], list(plan_files)
+                for fp in plan_files:
+                    normalized = str(fp or '').strip().replace('\\', '/').lstrip('./')
+                    if not normalized:
+                        continue
+                    content = await svc.azure_file_content(az_cfg.base_url, project, repo, az_cfg.secret, normalized, branch)
+                    if content is None:
+                        missing.append(normalized)
+                        parts.append(f'\n--- {normalized} (not found in remote) ---\n')
+                        continue
+                    if total_read + len(content) > max_total:
+                        content = content[:max(400, max_total - total_read)]
+                    parts.append(f'\n--- {normalized} ({len(content)} chars) ---\n{content}')
+                    total_read += len(content)
+                    found.append(normalized)
+            else:
+                return '', 0, [], list(plan_files)
+        except Exception as exc:
+            logger.error('_read_plan_files_remote failed for %s: %s', remote_repo, exc)
+            return '', 0, [], list(plan_files)
+
+        return '\n'.join(parts), total_read, found, missing
+
     async def _build_repo_context(
         self,
         local_repo_path: str | None,
@@ -2141,7 +2234,7 @@ class OrchestrationService:
                 # Get GitHub token from settings or integration
                 token = self.settings.github_token or ''
                 if not token:
-                    cfg_svc = IntegrationConfigService(self.db)
+                    cfg_svc = IntegrationConfigService(self.db_session)
                     gh_cfg = await cfg_svc.get_config(organization_id, 'github')
                     if gh_cfg and gh_cfg.secret:
                         token = gh_cfg.secret
@@ -2156,7 +2249,7 @@ class OrchestrationService:
                 if '@' in spec:
                     spec, branch = spec.rsplit('@', 1)
                 project, repo = spec.split('/', 1)
-                cfg_svc = IntegrationConfigService(self.db)
+                cfg_svc = IntegrationConfigService(self.db_session)
                 az_cfg = await cfg_svc.get_config(organization_id, 'azure')
                 if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
                     return 'Remote repo configured but no Azure DevOps credentials available'

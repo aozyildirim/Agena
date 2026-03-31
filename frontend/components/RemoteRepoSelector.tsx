@@ -17,20 +17,28 @@ export type RemoteRepoSelection = {
   meta: string;
 };
 
+export type RepoDefault = {
+  provider: 'github' | 'azure';
+  project?: string;
+  repo?: string;
+  branch?: string;
+};
+
 type Props = {
   onChange: (selection: RemoteRepoSelection | null) => void;
   accent?: string;
   compact?: boolean;
+  defaultValue?: RepoDefault | null;
 };
 
-export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compact = false }: Props) {
-  const [provider, setProvider] = useState<'github' | 'azure'>('azure');
+export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compact = false, defaultValue }: Props) {
+  const [provider, setProvider] = useState<'github' | 'azure'>(defaultValue?.provider || 'azure');
   const [azureProjects, setAzureProjects] = useState<AzureProject[]>([]);
   const [azureRepos, setAzureRepos] = useState<AzureRepo[]>([]);
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
-  const [selectedProject, setSelectedProject] = useState('');
-  const [selectedRepo, setSelectedRepo] = useState('');
-  const [branch, setBranch] = useState('main');
+  const [selectedProject, setSelectedProject] = useState(defaultValue?.project || '');
+  const [selectedRepo, setSelectedRepo] = useState(defaultValue?.repo || '');
+  const [branch, setBranch] = useState(defaultValue?.branch || 'main');
   const [loading, setLoading] = useState(true);
   const [hasAzure, setHasAzure] = useState(false);
   const [hasGithub, setHasGithub] = useState(false);
@@ -44,14 +52,20 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
       setGithubRepos(ghR);
       setHasAzure(azP.length > 0);
       setHasGithub(ghR.length > 0);
-      if (!azP.length && ghR.length) setProvider('github');
+      if (!defaultValue && !azP.length && ghR.length) setProvider('github');
     }).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (provider !== 'azure' || !selectedProject) { setAzureRepos([]); return; }
     apiFetch<AzureRepo[]>('/tasks/azure/repos?project=' + encodeURIComponent(selectedProject))
-      .then(setAzureRepos).catch(() => setAzureRepos([]));
+      .then((repos) => {
+        setAzureRepos(repos);
+        // Re-apply default repo after repo list loads
+        if (defaultValue?.repo && repos.some((r) => r.name === defaultValue.repo)) {
+          setSelectedRepo(defaultValue.repo);
+        }
+      }).catch(() => setAzureRepos([]));
   }, [provider, selectedProject]);
 
   useEffect(() => {

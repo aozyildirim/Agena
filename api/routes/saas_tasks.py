@@ -253,7 +253,7 @@ async def assign_task(
     # Append extra config (remote repo, agent info) to description before assign
     if payload.extra_description:
         from sqlalchemy import select
-        from models.saas_task import TaskRecord
+        from models.task_record import TaskRecord
         result = await db.execute(
             select(TaskRecord).where(
                 TaskRecord.id == task_id,
@@ -262,7 +262,19 @@ async def assign_task(
         )
         task_record = result.scalar_one_or_none()
         if task_record:
-            task_record.description = (task_record.description or '') + '\n\n---\n' + payload.extra_description
+            import re
+            desc = task_record.description or ''
+            extra = payload.extra_description
+            # If a new Remote Repo is being set, remove stale repo metadata
+            if 'Remote Repo:' in extra:
+                stale_keys = [
+                    'Local Repo Path', 'Local Repo Mapping', 'Azure Repo', 'Remote Repo',
+                ]
+                for key in stale_keys:
+                    desc = re.sub(rf'^{re.escape(key)}:.*$', '', desc, flags=re.MULTILINE)
+                # Clean up leftover blank lines from removal
+                desc = re.sub(r'\n{3,}', '\n\n', desc).strip()
+            task_record.description = desc + '\n\n---\n' + extra
             await db.commit()
     try:
         queue_key = await service.assign_task_to_ai(
