@@ -927,6 +927,16 @@ body::before {
   50% { transform: scale(1.25); opacity: 0.7; }
 }
 
+@keyframes running-glow {
+  0%, 100% { border-left-color: #38bdf8; background: rgba(56,189,248,0.04); }
+  50% { border-left-color: #7c3aed; background: rgba(124,58,237,0.04); }
+}
+
+@keyframes running-glow-nav {
+  0%, 100% { border-color: rgba(56,189,248,0.3); background: rgba(56,189,248,0.04); }
+  50% { border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.04); }
+}
+
 /* ─── ADVANCED CAPABILITIES SHOWCASE ─── */
 .capability-grid {
   display: grid;

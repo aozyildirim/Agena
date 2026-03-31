@@ -72,6 +72,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
   const [taskBadges, setTaskBadges] = useState<Record<string, number>>({});
+  const [hasRunningTasks, setHasRunningTasks] = useState(false);
   const shouldOpenOnboarding = searchParams.get('onboarding') === '1' || searchParams.get('welcome') === '1';
   const lastUnreadRef = useRef<number | null>(null);
   const sidebarWidth = sidebarCollapsed ? 76 : 220;
@@ -195,6 +196,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
           if (diff > 0) badges[status] = diff;
         }
         setTaskBadges(badges);
+        setHasRunningTasks((counts['running'] || 0) > 0 || (counts['queued'] || 0) > 0);
         // Store current counts so we can diff next time
         localStorage.setItem('agena_task_current_counts', JSON.stringify(counts));
       }).catch(() => {});
@@ -517,8 +519,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
                 fontWeight: active ? 600 : 400,
                 color: active ? 'var(--nav-active)' : 'var(--muted)',
-                background: active ? 'var(--nav-active-bg)' : 'transparent',
-                border: active ? '1px solid var(--nav-active-border)' : '1px solid transparent',
+                background: active ? 'var(--nav-active-bg)' : (item.href === '/dashboard/tasks' && hasRunningTasks) ? 'rgba(56,189,248,0.04)' : 'transparent',
+                border: active ? '1px solid var(--nav-active-border)' : (item.href === '/dashboard/tasks' && hasRunningTasks) ? '1px solid rgba(56,189,248,0.3)' : '1px solid transparent',
+                animation: (item.href === '/dashboard/tasks' && hasRunningTasks && !active) ? 'running-glow-nav 2s ease-in-out infinite' : undefined,
                 transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
               }}>
                 <span style={{ fontSize: 16, opacity: active ? 1 : 0.5 }}>{item.icon}</span>

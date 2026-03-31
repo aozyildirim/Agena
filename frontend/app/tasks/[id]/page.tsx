@@ -1241,6 +1241,8 @@ function RunConfigModal({ task, onRun, onClose }: {
   })() as RepoDefault | null;
 
   const [repoSel, setRepoSel] = useState<RemoteRepoSelection | null>(null);
+  const [repoMode, setRepoMode] = useState<'remote' | 'local'>(repoDefault ? 'remote' : 'remote');
+  const [localRepoPath, setLocalRepoPath] = useState('');
   const [agentProvider, setAgentProvider] = useState(task?.preferred_agent_provider || 'gemini');
   const [agentModel, setAgentModel] = useState(task?.preferred_agent_model || '');
   const [createPr, setCreatePr] = useState(true);
@@ -1250,8 +1252,10 @@ function RunConfigModal({ task, onRun, onClose }: {
 
   function handleRun() {
     const parts: string[] = [];
-    if (repoSel) {
+    if (repoMode === 'remote' && repoSel) {
       parts.push(`Remote Repo: ${repoSel.meta}`);
+    } else if (repoMode === 'local' && localRepoPath.trim()) {
+      parts.push(`Local Repo Path: ${localRepoPath.trim()}`);
     }
     onRun(
       parts.length > 0 ? parts.join('\n') : undefined,
@@ -1283,12 +1287,35 @@ function RunConfigModal({ task, onRun, onClose }: {
             <strong style={{ color: 'var(--ink-78)' }}>#{task?.id}</strong> {task?.title}
           </div>
 
-          {/* Repo selection – always shown so user can change repo on rerun */}
+          {/* Repo selection – local or remote */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
               Target Repository {hasRepo && <span style={{ fontSize: 9, color: 'var(--ink-25)', fontWeight: 400 }}>(already configured — select to override)</span>}
             </div>
-            <RemoteRepoSelector onChange={setRepoSel} defaultValue={repoDefault} />
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              <button type="button" onClick={() => setRepoMode('remote')}
+                style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  border: repoMode === 'remote' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                  background: repoMode === 'remote' ? 'rgba(94,234,212,0.12)' : 'transparent',
+                  color: repoMode === 'remote' ? '#5eead4' : 'var(--ink-45)' }}>
+                Remote
+              </button>
+              <button type="button" onClick={() => setRepoMode('local')}
+                style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  border: repoMode === 'local' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                  background: repoMode === 'local' ? 'rgba(94,234,212,0.12)' : 'transparent',
+                  color: repoMode === 'local' ? '#5eead4' : 'var(--ink-45)' }}>
+                Local Path
+              </button>
+            </div>
+            {repoMode === 'remote' ? (
+              <RemoteRepoSelector onChange={setRepoSel} defaultValue={repoDefault} />
+            ) : (
+              <input value={localRepoPath} onChange={(e) => setLocalRepoPath(e.target.value)}
+                placeholder="/home/user/projects/my-repo"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12,
+                  border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)', outline: 'none' }} />
+            )}
           </div>
 
           {/* Agent selection – always shown so user can change model on rerun */}
@@ -1325,8 +1352,8 @@ function RunConfigModal({ task, onRun, onClose }: {
               Cancel
             </button>
             <button onClick={handleRun}
-              disabled={!hasRepo && !repoSel}
-              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel) ? 0.5 : 1, minHeight: 38 }}>
+              disabled={!hasRepo && !repoSel && !localRepoPath.trim()}
+              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel && !localRepoPath.trim()) ? 0.5 : 1, minHeight: 38 }}>
               Run Task
             </button>
           </div>

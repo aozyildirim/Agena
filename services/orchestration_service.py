@@ -309,7 +309,22 @@ class OrchestrationService:
                 u_before = _get_usage(flow_state)
                 s_start = datetime.utcnow()
                 s_clock = time.perf_counter()
-                flow_state = await orchestrator.fetch_context_node(flow_state)
+                if not routing.local_repo_path and routing.remote_repo and _repo_ctx:
+                    # Remote mode: skip LLM summarisation — use repo context directly
+                    # Still do memory search for similarity hits
+                    org_id = int(payload.get('organization_id', 0) or 0) or None
+                    memory_context = await orchestrator.memory_store.search_similar(
+                        query=f"{task.title}\n{task.description}",
+                        limit=3,
+                        organization_id=org_id,
+                    )
+                    flow_state['context_summary'] = ''  # not needed — planner gets _repo_ctx directly
+                    flow_state['memory_context'] = memory_context
+                    flow_state['memory_status'] = await orchestrator.memory_store.get_status()
+                    await task_service.add_log(task.id, organization_id, 'agent',
+                        f'Remote mode: skipped LLM context summarisation (repo context: {len(_repo_ctx)} chars)')
+                else:
+                    flow_state = await orchestrator.fetch_context_node(flow_state)
                 u_after = _get_usage(flow_state)
                 s_model = (flow_state.get('model_usage') or [''])[-1]
                 await _step_event('fetch_context', _usage_delta(u_before, u_after), s_model, s_start, time.perf_counter() - s_clock)
@@ -371,25 +386,38 @@ class OrchestrationService:
                             )
                             agents_md_source = 'fallback:full_scan'
                     if not agents_md_content:
-                        # Prefer the full remote repo context (file tree + sources)
-                        # over the LLM-summarised context_summary
-                        if _repo_ctx and len(_repo_ctx) > len(flow_state.get('context_summary', '')):
-                            agents_md_content = _repo_ctx
-                            agents_md_source = 'fallback:remote_repo_context'
+                        # Use remote repo context for planner — prefer file tree + limited
+                        # source over LLM summary to keep tokens low
+                        if _repo_ctx:
+                            # Send file tree + first ~30K chars of source (enough for planner)
+                            tree_end = _repo_ctx.find('=== END FILE TREE ===')
+                            if tree_end >= 0:
+                                tree_section = _repo_ctx[:tree_end + len('=== END FILE TREE ===')]
+                                source_section = _repo_ctx[tree_end + len('=== END FILE TREE ==='):]
+                                agents_md_content = tree_section + source_section[:30000]
+                            else:
+                                agents_md_content = _repo_ctx[:40000]
+                            agents_md_source = 'fallback:remote_repo_context(trimmed)'
                         else:
                             agents_md_content = flow_state.get('context_summary', '')
                             agents_md_source = 'fallback:flow_context'
 
-                    # Remote mode: combine agents.md with file tree so planner
-                    # knows actual file paths (agents.md alone may describe ideal
-                    # structure that differs from real repo layout)
+                    # Remote mode: combine agents.md with file tree (paths only)
+                    # so planner knows actual file paths without sending full source
+                    # contents (saves ~120K tokens)
                     if not repo_root and _repo_ctx and agents_md_content and agents_md_source == 'remote:agents.md':
+                        # Extract just the file tree section from repo context
+                        file_tree_only = _repo_ctx
+                        tree_start = _repo_ctx.find('=== FILE TREE ===')
+                        tree_end = _repo_ctx.find('=== END FILE TREE ===')
+                        if tree_start >= 0 and tree_end >= 0:
+                            file_tree_only = _repo_ctx[:tree_end + len('=== END FILE TREE ===')]
                         agents_md_content = (
                             agents_md_content
-                            + '\n\n=== ACTUAL REPOSITORY FILE TREE & SOURCES ===\n'
-                            + _repo_ctx
+                            + '\n\n=== ACTUAL REPOSITORY FILE TREE ===\n'
+                            + file_tree_only
                         )
-                        agents_md_source = 'remote:agents.md+repo_context'
+                        agents_md_source = 'remote:agents.md+file_tree'
 
                     # Build planner input: index + relevant package signatures
                     planner_md = agents_md_content
@@ -448,6 +476,8 @@ class OrchestrationService:
                             routing.remote_repo,
                             organization_id,
                             plan_files,
+                            task_title=task.title,
+                            task_description=task_description_for_ai,
                         )
                     else:
                         file_contents, total_read, found_files, missing_files = '', 0, [], list(plan_files)
@@ -2195,6 +2225,8 @@ class OrchestrationService:
         remote_repo: str,
         organization_id: int,
         plan_files: list[str],
+        task_title: str = '',
+        task_description: str = '',
     ) -> tuple[str, int, list[str], list[str]]:
         """Read planner-selected files from remote repo via API."""
         from services.remote_repo_service import RemoteRepoService
@@ -2205,7 +2237,8 @@ class OrchestrationService:
         total_read = 0
         found: list[str] = []
         missing: list[str] = []
-        max_total = max(2500, self.settings.max_code_context_chars - 2500)
+        # Cap remote file reading at 200K chars (~50K tokens) to balance cost vs quality
+        max_total = min(200_000, max(2500, self.settings.max_code_context_chars - 2500))
 
         try:
             if remote_repo.startswith('github:'):
