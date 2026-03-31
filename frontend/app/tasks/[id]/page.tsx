@@ -608,6 +608,27 @@ export default function TaskDetailPage() {
 
   return (
     <div className='container' style={{ paddingTop: 96, paddingBottom: 20, maxWidth: 1820 }}>
+      {/* Top action bar */}
+      <section style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, flex: 1, minWidth: 200, lineHeight: 1.3 }}>
+          <span style={{ color: 'var(--ink-35)', fontWeight: 600 }}>#{task?.id}</span>{' '}
+          {task?.title ?? t('taskDetail.task')}
+        </h1>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button className='button button-primary' onClick={handleRunClick} disabled={isRerunBusy} style={{ padding: '8px 18px', fontSize: 13 }}>
+            {isRerunBusy ? t('taskDetail.rerunning') : t('taskDetail.rerunTask')}
+          </button>
+          <button
+            className='button button-outline'
+            onClick={() => void cancelTask()}
+            disabled={isCancelBusy || !(task?.status === 'queued' || task?.status === 'running')}
+            style={{ padding: '8px 18px', fontSize: 13 }}
+          >
+            {isCancelBusy ? t('taskDetail.stopping') : t('taskDetail.stopTask')}
+          </button>
+        </div>
+      </section>
+
       {/* Run selector tabs */}
       {logRuns.length > 1 && (
         <section

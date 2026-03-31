@@ -249,7 +249,7 @@ class OrchestrationService:
                 )
                 await task_service.add_log(task.id, organization_id, 'agent',
                     f'Repo context built: {len(_repo_ctx or "")} chars, '
-                    f'has_agents_md: {"AGENTS.MD" in (_repo_ctx or "")}, '
+                    f'has_agents_md: {"agents.md" in (_repo_ctx or "").lower()}, '
                     f'repo_path: {routing.local_repo_path}\n'
                     f'task_images: {len(task_image_inputs)}'
                 )
@@ -354,13 +354,22 @@ class OrchestrationService:
                         _rp = Path(routing.local_repo_path).expanduser().resolve()
                         repo_root = _rp if _rp.is_dir() else None
                     agents_md_content, agents_md_source, agents_pkg_dir = self._resolve_repo_guide(repo_root)
+
+                    # Remote mode: try fetching agents.md from remote repo
+                    if not agents_md_content and not repo_root and routing.remote_repo:
+                        remote_agents_md = await self._fetch_remote_agents_md(routing.remote_repo, organization_id)
+                        if remote_agents_md:
+                            agents_md_content = remote_agents_md
+                            agents_md_source = 'remote:agents.md'
+
                     if not self._repo_guide_is_sufficient(agents_md_content, agents_pkg_dir):
-                        agents_md_content = self._build_full_scan_context(
-                            repo_root,
-                            task.title,
-                            task_description_for_ai,
-                        )
-                        agents_md_source = 'fallback:full_scan'
+                        if repo_root:
+                            agents_md_content = self._build_full_scan_context(
+                                repo_root,
+                                task.title,
+                                task_description_for_ai,
+                            )
+                            agents_md_source = 'fallback:full_scan'
                     if not agents_md_content:
                         # Prefer the full remote repo context (file tree + sources)
                         # over the LLM-summarised context_summary
@@ -370,6 +379,17 @@ class OrchestrationService:
                         else:
                             agents_md_content = flow_state.get('context_summary', '')
                             agents_md_source = 'fallback:flow_context'
+
+                    # Remote mode: combine agents.md with file tree so planner
+                    # knows actual file paths (agents.md alone may describe ideal
+                    # structure that differs from real repo layout)
+                    if not repo_root and _repo_ctx and agents_md_content and agents_md_source == 'remote:agents.md':
+                        agents_md_content = (
+                            agents_md_content
+                            + '\n\n=== ACTUAL REPOSITORY FILE TREE & SOURCES ===\n'
+                            + _repo_ctx
+                        )
+                        agents_md_source = 'remote:agents.md+repo_context'
 
                     # Build planner input: index + relevant package signatures
                     planner_md = agents_md_content
@@ -2211,6 +2231,49 @@ class OrchestrationService:
             return self._build_full_scan_context(root, task_title, task_description)
         except Exception as exc:
             return f'Repo context unavailable for {repo_path}: {str(exc)[:180]}'
+
+    async def _fetch_remote_agents_md(self, remote_repo: str, organization_id: int) -> str | None:
+        """Try to fetch agents.md from remote repo root."""
+        from services.remote_repo_service import RemoteRepoService
+        from services.integration_config_service import IntegrationConfigService
+        svc = RemoteRepoService()
+        try:
+            if remote_repo.startswith('github:'):
+                spec = remote_repo[len('github:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                owner, repo = spec.split('/', 1)
+                token = self.settings.github_token or ''
+                if not token:
+                    cfg_svc = IntegrationConfigService(self.db_session)
+                    gh_cfg = await cfg_svc.get_config(organization_id, 'github')
+                    if gh_cfg and gh_cfg.secret:
+                        token = gh_cfg.secret
+                if not token:
+                    return None
+                for name in ['agents.md', 'AGENTS.md']:
+                    content = await svc.github_file_content(owner, repo, token, name, branch)
+                    if content:
+                        return content
+
+            elif remote_repo.startswith('azure:'):
+                spec = remote_repo[len('azure:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                project, repo = spec.split('/', 1)
+                cfg_svc = IntegrationConfigService(self.db_session)
+                az_cfg = await cfg_svc.get_config(organization_id, 'azure')
+                if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
+                    return None
+                for name in ['agents.md', 'AGENTS.md']:
+                    content = await svc.azure_file_content(az_cfg.base_url, project, repo, az_cfg.secret, name, branch)
+                    if content:
+                        return content
+        except Exception as exc:
+            logger.warning('Failed to fetch remote agents.md for %s: %s', remote_repo, exc)
+        return None
 
     async def _build_remote_repo_context(
         self,
