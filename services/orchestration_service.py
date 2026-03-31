@@ -575,6 +575,16 @@ class OrchestrationService:
                             if path:
                                 file_sections[path] = body
 
+                    # Shrink large files to relevant excerpts before batching
+                    PER_FILE_MAX = 20_000  # ~5K tokens per file
+                    for fp in file_sections:
+                        if len(file_sections[fp]) > PER_FILE_MAX:
+                            file_sections[fp] = self._build_context_excerpt(
+                                fp, file_sections[fp],
+                                task.title, task_description_for_ai,
+                                max_chars=PER_FILE_MAX,
+                            )
+
                     for fp in plan_files:
                         section = file_sections.get(fp, '')
                         section_text = f'\n--- {fp} ({len(section)} chars) ---\n{section}'
