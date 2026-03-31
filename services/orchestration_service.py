@@ -246,10 +246,10 @@ class OrchestrationService:
                     _remote_agents_md = await self._fetch_remote_agents_md(routing.remote_repo, organization_id)
 
                 if _remote_agents_md:
-                    # agents.md found — no need for full repo context scan
-                    _repo_ctx = None
+                    # agents.md found — build lightweight file tree only (no source content)
+                    _repo_ctx = await self._build_remote_file_tree_only(routing.remote_repo, organization_id)
                     await task_service.add_log(task.id, organization_id, 'agent',
-                        f'Repo context: using agents.md ({len(_remote_agents_md)} chars), skipped full repo scan\n'
+                        f'Repo context: agents.md ({len(_remote_agents_md)} chars) + file tree ({len(_repo_ctx or "")} chars)\n'
                         f'repo_path: {routing.local_repo_path}\n'
                         f'task_images: {len(task_image_inputs)}'
                     )
@@ -415,16 +415,10 @@ class OrchestrationService:
                             agents_md_content = flow_state.get('context_summary', '')
                             agents_md_source = 'fallback:flow_context'
 
-                    # Remote mode: if agents.md exists, trust it for file paths.
-                    # Only append file tree when agents.md is missing (fallback mode).
-                    if not repo_root and _repo_ctx and agents_md_source and 'remote_repo_context' in agents_md_source:
-                        # No agents.md — append file tree so planner knows actual paths
-                        tree_start = _repo_ctx.find('=== FILE TREE ===')
-                        tree_end = _repo_ctx.find('=== END FILE TREE ===')
-                        if tree_start >= 0 and tree_end >= 0:
-                            file_tree_only = _repo_ctx[tree_start:tree_end + len('=== END FILE TREE ===')]
-                            agents_md_content = agents_md_content + '\n\n' + file_tree_only
-                            agents_md_source = agents_md_source + '+file_tree'
+                    # Remote mode: always append file tree so planner uses real paths
+                    if not repo_root and _repo_ctx:
+                        agents_md_content = agents_md_content + '\n\n' + _repo_ctx
+                        agents_md_source = agents_md_source + '+file_tree'
 
                     # Build planner input: index + relevant package signatures
                     planner_md = agents_md_content
@@ -2364,6 +2358,53 @@ class OrchestrationService:
             return self._build_full_scan_context(root, task_title, task_description)
         except Exception as exc:
             return f'Repo context unavailable for {repo_path}: {str(exc)[:180]}'
+
+    async def _build_remote_file_tree_only(self, remote_repo: str, organization_id: int) -> str | None:
+        """Build a lightweight file tree (paths only, no content) from remote repo."""
+        from services.remote_repo_service import RemoteRepoService
+        from services.integration_config_service import IntegrationConfigService
+        svc = RemoteRepoService()
+        try:
+            if remote_repo.startswith('github:'):
+                spec = remote_repo[len('github:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                owner, repo = spec.split('/', 1)
+                token = self.settings.github_token or ''
+                if not token:
+                    cfg_svc = IntegrationConfigService(self.db_session)
+                    gh_cfg = await cfg_svc.get_config(organization_id, 'github')
+                    if gh_cfg and gh_cfg.secret:
+                        token = gh_cfg.secret
+                if not token:
+                    return None
+                tree = await svc.github_tree(owner, repo, token, branch)
+            elif remote_repo.startswith('azure:'):
+                spec = remote_repo[len('azure:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                project, repo = spec.split('/', 1)
+                cfg_svc = IntegrationConfigService(self.db_session)
+                az_cfg = await cfg_svc.get_config(organization_id, 'azure')
+                if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
+                    return None
+                tree = await svc.azure_tree(az_cfg.base_url, project, repo, az_cfg.secret, branch)
+            else:
+                return None
+
+            filtered = svc._filter_tree(tree)
+            lines = ['=== FILE TREE ===']
+            for item in filtered[:300]:
+                lines.append(f'  {item["path"]}')
+            if len(filtered) > 300:
+                lines.append(f'  ... and {len(filtered) - 300} more files')
+            lines.append('=== END FILE TREE ===')
+            return '\n'.join(lines)
+        except Exception as exc:
+            logger.warning('Failed to build remote file tree for %s: %s', remote_repo, exc)
+            return None
 
     async def _fetch_remote_agents_md(self, remote_repo: str, organization_id: int) -> str | None:
         """Try to fetch agents.md from remote repo root."""
