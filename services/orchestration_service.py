@@ -549,40 +549,96 @@ class OrchestrationService:
 
                 # Step 3: Developer generate code
                 if mode == 'ai':
-                    # AI mode step 3: send plan + file contents
-                    await task_service.add_log(task.id, organization_id, 'agent',
-                        f'Step 3/{total_steps}: Developer coding...\n'
-                        f'  plan_files: {plan_files}\n'
-                        f'  file_contents: {total_read} chars ({len(plan_files)} files)\n'
-                        f'  task_images: {len(task_image_inputs)}\n'
-                        f'  system_prompt: AI_CODE_SYSTEM_PROMPT\n'
-                        f'  model: {routing.preferred_agent_model or "default"} | max_output_tokens: 128000'
-                    )
+                    # Split files into batches of ~80K chars to keep context small
+                    BATCH_CHAR_LIMIT = 80_000
+                    file_batches: list[tuple[str, list[str], dict]] = []  # (contents, files, sub_plan)
+                    current_batch_parts: list[str] = []
+                    current_batch_files: list[str] = []
+                    current_batch_size = 0
+
+                    # Parse individual file sections from file_contents
+                    file_sections: dict[str, str] = {}
+                    if file_contents:
+                        import re as _re
+                        for section in _re.split(r'\n--- ', file_contents):
+                            if not section.strip():
+                                continue
+                            header_end = section.find(' ---\n')
+                            if header_end < 0:
+                                header_end = section.find('---\n')
+                            if header_end < 0:
+                                continue
+                            # Extract path from header like "path/file.go (1234 chars)"
+                            header = section[:header_end].strip()
+                            path = _re.sub(r'\s*\(.*\)\s*$', '', header).strip()
+                            body = section[header_end + 4:]  # skip " ---\n"
+                            if path:
+                                file_sections[path] = body
+
+                    for fp in plan_files:
+                        section = file_sections.get(fp, '')
+                        section_text = f'\n--- {fp} ({len(section)} chars) ---\n{section}'
+                        if current_batch_size + len(section_text) > BATCH_CHAR_LIMIT and current_batch_parts:
+                            sub_plan = self._filter_plan_to_existing_files(plan, current_batch_files)
+                            file_batches.append(('\n'.join(current_batch_parts), list(current_batch_files), sub_plan))
+                            current_batch_parts = []
+                            current_batch_files = []
+                            current_batch_size = 0
+                        current_batch_parts.append(section_text)
+                        current_batch_files.append(fp)
+                        current_batch_size += len(section_text)
+
+                    if current_batch_parts:
+                        sub_plan = self._filter_plan_to_existing_files(plan, current_batch_files) if len(file_batches) > 0 else plan
+                        file_batches.append(('\n'.join(current_batch_parts), list(current_batch_files), sub_plan))
+
+                    # If everything fits in one batch, just use original
+                    if len(file_batches) <= 1:
+                        file_batches = [(file_contents, plan_files, plan)]
+
+                    all_generated: list[str] = []
                     u_before = _get_usage(flow_state)
                     s_start = datetime.utcnow()
                     s_clock = time.perf_counter()
-                    generated, code_usage, code_model = await orchestrator.agents.run_ai_code(
-                        task_title=task.title,
-                        task_description=task_description_for_ai,
-                        plan=plan,
-                        file_contents=file_contents,
-                        task_images=task_image_inputs,
-                    )
-                    # Retry once on refusal
-                    if generated.strip().lower().startswith("i'm sorry") or len(generated.strip()) < 100:
+
+                    for batch_idx, (batch_contents, batch_files, batch_plan) in enumerate(file_batches):
+                        batch_label = f'Step 3/{total_steps}: Developer coding'
+                        if len(file_batches) > 1:
+                            batch_label += f' (batch {batch_idx + 1}/{len(file_batches)})'
                         await task_service.add_log(task.id, organization_id, 'agent',
-                            f'Developer refused or empty output ({len(generated)} chars), retrying...')
-                        generated, code_usage2, code_model = await orchestrator.agents.run_ai_code(
+                            f'{batch_label}...\n'
+                            f'  plan_files: {batch_files}\n'
+                            f'  file_contents: {len(batch_contents)} chars ({len(batch_files)} files)\n'
+                            f'  task_images: {len(task_image_inputs)}\n'
+                            f'  system_prompt: AI_CODE_SYSTEM_PROMPT\n'
+                            f'  model: {routing.preferred_agent_model or "default"} | max_output_tokens: 128000'
+                        )
+                        batch_generated, code_usage, code_model = await orchestrator.agents.run_ai_code(
                             task_title=task.title,
                             task_description=task_description_for_ai,
-                            plan=plan,
-                            file_contents=file_contents,
-                            task_images=task_image_inputs,
+                            plan=batch_plan,
+                            file_contents=batch_contents,
+                            task_images=task_image_inputs if batch_idx == 0 else None,
                         )
-                        orchestrator._merge_usage(flow_state, code_usage2)
+                        # Retry once on refusal
+                        if batch_generated.strip().lower().startswith("i'm sorry") or len(batch_generated.strip()) < 100:
+                            await task_service.add_log(task.id, organization_id, 'agent',
+                                f'Developer refused or empty output ({len(batch_generated)} chars), retrying...')
+                            batch_generated, code_usage2, code_model = await orchestrator.agents.run_ai_code(
+                                task_title=task.title,
+                                task_description=task_description_for_ai,
+                                plan=batch_plan,
+                                file_contents=batch_contents,
+                                task_images=task_image_inputs if batch_idx == 0 else None,
+                            )
+                            orchestrator._merge_usage(flow_state, code_usage2)
+                            flow_state['model_usage'].append(code_model)
+                        orchestrator._merge_usage(flow_state, code_usage)
                         flow_state['model_usage'].append(code_model)
-                    orchestrator._merge_usage(flow_state, code_usage)
-                    flow_state['model_usage'].append(code_model)
+                        if batch_generated.strip() and not batch_generated.strip().lower().startswith("i'm sorry"):
+                            all_generated.append(batch_generated)
+
+                    generated = '\n\n'.join(all_generated)
                     flow_state['generated_code'] = generated
                     dev_delta = _usage_delta(u_before, _get_usage(flow_state))
                     gen_len = len(generated)
@@ -2238,9 +2294,7 @@ class OrchestrationService:
         total_read = 0
         found: list[str] = []
         missing: list[str] = []
-        # Cap remote file reading at 80K chars (~20K tokens) to keep cost low
-        # and prevent smaller models from refusing due to context overload
-        max_total = min(80_000, max(2500, self.settings.max_code_context_chars - 2500))
+        max_total = max(2500, self.settings.max_code_context_chars - 2500)
 
         try:
             if remote_repo.startswith('github:'):
