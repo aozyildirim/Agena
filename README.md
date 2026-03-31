@@ -4,6 +4,10 @@
 
 # AGENA — Agentic AI Platform | Pixel Agent Powered Autonomous Code Generation
 
+<p align="center">
+  <img src="frontend/public/readmeimg/boss.png" alt="AGENA Pixel Office — Boss Mode" width="800" />
+</p>
+
 > **The open-source agentic AI platform that writes code, reviews quality, and ships pull requests autonomously.**
 
 AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform with **pixel agent** technology. Built with FastAPI + CrewAI + LangGraph + Redis + MySQL, it provides autonomous code generation, AI-powered PR automation, and a full Next.js 14 dashboard.
