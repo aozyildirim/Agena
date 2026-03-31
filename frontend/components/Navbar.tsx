@@ -33,6 +33,9 @@ export default function Navbar() {
         <nav className='navbar-desktop' style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <LangToggle style={{ marginRight: 4 }} />
           <ThemeToggle style={{ marginRight: 4 }} />
+          <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Blog</Link>
+          <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Docs</Link>
+          <Link href='/use-cases' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Use Cases</Link>
           <span className='chip' style={{ marginRight: 8 }}>{t('nav.aiOrchestration')}</span>
           <a
             href='https://github.com/aozyildirim/Agena'
@@ -96,6 +99,9 @@ export default function Navbar() {
       {/* Mobile menu dropdown */}
       {menuOpen && (
         <div className='navbar-mobile-menu'>
+          <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Blog</Link>
+          <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Docs</Link>
+          <Link href='/use-cases' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Use Cases</Link>
           <span className='chip' style={{ marginBottom: 8, alignSelf: 'flex-start' }}>{t('nav.aiOrchestration')}</span>
           <a
             href='https://github.com/aozyildirim/Agena'

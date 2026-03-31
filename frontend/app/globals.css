@@ -88,6 +88,18 @@ html.light {
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+.blog-card {
+  padding: 28px 32px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border-2);
+  background: var(--panel);
+  transition: border-color 0.2s, transform 0.2s;
+}
+.blog-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
+}
+
 html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body {

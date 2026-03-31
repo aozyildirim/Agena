@@ -1,8 +1,18 @@
 [![Sponsor AGENA](https://img.shields.io/badge/Sponsor-AGENA-ff69b4?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/aozyildirim)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-agena.dev-0d9488)](https://agena.dev)
 
-# AGENA — Autonomous Generative Agent Network Architecture
+# AGENA — Agentic AI Platform | Pixel Agent Powered Autonomous Code Generation
 
-Production-ready, multi-tenant AI agent orchestration platform built with FastAPI + CrewAI + LangGraph + Redis + MySQL, including GitHub PR automation and a Next.js 14 dashboard.
+> **The open-source agentic AI platform that writes code, reviews quality, and ships pull requests autonomously.**
+
+AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform with **pixel agent** technology. Built with FastAPI + CrewAI + LangGraph + Redis + MySQL, it provides autonomous code generation, AI-powered PR automation, and a full Next.js 14 dashboard.
+
+**Key highlights:**
+- **Agentic AI Pipeline** — Autonomous PM → Developer → Reviewer → Finalizer workflow
+- **Pixel Agent Technology** — Visual task orchestration with real-time agent monitoring
+- **Multi-Tenant SaaS** — Organization isolation, JWT auth, usage limits, billing
+- **PR Automation** — Auto-generates branches, commits, and pull requests on GitHub & Azure DevOps
 
 ## What is Included
 
