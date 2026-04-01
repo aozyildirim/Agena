@@ -1508,6 +1508,23 @@ class AnalyticsService:
         )
         weekend_prs = int(weekend_pr_q.scalar() or 0)
 
+        # Weekend commits by author
+        weekend_by_author_q = await self.db.execute(
+            select(
+                func.coalesce(GitCommit.author_name, GitCommit.author_email).label('author'),
+                func.count(GitCommit.id).label('cnt'),
+            ).where(
+                *commit_filters,
+                func.dayofweek(GitCommit.committed_at).in_([1, 7]),
+            ).group_by(func.coalesce(GitCommit.author_name, GitCommit.author_email))
+            .order_by(func.count(GitCommit.id).desc())
+            .limit(10)
+        )
+        weekend_authors = [
+            {'author': str(r.author), 'count': int(r.cnt)}
+            for r in weekend_by_author_q.all()
+        ]
+
         # ── S4: High Code Review Time ───────────────────────────────
         # Azure uses 'completed' instead of 'merged'
         merged_filters = pr_filters + [
@@ -1535,6 +1552,24 @@ class AnalyticsService:
             ).where(*merged_filters)
         )
         avg_review_hours = round(float(avg_review_q.scalar() or 0) / 3600, 1)
+
+        # Stale PR authors (top 10)
+        stale_authors_q = await self.db.execute(
+            select(
+                GitPullRequest.author,
+                GitPullRequest.title,
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).label('review_sec'),
+            ).where(
+                *merged_filters,
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)) > stale_threshold_sec,
+            ).order_by(
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).desc()
+            ).limit(10)
+        )
+        stale_pr_details = [
+            {'author': str(r.author), 'title': str(r.title)[:80], 'hours': round(float(r.review_sec) / 3600, 1)}
+            for r in stale_authors_q.all()
+        ]
         s4_active = stale_prs > 0
         s4_value = avg_review_hours
 
@@ -1550,6 +1585,23 @@ class AnalyticsService:
         s9_active = unreviewed_count > 0
         s9_value = unreviewed_pct
 
+        # Unreviewed PR authors grouped
+        unreviewed_by_author_q = await self.db.execute(
+            select(
+                GitPullRequest.author,
+                func.count(GitPullRequest.id).label('cnt'),
+            ).where(
+                *merged_filters,
+                GitPullRequest.review_comments == 0,
+            ).group_by(GitPullRequest.author)
+            .order_by(func.count(GitPullRequest.id).desc())
+            .limit(10)
+        )
+        unreviewed_by_author = [
+            {'author': str(r.author), 'count': int(r.cnt)}
+            for r in unreviewed_by_author_q.all()
+        ]
+
         # ── S10: Lightning Pull Requests ────────────────────────────
         lightning_threshold_sec = 120  # 2 minutes
         lightning_q = await self.db.execute(
@@ -1563,6 +1615,25 @@ class AnalyticsService:
         lightning_pct = round(lightning_count / total_merged * 100, 1) if total_merged > 0 else 0.0
         s10_active = lightning_count > 5
         s10_value = lightning_pct
+
+        # Lightning PR details
+        lightning_details_q = await self.db.execute(
+            select(
+                GitPullRequest.author,
+                GitPullRequest.title,
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).label('sec'),
+            ).where(
+                *merged_filters,
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)) < lightning_threshold_sec,
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)) > 0,
+            ).order_by(
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).asc()
+            ).limit(10)
+        )
+        lightning_details = [
+            {'author': str(r.author), 'title': str(r.title)[:80], 'seconds': int(r.sec)}
+            for r in lightning_details_q.all()
+        ]
 
         # ── S11: Oversize Pull Requests ─────────────────────────────
         # Azure PRs often have 0 additions/deletions, so also check commit data
