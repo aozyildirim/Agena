@@ -1848,7 +1848,6 @@
   "templates.preset.hotfix.h3.action": "Hızlı yama",
   "templates.preset.hotfix.h4.label": "Ekip Bildirimi",
   "templates.preset.hotfix.h4.action": "Incident güncellemesi gönder",
-
   "tour.skip": "Turu Atla",
   "tour.prev": "Geri",
   "tour.next": "Sonraki",
@@ -1870,5 +1869,9 @@
   "tour.step.dora.title": "DORA Metrikleri",
   "tour.step.dora.desc": "Muhendislik performansinizi olcun: deployment sikligi, lead time, degisiklik basarisizlik orani ve daha fazlasi.",
   "tour.step.notifications.title": "Bildirimler",
-  "tour.step.notifications.desc": "Gorev tamamlandiginda veya basarisiz oldugunda aninda bildirim alin. Tarayici bildirimleri de desteklenir."
+  "tour.step.notifications.desc": "Gorev tamamlandiginda veya basarisiz oldugunda aninda bildirim alin. Tarayici bildirimleri de desteklenir.",
+  "nav.group.workspace": "Calisma Alani",
+  "nav.group.ai": "AI & Otomasyon",
+  "nav.group.analytics": "Analitik",
+  "nav.group.settings": "Ayarlar"
 }

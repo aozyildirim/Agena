@@ -1869,5 +1869,9 @@
   "tour.step.dora.title": "DORA 指标",
   "tour.step.dora.desc": "衡量工程绩效：部署频率、前置时间、变更失败率等。",
   "tour.step.notifications.title": "通知",
-  "tour.step.notifications.desc": "任务完成或失败时即时收到提醒。还支持浏览器推送通知。"
+  "tour.step.notifications.desc": "任务完成或失败时即时收到提醒。还支持浏览器推送通知。",
+  "nav.group.workspace": "工作区",
+  "nav.group.ai": "AI 与自动化",
+  "nav.group.analytics": "分析",
+  "nav.group.settings": "设置"
 }

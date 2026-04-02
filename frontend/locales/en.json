@@ -1848,7 +1848,6 @@
   "templates.preset.hotfix.h3.action": "Fast patch",
   "templates.preset.hotfix.h4.label": "Team Notify",
   "templates.preset.hotfix.h4.action": "Send incident update",
-
   "tour.skip": "Skip Tour",
   "tour.prev": "Back",
   "tour.next": "Next",
@@ -1870,5 +1869,9 @@
   "tour.step.dora.title": "DORA Metrics",
   "tour.step.dora.desc": "Measure your engineering performance: deployment frequency, lead time, change failure rate, and more.",
   "tour.step.notifications.title": "Notifications",
-  "tour.step.notifications.desc": "Get instant alerts when tasks complete or fail. Browser push notifications are also supported."
+  "tour.step.notifications.desc": "Get instant alerts when tasks complete or fail. Browser push notifications are also supported.",
+  "nav.group.workspace": "Workspace",
+  "nav.group.ai": "AI & Automation",
+  "nav.group.analytics": "Analytics",
+  "nav.group.settings": "Settings"
 }

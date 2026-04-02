@@ -1741,11 +1741,9 @@
   "templates.preset.hotfix.h3.action": "Hızlı yama",
   "templates.preset.hotfix.h4.label": "Ekip Bildirimi",
   "templates.preset.hotfix.h4.action": "Incident güncellemesi gönder",
-
   "nav.refinement": "Refinamiento",
   "nav.promptStudio": "Estudio de Prompts",
   "tooltip.nav.promptStudio": "Editar los prompts predeterminados del sistema con anulaciones en tiempo de ejecución",
-
   "sprintPerf.section": "Rendimiento del Sprint",
   "sprintPerf.title": "Rendimiento del Sprint",
   "sprintPerf.subtitle": "Progreso del equipo, riesgo crítico y trabajo bloqueado del sprint activo.",
@@ -1788,7 +1786,6 @@
   "sprintPerf.noMembers": "No se encontraron miembros del equipo para este sprint.",
   "sprintPerf.blockedByAssignee": "Bloqueados por Responsable",
   "sprintPerf.blockedByAssigneeSub": "Elementos de trabajo bloqueados agrupados por miembro del equipo",
-
   "landing.faqTitle": "Preguntas Frecuentes",
   "landing.faq1Q": "¿Qué es AGENA?",
   "landing.faq1A": "AGENA es una plataforma de IA agéntica que genera código de forma autónoma, revisa la calidad y crea pull requests. Ejecuta un pipeline de PM → Desarrollador → Revisor → Finalizador impulsado por tecnología de agente pixel, convirtiendo tu backlog en PRs listos para producción en minutos.",
@@ -1802,7 +1799,6 @@
   "landing.faq5A": "¡Sí! AGENA ofrece un nivel gratuito con 5 tareas por mes, seguimiento de uso de tokens y soporte comunitario. El plan Pro ($49/mes) incluye tareas ilimitadas, rendimiento prioritario del worker, invitaciones de equipo y facturación a través de Stripe o Iyzico.",
   "landing.faq6Q": "¿AGENA es de código abierto?",
   "landing.faq6A": "Sí, AGENA es completamente de código abierto bajo la licencia MIT. Puedes alojarlo tú mismo o usar la plataforma gestionada. El código fuente está disponible en GitHub en github.com/aozyildirim/Agena.",
-
   "dora.team.title": "Salud del Equipo",
   "dora.team.subtitle": "Análisis de salud del equipo basado en catálogo de síntomas",
   "dora.team.teamName": "Nombre del Equipo",
@@ -1852,7 +1848,6 @@
   "dora.team.s13.desc": "Desplegar a producción con mayor frecuencia",
   "dora.team.s14.name": "Alta Tasa de Fallos en Cambios",
   "dora.team.s14.desc": "Proporción de despliegues fallidos",
-
   "tour.skip": "Saltar Tour",
   "tour.prev": "Atrás",
   "tour.next": "Siguiente",
@@ -1874,5 +1869,9 @@
   "tour.step.dora.title": "Métricas DORA",
   "tour.step.dora.desc": "Mide el rendimiento de tu ingeniería: frecuencia de despliegue, tiempo de entrega, tasa de fallos en cambios y más.",
   "tour.step.notifications.title": "Notificaciones",
-  "tour.step.notifications.desc": "Recibe alertas instantáneas cuando las tareas se completan o fallan. También se admiten notificaciones push del navegador."
+  "tour.step.notifications.desc": "Recibe alertas instantáneas cuando las tareas se completan o fallan. También se admiten notificaciones push del navegador.",
+  "nav.group.workspace": "Espacio de Trabajo",
+  "nav.group.ai": "IA y Automatizacion",
+  "nav.group.analytics": "Analitica",
+  "nav.group.settings": "Configuracion"
 }

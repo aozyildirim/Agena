@@ -20,30 +20,59 @@ const NOTIF_SYNC_EVENT = 'agena:notification-sync';
 const LS_UNREAD_KEY = 'agena_notification_unread_count';
 const LS_SIDEBAR_COLLAPSED = 'agena_sidebar_collapsed';
 
-const PRIMARY_NAV_KEYS: NavItem[] = [
-  { href: '/dashboard', key: 'nav.overview', icon: '🧭' },
-  { href: '/dashboard/office', key: 'nav.office', icon: '🏢' },
-  { href: '/dashboard/tasks', key: 'nav.tasks', icon: '✅', permission: 'tasks:read' as const },
-  { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const },
-  { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const },
-  { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🧪', permission: 'tasks:read' as const },
-  { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const },
-  { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
-  { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '📝' },
-  { href: '/dashboard/flows', key: 'nav.flows', icon: '🧠' },
-  { href: '/dashboard/templates', key: 'nav.templates', icon: '🧩' },
-  { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🔗' },
-  { href: '/dashboard/dora', key: 'nav.dora', icon: '📈', children: [
-    { href: '/dashboard/dora', key: 'nav.doraOverview', icon: '📊' },
-    { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: '📋' },
-    { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: '⚡' },
-    { href: '/dashboard/dora/quality', key: 'nav.doraQuality', icon: '🛡' },
-    { href: '/dashboard/dora/bugs', key: 'nav.doraBugs', icon: '🐛' },
-    { href: '/dashboard/dora/team', key: 'nav.doraTeam', icon: '👥' },
-  ]},
-  { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const },
-  { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🛡', permission: 'roles:manage' as const },
+type NavGroup = { labelKey: string; items: NavItem[]; defaultOpen?: boolean };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'nav.group.workspace',
+    defaultOpen: true,
+    items: [
+      { href: '/dashboard', key: 'nav.overview', icon: '🧭' },
+      { href: '/dashboard/office', key: 'nav.office', icon: '🏢' },
+      { href: '/dashboard/tasks', key: 'nav.tasks', icon: '✅', permission: 'tasks:read' as const },
+      { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const },
+      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const },
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🧪', permission: 'tasks:read' as const },
+    ],
+  },
+  {
+    labelKey: 'nav.group.ai',
+    defaultOpen: true,
+    items: [
+      { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
+      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '📝' },
+      { href: '/dashboard/flows', key: 'nav.flows', icon: '🧠' },
+      { href: '/dashboard/templates', key: 'nav.templates', icon: '🧩' },
+    ],
+  },
+  {
+    labelKey: 'nav.group.analytics',
+    defaultOpen: false,
+    items: [
+      { href: '/dashboard/dora', key: 'nav.dora', icon: '📈', children: [
+        { href: '/dashboard/dora', key: 'nav.doraOverview', icon: '📊' },
+        { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: '📋' },
+        { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: '⚡' },
+        { href: '/dashboard/dora/quality', key: 'nav.doraQuality', icon: '🛡' },
+        { href: '/dashboard/dora/bugs', key: 'nav.doraBugs', icon: '🐛' },
+        { href: '/dashboard/dora/team', key: 'nav.doraTeam', icon: '👥' },
+      ]},
+    ],
+  },
+  {
+    labelKey: 'nav.group.settings',
+    defaultOpen: false,
+    items: [
+      { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🔗' },
+      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const },
+      { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const },
+      { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🛡', permission: 'roles:manage' as const },
+    ],
+  },
 ];
+
+// Flat list for backward compat (tourAttr, etc.)
+const PRIMARY_NAV_KEYS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 const SECONDARY_NAV_KEYS = [
   { href: '/dashboard/notifications', key: 'nav.notifications', icon: '🔔' },
@@ -73,6 +102,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [taskBadges, setTaskBadges] = useState<Record<string, number>>({});
   const [hasRunningTasks, setHasRunningTasks] = useState(false);
   const shouldOpenOnboarding = searchParams.get('onboarding') === '1' || searchParams.get('welcome') === '1';
@@ -479,12 +509,29 @@ function DashboardInner({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {!sidebarCollapsed && <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: 'var(--muted)', textTransform: 'uppercase', padding: '0 12px', marginBottom: 8 }}>
-          {t('nav.workspace')}
-        </div>}
-
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {PRIMARY_NAV_KEYS.filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1])).map((item) => {
+          {NAV_GROUPS.map((group) => {
+            const visibleItems = group.items.filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]));
+            if (!visibleItems.length) return null;
+            const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
+            const isGroupOpen = groupHasActive || (collapsedGroups[group.labelKey] !== undefined ? !collapsedGroups[group.labelKey] : (group.defaultOpen ?? true));
+            return (
+              <div key={group.labelKey} style={{ marginBottom: 4 }}>
+                {!sidebarCollapsed && (
+                  <button
+                    onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.labelKey]: isGroupOpen }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                      fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: 'var(--muted)',
+                      textTransform: 'uppercase', padding: '6px 12px', marginBottom: 2,
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ fontSize: 8, transition: 'transform 0.2s', transform: isGroupOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+                    {t(group.labelKey as Parameters<typeof t>[0])}
+                  </button>
+                )}
+                {(sidebarCollapsed || isGroupOpen) && visibleItems.map((item) => {
             if (item.children) {
               const sectionActive = pathname.startsWith(item.href);
               const isExpanded = sectionActive || expandedNav === item.key;
@@ -566,6 +613,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 })()}
                 {active && !sidebarCollapsed && !Object.keys(taskBadges).length && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--nav-active)' }} />}
               </Link>
+            );
+          })}
+              </div>
             );
           })}
         </nav>
