@@ -127,7 +127,14 @@ export default function PromptStudioPage() {
     setSaving(true);
     setNotice(null);
     try {
-      const payload = normalizeDraft(draft);
+      const normalized = normalizeDraft(draft);
+      // Only save entries that differ from defaults
+      const payload: Record<string, string> = {};
+      Object.entries(normalized).forEach(([key, value]) => {
+        if (value !== (catalog?.defaults?.[key] || '').trim()) {
+          payload[key] = value;
+        }
+      });
       const next = await savePromptOverrides(payload);
       setCatalog(next);
       setDraft({ ...next.overrides });
@@ -208,7 +215,9 @@ export default function PromptStudioPage() {
             {promptKeys.map((key) => {
               const item = promptMeta(key, lang);
               const selected = key === activeKey;
-              const customized = !!(draft[key] || '').trim();
+              const draftVal = (draft[key] || '').trim();
+              const defaultVal = (catalog?.defaults?.[key] || '').trim();
+              const customized = !!draftVal && draftVal !== defaultVal;
               return (
                 <button
                   key={key}
@@ -242,24 +251,33 @@ export default function PromptStudioPage() {
                 <div style={{ fontSize: 10, color: 'var(--ink-42)' }}>{activeKey}</div>
               </div>
 
+              {customText ? (
+                <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 8, fontWeight: 600 }}>
+                  {lang === 'tr' ? '✏️ Özelleştirilmiş — değişiklikler kaydedilecek' : '✏️ Customized — changes will be saved'}
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 8 }}>
+                  {lang === 'tr' ? '📄 Sistem varsayılanı — düzenleyerek özelleştirin' : '📄 System default — edit to customize'}
+                </div>
+              )}
               <textarea
-                value={draft[activeKey] ?? ''}
+                value={activeKey in draft ? draft[activeKey] : defaultText}
                 onChange={(e) => setDraft((prev) => ({ ...prev, [activeKey]: e.target.value }))}
-                placeholder={catalog.defaults[activeKey] || ''}
                 rows={20}
                 style={{
                   ...inputStyle,
                   minHeight: 430,
-                  marginTop: 12,
+                  marginTop: 8,
                   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                   lineHeight: 1.45,
                   resize: 'vertical',
+                  borderColor: customText ? 'var(--accent)' : 'var(--panel-border)',
                 }}
               />
               <div style={{ fontSize: 10, color: 'var(--ink-42)', marginTop: 6 }}>
                 {lang === 'tr'
-                  ? 'Boş ise sistem default promptu kullanır.'
-                  : 'If empty, the system uses default prompt.'}
+                  ? 'Sıfırla butonuyla sistem varsayılanına dönebilirsiniz.'
+                  : 'Use Reset to revert to system default.'}
               </div>
             </>
           ) : (
