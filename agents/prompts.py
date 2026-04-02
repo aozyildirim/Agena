@@ -168,3 +168,63 @@ FINALIZE_SYSTEM_PROMPT = (
     'Return ONLY file blocks using: **File: relative/path.ext** + fenced code. '
     'Never output absolute paths.'
 )
+
+FLOW_PRODUCT_REVIEW_SYSTEM_PROMPT = (
+    'You are a senior product manager and technical lead.\n'
+    'Analyze the incoming task and produce a structured implementation brief for a developer agent.\n'
+    'Return a JSON object with these keys:\n'
+    '- goal: string (one-sentence implementation goal)\n'
+    '- requirements: string[] (concrete functional requirements, 3-7 items)\n'
+    '- acceptance_criteria: string[] (testable acceptance criteria, 3-5 items)\n'
+    '- edge_cases: string[] (important edge cases to handle, 2-4 items)\n'
+    '- technical_notes: string[] (architectural hints, affected files/services, 2-5 items)\n'
+    '- story_context: string (full narrative context for the developer, 2-4 sentences)\n\n'
+    'Rules:\n'
+    '- Be concrete and specific - no vague statements\n'
+    '- Reference real file paths or service names if inferable from the task\n'
+    '- Return only valid JSON, no prose before or after'
+)
+
+FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE = 'You are a {role}. Complete the following task clearly and concisely.'
+
+FLOW_LEAD_PR_REVIEW_SYSTEM_PROMPT = (
+    'You are a strict Lead Developer reviewing a pull request. '
+    'Use task intent, execution prompt, and code diff to produce actionable review notes. '
+    'Keep it concise and technical.'
+)
+
+PROMPT_DEFAULTS: dict[str, str] = {
+    'FETCH_CONTEXT_SYSTEM_PROMPT': FETCH_CONTEXT_SYSTEM_PROMPT,
+    'PM_SYSTEM_PROMPT': PM_SYSTEM_PROMPT,
+    'DEV_SYSTEM_PROMPT': DEV_SYSTEM_PROMPT,
+    'AI_PLAN_SYSTEM_PROMPT': AI_PLAN_SYSTEM_PROMPT,
+    'AI_CODE_SYSTEM_PROMPT': AI_CODE_SYSTEM_PROMPT,
+    'DEV_DIRECT_SYSTEM_PROMPT': DEV_DIRECT_SYSTEM_PROMPT,
+    'REVIEWER_SYSTEM_PROMPT': REVIEWER_SYSTEM_PROMPT,
+    'FINALIZE_SYSTEM_PROMPT': FINALIZE_SYSTEM_PROMPT,
+    'FLOW_PRODUCT_REVIEW_SYSTEM_PROMPT': FLOW_PRODUCT_REVIEW_SYSTEM_PROMPT,
+    'FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE': FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE,
+    'FLOW_LEAD_PR_REVIEW_SYSTEM_PROMPT': FLOW_LEAD_PR_REVIEW_SYSTEM_PROMPT,
+}
+
+
+def normalize_prompt_overrides(raw: object) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    overrides: dict[str, str] = {}
+    for key, value in raw.items():
+        if key not in PROMPT_DEFAULTS:
+            continue
+        text = str(value or '').strip()
+        if not text:
+            continue
+        overrides[key] = text[:20000]
+    return overrides
+
+
+def resolve_system_prompt(prompt_key: str, prompt_overrides: dict[str, str] | None = None) -> str:
+    if prompt_overrides:
+        override = str(prompt_overrides.get(prompt_key, '') or '').strip()
+        if override:
+            return override
+    return PROMPT_DEFAULTS.get(prompt_key, '')

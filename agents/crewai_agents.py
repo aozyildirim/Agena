@@ -21,6 +21,7 @@ from agents.prompts import (
     FINALIZE_SYSTEM_PROMPT,
     PM_SYSTEM_PROMPT,
     REVIEWER_SYSTEM_PROMPT,
+    resolve_system_prompt,
 )
 from services.llm.provider import LLMProvider
 
@@ -65,8 +66,9 @@ class AIPlanOutput(BaseModel):
 
 
 class CrewAIAgentRunner:
-    def __init__(self, llm_provider: LLMProvider | None = None) -> None:
+    def __init__(self, llm_provider: LLMProvider | None = None, prompt_overrides: dict[str, str] | None = None) -> None:
         self.llm = llm_provider or LLMProvider()
+        self.prompt_overrides = prompt_overrides or {}
 
     async def fetch_context(self, task_payload: dict[str, str], memory_context: list[dict[str, Any]]) -> tuple[str, dict[str, int], str]:
         prompt = (
@@ -78,7 +80,7 @@ class CrewAIAgentRunner:
         content, usage, model, _ = await self._run_with_crewai_or_llm(
             role='Context Analyst',
             goal='Summarize memory and repository context into short guidance for the next agent.',
-            system_prompt=FETCH_CONTEXT_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt('FETCH_CONTEXT_SYSTEM_PROMPT', FETCH_CONTEXT_SYSTEM_PROMPT),
             user_prompt=prompt,
             expected_output='A concise text summary with implementation-relevant context only.',
             complexity_hint='simple',
@@ -98,7 +100,7 @@ class CrewAIAgentRunner:
         content, usage, model, structured = await self._run_with_crewai_or_llm(
             role='Product Manager Agent',
             goal='Analyze tasks and generate a structured specification with file-level change plan.',
-            system_prompt=PM_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt('PM_SYSTEM_PROMPT', PM_SYSTEM_PROMPT),
             user_prompt=prompt,
             expected_output=(
                 'Return valid JSON with keys: goal, requirements, acceptance_criteria, '
@@ -128,7 +130,7 @@ class CrewAIAgentRunner:
         content, usage, model, structured = await self._run_with_crewai_or_llm(
             role='AI Planner',
             goal='Plan implementation changes for a task against the current repository state.',
-            system_prompt=AI_PLAN_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt('AI_PLAN_SYSTEM_PROMPT', AI_PLAN_SYSTEM_PROMPT),
             user_prompt=prompt,
             expected_output='Return valid JSON with keys: plan, files, changes.',
             complexity_hint='high',
@@ -174,7 +176,7 @@ class CrewAIAgentRunner:
         content, usage, model, _ = await self._run_with_crewai_or_llm(
             role='Developer Agent',
             goal='Implement planned code changes with minimal, accurate patches.',
-            system_prompt=AI_CODE_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt('AI_CODE_SYSTEM_PROMPT', AI_CODE_SYSTEM_PROMPT),
             user_prompt=prompt,
             expected_output='Patch output only, using **File: path** blocks and fenced patch sections.',
             complexity_hint='high',
@@ -194,7 +196,7 @@ class CrewAIAgentRunner:
                 '- Do not output prose, apologies, or commentary.\n'
             )
             direct_content, direct_usage, direct_model, _ = await self.llm.generate(
-                system_prompt=AI_CODE_SYSTEM_PROMPT,
+                system_prompt=self._system_prompt('AI_CODE_SYSTEM_PROMPT', AI_CODE_SYSTEM_PROMPT),
                 user_prompt=retry_prompt,
                 complexity_hint='high',
                 max_output_tokens=AGENT_TOKEN_LIMITS['developer'],
@@ -227,7 +229,10 @@ class CrewAIAgentRunner:
         content, usage, model, _ = await self._run_with_crewai_or_llm(
             role='Developer Agent',
             goal='Generate production-ready code from a specification.',
-            system_prompt=DEV_DIRECT_SYSTEM_PROMPT if direct_mode else DEV_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt(
+                'DEV_DIRECT_SYSTEM_PROMPT' if direct_mode else 'DEV_SYSTEM_PROMPT',
+                DEV_DIRECT_SYSTEM_PROMPT if direct_mode else DEV_SYSTEM_PROMPT,
+            ),
             user_prompt=prompt,
             expected_output='Code output only, using **File: relative/path.ext** blocks.',
             complexity_hint='high',
@@ -248,7 +253,7 @@ class CrewAIAgentRunner:
         content, usage, model, _ = await self._run_with_crewai_or_llm(
             role='Reviewer Agent',
             goal='Review and improve generated code quality and correctness.',
-            system_prompt=REVIEWER_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt('REVIEWER_SYSTEM_PROMPT', REVIEWER_SYSTEM_PROMPT),
             user_prompt=prompt,
             expected_output='Return corrected **File: path** patch blocks only.',
             complexity_hint='normal',
@@ -268,7 +273,7 @@ class CrewAIAgentRunner:
         content, usage, model, _ = await self._run_with_crewai_or_llm(
             role='Finalize Agent',
             goal='Prepare final code artifacts for git commit.',
-            system_prompt=FINALIZE_SYSTEM_PROMPT,
+            system_prompt=self._system_prompt('FINALIZE_SYSTEM_PROMPT', FINALIZE_SYSTEM_PROMPT),
             user_prompt=prompt,
             expected_output='Return final **File: path** blocks only.',
             complexity_hint='simple',
@@ -390,6 +395,10 @@ class CrewAIAgentRunner:
             image_inputs=image_inputs,
         )
         return content, usage, model, None
+
+    def _system_prompt(self, prompt_key: str, fallback: str) -> str:
+        resolved = resolve_system_prompt(prompt_key, self.prompt_overrides)
+        return resolved or fallback
 
     def _select_model(self, complexity_hint: str) -> str:
         if complexity_hint in {'simple', 'low'}:

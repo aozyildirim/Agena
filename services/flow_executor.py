@@ -19,6 +19,13 @@ from services.github_service import GitHubService
 from services.integration_config_service import IntegrationConfigService
 from services.llm.provider import LLMProvider
 from agents.crewai_agents import AGENT_TOKEN_LIMITS
+from agents.prompts import (
+    FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE,
+    FLOW_LEAD_PR_REVIEW_SYSTEM_PROMPT,
+    FLOW_PRODUCT_REVIEW_SYSTEM_PROMPT,
+    normalize_prompt_overrides,
+    resolve_system_prompt,
+)
 from services.orchestration_service import OrchestrationService
 
 logger = logging.getLogger(__name__)
@@ -59,6 +66,22 @@ async def _resolve_agent_model(
         except Exception:
             pass
     return default, ''
+
+
+async def _load_user_prompt_overrides(db: AsyncSession, user_id: int | None) -> dict[str, str]:
+    if not user_id:
+        return {}
+    try:
+        from models.prompt_override import PromptOverride
+
+        result = await db.execute(select(PromptOverride).where(PromptOverride.user_id == user_id))
+        rows = result.scalars().all()
+        return normalize_prompt_overrides({
+            row.prompt_key: row.prompt_text
+            for row in rows
+        })
+    except Exception:
+        return {}
 
 
 # ── Node executor dispatch ────────────────────────────────────────────────────
@@ -277,6 +300,7 @@ async def _run_product_review_node(
     task = context.get('task', {})
     role = node.get('role', 'product_review')
     user_id = context.get('user_id', 0)
+    prompt_overrides = await _load_user_prompt_overrides(db, user_id)
 
     # Resolve model from node config or user's agent settings
     resolved_model, resolved_provider = await _resolve_agent_model(
@@ -305,21 +329,7 @@ async def _run_product_review_node(
         large_model=model,
     )
 
-    system_prompt = (
-        'You are a senior product manager and technical lead.\n'
-        'Analyze the incoming task and produce a structured implementation brief for a developer agent.\n'
-        'Return a JSON object with these keys:\n'
-        '- goal: string (one-sentence implementation goal)\n'
-        '- requirements: string[] (concrete functional requirements, 3-7 items)\n'
-        '- acceptance_criteria: string[] (testable acceptance criteria, 3-5 items)\n'
-        '- edge_cases: string[] (important edge cases to handle, 2-4 items)\n'
-        '- technical_notes: string[] (architectural hints, affected files/services, 2-5 items)\n'
-        '- story_context: string (full narrative context for the developer, 2-4 sentences)\n\n'
-        'Rules:\n'
-        '- Be concrete and specific — no vague statements\n'
-        '- Reference real file paths or service names if inferable from the task\n'
-        '- Return only valid JSON, no prose before or after'
-    )
+    system_prompt = resolve_system_prompt('FLOW_PRODUCT_REVIEW_SYSTEM_PROMPT', prompt_overrides) or FLOW_PRODUCT_REVIEW_SYSTEM_PROMPT
     user_prompt = (
         f"Task title: {task.get('title', '')}\n"
         f"Task description: {task.get('description', '')}\n"
@@ -409,6 +419,7 @@ async def _run_agent_node(
     action = node.get('action', '')
     role = node.get('role', 'developer')
     user_id = context.get('user_id', 0)
+    prompt_overrides = await _load_user_prompt_overrides(db, user_id)
     resolved_model, _resolved_provider = await _resolve_agent_model(
         db, user_id, role, node.get('model', ''), default='gpt-4o',
     )
@@ -505,7 +516,14 @@ async def _run_agent_node(
         small_model=model,
         large_model=model,
     )
-    system_prompt = f'You are a {role}. Complete the following task clearly and concisely.'
+    system_prompt_template = (
+        resolve_system_prompt('FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE', prompt_overrides)
+        or FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE
+    )
+    try:
+        system_prompt = system_prompt_template.format(role=role)
+    except Exception:
+        system_prompt = FLOW_AGENT_NODE_SYSTEM_PROMPT_TEMPLATE.format(role=role)
     user_prompt = (
         f"Task: {task.get('title', '')}\n"
         f"Description: {task.get('description', '')}\n"
@@ -782,11 +800,11 @@ async def _run_lead_pr_review_node(
         execution_prompt = meta.get('execution prompt', '')
         repo_playbook = meta.get('repo playbook', '')
         tenant_playbook = meta.get('tenant playbook', '')
+        prompt_overrides = await _load_user_prompt_overrides(db, task_row.created_by_user_id)
 
         system_prompt = (
-            'You are a strict Lead Developer reviewing a pull request. '
-            'Use task intent, execution prompt, and code diff to produce actionable review notes. '
-            'Keep it concise and technical.'
+            resolve_system_prompt('FLOW_LEAD_PR_REVIEW_SYSTEM_PROMPT', prompt_overrides)
+            or FLOW_LEAD_PR_REVIEW_SYSTEM_PROMPT
         )
         user_prompt = (
             f"Task title:\n{task_row.title}\n\n"

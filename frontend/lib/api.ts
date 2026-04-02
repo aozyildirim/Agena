@@ -214,6 +214,12 @@ export interface RepoProfileSummary {
   repo_rules?: string[];
 }
 
+export interface PromptCatalog {
+  defaults: Record<string, string>;
+  overrides: Record<string, string>;
+  effective: Record<string, string>;
+}
+
 const LS_PROJECT = 'agena_sprint_project';
 const LS_TEAM    = 'agena_sprint_team';
 const LS_SPRINT  = 'agena_sprint_path';
@@ -267,6 +273,17 @@ export async function savePrefs(partial: Partial<{
       repo_mappings:     partial.repo_mappings     ?? null,
       profile_settings:  partial.profile_settings  ?? null,
     }),
+  });
+}
+
+export async function loadPromptCatalog(): Promise<PromptCatalog> {
+  return apiFetch<PromptCatalog>('/preferences/prompts');
+}
+
+export async function savePromptOverrides(overrides: Record<string, string>): Promise<PromptCatalog> {
+  return apiFetch<PromptCatalog>('/preferences/prompts', {
+    method: 'PUT',
+    body: JSON.stringify({ overrides }),
   });
 }
 

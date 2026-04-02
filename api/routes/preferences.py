@@ -7,12 +7,14 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import CurrentTenant, get_current_tenant
 from core.database import get_db_session
 from core.settings import get_settings
+from agents.prompts import PROMPT_DEFAULTS, normalize_prompt_overrides
+from models.prompt_override import PromptOverride
 from models.user_preference import UserPreference
 from services.ai_usage_event_service import AIUsageEventService
 from services.integration_config_service import IntegrationConfigService
@@ -63,6 +65,16 @@ class RepoProfileScanRequest(BaseModel):
 class RepoProfileScanResponse(BaseModel):
     mapping_id: str
     profile: dict[str, Any]
+
+
+class PromptOverridesPayload(BaseModel):
+    overrides: dict[str, str] = {}
+
+
+class PromptOverridesResponse(BaseModel):
+    defaults: dict[str, str]
+    overrides: dict[str, str]
+    effective: dict[str, str]
 
 
 
@@ -459,6 +471,75 @@ async def save_preferences(
     )
 
 
+@router.get('/prompts', response_model=PromptOverridesResponse)
+async def get_prompt_overrides(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> PromptOverridesResponse:
+    result = await db.execute(
+        select(PromptOverride).where(PromptOverride.user_id == tenant.user_id)
+    )
+    rows = result.scalars().all()
+    overrides = normalize_prompt_overrides({
+        row.prompt_key: row.prompt_text
+        for row in rows
+    })
+    if not overrides:
+        pref = await _get_or_create_pref(db, tenant.user_id)
+        settings = _parse_json_obj(pref.profile_settings_json)
+        legacy = normalize_prompt_overrides(settings.get('prompt_overrides'))
+        if legacy:
+            for prompt_key, prompt_text in legacy.items():
+                db.add(
+                    PromptOverride(
+                        user_id=tenant.user_id,
+                        prompt_key=prompt_key,
+                        prompt_text=prompt_text,
+                    )
+                )
+            await db.commit()
+            overrides = legacy
+    effective = {key: (overrides.get(key) or default) for key, default in PROMPT_DEFAULTS.items()}
+    return PromptOverridesResponse(
+        defaults=PROMPT_DEFAULTS,
+        overrides=overrides,
+        effective=effective,
+    )
+
+
+@router.put('/prompts', response_model=PromptOverridesResponse)
+async def save_prompt_overrides(
+    payload: PromptOverridesPayload,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> PromptOverridesResponse:
+    overrides = normalize_prompt_overrides(payload.overrides)
+    await db.execute(
+        delete(PromptOverride).where(PromptOverride.user_id == tenant.user_id)
+    )
+    for prompt_key, prompt_text in overrides.items():
+        db.add(
+            PromptOverride(
+                user_id=tenant.user_id,
+                prompt_key=prompt_key,
+                prompt_text=prompt_text,
+            )
+        )
+    # Cleanup legacy location after writing canonical table.
+    pref = await _get_or_create_pref(db, tenant.user_id)
+    settings = _parse_json_obj(pref.profile_settings_json)
+    if 'prompt_overrides' in settings:
+        del settings['prompt_overrides']
+        pref.profile_settings_json = json.dumps(settings, ensure_ascii=False)
+    await db.commit()
+    effective = {key: (overrides.get(key) or default) for key, default in PROMPT_DEFAULTS.items()}
+    return PromptOverridesResponse(
+        defaults=PROMPT_DEFAULTS,
+        overrides=overrides,
+        effective=effective,
+    )
+
+
 @router.post('/repo-profile/scan', response_model=RepoProfileScanResponse)
 async def scan_repo_profile(
     payload: RepoProfileScanRequest,
@@ -731,4 +812,3 @@ async def get_agents_md(
             except Exception:
                 pass
     return {'mapping_id': mapping_id, 'path': md_path, 'content': content, 'size': len(content)}
-

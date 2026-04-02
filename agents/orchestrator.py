@@ -12,13 +12,14 @@ class AgentOrchestrator:
     def __init__(
         self,
         llm_provider: LLMProvider | None = None,
+        prompt_overrides: dict[str, str] | None = None,
         *,
         memory_provider: str | None = None,
         memory_api_key: str | None = None,
         memory_base_url: str | None = None,
         memory_model: str | None = None,
     ) -> None:
-        self.agents = CrewAIAgentRunner(llm_provider=llm_provider)
+        self.agents = CrewAIAgentRunner(llm_provider=llm_provider, prompt_overrides=prompt_overrides)
         self.memory_store = QdrantMemoryStore(
             embedding_provider=memory_provider,
             embedding_api_key=memory_api_key,

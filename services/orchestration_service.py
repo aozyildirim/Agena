@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from agents.orchestrator import AgentOrchestrator
+from agents.prompts import normalize_prompt_overrides
 from core.settings import get_settings
 from models.run_record import RunRecord
 from models.task_record import TaskRecord
@@ -233,7 +234,7 @@ class OrchestrationService:
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using claude_cli preferred agent')
             else:
-                orchestrator = await self._build_orchestrator(organization_id, routing)
+                orchestrator = await self._build_orchestrator(organization_id, routing, task.created_by_user_id)
                 task_description_for_ai = task.description or ''
                 task_image_inputs: list[str] = []
                 if mode == 'ai':
@@ -1726,8 +1727,9 @@ class OrchestrationService:
         content = (config.secret or '').strip()
         return content or None
 
-    async def _build_orchestrator(self, organization_id: int, routing: TaskRouting) -> AgentOrchestrator:
+    async def _build_orchestrator(self, organization_id: int, routing: TaskRouting, user_id: int | None = None) -> AgentOrchestrator:
         llm_runtime = await self._resolve_llm_runtime(organization_id, routing)
+        prompt_overrides = await self._load_user_prompt_overrides(user_id)
         memory_provider = None
         memory_api_key = None
         memory_base_url = None
@@ -1747,6 +1749,7 @@ class OrchestrationService:
 
         if llm_runtime is None:
             return AgentOrchestrator(
+                prompt_overrides=prompt_overrides,
                 memory_provider=memory_provider,
                 memory_api_key=memory_api_key,
                 memory_base_url=memory_base_url,
@@ -1762,11 +1765,29 @@ class OrchestrationService:
         )
         return AgentOrchestrator(
             llm_provider=llm,
+            prompt_overrides=prompt_overrides,
             memory_provider=memory_provider,
             memory_api_key=memory_api_key,
             memory_base_url=memory_base_url,
             memory_model=memory_model,
         )
+
+    async def _load_user_prompt_overrides(self, user_id: int | None) -> dict[str, str]:
+        if not user_id:
+            return {}
+        try:
+            from models.prompt_override import PromptOverride
+
+            result = await self.db_session.execute(
+                select(PromptOverride).where(PromptOverride.user_id == user_id)
+            )
+            rows = result.scalars().all()
+            return normalize_prompt_overrides({
+                row.prompt_key: row.prompt_text
+                for row in rows
+            })
+        except Exception:
+            return {}
 
     async def _resolve_llm_runtime(self, organization_id: int, routing: TaskRouting) -> LLMRuntimeConfig | None:
         provider = (routing.preferred_agent_provider or '').strip().lower()

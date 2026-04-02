@@ -11,6 +11,7 @@ from models.notification_record import NotificationRecord
 from models.organization import Organization
 from models.organization_member import OrganizationMember
 from models.payment_record import PaymentRecord
+from models.prompt_override import PromptOverride
 from models.refinement_record import RefinementRecord
 from models.run_record import RunRecord
 from models.subscription import Subscription
@@ -27,6 +28,7 @@ __all__ = [
     'Subscription',
     'TaskDependency',
     'PaymentRecord',
+    'PromptOverride',
     'RefinementRecord',
     'UsageRecord',
     'TaskRecord',
