@@ -503,6 +503,7 @@ export default function AgentsPage() {
         <AgentModal
           agent={editModalAgent || draft}
           isNew={showNewAgent && !editModalAgent}
+          promptSlugs={promptSlugs}
           onClose={() => { setShowNewAgent(false); setEditModalAgent(null); }}
           onSave={(updated) => {
             if (editModalAgent) {
@@ -536,9 +537,10 @@ export default function AgentsPage() {
 }
 
 // ── Agent Edit/Create Modal ───────────────────────────────────────────────────
-function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t }: {
+function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t, promptSlugs }: {
   agent: AgentConfig;
   isNew: boolean;
+  promptSlugs: string[];
   onClose: () => void;
   onSave: (agent: AgentConfig) => void;
   onDelete?: () => void;

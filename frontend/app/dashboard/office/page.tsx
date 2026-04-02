@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { apiFetch, loadPrefs, savePrefs } from '@/lib/api';
+import { apiFetch, loadPrefs, savePrefs, loadPromptCatalog } from '@/lib/api';
 import RemoteRepoSelector from '@/components/RemoteRepoSelector';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import { useWS } from '@/lib/useWebSocket';
@@ -662,15 +662,23 @@ function AddAgentModal({
   t: (key: TranslationKey) => string;
   existingRoles: string[];
 }) {
-  const [step, setStep] = useState(0); // 0=identity, 1=provider, 2=model
+  const [step, setStep] = useState(0); // 0=identity, 1=provider, 2=model, 3=prompt
   const [label, setLabel] = useState('');
   const [palette, setPalette] = useState(0);
   const [color, setColor] = useState('#38bdf8');
   const [provider, setProvider] = useState('');
   const [model, setModel] = useState('');
   const [customModel, setCustomModel] = useState('');
+  const [description, setDescription] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [createPr, setCreatePr] = useState(false);
+  const [promptSlugs, setPromptSlugs] = useState<string[]>([]);
   const availModels = modelsForProvider(provider);
   const needsCustomInput = provider === 'custom' || provider === 'codex_cli' || provider === 'claude_cli';
+
+  useEffect(() => {
+    loadPromptCatalog().then((c) => setPromptSlugs(Object.keys(c.defaults))).catch(() => {});
+  }, []);
 
   // Map palette index to a default icon for the agent config
   const paletteIcons = ['👔', '📋', '🧑‍💻', '⚡', '🔍', '🤖', '⚽', '🖤', '🎄', '⬛'];
@@ -699,12 +707,13 @@ function AddAgentModal({
       provider: provider || undefined,
       model: finalModel || undefined,
       custom_model: customModel || undefined,
-      description: '',
-      system_prompt: '',
+      description: description.trim(),
+      system_prompt: systemPrompt.trim(),
+      create_pr: createPr,
     });
   };
 
-  const stepTitles = [t('office.addAgentTitle'), t('office.type'), t('office.model')];
+  const stepTitles = [t('office.addAgentTitle'), t('office.type'), t('office.model'), t('agents.systemPrompt')];
 
   const inputSt: React.CSSProperties = {
     width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13,
@@ -719,7 +728,7 @@ function AddAgentModal({
 
         {/* Progress bar */}
         <div style={{ height: 3, background: 'var(--panel-border)' }}>
-          <div style={{ height: '100%', width: `${((step + 1) / 3) * 100}%`, background: `linear-gradient(90deg, ${color}, ${color}88)`, borderRadius: 2, transition: 'width 0.3s ease' }} />
+          <div style={{ height: '100%', width: `${((step + 1) / 4) * 100}%`, background: `linear-gradient(90deg, ${color}, ${color}88)`, borderRadius: 2, transition: 'width 0.3s ease' }} />
         </div>
 
         <div style={{ padding: '20px 24px 24px' }}>
@@ -727,7 +736,7 @@ function AddAgentModal({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 4 }}>
-                {step + 1}/3
+                {step + 1}/4
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{stepTitles[step]}</div>
             </div>
@@ -819,6 +828,44 @@ function AddAgentModal({
             </div>
           )}
 
+          {/* Step 3: Prompt & Settings */}
+          {step === 3 && (
+            <div style={{ display: 'grid', gap: 12 }}>
+              {/* Description */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('agents.description')}</div>
+                <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('agents.descriptionPlaceholder')} style={inputSt} />
+              </div>
+              {/* System Prompt selector */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('agents.systemPrompt')}</div>
+                {promptSlugs.length > 0 && (
+                  <select
+                    value={promptSlugs.includes(systemPrompt) ? systemPrompt : ''}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    style={{ ...inputSt, marginBottom: 6 }}
+                  >
+                    <option value="">{t('agents.promptCustom')}</option>
+                    {promptSlugs.map((slug) => (
+                      <option key={slug} value={slug}>{slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                    ))}
+                  </select>
+                )}
+                {!promptSlugs.includes(systemPrompt) && (
+                  <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={3} style={{ ...inputSt, resize: 'vertical', lineHeight: 1.6 }} placeholder={t('agents.promptCustomPlaceholder')} />
+                )}
+              </div>
+              {/* Create PR toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div onClick={() => setCreatePr(!createPr)}
+                  style={{ width: 40, height: 22, borderRadius: 999, background: createPr ? color : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: createPr ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ink-50)' }}>{t('agents.toggleCreatePr')}</div>
+              </div>
+            </div>
+          )}
+
           {/* Footer buttons */}
           <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
             {step > 0 && (
@@ -827,7 +874,7 @@ function AddAgentModal({
                 ← {t('office.back')}
               </button>
             )}
-            {step < 2 ? (
+            {step < 3 ? (
               <button onClick={() => setStep(step + 1)} disabled={!canNext()}
                 style={{
                   flex: 2, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: canNext() ? 'pointer' : 'not-allowed',
@@ -1093,16 +1140,16 @@ export default function OfficePage() {
 
             {!panelCollapsed && <>
             {/* Agents */}
-            <div style={{ padding: '10px 14px 10px', borderBottom: '1px solid var(--panel-border)' }}>
-              <div style={{ display: 'grid', gap: 4 }}>
+            <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--panel-border)' }}>
+              <div style={{ display: 'grid', gap: 2 }}>
                 {officeAgents.map((agent) => {
                   const isActive = agent.status === 'active';
                   return (
                     <div key={agent.pixelId} onClick={() => setAssignAgent(agent)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 10, cursor: 'pointer', background: isActive ? `${agent.color}08` : 'transparent', border: `1px solid ${isActive ? `${agent.color}20` : 'transparent'}`, transition: 'all 0.15s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 8, cursor: 'pointer', background: isActive ? `${agent.color}08` : 'transparent', border: `1px solid ${isActive ? `${agent.color}20` : 'transparent'}`, transition: 'all 0.15s' }}
                       onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--panel-alt)'; }}
                       onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
-                      <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={28} />
+                      <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={24} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? agent.color : 'var(--ink-78)', display: 'flex', alignItems: 'center', gap: 5 }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.label}</span>
