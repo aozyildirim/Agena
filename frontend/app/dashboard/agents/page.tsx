@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { loadPrefs, savePrefs, getAgentAnalytics } from '@/lib/api';
+import { loadPrefs, savePrefs, getAgentAnalytics, loadPromptCatalog, type PromptCatalog } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -303,6 +303,7 @@ export default function AgentsPage() {
     enabled: true,
     palette: 0,
   });
+  const [promptSlugs, setPromptSlugs] = useState<string[]>([]);
   const defaults = useMemo(() => defaultAgents(t), [t]);
 
   useEffect(() => {
@@ -319,6 +320,10 @@ export default function AgentsPage() {
       } catch {
         // fallback to local storage only
       }
+      try {
+        const catalog = await loadPromptCatalog();
+        setPromptSlugs(Object.keys(catalog.defaults));
+      } catch { /* prompt catalog optional */ }
       try {
         const analyticsRes = await getAgentAnalytics(true);
         const map = {} as Record<string, AgentAnalytics>;
@@ -439,6 +444,7 @@ export default function AgentsPage() {
               isEditing={false}
               onEdit={() => setEditModalAgent(agent)}
               onUpdate={(patch) => updateAgent(agent.role, patch)}
+              promptSlugs={promptSlugs}
             />
           </div>
         ))}
@@ -629,10 +635,29 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t }: {
             <input value={a.custom_model || a.model} onChange={(e) => setA((v) => ({ ...v, custom_model: e.target.value, model: e.target.value }))} placeholder={t('agents.modelNamePlaceholder')} style={inputStyle} />
           </div>
 
-          {/* System prompt */}
+          {/* System prompt — select from Prompt Studio or write custom */}
           <div>
             <label style={labelStyle}>{t('agents.systemPrompt')}</label>
-            <textarea value={a.system_prompt} onChange={(e) => setA((v) => ({ ...v, system_prompt: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} />
+            {promptSlugs.length > 0 && (
+              <select
+                value={promptSlugs.includes(a.system_prompt) ? a.system_prompt : ''}
+                onChange={(e) => setA((v) => ({ ...v, system_prompt: e.target.value }))}
+                style={{ ...inputStyle, marginBottom: 6 }}
+              >
+                <option value="">{t('agents.promptCustom')}</option>
+                {promptSlugs.map((slug) => (
+                  <option key={slug} value={slug}>{slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                ))}
+              </select>
+            )}
+            {!promptSlugs.includes(a.system_prompt) && (
+              <textarea value={a.system_prompt} onChange={(e) => setA((v) => ({ ...v, system_prompt: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} placeholder={t('agents.promptCustomPlaceholder')} />
+            )}
+            {promptSlugs.includes(a.system_prompt) && (
+              <div style={{ fontSize: 11, color: 'var(--accent)', padding: '4px 0' }}>
+                Prompt Studio: {a.system_prompt.replace(/_/g, ' ')}
+              </div>
+            )}
           </div>
 
           {/* Create PR + Enabled toggles */}
@@ -694,10 +719,11 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t }: {
 }
 
 // ── AgentCard ─────────────────────────────────────────────────────────────────
-function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
+function AgentCard({ agent, isEditing, onEdit, onUpdate, promptSlugs }: {
   agent: AgentConfig;
   isEditing: boolean;
   onEdit: () => void;
+  promptSlugs: string[];
   onUpdate: (patch: Partial<AgentConfig>) => void;
 }) {
   const { t } = useLocale();
@@ -788,15 +814,35 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate }: {
             </div>
           )}
 
-          {/* System prompt */}
+          {/* System prompt — select from Prompt Studio or write custom */}
           <div>
             <label style={labelStyle}>{t('agents.systemPrompt')}</label>
-            <textarea
-              value={agent.system_prompt}
-              onChange={(e) => onUpdate({ system_prompt: e.target.value })}
-              rows={3}
-              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
-            />
+            {promptSlugs.length > 0 && (
+              <select
+                value={promptSlugs.includes(agent.system_prompt) ? agent.system_prompt : ''}
+                onChange={(e) => onUpdate({ system_prompt: e.target.value })}
+                style={{ ...inputStyle, marginBottom: 6 }}
+              >
+                <option value="">{t('agents.promptCustom')}</option>
+                {promptSlugs.map((slug) => (
+                  <option key={slug} value={slug}>{slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                ))}
+              </select>
+            )}
+            {!promptSlugs.includes(agent.system_prompt) && (
+              <textarea
+                value={agent.system_prompt}
+                onChange={(e) => onUpdate({ system_prompt: e.target.value })}
+                rows={3}
+                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
+                placeholder={t('agents.promptCustomPlaceholder')}
+              />
+            )}
+            {promptSlugs.includes(agent.system_prompt) && (
+              <div style={{ fontSize: 11, color: 'var(--accent)', padding: '4px 0' }}>
+                Prompt Studio: {agent.system_prompt.replace(/_/g, ' ')}
+              </div>
+            )}
           </div>
 
           {/* Create PR toggle */}

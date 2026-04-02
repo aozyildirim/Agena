@@ -1873,5 +1873,7 @@
   "nav.group.workspace": "Arbeitsbereich",
   "nav.group.ai": "KI & Automatisierung",
   "nav.group.analytics": "Analytik",
-  "nav.group.settings": "Einstellungen"
+  "nav.group.settings": "Einstellungen",
+  "agents.promptCustom": "Benutzerdefinierter Prompt (Freitext)",
+  "agents.promptCustomPlaceholder": "Eigenen System-Prompt schreiben oder oben aus Prompt Studio wahlen..."
 }

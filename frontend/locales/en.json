@@ -1873,5 +1873,7 @@
   "nav.group.workspace": "Workspace",
   "nav.group.ai": "AI & Automation",
   "nav.group.analytics": "Analytics",
-  "nav.group.settings": "Settings"
+  "nav.group.settings": "Settings",
+  "agents.promptCustom": "Custom Prompt (free text)",
+  "agents.promptCustomPlaceholder": "Write a custom system prompt or select from Prompt Studio above..."
 }

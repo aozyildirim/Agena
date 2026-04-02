@@ -1873,5 +1873,7 @@
   "nav.group.workspace": "Area di Lavoro",
   "nav.group.ai": "IA e Automazione",
   "nav.group.analytics": "Analisi",
-  "nav.group.settings": "Impostazioni"
+  "nav.group.settings": "Impostazioni",
+  "agents.promptCustom": "Prompt personalizzato (testo libero)",
+  "agents.promptCustomPlaceholder": "Scrivi un prompt personalizzato o seleziona da Prompt Studio..."
 }
