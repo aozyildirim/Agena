@@ -63,6 +63,24 @@ services:
       - cli_claude_auth:/root/.claude
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ai_agent_frontend
+    env_file:
+      - frontend/.env.example
+    ports:
+      - '3010:3010'
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev -- -p 3010
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   frontend_blue:
     build:
       context: .
