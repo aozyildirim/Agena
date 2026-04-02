@@ -503,7 +503,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             const visibleItems = group.items.filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]));
             if (!visibleItems.length) return null;
             const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
-            const isGroupOpen = groupHasActive || (collapsedGroups[group.labelKey] !== undefined ? !collapsedGroups[group.labelKey] : (group.defaultOpen ?? true));
+            const isGroupOpen = collapsedGroups[group.labelKey] !== undefined ? !collapsedGroups[group.labelKey] : (groupHasActive || (group.defaultOpen ?? true));
             const groupColors = ['var(--nav-active)', 'var(--purple)', 'var(--blue)', 'var(--muted)'];
             const gc = groupColors[gi] || 'var(--muted)';
             return (
