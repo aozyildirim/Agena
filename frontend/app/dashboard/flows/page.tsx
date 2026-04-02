@@ -562,6 +562,9 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
   const svgRef = useRef<SVGSVGElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{ id: string; ox: number; oy: number } | null>(null);
+  const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null);
+  const dragPosRef = useRef(dragPos);
+  dragPosRef.current = dragPos;
   // connecting: sürükleme ile bağlantı — sourceId + anlık fare pozisyonu
   const [connecting, setConnecting] = useState<{ sourceId: string; x: number; y: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -628,10 +631,9 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
       const drag = draggingRef.current;
       if (drag) {
         if ('touches' in e) e.preventDefault();
-        const nx = p.clientX - drag.ox;
-        const ny = p.clientY - drag.oy;
-        const f = flowRef.current;
-        onChange({ ...f, nodes: f.nodes.map((n) => n.id === drag.id ? { ...n, x: Math.max(0, nx), y: Math.max(0, ny) } : n) });
+        const nx = Math.max(0, p.clientX - drag.ox);
+        const ny = Math.max(0, p.clientY - drag.oy);
+        setDragPos({ id: drag.id, x: nx, y: ny });
       }
       const pan = panStartRef.current;
       if (pan) {
@@ -669,6 +671,12 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
   // Global mouseup/touchend
   useEffect(() => {
     function handleEnd(e: MouseEvent | TouchEvent) {
+      const pos = dragPosRef.current;
+      if (pos) {
+        const f = flowRef.current;
+        onChange({ ...f, nodes: f.nodes.map((n) => n.id === pos.id ? { ...n, x: pos.x, y: pos.y } : n) });
+        setDragPos(null);
+      }
       setDragging(null);
       setPanStart(null);
       const conn = connectingRef.current;
@@ -800,8 +808,9 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
     return `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`;
   }
 
-  const canvasW = Math.max(900, ...flow.nodes.map((n) => n.x + NODE_W + 80));
-  const canvasH = Math.max(400, ...flow.nodes.map((n) => n.y + NODE_H + 80));
+  const visualNodes = flow.nodes.map((n) => dragPos && dragPos.id === n.id ? { ...n, x: dragPos.x, y: dragPos.y } : n);
+  const canvasW = Math.max(900, ...visualNodes.map((n) => n.x + NODE_W + 80));
+  const canvasH = Math.max(400, ...visualNodes.map((n) => n.y + NODE_H + 80));
 
   return (
     <div style={{ flex: 1, display: 'flex', gap: 0, minHeight: 0, borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface)', position: 'relative', height: '100%' }}>
@@ -831,8 +840,8 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
           </defs>
           <g transform={`translate(${canvasOffset.x},${canvasOffset.y})`}>
             {flow.edges.map((edge) => {
-              const from = flow.nodes.find((n) => n.id === edge.from);
-              const to   = flow.nodes.find((n) => n.id === edge.to);
+              const from = visualNodes.find((n) => n.id === edge.from);
+              const to   = visualNodes.find((n) => n.id === edge.to);
               if (!from || !to) return null;
               const midX = (from.x + NODE_W + to.x) / 2;
               const midY = (from.y + to.y + NODE_H) / 2;
@@ -867,7 +876,7 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
 
             {/* Drag-to-connect preview line */}
             {connecting && (() => {
-              const src = flow.nodes.find((n) => n.id === connecting.sourceId);
+              const src = visualNodes.find((n) => n.id === connecting.sourceId);
               if (!src) return null;
               const x1 = src.x + NODE_W;
               const y1 = src.y + NODE_H / 2;
@@ -891,8 +900,8 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
 
         {/* Nodes */}
         <div style={{ position: 'absolute', inset: 0, transform: `translate(${canvasOffset.x}px,${canvasOffset.y}px)`, pointerEvents: 'none' }}>
-          {flow.nodes.map((node, idx) => (
-            <FlowNodeCard
+          {visualNodes.map((node, idx) => {
+            return (<FlowNodeCard
               key={node.id}
               node={node}
               index={idx}
@@ -905,8 +914,8 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
               onConnectorMouseDown={(e) => onConnectorMouseDown(e, node.id)}
               onEdit={() => setEditNode(node)}
               onDelete={() => deleteNode(node.id)}
-            />
-          ))}
+            />);
+          })}
         </div>
 
         {/* Empty state */}
