@@ -174,20 +174,65 @@ function presetFlows(t: ReturnType<typeof useLocale>['t']): Flow[] {
     edges: [{ from: 'n1', to: 'n2' }, { from: 'n2', to: 'n3' }, { from: 'n3', to: 'n4' }],
   },
   {
-    id: 'azure-pr-flow',
-    name: 'Azure DevOps PR Flow',
+    id: 'azure-sprint-to-merge',
+    name: 'Azure: Sprint → Analyze → Develop → PR → Review → Merge',
     createdAt: new Date().toISOString(),
     nodes: [
-      { id: 'a1', type: 'trigger', role: 'trigger', label: 'Task Trigger', icon: '⚡', color: '#f59e0b', action: 'Triggered from sprint backlog', waitForApproval: false, x: 60, y: 180 },
-      { id: 'a2', type: 'agent', role: 'analyzer', label: 'Analyzer', icon: '🔬', color: '#8b5cf6', action: 'Analyze task scope, identify affected files, estimate complexity and risks', prompt_slug: 'pm_system_prompt', waitForApproval: false, x: 240, y: 180 },
-      { id: 'a3', type: 'agent', role: 'planner', label: 'Planner', icon: '🗺️', color: '#06b6d4', action: 'Create detailed implementation plan with file-level changes', prompt_slug: 'ai_plan_system_prompt', waitForApproval: true, x: 420, y: 180 },
-      { id: 'a4', type: 'agent', role: 'developer', label: 'Developer', icon: '⚡', color: '#22c55e', action: 'Implement code changes following the plan', prompt_slug: 'ai_code_system_prompt', execute_task_pipeline: true, waitForApproval: false, x: 600, y: 180 },
-      { id: 'a5', type: 'agent', role: 'reviewer', label: 'Code Reviewer', icon: '🔎', color: '#f97316', action: 'Review generated patches for correctness and security', prompt_slug: 'reviewer_system_prompt', waitForApproval: false, x: 780, y: 180 },
-      { id: 'a6', type: 'azure_devops', role: 'azure_devops', label: 'Create PR', icon: '🔷', color: '#0078d4', action: 'Create pull request on Azure DevOps', azure_action: 'create_pr', azure_pr_title: 'AI: {{task.title}}', azure_pr_description: '## Summary\nAI-generated implementation for: {{task.title}}\n\n{{task.description}}', waitForApproval: false, x: 960, y: 180 },
-      { id: 'a7', type: 'azure_update', role: 'azure_update', label: 'Update Work Item', icon: '☁️', color: '#0078d4', action: 'Set work item to Code Review', new_state: 'Code Review', comment: 'AI PR created — ready for review', waitForApproval: false, x: 1140, y: 180 },
-      { id: 'a8', type: 'notify', role: 'notify', label: 'Notify', icon: '🔔', color: '#fb923c', action: 'Notify team', notify_message: 'PR created for: {{task.title}}', waitForApproval: false, x: 1320, y: 180 },
+      // 1. Sprint'ten is gelir
+      { id: 's1', type: 'trigger', role: 'trigger', label: 'Sprint Task', icon: '🗂️', color: '#f59e0b',
+        action: 'Azure DevOps aktif sprintten alinan is', waitForApproval: false, x: 60, y: 200 },
+
+      // 2. Is durumu "In Progress" yap
+      { id: 's2', type: 'azure_update', role: 'azure_update', label: 'In Progress', icon: '☁️', color: '#0078d4',
+        action: 'Work item durumunu guncelle', new_state: 'In Progress', comment: 'AI agent isleme aldi',
+        waitForApproval: false, x: 230, y: 200 },
+
+      // 3. Analiz et — scope, risk, affected files
+      { id: 's3', type: 'agent', role: 'analyzer', label: 'Analyzer', icon: '🔬', color: '#8b5cf6',
+        action: 'Gorevi analiz et: kapsam, etkilenen dosyalar, riskler, story point tahmini. JSON spec uret.',
+        prompt_slug: 'pm_system_prompt', model: 'gpt-5', max_tokens: 16000,
+        waitForApproval: false, x: 420, y: 200 },
+
+      // 4. Developer — kod yaz
+      { id: 's4', type: 'agent', role: 'developer', label: 'Developer', icon: '⚡', color: '#22c55e',
+        action: 'Analyzer ciktisina gore kodu implement et. Patch formatinda uret.',
+        prompt_slug: 'ai_code_system_prompt', execute_task_pipeline: true, create_pr: false,
+        model: 'gpt-5', max_tokens: 128000,
+        waitForApproval: false, x: 620, y: 200 },
+
+      // 5. Code Review — kalite kontrol
+      { id: 's5', type: 'agent', role: 'reviewer', label: 'Code Review', icon: '🔎', color: '#f97316',
+        action: 'Uretilen patch leri review et: correctness, security, patterns. Sorun varsa duzelt.',
+        prompt_slug: 'reviewer_system_prompt', model: 'gpt-5', max_tokens: 128000,
+        waitForApproval: false, x: 820, y: 200 },
+
+      // 6. Azure DevOps'ta PR ac
+      { id: 's6', type: 'azure_devops', role: 'azure_devops', label: 'PR Olustur', icon: '🔷', color: '#0078d4',
+        action: 'Azure DevOps ta pull request ac', azure_action: 'create_pr',
+        azure_pr_title: 'AI: {{task.title}}',
+        azure_pr_description: '## AI Generated PR\n\n**Task:** {{task.title}}\n\n{{task.description}}\n\n---\n_Bu PR otomatik olarak AGENA AI tarafindan olusturulmustur._',
+        waitForApproval: true, x: 1020, y: 200 },
+
+      // 7. PR'i merge et (onay sonrasi)
+      { id: 's7', type: 'azure_devops', role: 'azure_devops', label: 'Merge PR', icon: '🔷', color: '#16a34a',
+        action: 'PR i complete (merge) et', azure_action: 'complete_pr',
+        waitForApproval: false, x: 1220, y: 200 },
+
+      // 8. Work item'i Done yap
+      { id: 's8', type: 'azure_update', role: 'azure_update', label: 'Done', icon: '☁️', color: '#22c55e',
+        action: 'Work item durumunu kapat', new_state: 'Done', comment: 'AI PR merge edildi — is tamamlandi',
+        waitForApproval: false, x: 1420, y: 200 },
+
+      // 9. Bildirim gonder
+      { id: 's9', type: 'notify', role: 'notify', label: 'Bildirim', icon: '🔔', color: '#fb923c',
+        action: 'Takima bildir', notify_message: '{{task.title}} tamamlandi ve merge edildi.',
+        waitForApproval: false, x: 1600, y: 200 },
     ],
-    edges: [{ from: 'a1', to: 'a2' }, { from: 'a2', to: 'a3' }, { from: 'a3', to: 'a4' }, { from: 'a4', to: 'a5' }, { from: 'a5', to: 'a6' }, { from: 'a6', to: 'a7' }, { from: 'a7', to: 'a8' }],
+    edges: [
+      { from: 's1', to: 's2' }, { from: 's2', to: 's3' }, { from: 's3', to: 's4' },
+      { from: 's4', to: 's5' }, { from: 's5', to: 's6' }, { from: 's6', to: 's7' },
+      { from: 's7', to: 's8' }, { from: 's8', to: 's9' },
+    ],
   },
   {
     id: 'quick-fix',
