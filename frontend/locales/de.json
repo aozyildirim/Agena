@@ -1741,11 +1741,9 @@
   "invite.signupError": "Fehler bei der Registrierung.",
   "invite.hasAccount": "Bereits ein Konto?",
   "invite.signinLink": "Anmelden",
-
   "nav.refinement": "Verfeinerung",
   "nav.promptStudio": "Prompt-Studio",
   "tooltip.nav.promptStudio": "Standard-Systemprompts mit Laufzeit-Überschreibungen bearbeiten",
-
   "sprintPerf.section": "Sprint-Leistung",
   "sprintPerf.title": "Sprint-Leistung",
   "sprintPerf.subtitle": "Teamfortschritt, kritische Risiken und blockierte Arbeit für den aktiven Sprint.",
@@ -1788,7 +1786,6 @@
   "sprintPerf.noMembers": "Keine Teammitglieder für diesen Sprint gefunden.",
   "sprintPerf.blockedByAssignee": "Blockiert nach Zuständigem",
   "sprintPerf.blockedByAssigneeSub": "Blockierte Arbeitselemente gruppiert nach Teammitglied",
-
   "landing.faqTitle": "Häufig gestellte Fragen",
   "landing.faq1Q": "Was ist AGENA?",
   "landing.faq1A": "AGENA ist eine agentische KI-Plattform, die autonom Code generiert, Qualität prüft und Pull Requests erstellt. Sie führt eine PM → Entwickler → Prüfer → Finalisierer-Pipeline an, die von Pixel-Agent-Technologie angetrieben wird und Ihr Backlog in minutenschnelle in produktionsreife PRs verwandelt.",
@@ -1802,7 +1799,6 @@
   "landing.faq5A": "Ja! AGENA bietet einen kostenlosen Tarif mit 5 Aufgaben pro Monat, Token-Nutzungsverfolgung und Community-Support. Der Pro-Plan (49 $/Monat) umfasst unbegrenzte Aufgaben, priorisierten Worker-Durchsatz, Team-Einladungen und Abrechnung über Stripe oder Iyzico.",
   "landing.faq6Q": "Ist AGENA Open Source?",
   "landing.faq6A": "Ja, AGENA ist vollständig Open Source unter der MIT-Lizenz. Sie können es selbst hosten oder die verwaltete Plattform nutzen. Der Quellcode ist auf GitHub unter github.com/aozyildirim/Agena verfügbar.",
-
   "dora.team.title": "Team-Gesundheit",
   "dora.team.subtitle": "Symptomkatalog-basierte Team-Gesundheitsanalyse",
   "dora.team.teamName": "Teamname",
@@ -1852,7 +1848,6 @@
   "dora.team.s13.desc": "Häufiger in Produktion deployen",
   "dora.team.s14.name": "Hohe Änderungsfehlerrate",
   "dora.team.s14.desc": "Anteil fehlgeschlagener Deployments",
-
   "tour.skip": "Tour überspringen",
   "tour.prev": "Zurück",
   "tour.next": "Weiter",
@@ -1874,5 +1869,9 @@
   "tour.step.dora.title": "DORA-Metriken",
   "tour.step.dora.desc": "Ihre Engineering-Leistung messen: Deployment-Frequenz, Vorlaufzeit, Änderungsfehlerrate und mehr.",
   "tour.step.notifications.title": "Benachrichtigungen",
-  "tour.step.notifications.desc": "Sofortige Benachrichtigungen bei abgeschlossenen oder fehlgeschlagenen Aufgaben. Browser-Push-Benachrichtigungen werden ebenfalls unterstützt."
+  "tour.step.notifications.desc": "Sofortige Benachrichtigungen bei abgeschlossenen oder fehlgeschlagenen Aufgaben. Browser-Push-Benachrichtigungen werden ebenfalls unterstützt.",
+  "nav.group.workspace": "Arbeitsbereich",
+  "nav.group.ai": "KI & Automatisierung",
+  "nav.group.analytics": "Analytik",
+  "nav.group.settings": "Einstellungen"
 }

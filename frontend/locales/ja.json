@@ -1741,11 +1741,9 @@
   "invite.signupError": "Kayit sirasinda hata olustu.",
   "invite.hasAccount": "Zaten hesabiniz var mi?",
   "invite.signinLink": "ログイン yap",
-
   "nav.refinement": "リファインメント",
   "nav.promptStudio": "プロンプトスタジオ",
   "tooltip.nav.promptStudio": "システムプロンプトのデフォルトをランタイムオーバーライドで編集",
-
   "sprintPerf.section": "スプリントパフォーマンス",
   "sprintPerf.title": "スプリントパフォーマンス",
   "sprintPerf.subtitle": "アクティブスプリントのチーム進捗、重大リスク、ブロック中の作業。",
@@ -1788,7 +1786,6 @@
   "sprintPerf.noMembers": "このスプリントにチームメンバーが見つかりません。",
   "sprintPerf.blockedByAssignee": "担当者別ブロック状況",
   "sprintPerf.blockedByAssigneeSub": "チームメンバー別にグループ化されたブロック中の作業アイテム",
-
   "landing.faqTitle": "よくある質問",
   "landing.faq1Q": "AGENAとは何ですか？",
   "landing.faq1A": "AGENAは、自律的にコードを生成し、品質をレビューし、プルリクエストを作成するエージェント型AIプラットフォームです。ピクセルエージェント技術を活用したPM→開発者→レビュアー→ファイナライザーのパイプラインを実行し、バックログを数分で本番環境対応のPRに変換します。",
@@ -1802,7 +1799,6 @@
   "landing.faq5A": "はい！AGENAは月5タスク、トークン使用量トラッキング、コミュニティサポート付きの無料プランを提供しています。Proプラン（月額$49）には、無制限タスク、優先ワーカースループット、チーム招待、StripeまたはIyzicoによる請求が含まれます。",
   "landing.faq6Q": "AGENAはオープンソースですか？",
   "landing.faq6A": "はい、AGENAはMITライセンスの完全なオープンソースです。セルフホストまたはマネージドプラットフォームをご利用いただけます。ソースコードはGitHub（github.com/aozyildirim/Agena）で公開されています。",
-
   "dora.team.title": "チームヘルス",
   "dora.team.subtitle": "症状カタログに基づくチームヘルス分析",
   "dora.team.teamName": "チーム名",
@@ -1852,7 +1848,6 @@
   "dora.team.s13.desc": "本番環境へのデプロイをより頻繁に実施",
   "dora.team.s14.name": "高い変更失敗率",
   "dora.team.s14.desc": "デプロイ失敗の割合",
-
   "tour.skip": "ツアーをスキップ",
   "tour.prev": "戻る",
   "tour.next": "次へ",
@@ -1874,5 +1869,9 @@
   "tour.step.dora.title": "DORAメトリクス",
   "tour.step.dora.desc": "エンジニアリングパフォーマンスを測定：デプロイ頻度、リードタイム、変更失敗率など。",
   "tour.step.notifications.title": "通知",
-  "tour.step.notifications.desc": "タスクの完了や失敗時に即座にアラートを受信。ブラウザプッシュ通知にも対応しています。"
+  "tour.step.notifications.desc": "タスクの完了や失敗時に即座にアラートを受信。ブラウザプッシュ通知にも対応しています。",
+  "nav.group.workspace": "ワークスペース",
+  "nav.group.ai": "AI・自動化",
+  "nav.group.analytics": "アナリティクス",
+  "nav.group.settings": "設定"
 }
