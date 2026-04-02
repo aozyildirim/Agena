@@ -1960,6 +1960,7 @@ input:focus, textarea:focus {
   .flow-page-root { height: auto !important; min-height: calc(100vh - 160px) !important; overflow: visible !important; }
   .flow-canvas-area { min-height: 400px !important; overflow: auto !important; flex-direction: column !important; }
   .flow-toolbar-desktop { display: none !important; }
+  .flow-mobile-add-btn { display: flex !important; }
   .flow-run-panel { position: fixed !important; right: 0; top: 72px; bottom: 0; z-index: 55; width: min(320px, 90vw) !important; }
   .flow-canvas-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .flow-top-bar { flex-direction: column !important; align-items: flex-start !important; }

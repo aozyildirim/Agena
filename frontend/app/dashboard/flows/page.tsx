@@ -955,6 +955,20 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
         )}
       </div>
 
+      {/* Mobile floating add button (hidden on desktop via CSS) */}
+      <button
+        className="flow-mobile-add-btn"
+        onClick={() => setShowPicker(true)}
+        style={{
+          display: 'none', position: 'absolute', bottom: 16, right: 16, zIndex: 90,
+          width: 48, height: 48, borderRadius: '50%',
+          background: 'var(--brand)', border: 'none', color: '#fff',
+          fontSize: 24, fontWeight: 700, cursor: 'pointer',
+          boxShadow: '0 4px 16px rgba(13,148,136,0.4)',
+          alignItems: 'center', justifyContent: 'center',
+        }}
+      >+</button>
+
       {/* Node picker panel */}
       {showPicker && (
         <div style={{ position: 'absolute', left: 60, top: 12, zIndex: 100, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 16, width: 230, boxShadow: '0 12px 40px rgba(0,0,0,0.15)', maxHeight: 'calc(100% - 24px)', overflowY: 'auto' }}>
