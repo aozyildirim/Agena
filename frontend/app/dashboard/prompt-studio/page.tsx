@@ -165,8 +165,8 @@ export default function PromptStudioPage() {
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={topBarStyle}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#0f172a' }}>Prompt Studio</div>
-          <div style={{ fontSize: 12, color: '#475569' }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--ink-90)' }}>Prompt Studio</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>
             {lang === 'tr'
               ? 'Sade görünüm: prompt seç, düzenle, güven puanını gör, kaydet.'
               : 'Simple mode: select prompt, edit, view trust score, save.'}
@@ -185,9 +185,9 @@ export default function PromptStudioPage() {
       {notice ? (
         <div style={{
           borderRadius: 10,
-          border: `1px solid ${notice.type === 'ok' ? '#22c55e55' : '#ef444455'}`,
-          background: notice.type === 'ok' ? '#ecfdf3' : '#fef2f2',
-          color: notice.type === 'ok' ? '#166534' : '#991b1b',
+          border: `1px solid ${notice.type === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+          background: notice.type === 'ok' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+          color: notice.type === 'ok' ? 'var(--brand-2)' : 'var(--danger)',
           fontSize: 12,
           padding: '8px 10px',
         }}
@@ -216,15 +216,15 @@ export default function PromptStudioPage() {
                   style={{
                     textAlign: 'left',
                     borderRadius: 10,
-                    border: selected ? '1px solid #0284c7' : '1px solid var(--panel-border)',
-                    background: selected ? '#f0f9ff' : 'var(--panel)',
+                    border: selected ? '1px solid var(--accent)' : '1px solid var(--panel-border)',
+                    background: selected ? 'var(--nav-active-bg)' : 'var(--panel)',
                     padding: '9px 10px',
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{item.title}</div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{item.summary}</div>
-                  <div style={{ fontSize: 10, marginTop: 4, color: customized ? '#0369a1' : '#64748b' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink-90)' }}>{item.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 2 }}>{item.summary}</div>
+                  <div style={{ fontSize: 10, marginTop: 4, color: customized ? 'var(--accent)' : 'var(--ink-42)' }}>
                     {customized ? (lang === 'tr' ? 'Özel' : 'Custom') : (lang === 'tr' ? 'Varsayılan' : 'Default')}
                   </div>
                 </button>
@@ -237,9 +237,9 @@ export default function PromptStudioPage() {
           {activeKey ? (
             <>
               <div style={{ display: 'grid', gap: 3 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a' }}>{meta.title}</div>
-                <div style={{ fontSize: 12, color: '#475569' }}>{meta.summary}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>{activeKey}</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--ink-90)' }}>{meta.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>{meta.summary}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-42)' }}>{activeKey}</div>
               </div>
 
               <textarea
@@ -256,7 +256,7 @@ export default function PromptStudioPage() {
                   resize: 'vertical',
                 }}
               />
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>
+              <div style={{ fontSize: 10, color: 'var(--ink-42)', marginTop: 6 }}>
                 {lang === 'tr'
                   ? 'Boş ise sistem default promptu kullanır.'
                   : 'If empty, the system uses default prompt.'}
@@ -301,7 +301,7 @@ function normalizeDraft(raw: Record<string, string>) {
 
 const plainInfoStyle: CSSProperties = {
   fontSize: 13,
-  color: '#64748b',
+  color: 'var(--ink-50)',
 };
 
 const topBarStyle: CSSProperties = {
@@ -342,7 +342,7 @@ const inputStyle: CSSProperties = {
 const btnPrimary: CSSProperties = {
   border: 'none',
   borderRadius: 10,
-  background: '#0284c7',
+  background: 'var(--brand)',
   color: '#fff',
   padding: '8px 12px',
   fontSize: 12,
