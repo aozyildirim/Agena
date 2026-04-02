@@ -6,6 +6,16 @@ import { useLocale } from '@/lib/i18n';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
+interface PRDetail {
+  author: string;
+  title: string;
+  target_branch?: string;
+  repo_mapping_id?: string;
+  size?: number;
+  hours?: number;
+  seconds?: number;
+}
+
 interface Symptom {
   id: string;
   name: string;
@@ -18,6 +28,9 @@ interface Symptom {
   threshold?: number;
   trend?: number[];
   overloaded_members?: { author: string; impact: number }[];
+  pr_details?: PRDetail[];
+  weekend_authors?: { author: string; count: number }[];
+  unreviewed_by_author?: { author: string; count: number }[];
 }
 
 interface Summary {
@@ -91,38 +104,126 @@ function HealthRing({ healthy, warning, critical, size = 110 }: { healthy: numbe
 
 /* ── Symptom Card ────────────────────────────────────────────────────────────── */
 
-function SymptomCard({ symptom, t }: { symptom: Symptom; t: ReturnType<typeof useLocale>['t'] }) {
+function formatReviewTime(hours?: number, seconds?: number): string {
+  if (seconds !== undefined) {
+    if (seconds < 60) return `${seconds}s`;
+    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  }
+  if (hours === undefined || hours === 0) return '-';
+  if (hours < 1) return `${Math.round(hours * 60)}min`;
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+function SymptomCard({ symptom, t, repos }: { symptom: Symptom; t: ReturnType<typeof useLocale>['t']; repos: RepoMapping[] }) {
+  const [expanded, setExpanded] = useState(false);
   const sev = sevColors[symptom.severity] || sevColors.healthy;
   const icon = sevIcons[symptom.severity] || '';
   const id = symptom.id.toLowerCase();
+
+  const details = symptom.pr_details || [];
+  const weekendAuthors = symptom.weekend_authors || [];
+  const unreviewedAuthors = symptom.unreviewed_by_author || [];
+  const hasDetails = details.length > 0 || weekendAuthors.length > 0 || unreviewedAuthors.length > 0;
+
+  const repoName = (rid: string) => repos.find((r) => r.id === rid)?.name || rid.slice(0, 12);
+
   return (
-    <div style={{ borderRadius: 14, padding: '14px 16px', border: `1px solid ${sev.border}`, background: sev.bg, position: 'relative', overflow: 'hidden' }}>
+    <div style={{ borderRadius: 14, border: `1px solid ${sev.border}`, background: sev.bg, position: 'relative', overflow: 'hidden' }}>
       {symptom.active && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${sev.text}, transparent)`, opacity: 0.8 }} />}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`dora.team.${id}.name` as Parameters<typeof t>[0])}</div>
-            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{t(`dora.team.${id}.desc` as Parameters<typeof t>[0])}</div>
+      <div style={{ padding: '14px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`dora.team.${id}.name` as Parameters<typeof t>[0])}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{t(`dora.team.${id}.desc` as Parameters<typeof t>[0])}</div>
+            </div>
           </div>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '2px 7px', borderRadius: 999, flexShrink: 0, background: sev.bg, border: `1px solid ${sev.border}`, color: sev.text }}>
+            {t(`dora.team.${symptom.severity}` as Parameters<typeof t>[0])}
+          </span>
         </div>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, padding: '2px 7px', borderRadius: 999, flexShrink: 0, background: sev.bg, border: `1px solid ${sev.border}`, color: sev.text }}>
-          {t(`dora.team.${symptom.severity}` as Parameters<typeof t>[0])}
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-        <div>
-          <span style={{ fontSize: 22, fontWeight: 800, color: sev.text, lineHeight: 1 }}>{typeof symptom.value === 'number' ? (symptom.value % 1 === 0 ? symptom.value : symptom.value.toFixed(1)) : symptom.value}</span>
-          <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4, fontWeight: 600 }}>{symptom.unit}</span>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <span style={{ fontSize: 22, fontWeight: 800, color: sev.text, lineHeight: 1 }}>{typeof symptom.value === 'number' ? (symptom.value % 1 === 0 ? symptom.value : symptom.value.toFixed(1)) : symptom.value}</span>
+            <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4, fontWeight: 600 }}>{symptom.unit}</span>
+          </div>
+          {symptom.trend && symptom.trend.length > 1 && <MiniSparkline data={symptom.trend} color={sev.text} />}
         </div>
-        {symptom.trend && symptom.trend.length > 1 && <MiniSparkline data={symptom.trend} color={sev.text} />}
+        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>{symptom.detail}</div>
+        {symptom.overloaded_members && symptom.overloaded_members.length > 0 && (
+          <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {symptom.overloaded_members.map((m) => (
+              <span key={m.author} style={{ fontSize: 9, padding: '2px 7px', borderRadius: 999, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontWeight: 600 }}>{m.author}</span>
+            ))}
+          </div>
+        )}
+        {hasDetails && (
+          <button onClick={() => setExpanded(!expanded)} style={{
+            marginTop: 8, fontSize: 10, fontWeight: 600, color: sev.text, background: 'none', border: 'none',
+            cursor: 'pointer', padding: '2px 0', display: 'flex', alignItems: 'center', gap: 4, opacity: 0.8,
+          }}>
+            <span style={{ transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>{'\u25B6'}</span>
+            {expanded ? 'Hide details' : `Show details (${details.length || weekendAuthors.length || unreviewedAuthors.length})`}
+          </button>
+        )}
       </div>
-      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>{symptom.detail}</div>
-      {symptom.overloaded_members && symptom.overloaded_members.length > 0 && (
-        <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {symptom.overloaded_members.map((m) => (
-            <span key={m.author} style={{ fontSize: 9, padding: '2px 7px', borderRadius: 999, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontWeight: 600 }}>{m.author}</span>
-          ))}
+
+      {/* PR Details Table */}
+      {expanded && details.length > 0 && (
+        <div style={{ borderTop: `1px solid ${sev.border}`, padding: '8px 12px', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${sev.border}` }}>
+                <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>PR</th>
+                <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>Author</th>
+                <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>Repo</th>
+                <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>Review Time</th>
+                <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>Size</th>
+              </tr>
+            </thead>
+            <tbody>
+              {details.map((pr, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
+                  <td style={{ padding: '5px 6px', color: 'var(--ink)', fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pr.title}</td>
+                  <td style={{ padding: '5px 6px', color: 'var(--muted)' }}>{pr.author}</td>
+                  <td style={{ padding: '5px 6px', color: 'var(--muted)', fontSize: 9 }}>
+                    {pr.repo_mapping_id ? repoName(pr.repo_mapping_id) : ''}{pr.target_branch ? `/${pr.target_branch}` : ''}
+                  </td>
+                  <td style={{ padding: '5px 6px', color: sev.text, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {formatReviewTime(pr.hours, pr.seconds)}
+                  </td>
+                  <td style={{ padding: '5px 6px', color: 'var(--ink)', fontWeight: 600, textAlign: 'right' }}>
+                    {pr.size !== undefined && pr.size > 0 ? pr.size.toLocaleString() : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Weekend Authors Table */}
+      {expanded && weekendAuthors.length > 0 && (
+        <div style={{ borderTop: `1px solid ${sev.border}`, padding: '8px 12px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${sev.border}` }}>
+                <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>Author</th>
+                <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--muted)', fontWeight: 600 }}>Weekend Commits</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weekendAuthors.map((a, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
+                  <td style={{ padding: '5px 6px', color: 'var(--ink)', fontWeight: 500 }}>{a.author}</td>
+                  <td style={{ padding: '5px 6px', color: sev.text, fontWeight: 600, textAlign: 'right' }}>{a.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -248,7 +349,7 @@ export default function TeamHealthPage() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{t('dora.team.gitAnalytics')}</span>
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 999, background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>{data.git_analytics.filter((s) => s.active).length} {t('dora.team.active').toLowerCase()}</span>
               </div>
-              <div style={{ display: 'grid', gap: 10 }}>{data.git_analytics.map((s) => <SymptomCard key={s.id} symptom={s} t={t} />)}</div>
+              <div style={{ display: 'grid', gap: 10 }}>{data.git_analytics.map((s) => <SymptomCard key={s.id} symptom={s} t={t} repos={repos} />)}</div>
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(234,179,8,0.08), rgba(239,68,68,0.08))', border: '1px solid rgba(234,179,8,0.15)' }}>
@@ -256,7 +357,7 @@ export default function TeamHealthPage() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{t('dora.team.prDelivery')}</span>
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 999, background: 'rgba(234,179,8,0.1)', color: '#eab308' }}>{data.pr_delivery.filter((s) => s.active).length} {t('dora.team.active').toLowerCase()}</span>
               </div>
-              <div style={{ display: 'grid', gap: 10 }}>{data.pr_delivery.map((s) => <SymptomCard key={s.id} symptom={s} t={t} />)}</div>
+              <div style={{ display: 'grid', gap: 10 }}>{data.pr_delivery.map((s) => <SymptomCard key={s.id} symptom={s} t={t} repos={repos} />)}</div>
             </div>
           </div>
 

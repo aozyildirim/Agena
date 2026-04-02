@@ -363,7 +363,8 @@ export default function DoraOverviewPage() {
                           <div key={repo.id} style={{
                             display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
                             borderRadius: 8, fontSize: 11,
-                            background: isSyncingThis ? 'rgba(234,179,8,0.06)' : 'transparent',
+                            background: isSyncingThis ? 'rgba(234,179,8,0.06)' : isSynced ? 'rgba(34,197,94,0.04)' : 'transparent',
+                            border: isSynced ? '1px solid rgba(34,197,94,0.25)' : '1px solid transparent',
                           }}>
                             <span style={{
                               width: 7, height: 7, borderRadius: '50%', flexShrink: 0,

@@ -1553,11 +1553,14 @@ class AnalyticsService:
         )
         avg_review_hours = round(float(avg_review_q.scalar() or 0) / 3600, 1)
 
-        # Stale PR authors (top 10)
+        # Stale PR details (top 10)
         stale_authors_q = await self.db.execute(
             select(
                 GitPullRequest.author,
                 GitPullRequest.title,
+                GitPullRequest.target_branch,
+                GitPullRequest.repo_mapping_id,
+                (GitPullRequest.additions + GitPullRequest.deletions).label('size'),
                 (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).label('review_sec'),
             ).where(
                 *merged_filters,
@@ -1567,7 +1570,14 @@ class AnalyticsService:
             ).limit(10)
         )
         stale_pr_details = [
-            {'author': str(r.author), 'title': str(r.title)[:80], 'hours': round(float(r.review_sec) / 3600, 1)}
+            {
+                'author': str(r.author or ''),
+                'title': str(r.title or '')[:80],
+                'target_branch': str(r.target_branch or ''),
+                'repo_mapping_id': str(r.repo_mapping_id),
+                'size': int(r.size or 0),
+                'hours': round(float(r.review_sec or 0) / 3600, 1),
+            }
             for r in stale_authors_q.all()
         ]
         s4_active = stale_prs > 0
@@ -1602,6 +1612,33 @@ class AnalyticsService:
             for r in unreviewed_by_author_q.all()
         ]
 
+        # Unreviewed PR details (individual PRs)
+        unreviewed_details_q = await self.db.execute(
+            select(
+                GitPullRequest.author,
+                GitPullRequest.title,
+                GitPullRequest.target_branch,
+                GitPullRequest.repo_mapping_id,
+                (GitPullRequest.additions + GitPullRequest.deletions).label('size'),
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).label('review_sec'),
+            ).where(
+                *merged_filters,
+                GitPullRequest.review_comments == 0,
+            ).order_by(GitPullRequest.merged_at.desc())
+            .limit(10)
+        )
+        unreviewed_details = [
+            {
+                'author': str(r.author or ''),
+                'title': str(r.title or '')[:80],
+                'target_branch': str(r.target_branch or ''),
+                'repo_mapping_id': str(r.repo_mapping_id),
+                'size': int(r.size or 0),
+                'hours': round(float(r.review_sec or 0) / 3600, 1),
+            }
+            for r in unreviewed_details_q.all()
+        ]
+
         # ── S10: Lightning Pull Requests ────────────────────────────
         lightning_threshold_sec = 120  # 2 minutes
         lightning_q = await self.db.execute(
@@ -1621,6 +1658,9 @@ class AnalyticsService:
             select(
                 GitPullRequest.author,
                 GitPullRequest.title,
+                GitPullRequest.target_branch,
+                GitPullRequest.repo_mapping_id,
+                (GitPullRequest.additions + GitPullRequest.deletions).label('size'),
                 (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).label('sec'),
             ).where(
                 *merged_filters,
@@ -1631,7 +1671,14 @@ class AnalyticsService:
             ).limit(10)
         )
         lightning_details = [
-            {'author': str(r.author), 'title': str(r.title)[:80], 'seconds': int(r.sec)}
+            {
+                'author': str(r.author or ''),
+                'title': str(r.title or '')[:80],
+                'target_branch': str(r.target_branch or ''),
+                'repo_mapping_id': str(r.repo_mapping_id),
+                'size': int(r.size or 0),
+                'seconds': int(r.sec),
+            }
             for r in lightning_details_q.all()
         ]
 
@@ -1668,6 +1715,34 @@ class AnalyticsService:
         oversize_pct = round(oversize_count / max(total_prs, len(contribs), 1) * 100, 1)
         s11_active = oversize_count > 5
         s11_value = oversize_pct
+
+        # Oversize PR details (individual PRs)
+        oversize_details_q = await self.db.execute(
+            select(
+                GitPullRequest.author,
+                GitPullRequest.title,
+                GitPullRequest.target_branch,
+                GitPullRequest.repo_mapping_id,
+                (GitPullRequest.additions + GitPullRequest.deletions).label('size'),
+                (func.unix_timestamp(GitPullRequest.merged_at) - func.unix_timestamp(GitPullRequest.created_at_ext)).label('review_sec'),
+            ).where(
+                *merged_filters,
+                (GitPullRequest.additions + GitPullRequest.deletions) > oversize_threshold,
+            ).order_by(
+                (GitPullRequest.additions + GitPullRequest.deletions).desc()
+            ).limit(10)
+        )
+        oversize_details = [
+            {
+                'author': str(r.author or ''),
+                'title': str(r.title or '')[:80],
+                'target_branch': str(r.target_branch or ''),
+                'repo_mapping_id': str(r.repo_mapping_id),
+                'size': int(r.size),
+                'hours': round(float(r.review_sec or 0) / 3600, 1),
+            }
+            for r in oversize_details_q.all()
+        ]
 
         # ── S12/S13/S14: DORA Delivery Metrics ──────────────────────
         # Reuse from DORA service data (lead time from PRs)
@@ -1780,6 +1855,7 @@ class AnalyticsService:
                     'weekend_commits': weekend_commits,
                     'weekend_prs': weekend_prs,
                     'threshold': 5,
+                    'weekend_authors': weekend_authors,
                 },
             ],
             'pr_delivery': [
@@ -1795,6 +1871,7 @@ class AnalyticsService:
                     'stale_count': stale_prs,
                     'total_merged': total_merged,
                     'threshold': 72,
+                    'pr_details': stale_pr_details,
                 },
                 {
                     'id': 'S9',
@@ -1808,6 +1885,8 @@ class AnalyticsService:
                     'unreviewed_count': unreviewed_count,
                     'total_merged': total_merged,
                     'threshold': 0,
+                    'unreviewed_by_author': unreviewed_by_author,
+                    'pr_details': unreviewed_details,
                 },
                 {
                     'id': 'S10',
@@ -1820,6 +1899,7 @@ class AnalyticsService:
                     'detail': f'{lightning_count} PRs merged in <2 min',
                     'lightning_count': lightning_count,
                     'threshold': 5,
+                    'pr_details': lightning_details,
                 },
                 {
                     'id': 'S11',
@@ -1834,6 +1914,7 @@ class AnalyticsService:
                     'total_prs': total_prs,
                     'overloaded_members': oversize_authors[:10],
                     'threshold': 500,
+                    'pr_details': oversize_details,
                 },
                 {
                     'id': 'S12',
