@@ -2,7 +2,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/Website-agena.dev-0d9488)](https://agena.dev)
 
-# AGENA — Agentic AI Platform | Pixel Agent Powered Autonomous Code Generation
+# AGENA — Agentic AI Platform for Autonomous Code Generation
 
 <p align="center">
   <img src="frontend/public/readmeimg/boss.png" alt="AGENA Pixel Office — Boss Mode" width="800" />
@@ -10,111 +10,516 @@
 
 > **The open-source agentic AI platform that writes code, reviews quality, and ships pull requests autonomously.**
 
-AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform with **pixel agent** technology. Built with FastAPI + CrewAI + LangGraph + Redis + MySQL, it provides autonomous code generation, AI-powered PR automation, and a full Next.js 14 dashboard.
+AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform. It coordinates LLM-powered agents to analyze tasks, generate code, review changes, and create pull requests — fully autonomously. Built as a **monorepo with 6 pip-installable packages**.
 
-**Key highlights:**
-- **Agentic AI Pipeline** — Autonomous PM → Developer → Reviewer → Finalizer workflow
-- **Pixel Agent Technology** — Visual task orchestration with real-time agent monitoring
-- **Multi-Tenant SaaS** — Organization isolation, JWT auth, usage limits, billing
-- **PR Automation** — Auto-generates branches, commits, and pull requests on GitHub & Azure DevOps
+---
 
-## What is Included
+## Table of Contents
 
-- Async FastAPI backend
-- SQLAlchemy models + Alembic scaffold
-- JWT auth + organization isolation
-- Free/Pro subscription limits with usage enforcement
-- Stripe + Iyzico payment integration paths
-- Redis queue + auto-scaling async worker (`MAX_WORKERS`)
-- LangGraph state flow: `fetch_context -> analyze -> generate_code -> review_code -> finalize`
-- CrewAI role orchestration (PM, Developer, Reviewer, Finalizer)
-- GitHub branch/commit/PR automation
-- Token/cost tracking and org-level usage counters
-- LLM optimization (`services/llm`): prompt cache, model routing, context truncation
-- Optional vector memory (`memory/base.py`, `memory/qdrant.py`)
-- Next.js frontend routes for landing, pricing, auth, tasks, and task timeline
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Monorepo Package Structure](#monorepo-package-structure)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [Docker Services](#docker-services)
+- [Local Development](#local-development)
+- [Database Migrations](#database-migrations)
+- [Frontend Deploy (Zero-Downtime)](#frontend-deploy-zero-downtime)
+- [API Endpoints](#api-endpoints)
+- [AI Pipeline](#ai-pipeline)
+- [Screenshots](#screenshots)
+- [Contributing](#contributing)
 
-## Documentation
+---
 
-- Full feature inventory: `docs/FEATURES.md`
-- Generated OpenAPI schema (Swagger source): `docs/openapi.json`
-- Regenerate OpenAPI schema:
+## Key Features
 
-```bash
-PYTHONPATH=. python3 scripts/export_openapi.py
+**AI Pipeline**
+- Autonomous PM → Planner → Developer → Reviewer → Finalizer workflow
+- CrewAI role-based agents + LangGraph state machine orchestration
+- Prompt Studio — edit system prompts at runtime without code deploy
+- Vector memory (Qdrant) — learns from previous tasks for better context
+
+**DevOps Automation**
+- Auto-generates branches, commits, and pull requests (GitHub + Azure DevOps)
+- Sprint import from Jira and Azure DevOps
+- DORA metrics dashboard (deployment frequency, lead time, change failure rate, MTTR)
+- Team health symptom analysis (knowledge silos, bus factor, stale PRs, etc.)
+
+**Multi-Tenant SaaS**
+- Organization isolation with subdomain routing
+- JWT auth + RBAC (owner, admin, member, viewer)
+- Free/Pro/Enterprise plans with usage quotas
+- Stripe billing integration
+
+**Dashboard**
+- Boss Mode — pixel-art office where you manage AI agents visually
+- Visual flow builder — drag-and-drop automation pipelines
+- Sprint performance tracking with risk scoring
+- Real-time task monitoring with live logs and WebSocket updates
+- Guided tour onboarding for new users
+- 7 languages (TR, EN, ES, ZH, IT, DE, JA)
+
+---
+
+## Architecture
+
+```
+Request Flow:
+
+  Browser → Next.js Frontend (Port 3010)
+     ↓
+  API Request → FastAPI (Port 8010)
+     ↓
+  Redis Queue → Worker (background)
+     ↓
+  OrchestrationService → LangGraph Pipeline
+     ↓
+  5 Nodes: fetch_context → analyze → generate_code → review_code → finalize
+     ↓
+  CrewAI Agents (PM, Developer, Reviewer, Finalizer)
+     ↓
+  PR Creation (GitHub / Azure DevOps)
 ```
 
-## Feature Catalog (Current)
+```
+Infrastructure:
 
-### Vector Memory (Qdrant)
-- Dockerized Qdrant backend is included in local stack (`qdrant` service).
-- Memory is used during orchestration `fetch_context` stage for similarity retrieval.
-- Stored payload fields:
-  - `key`: task identifier
-  - `organization_id`: tenant filter key
-  - `input`: task title + effective description snapshot
-  - `output`: finalized generated code snapshot
-- Retrieval behavior:
-  - query vector is built from current task title/description
-  - top similar memories are fetched from Qdrant
-  - results are injected into context summary before `analyze -> generate_code`
-- API (Swagger-visible):
-  - `GET /memory/status` (backend/collection/vector status)
-  - `GET /memory/schema` (what is stored and how it is used)
-- Important:
-  - current embedding mode is deterministic placeholder (baseline mode)
-  - set `QDRANT_ENABLED=true` to activate memory lookups
+  ┌─────────────┐  ┌──────────┐  ┌─────────┐
+  │  MySQL 8.0  │  │ Redis 7  │  │ Qdrant  │
+  │  (data)     │  │ (queue)  │  │ (vector)│
+  └─────────────┘  └──────────┘  └─────────┘
+         ↑               ↑            ↑
+  ┌──────┴───────────────┴────────────┴──────┐
+  │          Python Backend                   │
+  │  ┌─────────┐  ┌────────┐  ┌───────────┐ │
+  │  │ API     │  │ Worker │  │ CLI Bridge│ │
+  │  │ :8010   │  │ (bg)   │  │ :9876     │ │
+  │  └─────────┘  └────────┘  └───────────┘ │
+  └──────────────────────────────────────────┘
+         ↑
+  ┌──────┴──────────────┐
+  │  Next.js Frontend   │
+  │  Blue :3011         │
+  │  Green :3012        │
+  │  (Nginx LB)         │
+  └─────────────────────┘
+```
 
-### Core Delivery
-- AI assignment from internal, Jira, and Azure sourced tasks
-- Redis-based queue worker with dynamic concurrency
-- Task cancellation endpoint and UI action (`POST /tasks/{id}/cancel`)
-- Queue lock guard to prevent same-repo concurrent execution
-- Retry/backoff handling for transient Codex/OpenAI execution failures
-- Stale-running watchdog (auto-fail for long-running stuck jobs)
+---
 
-### Task Intelligence
-- Queue insights on API/UI:
-  - `queue_position`, `estimated_start_sec`, `queue_wait_sec`, `retry_count`
-  - lock scope and blocker task info
-- Execution telemetry:
-  - start/end/duration
-  - token and usage metrics
-  - step-level logs with code preview and diff preview
-- PR risk scoring per task:
-  - `pr_risk_score`, `pr_risk_level`, `pr_risk_reason`
+## Monorepo Package Structure
 
-### Dependency & Governance
-- Task Dependency Graph:
-  - `GET /tasks/{id}/dependencies`
-  - `PUT /tasks/{id}/dependencies`
-  - cycle detection and self-dependency protection
-  - assignment blocked while dependency blockers exist
-- Tenant Playbooks (org-specific coding policy layer):
-  - `PUT /integrations/playbook`
-  - `GET /integrations/playbook/content`
-  - playbook rules automatically injected into orchestration prompt context
+The backend is split into **6 independent, pip-installable packages**:
 
-### Story & Budget Controls
-- Task Story Mode (implemented):
-  - task-level fields: `story_context`, `acceptance_criteria`, `edge_cases`
-  - these fields are injected into orchestration prompt context before generation
-  - available in task create UI and task detail view
-- Cost Guardrails (implemented):
-  - task-level limits: `max_tokens`, `max_cost_usd`
-  - run fails before PR creation when usage or estimated cost exceeds limit
-  - guardrail events are written to task logs (`stage=guardrail`)
+```
+packages/
+├── core/                    # agena-core
+│   └── src/agena_core/
+│       ├── settings.py      # Pydantic BaseSettings (67 env vars)
+│       ├── database.py      # SQLAlchemy async engine + sessions
+│       ├── rbac.py          # Role-based access control matrix
+│       ├── plans.py         # Subscription plan definitions
+│       ├── http.py          # Corporate SSL patch
+│       ├── logging.py       # Logging configuration
+│       ├── db/base.py       # SQLAlchemy DeclarativeBase
+│       ├── security/        # JWT + bcrypt password hashing
+│       └── config/          # App-wide configuration
+│
+├── models/                  # agena-models
+│   └── src/agena_models/
+│       ├── models/          # 25 SQLAlchemy ORM models
+│       │   ├── user.py, organization.py, task_record.py
+│       │   ├── flow_run.py, flow_assets.py
+│       │   ├── git_commit.py, git_pull_request.py, git_deployment.py
+│       │   ├── prompt.py, prompt_override.py
+│       │   └── ... (notification, billing, usage, etc.)
+│       └── schemas/         # 9 Pydantic request/response schemas
+│           ├── agent.py, auth.py, task.py, github.py
+│           └── ... (billing, integration, org, refinement)
+│
+├── services/                # agena-services
+│   └── src/agena_services/
+│       ├── services/        # 31 business logic modules
+│       │   ├── orchestration_service.py  # Core task execution
+│       │   ├── task_service.py           # Task CRUD + queue
+│       │   ├── flow_executor.py          # LangGraph flow runner
+│       │   ├── prompt_service.py         # DB-backed prompt loader
+│       │   ├── github_service.py         # GitHub API operations
+│       │   ├── azure_pr_service.py       # Azure DevOps PR creation
+│       │   ├── dora_service.py           # DORA metrics calculation
+│       │   ├── analytics_service.py      # Team health + analytics
+│       │   ├── queue_service.py          # Redis queue management
+│       │   ├── auth_service.py           # User auth + signup
+│       │   ├── billing_service.py        # Stripe integration
+│       │   ├── notification_service.py   # Push + in-app notifications
+│       │   ├── llm/                      # LLM provider abstraction
+│       │   │   ├── provider.py           # OpenAI + Gemini routing
+│       │   │   ├── cost_tracker.py       # Token cost calculation
+│       │   │   └── cache.py             # Redis prompt cache
+│       │   └── ...
+│       └── integrations/    # Third-party API clients
+│           ├── azure_client.py, github_client.py
+│           ├── jira_client.py, qdrant_memory.py
+│           └── llm_client.py
+│
+├── agents/                  # agena-agents
+│   └── src/agena_agents/
+│       ├── agents/          # AI agent orchestration
+│       │   ├── orchestrator.py    # AgentOrchestrator (main coordinator)
+│       │   ├── crewai_agents.py   # CrewAI agent runners (8 roles)
+│       │   ├── langgraph_flow.py  # LangGraph state graph (5 nodes)
+│       │   └── prompts.py         # Default prompt templates
+│       └── memory/          # Vector memory abstraction
+│           ├── base.py      # Abstract memory interface
+│           └── qdrant.py    # Qdrant implementation
+│
+├── api/                     # agena-api
+│   └── src/agena_api/
+│       └── api/
+│           ├── main.py            # FastAPI app bootstrap
+│           ├── dependencies.py    # Auth, tenant, RBAC injection
+│           ├── middleware/        # Rate limit, logging, tenant
+│           └── routes/            # 18 route modules
+│               ├── agents.py, tasks.py, flows.py
+│               ├── auth.py, org.py, billing.py
+│               ├── analytics.py, github.py, integrations.py
+│               ├── preferences.py, notifications.py
+│               └── ... (memory, refinement, usage, webhooks, ws)
+│
+└── worker/                  # agena-worker
+    └── src/agena_worker/
+        └── workers/
+            └── redis_worker.py    # Redis queue consumer + task executor
+```
+
+**Other root-level directories:**
+
+```
+alembic/         # Database migrations (24 versions)
+db/init.sql      # MySQL bootstrap script
+docker/          # Dockerfiles + SSL certificate
+docs/            # Architecture Decision Records
+frontend/        # Next.js 14 app (React 18, TypeScript)
+mobile/          # Mobile app
+scripts/         # Utility scripts (import rewriter, locale translator)
+tests/           # Test suite
+```
+
+### Package Dependency Graph
+
+```
+agena-core       ← no internal deps (foundation)
+agena-models     ← depends on agena-core
+agena-services   ← depends on agena-core, agena-models
+agena-agents     ← depends on agena-core, agena-models, agena-services
+agena-api        ← depends on all above
+agena-worker     ← depends on agena-core, agena-models, agena-services
+```
+
+### Install a Single Package
+
+```bash
+pip install -e packages/core
+pip install -e packages/models
+pip install -e packages/agents   # includes CrewAI + LangGraph
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Backend** | Python 3.11, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 |
+| **AI** | CrewAI, LangGraph, OpenAI SDK (GPT-5, Gemini fallback) |
+| **Database** | MySQL 8.0, Alembic migrations |
+| **Queue** | Redis 7 |
+| **Vector Memory** | Qdrant (optional, `QDRANT_ENABLED=true`) |
+| **Frontend** | Next.js 14, React 18, TypeScript |
+| **Auth** | JWT (python-jose), bcrypt, RBAC (4 roles) |
+| **Deployment** | Docker Compose, Nginx (blue/green frontend) |
+
+---
+
+## Quick Start
+
+### 1. Clone and configure
+
+```bash
+git clone https://github.com/aozyildirim/Agena.git
+cd Agena
+cp .env.example .env
+cp frontend/.env.example frontend/.env.local
+```
+
+### 2. Set required environment variables in `.env`
+
+```env
+OPENAI_API_KEY=sk-...
+JWT_SECRET_KEY=your-secret-key
+GITHUB_TOKEN=ghp_...
+GITHUB_OWNER=your-org
+GITHUB_REPO=your-repo
+```
+
+### 3. Start all services
+
+```bash
+docker-compose up --build
+```
+
+### 4. Access
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3011 |
+| Backend API | http://localhost:8010 |
+| API Docs (Swagger) | http://localhost:8010/docs |
+| Qdrant Dashboard | http://localhost:6333/dashboard |
+
+### 5. Create your first user
+
+```bash
+curl -X POST http://localhost:8010/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "full_name": "Admin User",
+    "password": "Secret123!",
+    "organization_name": "My Team"
+  }'
+```
+
+---
+
+## Environment Variables
+
+All configuration is via environment variables. See `.env.example` for the full list. Key ones:
+
+| Variable | Description | Required |
+|---|---|---|
+| `OPENAI_API_KEY` | OpenAI API key | Yes |
+| `JWT_SECRET_KEY` | JWT signing secret | Yes |
+| `GITHUB_TOKEN` | GitHub PAT for PR creation | For GitHub PRs |
+| `GITHUB_OWNER` | GitHub org/user | For GitHub PRs |
+| `GITHUB_REPO` | Default repo name | For GitHub PRs |
+| `MYSQL_HOST` | MySQL host | Default: `mysql` |
+| `MYSQL_DATABASE` | Database name | Default: `ai_agent_db` |
+| `REDIS_URL` | Redis connection URL | Default: `redis://redis:6379` |
+| `QDRANT_ENABLED` | Enable vector memory | Default: `false` |
+| `QDRANT_URL` | Qdrant server URL | Default: `http://qdrant:6333` |
+| `LLM_MODEL` | Default LLM model | Default: `gpt-4o` |
+| `LLM_LARGE_MODEL` | Model for complex tasks | Default: `gpt-5` |
+| `LLM_SMALL_MODEL` | Model for simple tasks | Default: `gpt-4o-mini` |
+| `MAX_WORKERS` | Concurrent worker tasks | Default: `3` |
+
+---
+
+## Docker Services
+
+| Service | Container | Port | Description |
+|---|---|---|---|
+| `backend` | ai_agent_api | 8010 | FastAPI + auto-reload |
+| `worker` | ai_agent_worker | — | Redis queue consumer |
+| `cli-bridge` | ai_agent_cli_bridge | 9876 | Claude/Codex CLI bridge |
+| `frontend_blue` | ai_agent_frontend_blue | 3011 | Next.js (blue) |
+| `frontend_green` | ai_agent_frontend_green | 3012 | Next.js (green) |
+| `mysql` | ai_agent_mysql | 3307 | MySQL 8.0 |
+| `redis` | ai_agent_redis | 6380 | Redis 7 |
+| `qdrant` | ai_agent_qdrant | 6333 | Qdrant vector DB |
+
+### Common Commands
+
+```bash
+# Start everything
+docker-compose up --build
+
+# Restart backend after code changes (hot-reload via volume mount)
+docker-compose restart backend
+
+# Restart worker (no hot-reload, needs restart)
+docker-compose restart worker
+
+# Rebuild a specific service
+docker-compose up -d --build backend
+
+# View logs
+docker logs -f ai_agent_api
+docker logs -f ai_agent_worker
+
+# Shell into backend container
+docker-compose exec backend bash
+```
+
+---
+
+## Local Development
+
+### Backend (without Docker)
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+# Install all packages in editable mode
+pip install -r requirements.txt
+pip install -e packages/core \
+    -e packages/models \
+    -e packages/services \
+    -e packages/agents \
+    -e packages/api \
+    -e packages/worker
+
+# Run API
+uvicorn agena_api.api.main:app --reload --host 0.0.0.0 --port 8010
+
+# Run Worker (separate terminal)
+python -m agena_worker.workers.redis_worker
+```
 
 ### Frontend
-- Landing page sections for Flow/Agent engine and advanced capabilities showcase
-- Dashboard overview with operations radar and queue forecast
-- Task list with runtime, queue wait, retry, and token visibility
-- Task detail panels for queue insight, dependency management, PR risk, and live logs
+
+```bash
+cd frontend
+npm install
+npm run dev        # Development (http://localhost:3010)
+npm run build      # Production build
+npm run lint       # Lint check
+```
+
+---
+
+## Database Migrations
+
+```bash
+# Apply all pending migrations
+docker-compose exec backend alembic upgrade head
+
+# Create a new migration
+docker-compose exec backend alembic revision -m "description"
+
+# Check current version
+docker-compose exec backend alembic current
+
+# Rollback one step
+docker-compose exec backend alembic downgrade -1
+```
+
+---
+
+## Frontend Deploy (Zero-Downtime)
+
+Frontend runs as blue/green production containers. Code is NOT volume-mounted.
+
+```bash
+# Zero-downtime deploy (rebuilds one container at a time):
+./scripts/deploy-frontend.sh
+
+# NEVER use docker-compose up --build for both at once — causes 502
+```
+
+For backend changes, hot-reload works via volume mount:
+```bash
+docker-compose restart backend worker
+```
+
+---
+
+## API Endpoints
+
+### Auth
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/signup` | Register + create org |
+| POST | `/auth/login` | Get JWT token |
+
+### Tasks
+| Method | Path | Description |
+|---|---|---|
+| POST | `/tasks` | Create task |
+| GET | `/tasks` | List tasks |
+| GET | `/tasks/{id}` | Task detail |
+| POST | `/tasks/{id}/assign` | Assign to AI agent |
+| POST | `/tasks/{id}/cancel` | Cancel running task |
+| GET | `/tasks/{id}/logs` | Execution logs |
+| POST | `/tasks/import/azure` | Import from Azure DevOps |
+| POST | `/tasks/import/jira` | Import from Jira |
+
+### Agents & Flows
+| Method | Path | Description |
+|---|---|---|
+| POST | `/agents/run` | Run agent on task |
+| GET | `/agents/live` | Live agent status |
+| POST | `/flows/run` | Execute automation flow |
+| GET | `/flows/templates` | List flow templates |
+
+### Organization
+| Method | Path | Description |
+|---|---|---|
+| POST | `/org/invite` | Send invite |
+| POST | `/org/invite/accept` | Accept invite |
+| GET | `/org/members` | List members |
+| PUT | `/org/members/{id}/role` | Change role |
 
 ### Integrations
-- Jira, Azure DevOps, OpenAI, and Playbook integration providers
-- Org-scoped integration credentials and settings
-- Repo mapping UX for Azure repo ↔ local path workflows
+| Method | Path | Description |
+|---|---|---|
+| PUT | `/integrations/azure` | Configure Azure DevOps |
+| PUT | `/integrations/jira` | Configure Jira |
+| PUT | `/integrations/github` | Configure GitHub |
+| GET | `/integrations` | List all configs |
+
+### Analytics & DORA
+| Method | Path | Description |
+|---|---|---|
+| GET | `/analytics/dora` | DORA metrics |
+| GET | `/analytics/team-health` | Team health symptoms |
+| GET | `/analytics/sprint` | Sprint analytics |
+
+### Other
+| Method | Path | Description |
+|---|---|---|
+| GET | `/preferences` | User preferences |
+| PUT | `/preferences/prompts` | Prompt overrides |
+| GET | `/billing/status` | Billing status |
+| POST | `/billing/stripe/checkout` | Stripe checkout |
+| GET | `/health` | Health check |
+
+Full OpenAPI docs available at `/docs` when running.
+
+---
+
+## AI Pipeline
+
+### How a Task Runs
+
+1. **Task Created** — User creates task via UI or imports from Jira/Azure
+2. **Queued** — Task goes to Redis queue with repo lock (prevents concurrent edits)
+3. **fetch_context** — Vector memory retrieves similar past tasks for context
+4. **analyze (PM Agent)** — Analyzes requirements, estimates story points, plans file changes
+5. **generate_code (Developer Agent)** — Generates code patches following the plan
+6. **review_code (Reviewer Agent)** — Reviews patches for correctness, security, patterns
+7. **finalize** — Cleans output, creates branch, commits, opens PR
+8. **Done** — Task marked complete, notifications sent, usage tracked
+
+### Agent Roles
+
+| Agent | Model | Purpose |
+|---|---|---|
+| Context Analyst | Small (fast) | Summarize memory + repo context |
+| Product Manager | Large + reasoning | Technical analysis, scope, estimation |
+| AI Planner | Large + reasoning | File-level change plan |
+| Developer | Large (128K output) | Code patch generation |
+| Reviewer | Large + reasoning | Code review + correction |
+| Finalizer | Small | Clean output for git commit |
+
+### Prompt Studio
+
+System prompts are stored in the database and editable at runtime via the Prompt Studio UI. Changes take effect immediately without code deployment.
+
+---
 
 ## Screenshots
 
@@ -124,283 +529,55 @@ Manage your AI team in a retro pixel-art office. Each agent is a character you c
 ![Boss Mode](frontend/public/readmeimg/boss.png)
 
 ### Agent Management
-Configure AI agents with different roles (Manager, PM, Lead Developer, Developer, QA). View performance analytics — flow coverage, activity share, latency, and success index per agent.
+Configure AI agents with different roles. View performance analytics — flow coverage, activity share, latency, and success index per agent.
 
 ![Agent Management](frontend/public/readmeimg/agentmanage.png)
 
-### Create Agent — Pick Character, Type & Model
+### Create Agent
 Three-step wizard: pick a pixel character and name, choose provider (OpenAI, Gemini, Codex CLI, Claude CLI, Custom), then select a model.
 
 | Step 1 — Character | Step 2 — Provider | Step 3 — Model |
 |---|---|---|
 | ![Pick Character](frontend/public/readmeimg/bossagentadd1.png) | ![Select Type](frontend/public/readmeimg/bossagentadd4.png) | ![Choose Model](frontend/public/readmeimg/bossagentadd2.png) |
 
-### Create Agent — Advanced (Agents Page)
-Full agent creation form with character picker, label, color, provider, model name, system prompt, Create PR toggle, and enable/disable switch.
-
-![Create Agent Advanced](frontend/public/readmeimg/createagent.png)
-
-### Agent Detail — Assign & Run Tasks
-Click any agent to see its config, assign sprint tasks or create new ones, and trigger runs directly.
-
-![Agent Detail](frontend/public/readmeimg/bossagentadd3.png)
-
-### AI Team Panel
-The sidebar shows all AI team members with their pixel avatars. Click "+" to add a new agent to the team.
-
-![AI Team](frontend/public/readmeimg/bossagent.png)
-
 ### Agent Flows — Visual Pipeline Builder
-Drag-and-drop flow editor with nodes for PM Analysis, Technical Plan, Development, and QA Test. Includes approval gates, run history, version control, dry run, and flow templates.
+Drag-and-drop flow editor with nodes for PM Analysis, Technical Plan, Development, and QA Test. Includes approval gates, run history, version control, and flow templates.
 
 ![Agent Flows](frontend/public/readmeimg/flow.png)
 
 ### Sprint Board
-Kanban-style board with color-coded columns per state (Backlog, Blocked, Ready for Production, UAT, Code Review, Done). Import tasks directly from Azure DevOps or Jira sprints.
+Kanban-style board with color-coded columns. Import tasks directly from Azure DevOps or Jira sprints.
 
 ![Sprint Board](frontend/public/readmeimg/Sprintboard.png)
 
 ### Sprint Performance
-Team health dashboard with circular gauge score, timeline progress, completion tracking, and per-member expandable cards showing individual task status (green/yellow/red).
+Team health dashboard with circular gauge score, timeline progress, completion tracking, and per-member expandable cards.
 
 ![Sprint Performance](frontend/public/readmeimg/sprintperformance.png)
 
-### Task Feed — Create & Manage
-Create tasks with title, description, story context, acceptance criteria, edge cases, and cost guardrails. Filter by status (New, Queued, Running, Completed, Failed) and source (Azure, Jira).
+### Task Feed
+Create tasks with title, description, story context, acceptance criteria, edge cases, and cost guardrails.
 
 ![Task Feed](frontend/public/readmeimg/new_task.png)
 
-### Task Deletion Confirmation
-Safe deletion modal with task title preview and confirmation step.
-
-![Delete Task](frontend/public/readmeimg/delete_task.png)
-
 ### Repo Mappings
-Map Azure DevOps repositories to local paths for code generation. Scan repos and auto-generate agent configuration files.
+Map Azure DevOps repositories to local paths for code generation.
 
 ![Repo Mappings](frontend/public/readmeimg/repomapp.png)
 
-### Team Member Selection
-Search and select team members from your Azure DevOps or Jira organization to track sprint performance.
-
-![Select Team Members](frontend/public/readmeimg/selectteammembers.png)
-
-## Architecture
-
-Task Fetch/Create -> Save TaskRecord -> Queue Redis -> Worker -> Agent Pipeline -> GitHub PR -> Save Result + Logs + Usage
-
-## Project Layout
-
-```text
-ai-agent-system/
-  api/
-  agents/
-  alembic/
-  core/
-  db/
-  frontend/
-  integrations/
-  memory/
-  models/
-  schemas/
-  security/
-  services/
-    llm/
-  workers/
-  docker/
-  docker-compose.yml
-  requirements.txt
-  .env.example
-```
-
-## Environment Setup
-
-```bash
-cp .env.example .env
-cp frontend/.env.example frontend/.env.local
-```
-
-Fill at least:
-- `OPENAI_API_KEY`
-- `JWT_SECRET_KEY`
-- `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`
-- Stripe/Iyzico keys if payment integrations are enabled
-
-Integration credentials are tenant-scoped from dashboard/API (`/integrations/*`).
-`JIRA_*` and `AZURE_*` env vars are optional global fallbacks.
-
-## Run with Docker
-
-```bash
-docker compose up --build
-```
-
-Backup (prod secrets + MySQL volume):
-
-```bash
-./scripts/backup-prod.sh
-```
-
-Services:
-- Backend API: `http://localhost:8010`
-- Frontend: `http://localhost:3010`
-- MySQL: `localhost:3306`
-- Redis: `localhost:6379`
-- Qdrant (vector memory): `http://localhost:6333`
-
-## Frontend Restart (Blue/Green)
-
-Quick restart (no rebuild):
-
-```bash
-cd /var/www/tiqr
-docker-compose restart frontend_green
-docker-compose restart frontend_blue
-systemctl reload nginx
-```
-
-Rebuild and deploy updated frontend:
-
-```bash
-cd /var/www/tiqr
-docker-compose up -d --build frontend_green frontend_blue
-systemctl reload nginx
-```
-
-## Local Development
-
-Backend:
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8010
-```
-
-Worker:
-
-```bash
-python -m workers.redis_worker
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## API Endpoints
-
-Auth:
-- `POST /auth/signup`
-- `POST /auth/login`
-
-Organization:
-- `POST /org/invite`
-- `POST /org/invite/accept`
-
-Billing:
-- `GET /billing/status`
-- `POST /billing/plan`
-- `POST /billing/stripe/checkout`
-- `POST /billing/stripe/webhook`
-- `POST /billing/iyzico/checkout`
-- `POST /billing/iyzico/webhook`
-
-Tasks:
-- `POST /tasks`
-- `GET /tasks`
-- `GET /tasks/{id}`
-- `POST /tasks/{id}/assign`
-- `GET /tasks/{id}/logs`
-- `POST /tasks/import/jira`
-- `POST /tasks/import/azure`
-
-Integrations (org scoped):
-- `GET /integrations`
-- `GET /integrations/{provider}`
-- `PUT /integrations/jira`
-- `PUT /integrations/azure`
-
-Other:
-- `POST /agents/run`
-- `POST /github/pr`
-- `GET /health`
-
-## cURL Test Flow
-
-1. Sign up:
-
-```bash
-curl -X POST http://localhost:8010/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "owner@example.com",
-    "full_name": "Owner User",
-    "password": "Secret123!",
-    "organization_name": "Acme Engineering"
-  }'
-```
-
-2. Use token:
-
-```bash
-export TOKEN="<ACCESS_TOKEN>"
-```
-
-3. Create task:
-
-```bash
-curl -X POST http://localhost:8010/tasks \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Build invoice webhook","description":"Add idempotency and retries"}'
-```
-
-4. Assign task:
-
-```bash
-curl -X POST http://localhost:8010/tasks/1/assign \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-5. Poll:
-
-```bash
-curl -X GET http://localhost:8010/tasks/1 -H "Authorization: Bearer $TOKEN"
-curl -X GET http://localhost:8010/tasks/1/logs -H "Authorization: Bearer $TOKEN"
-```
+---
 
 ## Plans
 
-- Free: 5 tasks/month
-- Pro: unlimited tasks
+| Plan | Tasks/Month | Features |
+|---|---|---|
+| **Free** | 5 | Basic pipeline, 1 integration |
+| **Pro** | Unlimited | All features, priority queue |
+| **Enterprise** | Unlimited | Custom models, SSO, dedicated support |
 
-Execution is blocked when free quota is exhausted.
+---
 
-## Frontend Routes
-
-- `/`
-- `/pricing`
-- `/signin`
-- `/signup`
-- `/tasks`
-- `/tasks/[id]`
-
-## End-to-End Test Scenario
-
-1. Visit landing page
-2. Sign up
-3. Create task
-4. Assign to AI
-5. Watch status updates (5s polling)
-6. Open generated PR
-7. Upgrade plan
-
-## Open Source
+## Contributing
 
 This repository is open-source under the MIT License.
 
@@ -409,16 +586,10 @@ This repository is open-source under the MIT License.
 - Code of Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
 - Security: [SECURITY.md](./SECURITY.md)
 
-## Donate / Sponsor
-
-If AGENA helps your team, you can support development:
-
-- GitHub Sponsors: https://github.com/sponsors/aozyildirim
-
-After pushing this repo public, GitHub will also show a **Sponsor** button automatically because `.github/FUNDING.yml` is included.
-
 ---
 
-## Support AGENA
+## Sponsor
 
-Sponsor: https://github.com/sponsors/aozyildirim
+If AGENA helps your team, support development:
+
+- GitHub Sponsors: https://github.com/sponsors/aozyildirim
