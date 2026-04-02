@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, loadPromptCatalog } from '@/lib/api';
+import { apiFetch, loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, loadPromptCatalog } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -166,6 +166,20 @@ function presetFlows(t: ReturnType<typeof useLocale>['t']): Flow[] {
       { id: 'n4', type: 'agent', role: 'qa', label: t('flows.preset.fullCycle.n4.label'), icon: '🔍', color: '#f472b6', action: t('flows.preset.fullCycle.n4.action'), waitForApproval: false, x: 720, y: 160 },
     ],
     edges: [{ from: 'n1', to: 'n2' }, { from: 'n2', to: 'n3' }, { from: 'n3', to: 'n4' }],
+  },
+  {
+    id: 'azure-pr-flow',
+    name: 'Azure DevOps PR Flow',
+    createdAt: new Date().toISOString(),
+    nodes: [
+      { id: 'a1', type: 'trigger', role: 'trigger', label: 'Task Trigger', icon: '⚡', color: '#f59e0b', action: 'Triggered from sprint backlog', waitForApproval: false, x: 60, y: 160 },
+      { id: 'a2', type: 'agent', role: 'pm', label: 'PM Analysis', icon: '📋', color: '#a78bfa', action: 'Analyze task and create implementation plan', waitForApproval: false, x: 260, y: 160 },
+      { id: 'a3', type: 'agent', role: 'developer', label: 'Developer', icon: '⚡', color: '#22c55e', action: 'Implement the task according to the plan', execute_task_pipeline: true, waitForApproval: false, x: 460, y: 160 },
+      { id: 'a4', type: 'azure_devops', role: 'azure_devops', label: 'Create PR', icon: '🔷', color: '#0078d4', action: 'Create pull request on Azure DevOps', azure_action: 'create_pr', azure_pr_title: 'AI: {{task.title}}', azure_pr_description: '## Summary\nAI-generated implementation for: {{task.title}}\n\n{{task.description}}', waitForApproval: false, x: 660, y: 160 },
+      { id: 'a5', type: 'azure_update', role: 'azure_update', label: 'Update Work Item', icon: '☁️', color: '#0078d4', action: 'Set work item to Code Review', new_state: 'Code Review', comment: 'AI PR created — ready for review', waitForApproval: false, x: 860, y: 160 },
+      { id: 'a6', type: 'notify', role: 'notify', label: 'Notify Team', icon: '🔔', color: '#fb923c', action: 'Notify team about PR', notify_message: 'PR created for: {{task.title}}', waitForApproval: false, x: 1060, y: 160 },
+    ],
+    edges: [{ from: 'a1', to: 'a2' }, { from: 'a2', to: 'a3' }, { from: 'a3', to: 'a4' }, { from: 'a4', to: 'a5' }, { from: 'a5', to: 'a6' }],
   },
   {
     id: 'quick-fix',
@@ -1247,6 +1261,9 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
 }) {
   const { t } = useLocale();
   const [promptSlugs, setPromptSlugs] = useState<string[]>([]);
+  const [azureProjects, setAzureProjects] = useState<string[]>([]);
+  const [azureRepos, setAzureRepos] = useState<string[]>([]);
+  const [azureReposLoading, setAzureReposLoading] = useState(false);
   const actionRef = useRef<HTMLTextAreaElement>(null);
   const urlRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -1259,7 +1276,21 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
       const slugs = Object.keys(catalog.effective ?? {});
       setPromptSlugs(slugs);
     }).catch(() => {});
+    // Load Azure projects for azure_devops node
+    apiFetch<{ name: string }[]>('/tasks/azure/projects')
+      .then((projects) => setAzureProjects(projects.map((p) => p.name)))
+      .catch(() => {});
   }, []);
+
+  // Load repos when azure project changes
+  useEffect(() => {
+    if (node.type !== 'azure_devops' || !node.azure_project) return;
+    setAzureReposLoading(true);
+    apiFetch<{ name: string }[]>(`/tasks/azure/repos?project=${encodeURIComponent(node.azure_project)}`)
+      .then((repos) => setAzureRepos(repos.map((r) => r.name)))
+      .catch(() => setAzureRepos([]))
+      .finally(() => setAzureReposLoading(false));
+  }, [node.type, node.azure_project]);
 
   function insertVar(ref: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>, val: string, currentVal: string, field: string) {
     const el = ref.current;
@@ -1630,13 +1661,29 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
           </div>
           <div>
             <label style={pLbl}>Project</label>
-            <input value={node.azure_project ?? ''} onChange={(e) => onChange({ azure_project: e.target.value })}
-              placeholder="e.g. EcomBackend" style={pInp} />
+            {azureProjects.length > 0 ? (
+              <select value={node.azure_project ?? ''} onChange={(e) => onChange({ azure_project: e.target.value, azure_repo: '' })}
+                style={{ ...pInp, cursor: 'pointer' }}>
+                <option value="">Select project...</option>
+                {azureProjects.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            ) : (
+              <input value={node.azure_project ?? ''} onChange={(e) => onChange({ azure_project: e.target.value })}
+                placeholder="e.g. EcomBackend" style={pInp} />
+            )}
           </div>
           <div>
             <label style={pLbl}>Repository</label>
-            <input value={node.azure_repo ?? ''} onChange={(e) => onChange({ azure_repo: e.target.value })}
-              placeholder="e.g. my-service" style={pInp} />
+            {azureRepos.length > 0 ? (
+              <select value={node.azure_repo ?? ''} onChange={(e) => onChange({ azure_repo: e.target.value })}
+                style={{ ...pInp, cursor: 'pointer' }}>
+                <option value="">Select repo...</option>
+                {azureRepos.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            ) : (
+              <input value={node.azure_repo ?? ''} onChange={(e) => onChange({ azure_repo: e.target.value })}
+                placeholder={azureReposLoading ? 'Loading...' : node.azure_project ? 'No repos found' : 'Select project first'} style={pInp} disabled={azureReposLoading} />
+            )}
           </div>
           <div>
             <label style={pLbl}>Branch</label>
