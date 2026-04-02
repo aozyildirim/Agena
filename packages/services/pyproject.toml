@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agena-services"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "agena-core",
+    "agena-models",
+    "httpx>=0.28",
+    "redis>=5.2",
+    "openai>=1.99",
+    "qdrant-client>=1.15",
+    "tenacity>=9.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agena-core"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "SQLAlchemy>=2.0",
+    "pydantic>=2.11",
+    "pydantic-settings>=2.11",
+    "python-jose>=3.5",
+    "passlib[bcrypt]>=1.7",
+    "httpx>=0.28",
+    "python-dotenv>=1.1",
+    "PyYAML>=6.0",
+    "aiomysql>=0.2",
+    "pymysql>=1.1",
+    "redis>=5.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

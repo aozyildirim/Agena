@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agena-api"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "agena-core",
+    "agena-models",
+    "agena-services",
+    "agena-agents",
+    "fastapi>=0.116",
+    "uvicorn[standard]>=0.35",
+    "python-multipart>=0.0.9",
+]
+
+[project.scripts]
+agena-api = "agena_api.api.main:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]

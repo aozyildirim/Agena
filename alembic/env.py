@@ -10,9 +10,9 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from core.settings import get_settings
-from db.base import Base
-from db import models  # noqa: F401
+from agena_core.settings import get_settings
+from agena_core.db.base import Base
+import agena_models.models  # noqa: F401 — registers all ORM models with Base.metadata
 
 config = context.config
 settings = get_settings()

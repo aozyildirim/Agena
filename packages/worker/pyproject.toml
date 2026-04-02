@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agena-worker"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "agena-core",
+    "agena-models",
+    "agena-services",
+    "redis>=5.2",
+]
+
+[project.scripts]
+agena-worker = "agena_worker.workers.redis_worker:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

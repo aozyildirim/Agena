@@ -16,13 +16,36 @@ RUN update-ca-certificates
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-# Python deps (requirements.txt değişmezse cache'den gelir)
+# Python deps (requirements.txt degismezse cache'den gelir)
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/requirements.txt
 
-COPY . /app
+# Copy package definitions (cache layer)
+COPY packages/core/pyproject.toml packages/core/pyproject.toml
+COPY packages/models/pyproject.toml packages/models/pyproject.toml
+COPY packages/services/pyproject.toml packages/services/pyproject.toml
+COPY packages/agents/pyproject.toml packages/agents/pyproject.toml
+COPY packages/api/pyproject.toml packages/api/pyproject.toml
+COPY packages/worker/pyproject.toml packages/worker/pyproject.toml
+
+# Copy package sources
+COPY packages/ packages/
+
+# Install all packages in dependency order
+RUN pip install --no-cache-dir \
+    -e packages/core \
+    -e packages/models \
+    -e packages/services \
+    -e packages/agents \
+    -e packages/api \
+    -e packages/worker
+
+# Copy root-level files (alembic, scripts, etc.)
+COPY alembic/ alembic/
+COPY alembic.ini alembic.ini
+COPY cli_bridge.py cli_bridge.py
 
 EXPOSE 8010
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8010"]
+CMD ["uvicorn", "agena_api.api.main:app", "--host", "0.0.0.0", "--port", "8010"]
