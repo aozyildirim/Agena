@@ -1943,6 +1943,12 @@ input:focus, textarea:focus {
   .dashboard-sidebar.mobile-open {
     transform: translateX(0);
   }
+  .dashboard-topbar {
+    left: 0 !important;
+  }
+  .dashboard-topbar .topbar-username {
+    display: none;
+  }
   .dashboard-main {
     margin-left: 0 !important;
     padding: 48px 12px 16px !important;

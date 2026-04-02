@@ -74,11 +74,6 @@ const NAV_GROUPS: NavGroup[] = [
 // Flat list for backward compat (tourAttr, etc.)
 const PRIMARY_NAV_KEYS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
-const SECONDARY_NAV_KEYS = [
-  { href: '/dashboard/notifications', key: 'nav.notifications', icon: '🔔' },
-  { href: '/dashboard/usage', key: 'nav.usage', icon: '📊' },
-  { href: '/dashboard/profile', key: 'nav.profile', icon: '👤' },
-];
 
 function DashboardInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -98,6 +93,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [notifFilter, setNotifFilter] = useState<'all' | 'failed'>('all');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
@@ -150,6 +146,20 @@ function DashboardInner({ children }: { children: ReactNode }) {
 
   // Close mobile sidebar on navigation
   useEffect(() => { setMobileSidebarOpen(false); }, [pathname]);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    if (!notifOpen) return;
+    function handleClick(e: MouseEvent) {
+      const bell = notifBellRef.current;
+      if (bell && bell.contains(e.target as Node)) return;
+      const dropdown = (e.target as HTMLElement).closest('[data-notif-dropdown]');
+      if (dropdown) return;
+      setNotifOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [notifOpen]);
 
   // Clear task badges when visiting tasks page
   useEffect(() => {
@@ -425,7 +435,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
         className='dashboard-sidebar-toggle'
         onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         style={{
-          display: 'none', position: 'fixed', top: 78, left: 6, zIndex: 60,
+          display: 'none', position: 'fixed', top: 126, left: 6, zIndex: 60,
           width: 32, height: 32, borderRadius: 8,
           border: '1px solid var(--panel-border-3)', background: 'var(--surface)',
           color: 'var(--ink-58)', cursor: 'pointer',
@@ -471,25 +481,6 @@ function DashboardInner({ children }: { children: ReactNode }) {
         >
           {sidebarCollapsed ? '→' : '←'}
         </button>
-        {/* User info */}
-        {userName && (
-          <a href="/dashboard/profile" title={`${t('tooltip.action.openProfile')} · ${userName}`}
-            style={{ textDecoration: 'none', padding: sidebarCollapsed ? '8px 6px' : '10px 12px', marginBottom: 16, borderRadius: 12, background: 'var(--glass)', border: '1px solid var(--panel-border)', display: 'block', transition: 'border-color 0.2s' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(139,92,246,0.3)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--panel-border)'; }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : 10, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                {userName[0]?.toUpperCase()}
-              </div>
-              {!sidebarCollapsed && <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)' }}>{t('nav.profileHint')}</div>
-              </div>}
-            </div>
-          </a>
-        )}
-
         {/* Organization info */}
         {!sidebarCollapsed && (orgNameDisplay || orgSlug) && (
           <div style={{ padding: '8px 12px', marginBottom: 8, borderRadius: 10, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.15)' }}>
@@ -620,192 +611,160 @@ function DashboardInner({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div style={{ marginTop: 10, borderTop: '1px solid var(--panel-border)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {SECONDARY_NAV_KEYS.filter((item) => !item.permission || canAccess(userRole, item.permission)).map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href);
-            const isNotificationItem = item.href === '/dashboard/notifications';
-            const hasUnread = isNotificationItem && unreadCount > 0;
-            const itemColor = hasUnread ? '#ef4444' : (active ? 'var(--nav-active)' : 'var(--muted)');
-            return (
-              <Link key={item.href} href={item.href} title={navTooltip(item.key)} data-tour={tourAttr(item.key)} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
-                fontWeight: active ? 600 : 400,
-                color: itemColor,
-                background: hasUnread ? 'rgba(239,68,68,0.12)' : (active ? 'rgba(13,148,136,0.12)' : 'transparent'),
-                border: hasUnread ? '1px solid rgba(239,68,68,0.28)' : (active ? '1px solid rgba(13,148,136,0.2)' : '1px solid transparent'),
-                transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              }}>
-                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18 }}>
-                  <span style={{ fontSize: 16, opacity: active || hasUnread ? 1 : 0.5 }}>{item.icon}</span>
-                  {hasUnread && (
-                    <span style={{
-                      position: 'absolute',
-                      right: -8,
-                      top: -8,
-                      minWidth: 16,
-                      height: 16,
-                      borderRadius: 999,
-                      background: '#ef4444',
-                      color: '#fff',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      lineHeight: '16px',
-                      textAlign: 'center',
-                      padding: '0 4px',
-                    }}>
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </span>
-                {!sidebarCollapsed && t(item.key)}
-              </Link>
-            );
-          })}
-        </div>
-
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 0', borderTop: '1px solid var(--panel-border)' }}>
-          <div style={{ display: 'flex', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <LangToggle style={{ width: sidebarCollapsed ? 44 : '100%' }} />
-          </div>
-          <button
-            onClick={openNotifications}
-            title={t('tooltip.action.openNotifications')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              padding: sidebarCollapsed ? '8px 8px' : '8px 12px', borderRadius: 10, fontSize: 13,
-              background: notifPermission === 'granted' ? 'rgba(34,197,94,0.12)' : 'var(--glass)',
-              border: notifPermission === 'granted' ? '1px solid rgba(34,197,94,0.28)' : '1px solid var(--panel-border)',
-              color: notifPermission === 'granted' ? '#22c55e' : 'var(--muted)',
-              cursor: 'pointer', width: '100%',
-            }}
-          >
-            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18 }}>
-              <span style={{ fontSize: 14 }}>🔔</span>
-              {unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  right: -7,
-                  top: -7,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 999,
-                  background: '#ef4444',
-                  color: '#fff',
-                  fontSize: 10,
-                  fontWeight: 800,
-                  lineHeight: '16px',
-                  textAlign: 'center',
-                  padding: '0 4px',
-                }}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </span>
-            {!sidebarCollapsed && t('notifications.section')}
-          </button>
-          {notifOpen && !sidebarCollapsed && (
-            <div style={{ border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 12, padding: 10, display: 'grid', gap: 8, maxHeight: 250, overflow: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 700 }}>{t('notifications.recent')}</span>
-                <button title={t('tooltip.action.markAllRead')} onClick={() => void markAllReadAndRefresh()} style={{ border: 'none', background: 'transparent', color: 'var(--nav-active)', fontSize: 11, cursor: 'pointer' }}>{t('notifications.markAllRead')}</button>
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  title={t('tooltip.action.filterAllNotifications')}
-                  onClick={() => setNotifFilter('all')}
-                  style={{
-                    border: '1px solid rgba(57,255,136,0.35)',
-                    background: notifFilter === 'all' ? 'rgba(57,255,136,0.16)' : 'var(--glass)',
-                    color: notifFilter === 'all' ? '#39ff88' : 'var(--muted)',
-                    padding: '4px 8px',
-                    borderRadius: 999,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('notifications.all')}
-                </button>
-                <button
-                  title={t('tooltip.action.filterFailedNotifications')}
-                  onClick={() => setNotifFilter('failed')}
-                  style={{
-                    border: '1px solid rgba(239,68,68,0.35)',
-                    background: notifFilter === 'failed' ? 'rgba(239,68,68,0.16)' : 'var(--glass)',
-                    color: notifFilter === 'failed' ? '#ef4444' : 'var(--muted)',
-                    padding: '4px 8px',
-                    borderRadius: 999,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('notifications.group.failures')}
-                </button>
-              </div>
-              {notifLoading ? (
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('notifications.loading')}</div>
-              ) : notifications.filter((n) => notifFilter === 'all' || n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed')).length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('notifications.emptyShort')}</div>
-              ) : notifications
-                .filter((n) => notifFilter === 'all' || n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed'))
-                .map((n) => (
-                <Link
-                  key={n.id}
-                  href={n.task_id ? `/tasks/${n.task_id}` : '/dashboard/tasks'}
-                  title={t('tooltip.action.openNotification')}
-                  onClick={() => {
-                    if (n.is_read) return;
-                    // Optimistic single-read update for instant badge response.
-                    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
-                    setUnreadCount((prev) => {
-                      const next = Math.max(0, prev - 1);
-                      if (typeof window !== 'undefined') localStorage.setItem(LS_UNREAD_KEY, String(next));
-                      return next;
-                    });
-                    void markNotificationRead(n.id).finally(() => void refreshNotifications(12));
-                  }}
-                  style={{ textDecoration: 'none', border: `1px solid ${notifColor(n)}44`, borderLeft: `3px solid ${notifColor(n)}`, borderRadius: 10, padding: '7px 8px', display: 'grid', gap: 3, background: n.is_read ? 'var(--panel)' : `${notifColor(n)}18` }}>
-                  <div style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 700 }}>{n.title}</div>
-                  <div style={{ fontSize: 10, color: notifColor(n), textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{n.event_type.replace(/_/g, ' ')}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.3 }}>{n.message}</div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleString()}</div>
-                </Link>
-              ))}
-              <Link href='/dashboard/notifications' title={t('tooltip.nav.notifications')} style={{ textDecoration: 'none', textAlign: 'center', padding: '7px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', color: '#39ff88', fontSize: 12, fontWeight: 700 }}>
-                {t('notifications.viewAll')}
-              </Link>
-            </div>
-          )}
-          <button
-            onClick={() => void toggleBrowserNotifications()}
-            title={t('tooltip.action.toggleBrowserNotifications')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              padding: sidebarCollapsed ? '8px 8px' : '8px 12px', borderRadius: 10, fontSize: 13,
-              background: webPushEnabled ? 'rgba(34,197,94,0.12)' : 'var(--panel-alt)',
-              border: webPushEnabled ? '1px solid rgba(34,197,94,0.28)' : '1px solid var(--panel-border)',
-              color: webPushEnabled ? '#22c55e' : 'var(--ink-65)',
-              cursor: 'pointer', width: '100%',
-            }}
-          >
-            {sidebarCollapsed ? '🔔' : (webPushEnabled ? t('notifications.browserOn') : t('notifications.browserOff'))}
-          </button>
-          <button onClick={logout} title={t('tooltip.action.logout')} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-            padding: sidebarCollapsed ? '8px 8px' : '8px 12px', borderRadius: 10, fontSize: 13,
-            background: 'transparent', border: '1px solid var(--panel-border)',
-            color: 'var(--ink-30)', cursor: 'pointer', width: '100%',
-          }}>
-            {sidebarCollapsed ? '↩' : t('nav.logout')}
-          </button>
-        </div>
       </aside>
 
+      {/* Top bar */}
+      <div className='dashboard-topbar' style={{
+        position: 'fixed', top: 72, left: sidebarWidth, right: 0, height: 48, zIndex: 45,
+        background: 'var(--glass)', backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid var(--panel-border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        padding: '0 20px', gap: 8,
+        transition: 'left 0.2s ease',
+      }}>
+        {/* Usage link */}
+        <Link href='/dashboard/usage' title={navTooltip('nav.usage')} data-tour={tourAttr('nav.usage')} style={{
+          width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: pathname.startsWith('/dashboard/usage') ? 'var(--nav-active-bg)' : 'transparent',
+          border: pathname.startsWith('/dashboard/usage') ? '1px solid var(--nav-active-border)' : '1px solid transparent',
+          color: pathname.startsWith('/dashboard/usage') ? 'var(--nav-active)' : 'var(--muted)',
+          textDecoration: 'none', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s',
+        }}>
+          📊
+        </Link>
+
+        {/* LangToggle */}
+        <LangToggle style={{ width: 'auto' }} />
+
+        {/* Notification bell */}
+        <button
+          ref={notifBellRef}
+          onClick={openNotifications}
+          title={t('tooltip.action.openNotifications')}
+          data-tour={tourAttr('nav.notifications')}
+          style={{
+            position: 'relative', width: 32, height: 32, borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: notifOpen ? 'var(--nav-active-bg)' : 'transparent',
+            border: notifOpen ? '1px solid var(--nav-active-border)' : '1px solid transparent',
+            color: 'var(--muted)', cursor: 'pointer', fontSize: 16, transition: 'all 0.2s',
+          }}
+        >
+          🔔
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute', right: -4, top: -4,
+              minWidth: 16, height: 16, borderRadius: 999,
+              background: '#ef4444', color: '#fff',
+              fontSize: 10, fontWeight: 800, lineHeight: '16px',
+              textAlign: 'center', padding: '0 4px',
+            }}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* Notification dropdown */}
+        {notifOpen && (
+          <div data-notif-dropdown style={{
+            position: 'absolute', top: 48, right: 80, width: 360,
+            border: '1px solid var(--border)', background: 'var(--surface)',
+            borderRadius: 12, padding: 10, display: 'grid', gap: 8,
+            maxHeight: 400, overflow: 'auto', zIndex: 100,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 700 }}>{t('notifications.recent')}</span>
+              <button title={t('tooltip.action.markAllRead')} onClick={() => void markAllReadAndRefresh()} style={{ border: 'none', background: 'transparent', color: 'var(--nav-active)', fontSize: 11, cursor: 'pointer' }}>{t('notifications.markAllRead')}</button>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                title={t('tooltip.action.filterAllNotifications')}
+                onClick={() => setNotifFilter('all')}
+                style={{
+                  border: '1px solid rgba(57,255,136,0.35)',
+                  background: notifFilter === 'all' ? 'rgba(57,255,136,0.16)' : 'var(--glass)',
+                  color: notifFilter === 'all' ? '#39ff88' : 'var(--muted)',
+                  padding: '4px 8px', borderRadius: 999, fontSize: 11, cursor: 'pointer',
+                }}
+              >
+                {t('notifications.all')}
+              </button>
+              <button
+                title={t('tooltip.action.filterFailedNotifications')}
+                onClick={() => setNotifFilter('failed')}
+                style={{
+                  border: '1px solid rgba(239,68,68,0.35)',
+                  background: notifFilter === 'failed' ? 'rgba(239,68,68,0.16)' : 'var(--glass)',
+                  color: notifFilter === 'failed' ? '#ef4444' : 'var(--muted)',
+                  padding: '4px 8px', borderRadius: 999, fontSize: 11, cursor: 'pointer',
+                }}
+              >
+                {t('notifications.group.failures')}
+              </button>
+            </div>
+            {notifLoading ? (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('notifications.loading')}</div>
+            ) : notifications.filter((n) => notifFilter === 'all' || n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed')).length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('notifications.emptyShort')}</div>
+            ) : notifications
+              .filter((n) => notifFilter === 'all' || n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed'))
+              .map((n) => (
+              <Link
+                key={n.id}
+                href={n.task_id ? `/tasks/${n.task_id}` : '/dashboard/tasks'}
+                title={t('tooltip.action.openNotification')}
+                onClick={() => {
+                  if (n.is_read) return;
+                  setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+                  setUnreadCount((prev) => {
+                    const next = Math.max(0, prev - 1);
+                    if (typeof window !== 'undefined') localStorage.setItem(LS_UNREAD_KEY, String(next));
+                    return next;
+                  });
+                  void markNotificationRead(n.id).finally(() => void refreshNotifications(12));
+                }}
+                style={{ textDecoration: 'none', border: `1px solid ${notifColor(n)}44`, borderLeft: `3px solid ${notifColor(n)}`, borderRadius: 10, padding: '7px 8px', display: 'grid', gap: 3, background: n.is_read ? 'var(--panel)' : `${notifColor(n)}18` }}>
+                <div style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 700 }}>{n.title}</div>
+                <div style={{ fontSize: 10, color: notifColor(n), textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{n.event_type.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.3 }}>{n.message}</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleString()}</div>
+              </Link>
+            ))}
+            <Link href='/dashboard/notifications' title={t('tooltip.nav.notifications')} style={{ textDecoration: 'none', textAlign: 'center', padding: '7px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', color: '#39ff88', fontSize: 12, fontWeight: 700 }}>
+              {t('notifications.viewAll')}
+            </Link>
+          </div>
+        )}
+
+        {/* Profile avatar */}
+        {userName && (
+          <a href="/dashboard/profile" title={`${t('tooltip.action.openProfile')} · ${userName}`} data-tour={tourAttr('nav.profile')} style={{
+            display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+            padding: '4px 8px', borderRadius: 8, transition: 'background 0.2s', cursor: 'pointer',
+          }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(139,92,246,0.08)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; }}
+          >
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+              {userName[0]?.toUpperCase()}
+            </div>
+            <span className='topbar-username' style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
+          </a>
+        )}
+
+        {/* Logout */}
+        <button onClick={logout} title={t('tooltip.action.logout')} style={{
+          width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: '1px solid transparent',
+          color: 'var(--ink-30)', cursor: 'pointer', fontSize: 14, transition: 'all 0.2s',
+        }}>
+          ↩
+        </button>
+      </div>
+
       {/* Main */}
-      <main className='dashboard-main' style={{ flex: 1, marginLeft: sidebarWidth, padding: '32px 40px', minWidth: 0, transition: 'margin-left 0.2s ease' }}>
+      <main className='dashboard-main' style={{ flex: 1, marginLeft: sidebarWidth, padding: '32px 40px', paddingTop: 64, minWidth: 0, transition: 'margin-left 0.2s ease' }}>
         {children}
       </main>
 
