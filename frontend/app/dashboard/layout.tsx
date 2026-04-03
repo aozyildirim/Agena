@@ -536,12 +536,11 @@ function DashboardInner({ children }: { children: ReactNode }) {
                     </Link>
                   );
                 })}
-                <div style={{ height: 1, background: 'var(--panel-border)', margin: '10px 12px 6px' }} />
               </div>
             );
           })()}
 
-          {NAV_GROUPS.map((group, gi) => {
+          {!isPlatformAdmin && NAV_GROUPS.map((group, gi) => {
             const visibleItems = group.items.filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]));
             if (!visibleItems.length) return null;
             const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
