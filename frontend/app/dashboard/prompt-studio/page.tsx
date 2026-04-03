@@ -175,8 +175,8 @@ export default function PromptStudioPage() {
           <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--ink-90)' }}>Prompt Studio</div>
           <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>
             {lang === 'tr'
-              ? 'Sade görünüm: prompt seç, düzenle, güven puanını gör, kaydet.'
-              : 'Simple mode: select prompt, edit, view trust score, save.'}
+              ? 'Sade görünüm: prompt seç, düzenle, kaydet.'
+              : 'Simple mode: select prompt, edit, save.'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

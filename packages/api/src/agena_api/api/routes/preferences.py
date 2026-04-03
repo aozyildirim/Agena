@@ -583,16 +583,19 @@ async def scan_repo_profile(
     total_tokens = 0
     cost_usd = 0.0
     used_model: str | None = None
-    # Skip LLM scan if agents.md already exists in our data dir (saves tokens)
-    _agents_base = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
-    _org_dir = _agents_base / f'org_{tenant.organization_id}'
-    _safe = (payload.mapping_name or payload.mapping_id).replace('/', '_').replace('\\', '_').replace(' ', '_')
-    existing_agents_md = _org_dir / f'{_safe}.md'
-    agents_md_exists = existing_agents_md.is_file() and existing_agents_md.stat().st_size > 500
-    if agents_md_exists:
-        profile['agents_md_path'] = str(existing_agents_md)
-        profile['agents_md_size'] = existing_agents_md.stat().st_size
-        llm = None  # skip LLM call
+    # Use repo's own agents.md / AGENTS.md if it exists (skip generating our own)
+    _repo_root = Path(payload.local_path).expanduser().resolve() if payload.local_path else None
+    _repo_agents_md: Path | None = None
+    if _repo_root and _repo_root.is_dir():
+        for _aname in ['agents.md', 'AGENTS.md']:
+            _candidate = _repo_root / _aname
+            if _candidate.is_file() and _candidate.stat().st_size > 100:
+                _repo_agents_md = _candidate
+                break
+    if _repo_agents_md:
+        profile['agents_md_path'] = str(_repo_agents_md)
+        profile['agents_md_size'] = _repo_agents_md.stat().st_size
+        llm = None  # skip LLM call — repo has its own agents.md
 
     if llm is not None:
         system_prompt = await PromptService.get(db, 'repo_analysis_system_prompt')
@@ -637,32 +640,31 @@ async def scan_repo_profile(
     profile['scanned_by_provider'] = llm_provider
     profile['scanned_model'] = used_model
 
-    # Auto-generate agents.md from deep repo scan
-    try:
-        from agena_services.services.repo_scanner import scan_repo, generate_agents_md, generate_package_mds
-        scan_data = scan_repo(payload.local_path)
-        agents_md_content = generate_agents_md(scan_data, payload.mapping_name)
-        # Save agents.md to AGENA's data dir (org-scoped)
-        _ab = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
-        _od = _ab / f'org_{tenant.organization_id}'
-        _od.mkdir(parents=True, exist_ok=True)
-        _sn = (payload.mapping_name or payload.mapping_id).replace('/', '_').replace('\\', '_').replace(' ', '_')
-        agents_md_path = _od / f'{_sn}.md'
-        agents_md_path.write_text(agents_md_content, encoding='utf-8')
-        # Save per-package signature files
-        pkg_dir = _od / _sn
-        pkg_dir.mkdir(parents=True, exist_ok=True)
-        pkg_mds = generate_package_mds(scan_data)
-        for pkg_name, pkg_content in pkg_mds.items():
-            safe_name = pkg_name.replace('/', '__')
-            (pkg_dir / f'{safe_name}.md').write_text(pkg_content, encoding='utf-8')
-        profile['agents_md_path'] = str(agents_md_path)
-        profile['agents_pkg_dir'] = str(pkg_dir)
-        profile['agents_md_size'] = len(agents_md_content)
-        profile['agents_md_signatures'] = len(scan_data.get('signatures', []))
-        profile['agents_md_files'] = len(scan_data.get('source_files', []))
-    except Exception as agents_exc:
-        profile['agents_md_error'] = str(agents_exc)[:200]
+    # Auto-generate agents.md only if repo doesn't have its own
+    if not _repo_agents_md:
+        try:
+            from agena_services.services.repo_scanner import scan_repo, generate_agents_md, generate_package_mds
+            scan_data = scan_repo(payload.local_path)
+            agents_md_content = generate_agents_md(scan_data, payload.mapping_name)
+            _ab = Path('/app/data/agents_md') if Path('/app').exists() else Path('data/agents_md')
+            _od = _ab / f'org_{tenant.organization_id}'
+            _od.mkdir(parents=True, exist_ok=True)
+            _sn = (payload.mapping_name or payload.mapping_id).replace('/', '_').replace('\\', '_').replace(' ', '_')
+            agents_md_path = _od / f'{_sn}.md'
+            agents_md_path.write_text(agents_md_content, encoding='utf-8')
+            pkg_dir = _od / _sn
+            pkg_dir.mkdir(parents=True, exist_ok=True)
+            pkg_mds = generate_package_mds(scan_data)
+            for pkg_name, pkg_content in pkg_mds.items():
+                safe_name = pkg_name.replace('/', '__')
+                (pkg_dir / f'{safe_name}.md').write_text(pkg_content, encoding='utf-8')
+            profile['agents_md_path'] = str(agents_md_path)
+            profile['agents_pkg_dir'] = str(pkg_dir)
+            profile['agents_md_size'] = len(agents_md_content)
+            profile['agents_md_signatures'] = len(scan_data.get('signatures', []))
+            profile['agents_md_files'] = len(scan_data.get('source_files', []))
+        except Exception as agents_exc:
+            profile['agents_md_error'] = str(agents_exc)[:200]
 
     pref = await _get_or_create_pref(db, tenant.user_id)
     settings = _parse_json_obj(pref.profile_settings_json)
