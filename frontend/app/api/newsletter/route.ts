@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
 
-const FILE = join(process.cwd(), 'newsletter-subscribers.json');
-
-async function getSubscribers(): Promise<string[]> {
-  try {
-    const data = await readFile(FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8010';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,17 +9,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
     }
 
-    const normalized = email.trim().toLowerCase();
-    const subs = await getSubscribers();
+    const res = await fetch(`${API_BASE}/public/newsletter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
 
-    if (subs.includes(normalized)) {
-      return NextResponse.json({ ok: true, message: 'Already subscribed' });
+    if (res.ok) {
+      return NextResponse.json({ ok: true });
     }
-
-    subs.push(normalized);
-    await writeFile(FILE, JSON.stringify(subs, null, 2));
-
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

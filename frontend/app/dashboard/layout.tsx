@@ -94,6 +94,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
@@ -228,9 +229,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
       if (!active) return;
       setChecked(true);
 
-      apiFetch<{ full_name?: string; email: string; org_slug?: string; org_name?: string }>('/auth/me').then((u) => {
+      apiFetch<{ full_name?: string; email: string; org_slug?: string; org_name?: string; is_platform_admin?: boolean }>('/auth/me').then((u) => {
         if (!active) return;
         setUserName(u.full_name || u.email);
+        if (u.is_platform_admin) setIsPlatformAdmin(true);
         // Store org slug/name from the /me response
         if (u.org_slug) { setOrgSlugState(u.org_slug); setOrgSlug(u.org_slug); }
         if (u.org_name) { setOrgNameDisplay(u.org_name); setOrgName(u.org_name); }
@@ -616,6 +618,30 @@ function DashboardInner({ children }: { children: ReactNode }) {
               </div>
             );
           })}
+
+          {/* Platform Admin */}
+          {isPlatformAdmin && (
+            <>
+              <div style={{ height: 1, background: 'var(--panel-border)', margin: '6px 12px 4px' }} />
+              {!sidebarCollapsed && (
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#f87171', textTransform: 'uppercase', padding: '5px 12px', marginBottom: 2 }}>
+                  Platform
+                </div>
+              )}
+              <Link href='/dashboard/admin' title='Platform Admin' style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
+                fontWeight: pathname === '/dashboard/admin' ? 600 : 400,
+                color: pathname === '/dashboard/admin' ? '#f87171' : 'var(--muted)',
+                background: pathname === '/dashboard/admin' ? 'rgba(248,113,113,0.1)' : 'transparent',
+                border: pathname === '/dashboard/admin' ? '1px solid rgba(248,113,113,0.3)' : '1px solid transparent',
+                transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              }}>
+                <span style={{ fontSize: 16, opacity: pathname === '/dashboard/admin' ? 1 : 0.5 }}>&#9881;</span>
+                {!sidebarCollapsed && 'Admin Panel'}
+              </Link>
+            </>
+          )}
         </nav>
 
       </aside>

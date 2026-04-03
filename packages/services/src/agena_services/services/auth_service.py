@@ -46,7 +46,7 @@ class AuthService:
         self.db.add(Subscription(organization_id=org.id, plan_name='pro', status='active'))
         await self.db.commit()
 
-        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id)
+        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin)
         return token, user, org
 
     async def login(self, payload: LoginRequest) -> tuple[str, User, Organization]:
@@ -65,5 +65,5 @@ class AuthService:
         org_row = await self.db.execute(select(Organization).where(Organization.id == membership.organization_id))
         org = org_row.scalar_one()
 
-        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id)
+        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin)
         return token, user, org

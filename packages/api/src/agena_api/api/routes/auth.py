@@ -16,7 +16,7 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db_sessi
         token, user, org = await service.signup(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '')
+    return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '', is_platform_admin=user.is_platform_admin)
 
 
 @router.post('/login', response_model=AuthResponse)
@@ -26,7 +26,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db_session
         token, user, org = await service.login(payload)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
-    return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '')
+    return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '', is_platform_admin=user.is_platform_admin)
 
 
 @router.get('/me', response_model=MeResponse)
@@ -43,4 +43,4 @@ async def me(
         raise HTTPException(status_code=404, detail='User not found')
     org_result = await db.execute(select(Organization).where(Organization.id == tenant.organization_id))
     org = org_result.scalar_one_or_none()
-    return MeResponse(user_id=user.id, email=user.email, full_name=user.full_name or '', organization_id=tenant.organization_id, org_slug=org.slug if org else '', org_name=org.name if org else '')
+    return MeResponse(user_id=user.id, email=user.email, full_name=user.full_name or '', organization_id=tenant.organization_id, org_slug=org.slug if org else '', org_name=org.name if org else '', is_platform_admin=user.is_platform_admin)

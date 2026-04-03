@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from agena_api.api.middleware.rate_limit import RateLimitMiddleware
 from agena_api.api.middleware.request_logger import RequestLoggerMiddleware
 from agena_api.api.middleware.tenant import TenantMiddleware
-from agena_api.api.routes import agents, analytics, auth, billing, flows, github, integrations, memory, notifications, org, preferences, refinement, saas_tasks, tasks, usage_events, webhooks, ws
+from agena_api.api.routes import admin, agents, analytics, auth, billing, flows, github, integrations, memory, notifications, org, preferences, public, refinement, saas_tasks, tasks, usage_events, webhooks, ws
 from agena_core.database import engine
 from agena_core.logging import configure_logging
 from agena_core.settings import get_settings
@@ -48,6 +48,8 @@ app.include_router(usage_events.router)
 app.include_router(memory.router)
 app.include_router(webhooks.router)
 app.include_router(ws.router)
+app.include_router(admin.router)
+app.include_router(public.router)
 
 
 @app.on_event('startup')

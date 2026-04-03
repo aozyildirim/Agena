@@ -39,6 +39,7 @@ class AuthResponse(BaseModel):
     email: str = ''
     org_slug: str = ''
     org_name: str = ''
+    is_platform_admin: bool = False
 
 
 class MeResponse(BaseModel):
@@ -48,3 +49,4 @@ class MeResponse(BaseModel):
     organization_id: int
     org_slug: str = ''
     org_name: str = ''
+    is_platform_admin: bool = False

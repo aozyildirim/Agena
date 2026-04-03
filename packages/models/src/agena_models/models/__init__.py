@@ -1,6 +1,8 @@
 """Re-export all ORM models so that `import agena_models.models` registers them with Base.metadata."""
 
 from agena_models.models.agent_log import AgentLog
+from agena_models.models.contact_submission import ContactSubmission
+from agena_models.models.newsletter_subscriber import NewsletterSubscriber
 from agena_models.models.ai_usage_event import AIUsageEvent
 from agena_models.models.git_commit import GitCommit
 from agena_models.models.git_deployment import GitDeployment
@@ -32,4 +34,5 @@ __all__ = [
     'AgentAnalyticsSnapshot', 'FlowRun', 'FlowRunStep', 'Invite',
     'IntegrationConfig', 'NotificationRecord', 'UserPreference',
     'GitCommit', 'GitPullRequest', 'GitDeployment',
+    'ContactSubmission', 'NewsletterSubscriber',
 ]

@@ -26,6 +26,7 @@ class CurrentTenant:
     organization_id: int
     email: str
     role: str
+    is_platform_admin: bool = False
 
 
 def get_queue_service() -> QueueService:
@@ -82,7 +83,21 @@ async def get_current_tenant(
     if member is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='No organization access')
 
-    return CurrentTenant(user_id=user_id, organization_id=org_id, email=email, role=member.role or 'member')
+    return CurrentTenant(
+        user_id=user_id,
+        organization_id=org_id,
+        email=email,
+        role=member.role or 'member',
+        is_platform_admin=bool(payload.get('pa')),
+    )
+
+
+async def require_platform_admin(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+) -> CurrentTenant:
+    if not tenant.is_platform_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Platform admin access required')
+    return tenant
 
 
 def require_permission(permission: str) -> Callable:
