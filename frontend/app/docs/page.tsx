@@ -81,22 +81,48 @@ const sections = [
 
 const content: Record<string, string> = {
   overview: `
-AGENA is an **agentic AI platform** that autonomously generates code, creates pull requests, and manages your software development workflow.
+AGENA is an **agentic AI platform** that autonomously generates code, creates pull requests, and manages your software development workflow. It is designed for development teams who want to accelerate delivery without sacrificing code quality.
 
 ### What AGENA Does
 - **Takes a task** from your backlog (Azure DevOps, Jira, or manually created)
 - **Runs an AI agent pipeline**: PM → Developer → Reviewer → Finalizer
 - **Generates production code**, creates a branch, commits, and opens a PR
+- **Reviews its own output** with a dedicated Reviewer agent before submitting
 - **Notifies your team** via Slack, Teams, or Telegram
+- **Learns from your codebase** using vector memory for context-aware generation
 
 ### Key Concepts
 | Concept | Description |
 |---------|-------------|
-| **Task** | A work item imported from Jira/Azure or created manually |
-| **Agent** | An AI role (PM, Developer, Reviewer, QA) with its own model and prompt |
-| **Flow** | A visual automation pipeline connecting agents and actions |
-| **Pixel Agent** | The visual workspace showing agents working in real-time |
-| **Organization** | A multi-tenant workspace for your team |
+| **Task** | A work item imported from Jira/Azure DevOps or created manually. Contains title, description, acceptance criteria, and context. |
+| **Agent** | An AI role (PM, Developer, Reviewer, QA, Finalizer) with its own LLM model, system prompt, and behavior. Configurable per organization. |
+| **Flow** | A visual automation pipeline (n8n-style) connecting agents, conditions, HTTP calls, and integrations into custom workflows. |
+| **Pixel Agent** | The animated visual workspace showing agents as pixel characters working on tasks in real-time. |
+| **Organization** | A multi-tenant workspace. Each org has its own integrations, team members, tasks, and billing. |
+| **Repo Mapping** | Links a GitHub/Azure DevOps repository to your org so AGENA knows where to create branches and PRs. |
+| **Playbook** | Organization-wide coding rules and conventions. Agents reference the playbook when generating code. |
+| **Sprint** | Active sprint from Azure DevOps or Jira. Tasks can be imported from the sprint and tracked on the sprint board. |
+
+### How It Works — End to End
+1. You create a task (manually, from Jira/Azure, or via ChatOps: \`/fix login returns 500\`)
+2. AGENA queues the task in a Redis-backed priority queue
+3. The **Worker** picks up the task and starts the pipeline:
+   - **PM Agent** fetches your codebase, analyzes requirements, writes an implementation plan
+   - **Developer Agent** generates code following your playbook and repo conventions
+   - **Reviewer Agent** reviews the code for bugs, security, and best practices
+   - **Finalizer Agent** creates a branch, commits the code, opens a PR
+4. You receive a notification with the PR link
+5. You review, provide feedback, and merge — or AGENA can auto-fix based on PR comments
+
+### Supported Integrations
+| Category | Services |
+|----------|----------|
+| **Code Hosting** | GitHub, Azure DevOps |
+| **Task Management** | Jira, Azure Boards |
+| **AI Providers** | OpenAI (GPT-5, GPT-4o), Google Gemini |
+| **Notifications** | Slack, Microsoft Teams, Telegram, Email |
+| **ChatOps** | Slack commands, Teams bot, Telegram bot |
+| **Vector Memory** | Qdrant (optional, for context learning) |
   `,
 
   signup: `
@@ -192,16 +218,29 @@ docker compose exec backend alembic upgrade head
   office: `
 ### Office — Pixel Agent Workspace
 
-The **Office** is AGENA's visual workspace where you can see your AI agents as pixel characters working on tasks in real-time.
+The **Office** is AGENA's visual workspace where your AI agents appear as animated pixel characters. Each agent has a desk, walks around, and visually shows what it is working on.
 
-#### Features
-- **Live agent visualization** — See which agents are active and what they are working on
-- **Task progress tracking** — Visual pipeline progress (fetch → analyze → generate → review → finalize)
-- **Quick actions** — Create tasks, view queue status, access recent completions
-- **Interactive office** — Furniture and layout that you can customize
+#### What You See
+- **Agent Characters** — Each AI role (PM, Developer, Reviewer, etc.) is a pixel character at their desk
+- **Activity Indicators** — Agents glow or animate when actively processing a task
+- **Task Progress Bar** — Real-time pipeline progress: fetch → analyze → generate → review → finalize
+- **Queue Counter** — Shows how many tasks are waiting in the queue
+- **Recent Completions** — Quick access to recently finished tasks and their PR links
+
+#### Interactive Elements
+- **Click an agent** to see its current task and status
+- **Hover over desks** for quick agent info
+- **Create Task** button for quick task creation without leaving the office view
+- The office layout updates in real-time via WebSocket — no need to refresh
+
+#### When to Use Office
+The Office is ideal for:
+- Monitoring active agent work in real-time
+- Demo/presentation mode to showcase AGENA to stakeholders
+- Quick overview of your AI workforce status
 
 #### Navigation
-Dashboard → Office (or click the 🏢 icon in the sidebar)
+Dashboard → Office (first item in the Workspace section of the sidebar)
   `,
 
   tasks: `
@@ -344,10 +383,42 @@ Nodes pass data via \`{{outputs.node_id.field}}\`. Each node's output is availab
 
 #### Creating a Flow
 1. Go to **Dashboard → Flows** → Create New Flow
-2. Add a Trigger node
-3. Connect Agent nodes for analysis and code generation
-4. Add a GitHub/Azure node to create the PR
-5. Save and activate the flow
+2. Add a **Trigger** node (every flow starts with one)
+3. Connect **Agent** nodes for analysis and code generation
+4. Add **Condition** nodes to branch logic (e.g., "if code review score > 80")
+5. Add **GitHub/Azure** nodes to create branches and PRs
+6. Optionally add **Notify** nodes for Slack/Teams/webhook notifications
+7. Save and activate the flow
+
+#### Example: Full PR Pipeline
+\`\`\`
+Trigger → Agent (PM) → Agent (Developer) → Agent (Reviewer)
+  → Condition (review passed?)
+    → Yes: GitHub (Create PR) → Notify (Slack)
+    → No: Agent (Developer, retry) → Agent (Reviewer)
+\`\`\`
+
+#### Node Communication in Detail
+Each node produces an output stored in \`context['outputs'][node_id]\`. Downstream nodes reference these using template syntax:
+
+- \`{{outputs.node_1.plan}}\` — Get the plan from the PM agent
+- \`{{outputs.node_3.code}}\` — Get generated code from the Developer agent
+- \`{{outputs.node_5.review_score}}\` — Get review score from the Reviewer
+
+Special context keys:
+- \`context['product_review_output']\` — Analyzer/PM spec output
+- \`context['plan_output']\` — Planner file-level change plan
+- \`context['last_condition']\` — Last condition evaluation result (true/false)
+
+#### Condition Node Operators
+| Operator | Description | Example |
+|----------|-------------|---------|
+| eq | Equals | \`review_score eq 100\` |
+| neq | Not equals | \`status neq failed\` |
+| gt / lt | Greater/less than | \`confidence gt 80\` |
+| contains | String contains | \`output contains "error"\` |
+| regex | Regex match | \`branch regex "feature/.*"\` |
+| empty | Is empty/null | \`pr_url empty\` |
   `,
 
   templates: `
@@ -408,26 +479,49 @@ Configure external services in **Dashboard → Integrations**.
   'repo-mapping': `
 ### Repository Mapping
 
-Repository mapping tells AGENA which codebase to work with for each task.
+Repository mapping tells AGENA which codebase to work with for each task. Without a mapping, AGENA does not know where to create branches and PRs.
 
 #### Setup
 1. Go to **Dashboard → Mappings**
 2. Click **Add Mapping**
-3. Select your GitHub owner and repository
-4. Optionally set:
-   - **Base branch** (default: main)
-   - **Local repo path** (for self-hosted setups with volume-mounted repos)
-   - **Playbook** (coding rules specific to this repo)
+3. Configure the following fields:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Provider** | GitHub or Azure DevOps | GitHub |
+| **Owner** | GitHub org/user or Azure project | \`aozyildirim\` |
+| **Repository** | Target repository name | \`Agena\` |
+| **Base Branch** | Branch to create PRs against | \`main\` |
+| **Local Repo Path** | Absolute path on server (self-hosted only) | \`/home/user/repos/agena\` |
+| **Playbook** | Optional repo-specific coding rules | \`Use TypeScript strict mode...\` |
 
 #### How It Works
 When a task is assigned to AI, AGENA:
-1. Checks the task's repository mapping
-2. Fetches the codebase context from the mapped repo
-3. Generates code following the repo's conventions
-4. Creates a branch and PR in that specific repository
+1. Looks up the repository mapping attached to the task
+2. Fetches the codebase via GitHub API (or reads local path for self-hosted)
+3. PM agent analyzes the code structure, finds relevant files
+4. Developer agent generates code following the repo's conventions and playbook
+5. Finalizer agent creates a new branch, commits code, and opens a PR against the base branch
 
-#### Multiple Repos
-You can map multiple repositories. When creating a task, select which repo it applies to.
+#### Local Repo Path (Self-Hosted)
+If you are running AGENA on your own server and the repo is cloned locally:
+- Set the **Local Repo Path** to the absolute path of the git clone
+- The Worker container must have this path volume-mounted
+- Local mode is faster because it avoids GitHub API rate limits
+- The Worker acquires a lock per repo path to prevent concurrent modifications
+
+#### Multiple Repositories
+You can map multiple repositories to your organization. When creating a task:
+- If you have one mapping, it is auto-selected
+- If you have multiple, select which repo the task applies to
+- Each mapping can have its own playbook (coding rules)
+
+#### Playbook
+The playbook is injected into every agent's context for this repo. Use it for:
+- Coding conventions (\`Always use async/await, never callbacks\`)
+- Architecture rules (\`All new endpoints must have input validation\`)
+- Framework specifics (\`Use Pydantic v2 model_validator for complex validation\`)
+- Testing requirements (\`Every service method must have a unit test\`)
   `,
 
   'team-management': `
@@ -614,32 +708,100 @@ Integrations (GitHub, Azure, Jira, Slack, Teams, Telegram) are configured per-or
   'admin-panel': `
 ### Platform Admin Panel
 
-The admin panel is accessible at **Dashboard → Admin** for users with platform admin privileges.
+The admin panel is the super-admin interface for managing the entire AGENA platform across all organizations. It is accessible at **Dashboard → Admin**.
 
-#### Overview Tab
-- Total organizations, users, tasks, and PRs created
-- System health indicators
+#### Who Can Access
+Only users with \`is_platform_admin = true\` in the database have access. Regular org owners/admins cannot see this panel. When a platform admin logs in, they are redirected to \`/dashboard/admin\` and see a dedicated admin sidebar instead of the regular org-level navigation.
 
-#### Accessing Admin
-Platform admin is set at the database level (\`is_platform_admin=true\` on the user record). The first user created typically has this flag.
+#### Overview Tab (Default)
+- **Total Organizations** — Number of registered orgs on the platform
+- **Total Users** — All users across all orgs
+- **Total Tasks** — All tasks ever created
+- **Total PRs** — All pull requests created by AI agents
+- System-wide health and activity overview
+
+#### Organizations Tab
+- Full list of all registered organizations
+- Per-org stats: member count, task count, creation date, last activity
+- Useful for monitoring tenant health and identifying inactive accounts
+
+#### Users Tab
+- All registered users across all organizations
+- Shows: email, full name, role, organization, last login timestamp
+- Helps track user growth and identify support issues
+
+#### Contact Submissions Tab
+- Messages from the public contact form at \`/contact\`
+- Shows: name, email, message, submission date
+
+#### Newsletter Tab
+- Email addresses from the newsletter signup form
+- Export-ready for email marketing tools
+
+#### Platform Admin vs Org Owner
+| Capability | Platform Admin | Org Owner |
+|-----------|---------------|-----------|
+| See all organizations | ✅ | ❌ (own org only) |
+| See all users | ✅ | ❌ (own team only) |
+| Access admin panel | ✅ | ❌ |
+| Manage own org settings | ✅ | ✅ |
+| Create tasks | ✅ | ✅ |
+| Billing management | ❌ (platform-level) | ✅ (own org) |
   `,
 
   'admin-orgs': `
 ### Managing Organizations
 
-In the **Organizations** tab of the admin panel:
-- View all registered organizations
-- See member count, task count, and creation date per org
-- Monitor usage across tenants
+#### Viewing Organizations
+Navigate to **Admin → Organizations** tab to see all registered organizations.
+
+Each org card shows:
+- **Organization name** and ID
+- **Member count** — How many users belong to this org
+- **Task count** — Total tasks created by this org
+- **Created date** — When the org was registered
+- **Owner** — The org owner's email
+
+#### Multi-Tenancy
+AGENA is fully multi-tenant. Each organization is completely isolated:
+- **Separate data** — Tasks, flows, agents, integrations are org-scoped
+- **Separate billing** — Each org has its own subscription plan
+- **Separate integrations** — Each org connects their own GitHub, Jira, Slack, etc.
+- **No cross-org visibility** — Users in Org A cannot see anything from Org B
+
+#### Common Admin Tasks
+- **Investigate issues** — If a user reports a problem, find their org and check task logs
+- **Monitor growth** — Track new org signups and active tenant count
+- **Identify abuse** — Spot orgs with unusually high task counts or API usage
   `,
 
   'admin-users': `
 ### Managing Users
 
-In the **Users** tab of the admin panel:
-- View all registered users across all organizations
-- See email, role, last login, and organization assignment
-- Contact form submissions and newsletter subscribers are also visible here
+#### Viewing Users
+Navigate to **Admin → Users** tab to see all registered users across the entire platform.
+
+Each user entry shows:
+- **Full name** and email address
+- **Organization** they belong to
+- **Role** within their organization (owner, admin, member, viewer)
+- **Platform admin flag** — Whether they have platform admin access
+- **Last login** — When they last authenticated
+
+#### User Lifecycle
+1. User signs up at \`/signup\` → new org is created automatically
+2. OR user receives an invite link → joins an existing org with assigned role
+3. User configures their profile and preferences
+4. If user needs platform admin access, set \`is_platform_admin=true\` in the database
+
+#### Contact Submissions
+Messages sent via the public \`/contact\` page are visible in a separate tab. These include:
+- Sender name and email
+- Message content
+- Submission timestamp
+
+#### Newsletter Subscribers
+Email addresses collected from newsletter signups on the landing page.
   `,
 
   'auth-api': `
@@ -790,9 +952,9 @@ export default function DocsPage() {
   const parentSection = sections.find(s => s.children.some(c => c.id === activeId));
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)', maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', maxWidth: 1200, margin: '0 auto', padding: '0 16px', paddingTop: 72 }}>
       {/* Sidebar */}
-      <nav style={{ width: 240, flexShrink: 0, padding: '24px 0', borderRight: '1px solid var(--panel-border)', position: 'sticky', top: 64, height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
+      <nav style={{ width: 240, flexShrink: 0, padding: '24px 0', borderRight: '1px solid var(--panel-border)', position: 'sticky', top: 72, height: 'calc(100vh - 72px)', overflowY: 'auto' }}>
         {sections.map((section) => (
           <div key={section.id} style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 1, padding: '4px 12px', marginBottom: 4 }}>
