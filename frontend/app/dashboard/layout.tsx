@@ -501,6 +501,46 @@ function DashboardInner({ children }: { children: ReactNode }) {
         )}
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {/* Platform Admin — dedicated nav */}
+          {isPlatformAdmin && (() => {
+            const adminItems = [
+              { href: '/dashboard/admin', label: 'Overview', icon: '📊' },
+              { href: '/dashboard/admin?tab=orgs', label: 'Organizations', icon: '🏢' },
+              { href: '/dashboard/admin?tab=users', label: 'Users', icon: '👥' },
+              { href: '/dashboard/admin?tab=contact', label: 'Contact', icon: '📩' },
+              { href: '/dashboard/admin?tab=newsletter', label: 'Newsletter', icon: '📧' },
+            ];
+            return (
+              <div style={{ marginBottom: 8 }}>
+                {!sidebarCollapsed && (
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#f87171', textTransform: 'uppercase', padding: '5px 12px', marginBottom: 4 }}>
+                    Platform Admin
+                  </div>
+                )}
+                {adminItems.map((item) => {
+                  const isActive = item.href === '/dashboard/admin'
+                    ? pathname === '/dashboard/admin' && !new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').has('tab')
+                    : typeof window !== 'undefined' && window.location.search.includes(item.href.split('?')[1] || '___');
+                  return (
+                    <Link key={item.href} href={item.href} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? '#f87171' : 'var(--muted)',
+                      background: isActive ? 'rgba(248,113,113,0.1)' : 'transparent',
+                      border: isActive ? '1px solid rgba(248,113,113,0.3)' : '1px solid transparent',
+                      transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                    }}>
+                      <span style={{ fontSize: 16, opacity: isActive ? 1 : 0.5 }}>{item.icon}</span>
+                      {!sidebarCollapsed && item.label}
+                    </Link>
+                  );
+                })}
+                <div style={{ height: 1, background: 'var(--panel-border)', margin: '10px 12px 6px' }} />
+              </div>
+            );
+          })()}
+
           {NAV_GROUPS.map((group, gi) => {
             const visibleItems = group.items.filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]));
             if (!visibleItems.length) return null;
@@ -619,29 +659,6 @@ function DashboardInner({ children }: { children: ReactNode }) {
             );
           })}
 
-          {/* Platform Admin */}
-          {isPlatformAdmin && (
-            <>
-              <div style={{ height: 1, background: 'var(--panel-border)', margin: '6px 12px 4px' }} />
-              {!sidebarCollapsed && (
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#f87171', textTransform: 'uppercase', padding: '5px 12px', marginBottom: 2 }}>
-                  Platform
-                </div>
-              )}
-              <Link href='/dashboard/admin' title='Platform Admin' style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
-                fontWeight: pathname === '/dashboard/admin' ? 600 : 400,
-                color: pathname === '/dashboard/admin' ? '#f87171' : 'var(--muted)',
-                background: pathname === '/dashboard/admin' ? 'rgba(248,113,113,0.1)' : 'transparent',
-                border: pathname === '/dashboard/admin' ? '1px solid rgba(248,113,113,0.3)' : '1px solid transparent',
-                transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              }}>
-                <span style={{ fontSize: 16, opacity: pathname === '/dashboard/admin' ? 1 : 0.5 }}>&#9881;</span>
-                {!sidebarCollapsed && 'Admin Panel'}
-              </Link>
-            </>
-          )}
         </nav>
 
       </aside>

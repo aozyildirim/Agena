@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 
 interface Stats {
@@ -53,13 +54,25 @@ interface Subscriber {
 type Tab = 'overview' | 'orgs' | 'users' | 'contact' | 'newsletter';
 
 export default function AdminPanel() {
-  const [tab, setTab] = useState<Tab>('overview');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const urlTab = searchParams.get('tab') as Tab | null;
+  const [tab, setTab] = useState<Tab>(urlTab || 'overview');
+
+  function switchTab(t: Tab) {
+    setTab(t);
+    router.push(t === 'overview' ? '/dashboard/admin' : `/dashboard/admin?tab=${t}`);
+  }
   const [stats, setStats] = useState<Stats | null>(null);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (urlTab && urlTab !== tab) setTab(urlTab);
+  }, [urlTab]);
 
   useEffect(() => {
     loadStats();
@@ -176,13 +189,13 @@ export default function AdminPanel() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 32, flexWrap: 'wrap' }}>
-        <button onClick={() => setTab('overview')} style={tabStyle('overview')}>Overview</button>
-        <button onClick={() => setTab('orgs')} style={tabStyle('orgs')}>Organizations</button>
-        <button onClick={() => setTab('users')} style={tabStyle('users')}>Users</button>
-        <button onClick={() => setTab('contact')} style={tabStyle('contact')}>
+        <button onClick={() => switchTab('overview')} style={tabStyle('overview')}>Overview</button>
+        <button onClick={() => switchTab('orgs')} style={tabStyle('orgs')}>Organizations</button>
+        <button onClick={() => switchTab('users')} style={tabStyle('users')}>Users</button>
+        <button onClick={() => switchTab('contact')} style={tabStyle('contact')}>
           Contact {stats && stats.unread_contacts > 0 && <span style={{ marginLeft: 6, background: '#f87171', color: '#fff', borderRadius: 10, padding: '2px 7px', fontSize: 10 }}>{stats.unread_contacts}</span>}
         </button>
-        <button onClick={() => setTab('newsletter')} style={tabStyle('newsletter')}>Newsletter</button>
+        <button onClick={() => switchTab('newsletter')} style={tabStyle('newsletter')}>Newsletter</button>
       </div>
 
       {/* Overview */}
