@@ -30,50 +30,53 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className='navbar-desktop' style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <LangToggle style={{ marginRight: 4 }} />
-          <ThemeToggle style={{ marginRight: 4 }} />
-          <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Blog</Link>
-          <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Docs</Link>
-          <Link href='/use-cases' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Use Cases</Link>
-          <Link href='/contact' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Contact</Link>
-          <span className='chip' style={{ marginRight: 8 }}>{t('nav.aiOrchestration')}</span>
-          <a
-            href='https://github.com/aozyildirim/Agena'
-            target='_blank'
-            rel='noopener noreferrer'
-            title={t('tooltip.nav.githubRepo')}
-            className='button button-outline'
-            style={{ padding: '8px 14px', fontSize: 13, marginRight: 4, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
-          >
-            <svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
-              <path d='M12 2C6.48 2 2 6.59 2 12.25c0 4.53 2.87 8.38 6.84 9.73.5.1.68-.22.68-.5 0-.24-.01-1.04-.01-1.88-2.78.62-3.37-1.22-3.37-1.22-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.94.85.09-.67.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.08 0-1.12.39-2.03 1.03-2.74-.1-.26-.45-1.31.1-2.74 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.84c.85 0 1.71.12 2.52.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.43.2 2.48.1 2.74.64.71 1.03 1.62 1.03 2.74 0 3.95-2.34 4.82-4.57 5.07.36.32.68.95.68 1.92 0 1.38-.01 2.49-.01 2.83 0 .28.18.6.69.5A10.24 10.24 0 0 0 22 12.25C22 6.59 17.52 2 12 2z' />
-            </svg>
-            GitHub
-          </a>
-          <a
-            href='https://github.com/sponsors/aozyildirim'
-            target='_blank'
-            rel='noreferrer'
-            title={t('tooltip.action.donate')}
-            className='button button-outline'
-            style={{ padding: '8px 14px', fontSize: 13, marginRight: 4, textDecoration: 'none' }}
-          >
-            {t('nav.donate')} ♡
-          </a>
+        <nav className='navbar-desktop' style={{ display: 'flex', gap: 0, alignItems: 'center' }}>
+          {/* Page links */}
+          <div style={{ display: 'flex', gap: 2, alignItems: 'center', marginRight: 12 }}>
+            <Link href='/pricing' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Pricing</Link>
+            <Link href='/use-cases' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Use Cases</Link>
+            <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Docs</Link>
+            <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Blog</Link>
+            <Link href='/contact' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>Contact</Link>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 20, background: 'var(--panel-border)', marginRight: 12 }} />
+
+          {/* Utils */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <LangToggle />
+            <ThemeToggle />
+            <a
+              href='https://github.com/aozyildirim/Agena'
+              target='_blank'
+              rel='noopener noreferrer'
+              title={t('tooltip.nav.githubRepo')}
+              style={{ color: 'var(--muted)', padding: '6px 8px', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+            >
+              <svg width='16' height='16' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
+                <path d='M12 2C6.48 2 2 6.59 2 12.25c0 4.53 2.87 8.38 6.84 9.73.5.1.68-.22.68-.5 0-.24-.01-1.04-.01-1.88-2.78.62-3.37-1.22-3.37-1.22-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.94.85.09-.67.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.08 0-1.12.39-2.03 1.03-2.74-.1-.26-.45-1.31.1-2.74 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.84c.85 0 1.71.12 2.52.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.43.2 2.48.1 2.74.64.71 1.03 1.62 1.03 2.74 0 3.95-2.34 4.82-4.57 5.07.36.32.68.95.68 1.92 0 1.38-.01 2.49-.01 2.83 0 .28.18.6.69.5A10.24 10.24 0 0 0 22 12.25C22 6.59 17.52 2 12 2z' />
+              </svg>
+            </a>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 20, background: 'var(--panel-border)', margin: '0 12px' }} />
+
+          {/* Auth */}
           {loggedIn ? (
-            <Link href='/dashboard' title={t('tooltip.nav.dashboard')} className='button button-primary' style={{ padding: '8px 16px', fontSize: 13 }}>
+            <Link href='/dashboard' title={t('tooltip.nav.dashboard')} className='button button-primary' style={{ padding: '8px 18px', fontSize: 13 }}>
               {t('nav.dashboard')} →
             </Link>
           ) : (
-            <>
-              <Link href='/signin' title={t('tooltip.nav.signIn')} style={{ color: 'var(--muted)', fontSize: 14, padding: '6px 12px', borderRadius: 8, textDecoration: 'none' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Link href='/signin' title={t('tooltip.nav.signIn')} style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 12px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>
                 {t('nav.signIn')}
               </Link>
-              <Link href='/signup' title={t('tooltip.nav.startFree')} className='button button-primary' style={{ padding: '8px 16px', fontSize: 13 }}>
+              <Link href='/signup' title={t('tooltip.nav.startFree')} className='button button-primary' style={{ padding: '8px 18px', fontSize: 13 }}>
                 {t('nav.startFree')} →
               </Link>
-            </>
+            </div>
           )}
         </nav>
 
@@ -100,32 +103,11 @@ export default function Navbar() {
       {/* Mobile menu dropdown */}
       {menuOpen && (
         <div className='navbar-mobile-menu'>
-          <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Blog</Link>
-          <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Docs</Link>
+          <Link href='/pricing' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Pricing</Link>
           <Link href='/use-cases' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Use Cases</Link>
+          <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Docs</Link>
+          <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Blog</Link>
           <Link href='/contact' style={{ color: 'var(--muted)', fontSize: 14, padding: '10px 16px', borderRadius: 8, textDecoration: 'none', textAlign: 'center' }}>Contact</Link>
-          <span className='chip' style={{ marginBottom: 8, alignSelf: 'flex-start' }}>{t('nav.aiOrchestration')}</span>
-          <a
-            href='https://github.com/aozyildirim/Agena'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='button button-outline'
-            style={{ padding: '10px 16px', fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
-          >
-            <svg width='14' height='14' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
-              <path d='M12 2C6.48 2 2 6.59 2 12.25c0 4.53 2.87 8.38 6.84 9.73.5.1.68-.22.68-.5 0-.24-.01-1.04-.01-1.88-2.78.62-3.37-1.22-3.37-1.22-.45-1.19-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.94.85.09-.67.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.08 0-1.12.39-2.03 1.03-2.74-.1-.26-.45-1.31.1-2.74 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.84c.85 0 1.71.12 2.52.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.43.2 2.48.1 2.74.64.71 1.03 1.62 1.03 2.74 0 3.95-2.34 4.82-4.57 5.07.36.32.68.95.68 1.92 0 1.38-.01 2.49-.01 2.83 0 .28.18.6.69.5A10.24 10.24 0 0 0 22 12.25C22 6.59 17.52 2 12 2z' />
-            </svg>
-            GitHub
-          </a>
-          <a
-            href='https://github.com/sponsors/aozyildirim'
-            target='_blank'
-            rel='noreferrer'
-            className='button button-outline'
-            style={{ padding: '10px 16px', fontSize: 13, textDecoration: 'none', textAlign: 'center' }}
-          >
-            {t('nav.donate')} ♡
-          </a>
           {loggedIn ? (
             <Link href='/dashboard' className='button button-primary' style={{ padding: '10px 16px', fontSize: 13, textAlign: 'center' }}>
               {t('nav.dashboard')} →

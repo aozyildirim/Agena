@@ -275,8 +275,8 @@ function DashboardInner({ children }: { children: ReactNode }) {
         const raw = (prefs.profile_settings || {}) as Record<string, unknown>;
         setProfileSettings(raw);
         setWebPushEnabled(raw.web_push_notifications !== false);
-        // Auto-redirect to onboarding if not completed (skip if already on onboarding page)
-        if (!raw.onboarding_completed && !pathname.startsWith('/dashboard/onboarding')) {
+        // Auto-redirect to onboarding if not completed (skip for platform admins and onboarding page)
+        if (!isPlatformAdmin && !raw.onboarding_completed && !pathname.startsWith('/dashboard/onboarding')) {
           // Check if user already has integrations — if so, skip onboarding
           try {
             const integrations = await apiFetch<Array<{ has_secret: boolean; base_url?: string | null }>>('/integrations');
