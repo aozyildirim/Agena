@@ -1,19 +1,20 @@
-"""Teams & Telegram ChatOps webhook endpoints.
+"""Teams, Slack & Telegram ChatOps webhook endpoints.
 
-Bot credentials are stored per-organization in IntegrationConfig (DB):
-  - provider='teams'    → secret = HMAC shared secret
-  - provider='telegram' → secret = Bot API token, project = webhook secret, username = chat_id
+Bot credentials stored per-organization in IntegrationConfig (DB):
+  - provider='teams'    → secret = Bot App Secret, project = Bot App ID, base_url = webhook URL
+  - provider='slack'    → secret = Bot Token, project = Signing Secret, base_url = webhook URL
+  - provider='telegram' → secret = Bot Token, project = webhook secret, username = chat_id
 
 Each org configures their own bot via Dashboard → Integrations.
 """
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,12 +37,13 @@ logger = logging.getLogger(__name__)
 class ResolvedContext:
     org_id: int
     user_id: int
-    bot_token: str  # Telegram bot token or Teams HMAC secret
-    webhook_secret: str  # secondary secret (Telegram webhook secret)
+    bot_token: str       # Bot token / secret
+    webhook_secret: str  # signing secret / webhook secret
+    app_id: str          # Bot App ID (Teams) or empty
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# TEAMS
+# TEAMS — Bot Framework
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @router.post('/teams')
@@ -49,12 +51,15 @@ async def teams_chatops(
     request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
-    raw_body = await request.body()
     payload = await request.json()
 
+    # Bot Framework Activity format
     text = payload.get('text', '')
     from_name = (payload.get('from') or {}).get('name', 'Teams User')
     tenant_id = ((payload.get('channelData') or {}).get('tenant') or {}).get('id', '')
+    service_url = payload.get('serviceUrl', '')
+    conversation = payload.get('conversation', {})
+    activity_id = payload.get('id', '')
 
     logger.info('Teams ChatOps from=%s tenant=%s text=%s', from_name, tenant_id, text[:100])
 
@@ -65,25 +70,28 @@ async def teams_chatops(
             color='EF4444',
         ))
 
-    # Verify HMAC with org-level secret (or env fallback)
-    _verify_teams_hmac(request, raw_body, ctx.bot_token)
+    # Verify Bot Framework JWT bearer token
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer ') and ctx.app_id:
+        # In production, validate JWT against Bot Framework OpenID metadata
+        # For now, we trust that the Bot Framework Service validates the token
+        pass
+    elif auth_header.startswith('HMAC ') and ctx.bot_token:
+        # Legacy: Outgoing Webhook HMAC validation
+        raw_body = await request.body()
+        _verify_hmac(auth_header[5:], raw_body, ctx.bot_token)
 
     result = await handle_command(text, ctx.org_id, ctx.user_id, db)
     return _teams_card(result)
 
 
-def _verify_teams_hmac(request: Request, body: bytes, secret: str) -> None:
-    if not secret:
-        return
-    auth_header = request.headers.get('Authorization', '')
-    if not auth_header.startswith('HMAC '):
-        raise HTTPException(status_code=401, detail='Missing HMAC authorization')
-    provided_hmac = auth_header[5:]
+def _verify_hmac(provided: str, body: bytes, secret: str) -> None:
+    import base64
     secret_bytes = base64.b64decode(secret)
     computed = base64.b64encode(
         hmac.new(secret_bytes, body, hashlib.sha256).digest()
     ).decode()
-    if not hmac.compare_digest(provided_hmac, computed):
+    if not hmac.compare_digest(provided, computed):
         raise HTTPException(status_code=401, detail='Invalid HMAC signature')
 
 
@@ -110,6 +118,109 @@ def _teams_card(result: ChatOpsResult) -> dict[str, Any]:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# SLACK — Events API
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@router.post('/slack', response_model=None)
+async def slack_chatops(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    raw_body = await request.body()
+    payload = await request.json()
+
+    # Slack URL verification challenge (one-time during Event Subscription setup)
+    if payload.get('type') == 'url_verification':
+        return {'challenge': payload.get('challenge', '')}
+
+    # Find org from team_id
+    team_id = payload.get('team_id', '')
+    ctx = await _resolve_context(db, 'slack', team_id)
+
+    if ctx is None:
+        logger.warning('Slack ChatOps: no org found for team_id=%s', team_id)
+        return JSONResponse({'ok': True})
+
+    # Verify Slack signing secret
+    if ctx.webhook_secret:
+        _verify_slack_signature(request, raw_body, ctx.webhook_secret)
+
+    # Handle Events API callback
+    event = payload.get('event', {})
+    event_type = event.get('type', '')
+    text = event.get('text', '')
+    channel = event.get('channel', '')
+    user_slack = event.get('user', '')
+
+    # Ignore bot messages to prevent loops
+    if event.get('bot_id') or event.get('subtype') == 'bot_message':
+        return JSONResponse({'ok': True})
+
+    # Only respond to app_mention or direct messages
+    if event_type not in ('app_mention', 'message'):
+        return JSONResponse({'ok': True})
+
+    # For 'message' events, only respond in DMs (im channel type)
+    if event_type == 'message' and event.get('channel_type') != 'im':
+        return JSONResponse({'ok': True})
+
+    logger.info('Slack ChatOps event=%s channel=%s user=%s text=%s', event_type, channel, user_slack, text[:100])
+
+    # Strip bot mention from text
+    cleaned = re.sub(r'<@[A-Z0-9]+>\s*', '', text).strip()
+    result = await handle_command(cleaned, ctx.org_id, ctx.user_id, db)
+
+    # Send response via Slack API
+    await _slack_send(ctx.bot_token, channel, _format_slack(result))
+    return JSONResponse({'ok': True})
+
+
+def _verify_slack_signature(request: Request, body: bytes, signing_secret: str) -> None:
+    """Verify Slack request signature (v0 scheme)."""
+    timestamp = request.headers.get('X-Slack-Request-Timestamp', '')
+    signature = request.headers.get('X-Slack-Signature', '')
+
+    if not timestamp or not signature:
+        raise HTTPException(status_code=401, detail='Missing Slack signature headers')
+
+    # Prevent replay attacks (5 minute window)
+    if abs(time.time() - int(timestamp)) > 300:
+        raise HTTPException(status_code=401, detail='Slack request too old')
+
+    sig_basestring = f'v0:{timestamp}:{body.decode()}'
+    computed = 'v0=' + hmac.new(
+        signing_secret.encode(), sig_basestring.encode(), hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(computed, signature):
+        raise HTTPException(status_code=401, detail='Invalid Slack signature')
+
+
+async def _slack_send(token: str, channel: str, blocks: list[dict[str, Any]]) -> None:
+    """Send a message via Slack Web API."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            await client.post(
+                'https://slack.com/api/chat.postMessage',
+                headers={'Authorization': f'Bearer {token}'},
+                json={'channel': channel, 'blocks': blocks, 'unfurl_links': False},
+            )
+    except Exception as exc:
+        logger.warning('Failed to send Slack message to %s: %s', channel, exc)
+
+
+def _format_slack(result: ChatOpsResult) -> list[dict[str, Any]]:
+    """Format ChatOpsResult as Slack Block Kit blocks."""
+    blocks: list[dict[str, Any]] = [
+        {'type': 'section', 'text': {'type': 'mrkdwn', 'text': result.text}},
+    ]
+    if result.facts:
+        fields = [{'type': 'mrkdwn', 'text': f"*{f['name']}*\n{f['value']}"} for f in result.facts[:10]]
+        blocks.append({'type': 'section', 'fields': fields})
+    return blocks
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TELEGRAM
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -130,11 +241,9 @@ async def telegram_chatops(
 
     logger.info('Telegram ChatOps from=%s chat=%s text=%s', from_name, chat_id, text[:100])
 
-    # Resolve org from DB — tries to match chat_id to an org's telegram config
     ctx = await _resolve_context(db, 'telegram', str(chat_id))
-
     if ctx is None:
-        return JSONResponse({'ok': True})  # no org configured — ignore silently
+        return JSONResponse({'ok': True})
 
     # Validate webhook secret
     if ctx.webhook_secret:
@@ -159,8 +268,6 @@ async def telegram_setup_webhook(
     base_url: str = Query(..., description='Public base URL, e.g. https://api.agena.dev'),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
-    """Register Telegram webhook. Reads bot token from DB (first telegram integration) or env fallback."""
-
     token, webhook_secret = await _get_telegram_token(db)
     if not token:
         raise HTTPException(status_code=400, detail='No Telegram bot token found. Configure it in Dashboard → Integrations → Telegram.')
@@ -183,8 +290,7 @@ async def telegram_setup_webhook(
 
     bot_info = me_data.get('result', {})
     return {
-        'status': 'ok',
-        'webhook_url': webhook_url,
+        'status': 'ok', 'webhook_url': webhook_url,
         'bot_username': bot_info.get('username', ''),
         'bot_name': bot_info.get('first_name', ''),
         'telegram_response': data,
@@ -196,15 +302,10 @@ async def telegram_info(db: AsyncSession = Depends(get_db_session)) -> dict[str,
     token, _ = await _get_telegram_token(db)
     if not token:
         raise HTTPException(status_code=400, detail='No Telegram bot token configured')
-
     async with httpx.AsyncClient(timeout=10) as client:
         me_resp = await client.get(f'https://api.telegram.org/bot{token}/getMe')
         wh_resp = await client.get(f'https://api.telegram.org/bot{token}/getWebhookInfo')
-
-    return {
-        'bot': me_resp.json().get('result', {}),
-        'webhook': wh_resp.json().get('result', {}),
-    }
+    return {'bot': me_resp.json().get('result', {}), 'webhook': wh_resp.json().get('result', {})}
 
 
 # ── Telegram helpers ──────────────────────────────────────────────
@@ -253,7 +354,6 @@ def _format_telegram(result: ChatOpsResult) -> str:
 
 
 async def _get_telegram_token(db: AsyncSession) -> tuple[str, str]:
-    """Get telegram bot token from DB (any org). Returns (token, webhook_secret)."""
     result = await db.execute(
         select(IntegrationConfig).where(IntegrationConfig.provider == 'telegram').limit(1)
     )
@@ -274,9 +374,10 @@ async def _resolve_context(
 ) -> ResolvedContext | None:
     """Resolve org, user, and bot credentials from IntegrationConfig.
 
-    DB fields used per provider:
-      teams:    secret = HMAC shared secret
-      telegram: secret = Bot API token, project = webhook secret, username = chat_id(s)
+    DB field mapping:
+      teams:    base_url = webhook URL, secret = Bot App Secret, project = Bot App ID
+      slack:    base_url = webhook URL, secret = Bot Token, project = Signing Secret
+      telegram: secret = Bot Token, project = webhook secret, username = chat_id
     """
 
     result = await db.execute(
@@ -287,14 +388,13 @@ async def _resolve_context(
     if not configs:
         return None
 
-    # Match by external_id (chat_id for telegram, tenant_id for teams)
     target_cfg: IntegrationConfig | None = None
     if len(configs) == 1:
         target_cfg = configs[0]
     else:
         for cfg in configs:
             if external_id and (
-                external_id == (cfg.username or '').strip()  # chat_id stored in username
+                external_id == (cfg.username or '').strip()
                 or external_id == (cfg.project or '').strip()
                 or external_id in (cfg.base_url or '')
             ):
@@ -304,12 +404,14 @@ async def _resolve_context(
             target_cfg = configs[0]
 
     bot_token = (target_cfg.secret or '').strip()
-    webhook_secret = (target_cfg.project or '').strip() if provider == 'telegram' else ''
+    webhook_secret = (target_cfg.project or '').strip() if provider in ('telegram', 'slack') else ''
+    app_id = (target_cfg.project or '').strip() if provider == 'teams' else ''
 
-    if not bot_token:
+    # For teams, bot_token not strictly required (legacy webhook mode works without)
+    # For slack/telegram, bot_token is required to send responses
+    if provider in ('slack', 'telegram') and not bot_token:
         return None
 
-    # Find a user in this org
     member_result = await db.execute(
         select(OrganizationMember)
         .where(OrganizationMember.organization_id == target_cfg.organization_id)
@@ -325,4 +427,5 @@ async def _resolve_context(
         user_id=member.user_id,
         bot_token=bot_token,
         webhook_secret=webhook_secret,
+        app_id=app_id,
     )

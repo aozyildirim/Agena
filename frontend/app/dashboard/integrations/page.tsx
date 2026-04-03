@@ -65,7 +65,11 @@ export default function IntegrationsPage() {
   const [playbookText, setPlaybookText] = useState('');
   const [isPlaybookSaving, setIsPlaybookSaving] = useState(false);
   const [slackWebhook, setSlackWebhook] = useState('');
+  const [slackBotToken, setSlackBotToken] = useState('');
+  const [slackSigningSecret, setSlackSigningSecret] = useState('');
   const [teamsWebhook, setTeamsWebhook] = useState('');
+  const [teamsBotAppId, setTeamsBotAppId] = useState('');
+  const [teamsBotSecret, setTeamsBotSecret] = useState('');
   const [slackPreview, setSlackPreview] = useState('');
   const [teamsPreview, setTeamsPreview] = useState('');
   const [telegramToken, setTelegramToken] = useState('');
@@ -133,24 +137,30 @@ export default function IntegrationsPage() {
       link: 'https://ai.google.dev/gemini-api/docs/api-key',
     },
     slack: {
-      title: t('integrations.helpSlackTitle'),
+      title: 'Slack Integration Setup',
       steps: [
-        t('integrations.helpSlackStep1'),
-        t('integrations.helpSlackStep2'),
-        t('integrations.helpSlackStep3'),
-        t('integrations.helpSlackStep4'),
+        '1. Go to api.slack.com/apps and create a new app',
+        '2. Under "Incoming Webhooks", enable and create a webhook URL for notifications',
+        '3. Under "OAuth & Permissions", copy the Bot User OAuth Token (xoxb-...)',
+        '4. Under "Basic Information", copy the Signing Secret',
+        '5. Enable "Event Subscriptions" and set Request URL to: https://api.agena.dev/webhooks/slack',
+        '6. Subscribe to bot events: message.channels, app_mention',
       ],
-      link: 'https://api.slack.com/messaging/webhooks',
+      link: 'https://api.slack.com/apps',
+      note: 'Webhook URL = notifications only. Bot Token + Signing Secret = ChatOps commands.',
     },
     teams: {
-      title: t('integrations.helpTeamsTitle'),
+      title: 'Microsoft Teams Bot Setup',
       steps: [
-        t('integrations.helpTeamsStep1'),
-        t('integrations.helpTeamsStep2'),
-        t('integrations.helpTeamsStep3'),
-        t('integrations.helpTeamsStep4'),
+        '1. Go to Azure Portal → Azure Bot Service → Create',
+        '2. Choose Multi-Tenant, get the App ID and generate an App Secret',
+        '3. Under Channels, enable Microsoft Teams',
+        '4. Set the Messaging Endpoint to: https://api.agena.dev/webhooks/teams',
+        '5. Paste App ID and App Secret below',
+        '6. In Teams, search for your bot by App ID and start chatting',
       ],
-      link: 'https://learn.microsoft.com/microsoftteams/platform/webhooks-and-connectors/how-to/connectors-using',
+      link: 'https://learn.microsoft.com/azure/bot-service/bot-service-quickstart-registration',
+      note: 'Webhook URL = notifications only. Bot App ID + Secret = ChatOps commands.',
     },
     playbook: {
       title: t('integrations.helpPlaybookTitle'),
@@ -198,8 +208,8 @@ export default function IntegrationsPage() {
     if (openai) { setOpenaiBaseUrl(openai.base_url); }
     if (gemini) { setGeminiBaseUrl(gemini.base_url); }
     const telegram = data.find((c) => c.provider === 'telegram');
-    if (slack) { setSlackWebhook(''); }
-    if (teams) { setTeamsWebhook(''); }
+    if (slack) { setSlackWebhook(''); setSlackBotToken(''); setSlackSigningSecret(''); }
+    if (teams) { setTeamsWebhook(''); setTeamsBotAppId(teams.project ?? ''); setTeamsBotSecret(''); }
     if (telegram) { setTelegramToken(''); setTelegramChatId(telegram.username ?? ''); }
   }
 
@@ -346,39 +356,45 @@ export default function IntegrationsPage() {
   }
 
   async function saveSlack() {
-    Promise.all([
-      apiFetch('/integrations/slack', {
+    try {
+      await apiFetch('/integrations/slack', {
         method: 'PUT',
-        body: JSON.stringify({ base_url: 'https://hooks.slack.com/services', secret: slackWebhook || undefined }),
-      }),
-      loadIntegrationState(),
-    ]).then(() => {
-      if (slackWebhook.trim()) {
-        const preview = maskSecretPreview(slackWebhook);
+        body: JSON.stringify({
+          base_url: slackWebhook || undefined,                   // webhook URL for notifications
+          secret: slackBotToken || undefined,                     // Bot User OAuth Token for ChatOps
+          project: slackSigningSecret || undefined,               // Signing Secret for verification
+        }),
+      });
+      if (slackBotToken.trim()) {
+        const preview = maskSecretPreview(slackBotToken);
         setSlackPreview(preview);
         saveSecretPreview('slack', preview);
       }
-      setSlackWebhook('');
+      setSlackWebhook(''); setSlackBotToken(''); setSlackSigningSecret('');
+      await loadIntegrationState();
       setMsg(t('integrations.savedSlack'));
-    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
+    } catch (e) { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); }
   }
 
   async function saveTeams() {
-    Promise.all([
-      apiFetch('/integrations/teams', {
+    try {
+      await apiFetch('/integrations/teams', {
         method: 'PUT',
-        body: JSON.stringify({ base_url: 'https://outlook.office.com/webhook', secret: teamsWebhook || undefined }),
-      }),
-      loadIntegrationState(),
-    ]).then(() => {
-      if (teamsWebhook.trim()) {
-        const preview = maskSecretPreview(teamsWebhook);
+        body: JSON.stringify({
+          base_url: teamsWebhook || undefined,                    // webhook URL for notifications
+          secret: teamsBotSecret || undefined,                    // Bot App Secret for ChatOps
+          project: teamsBotAppId || undefined,                    // Bot App ID
+        }),
+      });
+      if (teamsBotSecret.trim()) {
+        const preview = maskSecretPreview(teamsBotSecret);
         setTeamsPreview(preview);
         saveSecretPreview('teams', preview);
       }
-      setTeamsWebhook('');
+      setTeamsWebhook(''); setTeamsBotSecret('');
+      await loadIntegrationState();
       setMsg(t('integrations.savedTeams'));
-    }).catch((e) => { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); });
+    } catch (e) { setError(e instanceof Error ? e.message : t('integrations.saveFailed')); }
   }
 
   async function saveTelegram() {
@@ -736,17 +752,36 @@ export default function IntegrationsPage() {
           updatedAt={slackConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.slack)}
         >
-          <FieldGroup label={t('integrations.webhookUrl')}>
+          <FieldGroup label='Webhook URL (notifications)'>
             <input
-              type='password'
               value={slackWebhook}
               onChange={(e) => setSlackWebhook(e.target.value)}
-              placeholder={slackConfig?.has_secret ? `${slackConfig?.secret_preview || slackPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.slackWebhookPlaceholder')}
+              placeholder={slackConfig?.base_url && slackConfig.base_url !== 'https://hooks.slack.com/services' ? slackConfig.base_url : 'https://hooks.slack.com/services/T.../B.../xxx'}
+            />
+          </FieldGroup>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', margin: '10px 0 6px', letterSpacing: 0.5, textTransform: 'uppercase' }}>ChatOps (commands)</div>
+          <FieldGroup label='Bot User OAuth Token (xoxb-...)'>
+            <input
+              type='password'
+              value={slackBotToken}
+              onChange={(e) => setSlackBotToken(e.target.value)}
+              placeholder={slackConfig?.has_secret ? `${slackConfig?.secret_preview || slackPreview || '****'} (keep existing)` : 'xoxb-...'}
+            />
+          </FieldGroup>
+          <FieldGroup label='Signing Secret'>
+            <input
+              type='password'
+              value={slackSigningSecret}
+              onChange={(e) => setSlackSigningSecret(e.target.value)}
+              placeholder='e.g. a1b2c3d4e5...'
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveSlack()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveSlack')}
           </button>
+          <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 8, lineHeight: 1.5 }}>
+            Endpoint: <code>https://api.agena.dev/webhooks/slack</code>
+          </div>
         </IntegrationCard>}
 
         {activeTab === 'notifications' && <IntegrationCard
@@ -757,17 +792,35 @@ export default function IntegrationsPage() {
           updatedAt={teamsConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.teams)}
         >
-          <FieldGroup label={t('integrations.webhookUrl')}>
+          <FieldGroup label='Webhook URL (notifications)'>
             <input
-              type='password'
               value={teamsWebhook}
               onChange={(e) => setTeamsWebhook(e.target.value)}
-              placeholder={teamsConfig?.has_secret ? `${teamsConfig?.secret_preview || teamsPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.teamsWebhookPlaceholder')}
+              placeholder={teamsConfig?.base_url && teamsConfig.base_url !== 'https://outlook.office.com/webhook' ? teamsConfig.base_url : 'https://outlook.office.com/webhook/...'}
+            />
+          </FieldGroup>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', margin: '10px 0 6px', letterSpacing: 0.5, textTransform: 'uppercase' }}>ChatOps — Bot Framework</div>
+          <FieldGroup label='Bot App ID'>
+            <input
+              value={teamsBotAppId}
+              onChange={(e) => setTeamsBotAppId(e.target.value)}
+              placeholder={teamsConfig?.project || 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
+            />
+          </FieldGroup>
+          <FieldGroup label='Bot App Secret'>
+            <input
+              type='password'
+              value={teamsBotSecret}
+              onChange={(e) => setTeamsBotSecret(e.target.value)}
+              placeholder={teamsConfig?.has_secret ? `${teamsConfig?.secret_preview || teamsPreview || '****'} (keep existing)` : 'App Secret from Azure'}
             />
           </FieldGroup>
           <button className='button button-primary' onClick={() => void saveTeams()} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {t('integrations.saveTeams')}
           </button>
+          <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 8, lineHeight: 1.5 }}>
+            Messaging Endpoint: <code>https://api.agena.dev/webhooks/teams</code>
+          </div>
         </IntegrationCard>}
 
         {activeTab === 'notifications' && <IntegrationCard
