@@ -1241,11 +1241,33 @@ function RunConfigModal({ task, onRun, onClose }: {
   })() as RepoDefault | null;
 
   const [repoSel, setRepoSel] = useState<RemoteRepoSelection | null>(null);
-  const [repoMode, setRepoMode] = useState<'remote' | 'local'>(repoDefault ? 'remote' : 'remote');
-  const [localRepoPath, setLocalRepoPath] = useState('');
-  const [agentProvider, setAgentProvider] = useState(task?.preferred_agent_provider || 'gemini');
-  const [agentModel, setAgentModel] = useState(task?.preferred_agent_model || '');
+  const [repoMode, setRepoMode] = useState<'remote' | 'mapping'>(repoDefault ? 'remote' : 'mapping');
+  const [mappings, setMappings] = useState<{ id: string; name: string; local_path: string; provider?: string; azure_project?: string; azure_repo_name?: string; github_repo_full_name?: string }[]>([]);
+  const [selectedMapping, setSelectedMapping] = useState('');
+  const [agentConfigs, setAgentConfigs] = useState<{ role: string; label: string; provider: string; model: string; custom_model?: string }[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState('');
   const [createPr, setCreatePr] = useState(true);
+
+  useEffect(() => {
+    loadPrefs().then((prefs) => {
+      if (prefs.repo_mappings?.length) {
+        setMappings(prefs.repo_mappings as typeof mappings);
+        setSelectedMapping((prefs.repo_mappings as typeof mappings)[0]?.id || '');
+      }
+      let agents = prefs.agents as typeof agentConfigs | undefined;
+      if (!agents?.length) {
+        try { const ls = JSON.parse(localStorage.getItem('agena_agent_configs') || '[]'); if (Array.isArray(ls) && ls.length) agents = ls; } catch {}
+      }
+      if (agents?.length) {
+        const active = agents.filter((a: Record<string, unknown>) => {
+          const ag = a as Record<string, unknown>;
+          return ag.enabled !== false && (typeof ag.provider === 'string' && (ag.provider as string).trim() !== '') && ((typeof ag.model === 'string' && (ag.model as string).trim() !== '') || (typeof ag.custom_model === 'string' && (ag.custom_model as string).trim() !== ''));
+        });
+        setAgentConfigs(active);
+        setSelectedAgent(active[0]?.role || '');
+      }
+    }).catch(() => {});
+  }, []);
 
   const desc = rawDesc.toLowerCase();
   const hasRepo = desc.includes('local repo path') || desc.includes('remote repo') || desc.includes('azure repo');
@@ -1254,22 +1276,21 @@ function RunConfigModal({ task, onRun, onClose }: {
     const parts: string[] = [];
     if (repoMode === 'remote' && repoSel) {
       parts.push(`Remote Repo: ${repoSel.meta}`);
-    } else if (repoMode === 'local' && localRepoPath.trim()) {
-      parts.push(`Local Repo Path: ${localRepoPath.trim()}`);
+    } else if (repoMode === 'mapping' && selectedMapping) {
+      const m = mappings.find((x) => x.id === selectedMapping);
+      if (m) {
+        if (m.local_path) parts.push(`Local Repo Path: ${m.local_path}`);
+        parts.push(`Local Repo Mapping: ${m.name}`);
+        if (m.azure_project) parts.push(`Project: ${m.azure_project}`);
+        if (m.azure_repo_name) parts.push(`Azure Repo: ${m.azure_repo_name}`);
+      }
     }
+    const agent = agentConfigs.find((a) => a.role === selectedAgent);
     onRun(
       parts.length > 0 ? parts.join('\n') : undefined,
-      { provider: agentProvider || undefined, model: agentModel || undefined, createPr },
+      { provider: agent?.provider || undefined, model: agent?.custom_model || agent?.model || undefined, createPr },
     );
   }
-
-  const providers = [
-    { value: 'openai', label: 'OpenAI', models: ['o3', 'o4-mini', 'gpt-5', 'gpt-5-codex', 'gpt-5.1-codex-mini', 'gpt-5.2-codex', 'gpt-4.1'] },
-    { value: 'gemini', label: 'Gemini', models: ['gemini-2.5-pro', 'gemini-2.5-flash'] },
-    { value: 'codex_cli', label: 'Codex CLI', models: ['codex'] },
-    { value: 'claude_cli', label: 'Claude CLI', models: ['claude-sonnet-4-6'] },
-  ];
-  const currentModels = providers.find((p) => p.value === agentProvider)?.models || [];
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -1287,12 +1308,21 @@ function RunConfigModal({ task, onRun, onClose }: {
             <strong style={{ color: 'var(--ink-78)' }}>#{task?.id}</strong> {task?.title}
           </div>
 
-          {/* Repo selection – local or remote */}
+          {/* Repo selection – mapping or remote */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
               Target Repository {hasRepo && <span style={{ fontSize: 9, color: 'var(--ink-25)', fontWeight: 400 }}>(already configured — select to override)</span>}
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              {mappings.length > 0 && (
+                <button type="button" onClick={() => setRepoMode('mapping')}
+                  style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    border: repoMode === 'mapping' ? '1px solid rgba(56,189,248,0.5)' : '1px solid var(--panel-border-2)',
+                    background: repoMode === 'mapping' ? 'rgba(56,189,248,0.12)' : 'transparent',
+                    color: repoMode === 'mapping' ? '#7dd3fc' : 'var(--ink-45)' }}>
+                  Mapping
+                </button>
+              )}
               <button type="button" onClick={() => setRepoMode('remote')}
                 style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   border: repoMode === 'remote' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
@@ -1300,43 +1330,40 @@ function RunConfigModal({ task, onRun, onClose }: {
                   color: repoMode === 'remote' ? '#5eead4' : 'var(--ink-45)' }}>
                 Remote
               </button>
-              <button type="button" onClick={() => setRepoMode('local')}
-                style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                  border: repoMode === 'local' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
-                  background: repoMode === 'local' ? 'rgba(94,234,212,0.12)' : 'transparent',
-                  color: repoMode === 'local' ? '#5eead4' : 'var(--ink-45)' }}>
-                Local Path
-              </button>
             </div>
             {repoMode === 'remote' ? (
               <RemoteRepoSelector onChange={setRepoSel} defaultValue={repoDefault} />
             ) : (
-              <input value={localRepoPath} onChange={(e) => setLocalRepoPath(e.target.value)}
-                placeholder="/home/user/projects/my-repo"
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12,
-                  border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)', outline: 'none' }} />
+              <select value={selectedMapping} onChange={(e) => setSelectedMapping(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}>
+                <option value=''>Select mapping...</option>
+                {mappings.map((m) => <option key={m.id} value={m.id}>{m.name}{m.local_path ? ` — ${m.local_path}` : ''}</option>)}
+              </select>
             )}
           </div>
 
-          {/* Agent selection – always shown so user can change model on rerun */}
+          {/* Agent selection */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Agent / Model</div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-              {providers.map((p) => (
-                <button key={p.value} onClick={() => { setAgentProvider(p.value); setAgentModel(p.models[0] || ''); }}
-                  style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    border: agentProvider === p.value ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
-                    background: agentProvider === p.value ? 'rgba(94,234,212,0.12)' : 'transparent',
-                    color: agentProvider === p.value ? '#5eead4' : 'var(--ink-45)' }}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <select value={agentModel} onChange={(e) => setAgentModel(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}>
-              <option value=''>Select model...</option>
-              {currentModels.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Agent</div>
+            {agentConfigs.length > 0 ? (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {agentConfigs.map((a) => (
+                  <button key={a.role} onClick={() => setSelectedAgent(a.role)}
+                    style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      border: selectedAgent === a.role ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                      background: selectedAgent === a.role ? 'rgba(94,234,212,0.12)' : 'transparent',
+                      color: selectedAgent === a.role ? '#5eead4' : 'var(--ink-45)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                    <span>{a.label || a.role}</span>
+                    <span style={{ fontSize: 9, opacity: 0.6 }}>{a.provider} / {a.custom_model || a.model}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--ink-30)', padding: '8px 0' }}>
+                No agents configured. <a href="/dashboard/agents" style={{ color: '#5eead4', textDecoration: 'underline' }}>Configure agents</a>
+              </div>
+            )}
           </div>
 
           {/* Create PR toggle */}
@@ -1352,8 +1379,8 @@ function RunConfigModal({ task, onRun, onClose }: {
               Cancel
             </button>
             <button onClick={handleRun}
-              disabled={!hasRepo && !repoSel && !localRepoPath.trim()}
-              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel && !localRepoPath.trim()) ? 0.5 : 1, minHeight: 38 }}>
+              disabled={!hasRepo && !repoSel && !selectedMapping}
+              className='button button-primary' style={{ flex: 1, justifyContent: 'center', opacity: (!hasRepo && !repoSel && !selectedMapping) ? 0.5 : 1, minHeight: 38 }}>
               Run Task
             </button>
           </div>

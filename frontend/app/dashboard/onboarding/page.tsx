@@ -467,7 +467,15 @@ function StepRepo({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }
   function handleSave() {
     if (selection) {
       localStorage.setItem('agena_default_repo', JSON.stringify(selection));
-      const mapping = { label: selection.repo, provider: selection.provider, project: selection.project || '', repo: selection.repo, branch: selection.branch };
+      const mapping = {
+        id: `${selection.provider}-${selection.repo}`,
+        name: selection.repo,
+        local_path: '',
+        provider: selection.provider,
+        ...(selection.provider === 'azure' ? { azure_project: selection.project || '', azure_repo_name: selection.repo } : {}),
+        ...(selection.provider === 'github' ? { github_repo_full_name: selection.repo } : {}),
+        default_branch: selection.branch,
+      };
       savePrefs({ repo_mappings: [mapping] }).catch(() => {});
     }
     onNext();
