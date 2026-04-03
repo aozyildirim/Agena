@@ -52,7 +52,13 @@ class AuthService:
     async def login(self, payload: LoginRequest) -> tuple[str, User, Organization]:
         result = await self.db.execute(select(User).where(User.email == payload.email))
         user = result.scalar_one_or_none()
-        if user is None or not verify_password(payload.password, user.hashed_password):
+        if user is None:
+            raise ValueError('Invalid credentials')
+        try:
+            valid = verify_password(payload.password, user.hashed_password)
+        except Exception:
+            raise ValueError('Invalid credentials')
+        if not valid:
             raise ValueError('Invalid credentials')
 
         org_result = await self.db.execute(

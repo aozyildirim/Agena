@@ -59,20 +59,28 @@ type MemorySchema = {
   privacy_scope: string;
 };
 
-type SetupChecklist = {
-  sprintSelected: boolean;
-  agentConfigured: boolean;
-  integrationConfigured: boolean;
-};
-
 type IntegrationConfigLite = {
   provider: string;
   has_secret?: boolean;
   base_url?: string | null;
 };
 
-function hasConfiguredAgent(agents: Record<string, unknown>[] | undefined): boolean {
-  if (!Array.isArray(agents)) return false;
+type CommandItem = {
+  key: string;
+  titleKey: string;
+  done: boolean;
+  href: string;
+};
+
+function hasConfiguredAgent(agents?: Record<string, unknown>[]): boolean {
+  if (!Array.isArray(agents)) {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = JSON.parse(localStorage.getItem('agena_agent_configs') || '[]');
+      if (!Array.isArray(raw)) return false;
+      return raw.some((a: Record<string, unknown>) => a.enabled !== false && a.provider && (a.model || a.custom_model));
+    } catch { return false; }
+  }
   return agents.some((raw) => {
     if (!raw || typeof raw !== 'object') return false;
     const agent = raw as Record<string, unknown>;
@@ -97,7 +105,7 @@ export default function DashboardOverview() {
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummaryResponse | null>(null);
   const [analyticsModels, setAnalyticsModels] = useState<AnalyticsModelResponse | null>(null);
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
-  const [setupChecklist, setSetupChecklist] = useState<SetupChecklist | null>(null);
+  const [commandItems, setCommandItems] = useState<CommandItem[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -126,15 +134,21 @@ export default function DashboardOverview() {
     ]).then(([prefs, integrations]) => {
       const profile = (prefs.profile_settings || {}) as Record<string, unknown>;
       const jiraSprint = typeof profile.jira_sprint_id === 'string' ? profile.jira_sprint_id.trim() : '';
-      const sprintSelected = Boolean((prefs.azure_sprint_path || '').trim() || jiraSprint);
-      const agentConfigured = hasConfiguredAgent(prefs.agents);
-      const integrationConfigured = integrations.some((cfg) => {
-        if (cfg.provider === 'playbook') return false;
-        return cfg.has_secret === true;
-      });
-      setSetupChecklist({ sprintSelected, agentConfigured, integrationConfigured });
+      const hasSecret = (providers: string[]) => integrations.some((i) => providers.includes(i.provider) && i.has_secret === true);
+      const defaultRepo = typeof window !== 'undefined' ? localStorage.getItem('agena_default_repo') : null;
+
+      setCommandItems([
+        { key: 'integration', titleKey: 'command.integration', done: integrations.some((c) => c.provider !== 'playbook' && c.has_secret === true), href: '/dashboard/integrations' },
+        { key: 'aiProvider', titleKey: 'command.aiProvider', done: hasSecret(['openai', 'gemini']), href: '/dashboard/integrations' },
+        { key: 'sprint', titleKey: 'command.sprint', done: !!(prefs.azure_sprint_path?.trim() || jiraSprint), href: '/dashboard/sprints' },
+        { key: 'repo', titleKey: 'command.repo', done: !!defaultRepo, href: '/dashboard/onboarding' },
+        { key: 'agent', titleKey: 'command.agent', done: hasConfiguredAgent(prefs.agents), href: '/dashboard/agents' },
+        { key: 'team', titleKey: 'command.team', done: (prefs.my_team?.length ?? 0) > 0, href: '/dashboard/team' },
+        { key: 'repoMapping', titleKey: 'command.repoMapping', done: (prefs.repo_mappings?.length ?? 0) > 0, href: '/dashboard/mappings' },
+        { key: 'notifications', titleKey: 'command.notifications', done: hasSecret(['slack', 'teams', 'telegram']), href: '/dashboard/integrations' },
+      ]);
     }).catch(() => {
-      setSetupChecklist(null);
+      setCommandItems([]);
     });
     const iv = setInterval(() => {
       apiFetch<TaskItem[]>('/tasks').then(setTasks).catch(() => {});
@@ -187,32 +201,10 @@ export default function DashboardOverview() {
     .filter((t) => t.status === 'queued' && typeof t.estimated_start_sec === 'number')
     .sort((a, b) => (a.estimated_start_sec ?? 0) - (b.estimated_start_sec ?? 0))
     .slice(0, 4);
-  const setupItems = [
-    {
-      key: 'sprint',
-      done: setupChecklist?.sprintSelected ?? true,
-      href: '/dashboard/sprints',
-      title: t('dashboard.setup.sprint.title'),
-      desc: t('dashboard.setup.sprint.desc'),
-    },
-    {
-      key: 'agent',
-      done: setupChecklist?.agentConfigured ?? true,
-      href: '/dashboard/agents',
-      title: t('dashboard.setup.agent.title'),
-      desc: t('dashboard.setup.agent.desc'),
-    },
-    {
-      key: 'integration',
-      done: setupChecklist?.integrationConfigured ?? true,
-      href: '/dashboard/integrations',
-      title: t('dashboard.setup.integration.title'),
-      desc: t('dashboard.setup.integration.desc'),
-    },
-  ];
-  const setupPending = setupItems.filter((item) => !item.done);
-  const setupDoneCount = setupItems.length - setupPending.length;
-  const setupAllDone = setupPending.length === 0;
+  const cmdDoneCount = commandItems.filter((i) => i.done).length;
+  const cmdTotal = commandItems.length;
+  const cmdPct = cmdTotal > 0 ? Math.round((cmdDoneCount / cmdTotal) * 100) : 0;
+  const cmdAllDone = cmdDoneCount === cmdTotal;
 
   const kpis = [
     { label: t('dashboard.kpi.totalTasks'), value: tasks.length, color: '#5eead4', icon: '◈' },
@@ -263,80 +255,86 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* Quota Usage Bars */}
-      {setupChecklist && (
+      {/* Komuta Merkezi — Setup Progress */}
+      {commandItems.length > 0 && (
         <div style={{
           borderRadius: 16,
-          border: setupAllDone ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(245,158,11,0.35)',
-          background: setupAllDone
-            ? 'linear-gradient(180deg, rgba(34,197,94,0.12), rgba(34,197,94,0.04))'
-            : 'linear-gradient(180deg, rgba(245,158,11,0.12), rgba(245,158,11,0.04))',
+          border: cmdAllDone ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(245,158,11,0.35)',
+          background: cmdAllDone
+            ? 'linear-gradient(180deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02))'
+            : 'linear-gradient(180deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02))',
           padding: 16,
           display: 'grid',
-          gap: 12,
+          gap: 14,
         }}>
+          {/* Header + Progress */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: setupAllDone ? '#22c55e' : '#fbbf24' }}>
-                {t('dashboard.setup.title')}
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: cmdAllDone ? '#22c55e' : '#fbbf24' }}>
+                {t('command.title' as Parameters<typeof t>[0])}
               </div>
               <div style={{ fontSize: 13, color: 'var(--ink-78)', marginTop: 4 }}>
-                {t('dashboard.setup.subtitle')}
+                {t('command.subtitle' as Parameters<typeof t>[0])}
               </div>
             </div>
             <span style={{
-              fontSize: 11,
-              fontWeight: 800,
-              color: setupAllDone ? '#22c55e' : '#f59e0b',
-              background: setupAllDone ? 'rgba(34,197,94,0.18)' : 'rgba(245,158,11,0.18)',
-              border: setupAllDone ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(245,158,11,0.4)',
-              borderRadius: 999,
-              padding: '4px 10px',
-              whiteSpace: 'nowrap',
+              fontSize: 11, fontWeight: 800,
+              color: cmdAllDone ? '#22c55e' : '#f59e0b',
+              background: cmdAllDone ? 'rgba(34,197,94,0.18)' : 'rgba(245,158,11,0.18)',
+              border: cmdAllDone ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(245,158,11,0.4)',
+              borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap',
             }}>
-              {t('dashboard.setup.progress', { done: setupDoneCount, total: setupItems.length })}
+              {cmdDoneCount}/{cmdTotal}
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
-            {setupItems.map((item) => (
-              <div key={item.key} style={{
-                borderRadius: 12,
-                border: '1px solid var(--panel-border-2)',
-                background: 'var(--panel)',
-                padding: 12,
-                display: 'grid',
-                gap: 8,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ fontSize: 13, color: 'var(--ink-90)', fontWeight: 700 }}>
-                    {item.title}
+
+          {/* Progress Bar */}
+          <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+            <div style={{
+              width: `${cmdPct}%`, height: '100%', borderRadius: 3,
+              background: cmdAllDone ? 'linear-gradient(90deg, #22c55e, #34d399)' : 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+              transition: 'width 0.6s cubic-bezier(.4,0,.2,1)',
+            }} />
+          </div>
+
+          {/* Cards Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+            {commandItems.map((item) => (
+              <Link key={item.key} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{
+                  height: 56, borderRadius: 10,
+                  border: item.done ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(245,158,11,0.3)',
+                  background: 'var(--panel)',
+                  padding: '0 12px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s',
+                  opacity: item.done ? 0.65 : 1,
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{
+                    width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: item.done ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                  }}>
+                    {item.done ? (
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="#fbbf24" strokeWidth="1.5" /><circle cx="8" cy="8" r="1.5" fill="#fbbf24" /></svg>
+                    )}
                   </div>
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: item.done ? '#22c55e' : '#f59e0b',
-                    background: item.done ? 'rgba(34,197,94,0.13)' : 'rgba(245,158,11,0.14)',
-                    border: `1px solid ${item.done ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.35)'}`,
-                    borderRadius: 999,
-                    padding: '2px 8px',
-                  }}>
-                    {item.done ? t('dashboard.setup.done') : t('dashboard.setup.missing')}
-                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t(item.titleKey as Parameters<typeof t>[0])}
+                    </div>
+                    <div style={{ fontSize: 10, color: item.done ? 'var(--ink-30)' : '#fbbf24' }}>
+                      {item.done ? t('command.configured' as Parameters<typeof t>[0]) : t('command.notConfigured' as Parameters<typeof t>[0])}
+                    </div>
+                  </div>
+                  {!item.done && <span style={{ fontSize: 12, color: '#fbbf24', flexShrink: 0 }}>→</span>}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-42)', minHeight: 34 }}>
-                  {item.desc}
-                </div>
-                {!item.done && (
-                  <Link href={item.href} style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: '#fbbf24',
-                    textDecoration: 'none',
-                  }}>
-                    {t('dashboard.setup.action')} →
-                  </Link>
-                )}
-              </div>
+              </Link>
             ))}
           </div>
         </div>

@@ -1747,7 +1747,7 @@ class OrchestrationService:
 
         if llm_runtime is None:
             return AgentOrchestrator(
-                db=self.db,
+                db=self.db_session,
                 memory_provider=memory_provider,
                 memory_api_key=memory_api_key,
                 memory_base_url=memory_base_url,
@@ -1763,7 +1763,7 @@ class OrchestrationService:
         )
         return AgentOrchestrator(
             llm_provider=llm,
-            db=self.db,
+            db=self.db_session,
             memory_provider=memory_provider,
             memory_api_key=memory_api_key,
             memory_base_url=memory_base_url,

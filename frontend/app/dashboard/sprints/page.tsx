@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
@@ -228,6 +229,7 @@ function pickCurrentSprint(list: Opt[]): Opt | null {
 
 export default function SprintsPage() {
   const { t } = useLocale();
+  const router = useRouter();
   const [projects, setProjects] = useState<Opt[]>([]);
   const [teams,    setTeams]    = useState<Opt[]>([]);
   const [sprints,  setSprints]  = useState<Opt[]>([]);
@@ -729,6 +731,7 @@ export default function SprintsPage() {
         }),
       });
       setAiResult(t('sprints.aiAssigned'));
+      setTimeout(() => router.push('/dashboard/tasks/' + String(taskId)), 800);
     } catch (e) {
       setAiResult(t('sprints.aiAssignFailed') + (e instanceof Error ? e.message : t('sprints.errorDefault')));
     } finally {
@@ -788,10 +791,31 @@ export default function SprintsPage() {
           {t('sprints.title')}
         </h1>
         {((provider === 'azure' && !hasAzure) || (provider === 'jira' && !hasJira)) && !lpj ? (
-          <p style={{ fontSize: 13, color: '#fbbf24', margin: 0 }}>
-            {provider === 'azure' ? t('sprints.noAzure') : t('sprints.noJira')}{' '}
-            <a href="/dashboard/integrations" style={{ color: '#fbbf24', textDecoration: 'underline' }}>{t('sprints.goIntegrations')}</a>
-          </p>
+          <div style={{ marginTop: 8, padding: '14px 18px', borderRadius: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>🔌</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, color: '#fbbf24', margin: 0, fontWeight: 600 }}>
+                {t('sprints.noIntegration')}
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(251,191,36,0.7)', margin: '4px 0 0' }}>
+                <a href="/dashboard/integrations" style={{ color: '#fbbf24', textDecoration: 'underline' }}>{t('sprints.setupIntegration')}</a>
+                {' · '}
+                <a href="/dashboard/onboarding" style={{ color: '#fbbf24', textDecoration: 'underline' }}>{t('nav.onboarding')}</a>
+              </p>
+            </div>
+          </div>
+        ) : !project && !lpj ? (
+          <div style={{ marginTop: 8, padding: '14px 18px', borderRadius: 12, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>📋</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, color: '#7dd3fc', margin: 0, fontWeight: 600 }}>
+                {t('sprints.noSprintSelected')}
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(125,211,252,0.6)', margin: '4px 0 0' }}>
+                {t('sprints.selectSprintHint')}
+              </p>
+            </div>
+          </div>
         ) : (
           <p style={{ fontSize: 13, color: 'var(--ink-35)', margin: 0 }}>{breadcrumb}</p>
         )}
@@ -1127,14 +1151,14 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
 
   return (
     <div style={{
-      width: 340, flexShrink: 0, borderRadius: 18,
+      width: 370, borderRadius: 18,
       border: '1px solid var(--panel-border-3)',
       background: 'var(--surface)',
       overflow: 'hidden',
       boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       display: 'flex', flexDirection: 'column',
-      maxHeight: 'calc(100vh - 220px)',
-      position: 'sticky', top: 160,
+      height: 'calc(100vh - 80px)',
+      position: 'fixed', top: 72, right: 16, zIndex: 50,
     }}>
       <div style={{ height: 2, background: 'linear-gradient(90deg, ' + stateInfo.color + ', #7c3aed)' }} />
 
