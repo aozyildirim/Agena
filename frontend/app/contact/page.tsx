@@ -28,7 +28,7 @@ export default function ContactPage() {
     <>
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
 
-      <div className='container' style={{ maxWidth: 860, padding: '80px 24px' }}>
+      <div className='container page-container-narrow' style={{ maxWidth: 860, padding: '80px 24px' }}>
         <div style={{ marginBottom: 48 }}>
           <div className='section-label'>Contact</div>
           <h1 style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, color: 'var(--ink-90)', margin: '8px 0 16px' }}>
@@ -39,7 +39,7 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 48, alignItems: 'start' }}>
+        <div className='contact-grid' style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 48, alignItems: 'start' }}>
           {/* Form */}
           <div
             style={{

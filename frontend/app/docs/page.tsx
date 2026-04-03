@@ -952,9 +952,28 @@ export default function DocsPage() {
   const parentSection = sections.find(s => s.children.some(c => c.id === activeId));
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', maxWidth: 1200, margin: '0 auto', padding: '0 16px', paddingTop: 72 }}>
+    <div className='docs-layout' style={{ display: 'flex', minHeight: '100vh', maxWidth: 1200, margin: '0 auto', padding: '0 16px', paddingTop: 72 }}>
+      {/* Mobile sidebar toggle */}
+      <div className='docs-sidebar-mobile' style={{ display: 'none', padding: '12px 0', overflowX: 'auto', gap: 6, flexWrap: 'nowrap' }}>
+        {sections.map((section) =>
+          section.children.map((child) => (
+            <button
+              key={child.id}
+              onClick={() => { setActiveId(child.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              style={{
+                padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                border: activeId === child.id ? '1px solid rgba(13,148,136,0.5)' : '1px solid var(--panel-border)',
+                background: activeId === child.id ? 'rgba(13,148,136,0.15)' : 'transparent',
+                color: activeId === child.id ? '#5eead4' : 'var(--ink-50)', cursor: 'pointer',
+              }}
+            >
+              {child.title}
+            </button>
+          ))
+        )}
+      </div>
       {/* Sidebar */}
-      <nav style={{ width: 240, flexShrink: 0, padding: '24px 0', borderRight: '1px solid var(--panel-border)', position: 'sticky', top: 72, height: 'calc(100vh - 72px)', overflowY: 'auto' }}>
+      <nav className='docs-sidebar' style={{ width: 240, flexShrink: 0, padding: '24px 0', borderRight: '1px solid var(--panel-border)', position: 'sticky', top: 72, height: 'calc(100vh - 72px)', overflowY: 'auto' }}>
         {sections.map((section) => (
           <div key={section.id} style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 1, padding: '4px 12px', marginBottom: 4 }}>
@@ -974,7 +993,7 @@ export default function DocsPage() {
       </nav>
 
       {/* Content */}
-      <main style={{ flex: 1, padding: '32px 0 64px 40px', minWidth: 0 }}>
+      <main className='docs-content' style={{ flex: 1, padding: '32px 0 64px 40px', minWidth: 0 }}>
         <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--ink-30)' }}>
           {parentSection && <>{parentSection.icon} {parentSection.title} → </>}
         </div>

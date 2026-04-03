@@ -956,7 +956,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
 
-      <article className='container' style={{ maxWidth: 760, padding: '80px 24px' }}>
+      <article className='container blog-container' style={{ maxWidth: 760, padding: '80px 24px' }}>
         {/* Breadcrumb */}
         <nav style={{ marginBottom: 32, fontSize: 13, color: 'var(--ink-35)' }}>
           <Link href='/' style={{ color: 'var(--ink-35)', textDecoration: 'none' }}>Home</Link>

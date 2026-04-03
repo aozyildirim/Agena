@@ -152,7 +152,7 @@ export default function BlogPage() {
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
 
-      <div className='container' style={{ maxWidth: 860, padding: '80px 24px' }}>
+      <div className='container blog-container' style={{ maxWidth: 860, padding: '80px 24px' }}>
         <div style={{ marginBottom: 48 }}>
           <div className='section-label'>Blog</div>
           <h1 style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, color: 'var(--ink-90)', margin: '8px 0 16px' }}>

@@ -120,7 +120,7 @@ export default function UseCasesPage() {
     <>
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className='container' style={{ maxWidth: 960, padding: '80px 24px' }}>
+      <div className='container page-container-narrow' style={{ maxWidth: 960, padding: '80px 24px' }}>
         <div style={{ marginBottom: 56, textAlign: 'center' }}>
           <div className='section-label' style={{ justifyContent: 'center' }}>Use Cases</div>
           <h1 style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, color: 'var(--ink-90)', margin: '8px 0 16px' }}>

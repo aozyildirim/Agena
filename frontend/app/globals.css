@@ -2084,6 +2084,30 @@ input:focus, textarea:focus {
 
   /* ── All images responsive ── */
   img { max-width: 100%; height: auto; }
+
+  /* ── Page containers with inline padding ── */
+  .page-container-narrow { padding: 48px 16px !important; }
+  .page-container-narrow h1 { word-break: break-word; }
+
+  /* ── Contact page: stack sidebar below form ── */
+  .contact-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+
+  /* ── Docs page: hide sidebar, full-width content ── */
+  .docs-layout { flex-direction: column !important; padding-top: 64px !important; }
+  .docs-sidebar { display: none !important; }
+  .docs-sidebar-mobile { display: flex !important; }
+  .docs-content { padding: 24px 0 48px 0 !important; }
+
+  /* ── Blog / Changelog container ── */
+  .blog-container { padding: 48px 16px !important; }
+  .changelog-container { padding: 48px 16px !important; }
+
+  /* ── Footer ── */
+  .footer-grid { gap: 20px !important; }
+  .footer-wrap { padding: 32px 16px !important; }
+
+  /* ── Navbar mobile touch targets ── */
+  .navbar-mobile-menu a { padding: 12px 16px !important; min-height: 44px; }
 }
 
 @media (max-width: 480px) {
@@ -2109,6 +2133,12 @@ input:focus, textarea:focus {
   .section-label { font-size: 11px; letter-spacing: 1.5px; }
   .flow-word { font-size: 20px !important; }
   .chip { font-size: 11px; padding: 4px 10px; }
+
+  /* ── Tighter page containers ── */
+  .page-container-narrow { padding: 32px 12px !important; }
+  .contact-grid { gap: 16px !important; }
+  .blog-container { padding: 32px 12px !important; }
+  .changelog-container { padding: 32px 12px !important; }
 }
 
 /* ─── LIGHT MODE OVERRIDES ─── */
