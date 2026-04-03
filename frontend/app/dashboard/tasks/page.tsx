@@ -142,9 +142,16 @@ export default function DashboardTasksPage() {
     loadPrefs().then((prefs) => {
       const raw = (prefs.profile_settings || {}) as Record<string, unknown>;
       if (typeof raw.default_create_pr === 'boolean') setDefaultCreatePr(raw.default_create_pr);
-      if (prefs.agents?.length) {
+      let agentsRaw = prefs.agents as { role: string; model: string; custom_model?: string; provider: string; enabled: boolean }[] | undefined;
+      if (!agentsRaw?.length) {
+        try {
+          const ls = JSON.parse(localStorage.getItem('agena_agent_configs') || '[]');
+          if (Array.isArray(ls) && ls.length) agentsRaw = ls;
+        } catch {}
+      }
+      if (agentsRaw?.length) {
         setAgentConfigs(
-          (prefs.agents as { role: string; model: string; custom_model?: string; provider: string; enabled: boolean }[])
+          agentsRaw
             .filter((a) => a.enabled !== false)
             .map((a) => ({ role: a.role, model: a.custom_model || a.model || '', provider: a.provider || '', enabled: a.enabled }))
         );

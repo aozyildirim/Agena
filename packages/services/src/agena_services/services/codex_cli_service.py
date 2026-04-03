@@ -196,7 +196,7 @@ class CodexCLIService:
             return None
         lowered = model.strip().lower()
         # Valid models for Codex CLI ChatGPT login mode
-        VALID = {'gpt-4o', 'gpt-4o-mini', 'o1', 'o3', 'o3-mini', 'o4-mini', 'gpt-4.1', 'gpt-4.1-mini'}
+        VALID = {'gpt-4o', 'gpt-4o-mini', 'o1', 'o3', 'o3-mini', 'o4-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-5.1-codex-mini'}
         if lowered in VALID:
             return model.strip()
         # Anything else (gpt-5.4-mini, werdsfsdf, etc.) → safe fallback
@@ -209,6 +209,8 @@ class CodexCLIService:
             or "currently experiencing high demand" in lowered
             or 'timed out' in lowered
             or 'failed to connect to websocket' in lowered
+            or '401 unauthorized' in lowered
+            or 'reconnecting' in lowered
         )
 
     async def _generate_via_bridge(

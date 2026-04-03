@@ -94,6 +94,8 @@ const server = createServer(async (req, res) => {
     result = await clearAuth('claude');
   } else if (url.pathname === '/codex/login') {
     result = await startLogin('codex');
+  } else if (url.pathname === '/codex/device-login') {
+    result = await startLogin('codex', true);
   } else if (url.pathname === '/claude/login') {
     result = await startLogin('claude');
   } else {
@@ -132,8 +134,8 @@ async function runCLI(bin, name, data) {
 
   try {
     // Use spawn for stdin piping
-    // Load API key from auth file if not in env
-    let apiKey = process.env.OPENAI_API_KEY || '';
+    // Load API key: payload > env > auth file
+    let apiKey = data.api_key || process.env.OPENAI_API_KEY || '';
     if (!apiKey && name === 'codex') {
       try {
         const auth = JSON.parse(readFileSync('/root/.codex/auth.json', 'utf8'));
@@ -144,7 +146,7 @@ async function runCLI(bin, name, data) {
     const result = await new Promise((resolve, reject) => {
       const proc = spawn(bin, args, {
         cwd: repo_path,
-        env: { ...process.env, NO_COLOR: '1', NODE_EXTRA_CA_CERTS: '/etc/ssl/certs/ca-certificates.crt', ...(apiKey ? { OPENAI_API_KEY: apiKey } : {}) },
+        env: { ...process.env, NO_COLOR: '1', NODE_EXTRA_CA_CERTS: '/etc/ssl/certs/ca-certificates.crt', ...(apiKey ? { OPENAI_API_KEY: apiKey } : {}), ...(data.api_base_url ? { OPENAI_BASE_URL: data.api_base_url } : {}) },
       });
       let stdout = '', stderr = '';
       proc.stdout.on('data', (d) => { stdout += d.toString(); });
@@ -193,7 +195,7 @@ const loginProxies = {};
 // Track callback port for proxying through bridge
 let activeCallbackPort = 0;
 
-async function startLogin(cli) {
+async function startLogin(cli, deviceAuth = false) {
   const bin = cli === 'codex' ? codexBin : claudeBin;
   if (!bin) return { status: 'error', message: `${cli} not installed` };
 
@@ -206,7 +208,10 @@ async function startLogin(cli) {
   return new Promise((resolve) => {
     let output = '';
     let loginUrl = '';
-    const args = cli === 'codex' ? ['login'] : ['login'];
+    let deviceCode = '';
+    const args = cli === 'codex'
+      ? (deviceAuth ? ['login', '--device-auth'] : ['login'])
+      : ['login'];
 
     console.log(`[${cli}] starting login: ${bin} ${args.join(' ')}`);
     const proc = spawn(bin, args, {
@@ -214,32 +219,30 @@ async function startLogin(cli) {
     });
     loginProcesses[cli] = proc;
 
-    proc.stdout.on('data', (chunk) => {
-      const text = chunk.toString();
-      output += text;
-      console.log(`[${cli} login stdout] ${text.trim()}`);
-      // Extract URL from output
-      // Prefer https:// URLs over localhost
-      const httpsMatch = text.match(/(https:\/\/[^\s]+)/);
+    function parseOutput(text) {
+      // Strip ANSI escape codes
+      const clean = text.replace(/\x1b\[[0-9;]*m/g, '');
+      output += clean;
+      console.log(`[${cli} login] ${clean.trim()}`);
+      // Extract URL — prefer https
+      const httpsMatch = clean.match(/(https:\/\/[^\s]+)/);
       if (httpsMatch) { loginUrl = httpsMatch[1]; }
-      else if (!loginUrl) { const httpMatch = text.match(/(http:\/\/[^\s]+)/); if (httpMatch) loginUrl = httpMatch[1]; }
-    });
+      else if (!loginUrl) { const httpMatch = clean.match(/(http:\/\/[^\s]+)/); if (httpMatch) loginUrl = httpMatch[1]; }
+      // Extract device code (e.g. "XINP-1N30B" — alphanumeric with dash)
+      const codeMatch = clean.match(/^\s+([A-Z0-9]{4,5}-[A-Z0-9]{4,5})\s*$/m);
+      if (codeMatch) { deviceCode = codeMatch[1].trim(); }
+    }
 
-    proc.stderr.on('data', (chunk) => {
-      const text = chunk.toString();
-      output += text;
-      console.log(`[${cli} login stderr] ${text.trim()}`);
-      // Prefer https:// URLs over localhost
-      const httpsMatch = text.match(/(https:\/\/[^\s]+)/);
-      if (httpsMatch) { loginUrl = httpsMatch[1]; }
-      else if (!loginUrl) { const httpMatch = text.match(/(http:\/\/[^\s]+)/); if (httpMatch) loginUrl = httpMatch[1]; }
-    });
+    proc.stdout.on('data', (chunk) => parseOutput(chunk.toString()));
+    proc.stderr.on('data', (chunk) => parseOutput(chunk.toString()));
 
     // Return URL as soon as found, start callback proxy
     let resolved = false;
     const checkUrl = setInterval(() => {
       if (resolved) return;
       if (loginUrl) {
+        // For device auth, wait a bit longer for the device code to appear
+        if (deviceAuth && !deviceCode) return;
         resolved = true;
         clearInterval(checkUrl);
         // Save callback port for proxying
@@ -250,7 +253,7 @@ async function startLogin(cli) {
         }
         // Don't rewrite URL — OpenAI only accepts registered redirect_uri
         // Instead, Docker must forward the callback port
-        resolve({ status: 'ok', login_url: loginUrl, callback_port: activeCallbackPort, message: `Open this URL to login` });
+        resolve({ status: 'ok', login_url: loginUrl, callback_port: activeCallbackPort, device_code: deviceCode || '', message: deviceCode ? `Enter code: ${deviceCode}` : `Open this URL to login` });
       }
     }, 500);
 

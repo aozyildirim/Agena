@@ -59,6 +59,7 @@ services:
       - '1455:1455'
     volumes:
       - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
+      - ./docker/bridge-server.mjs:/app/bridge-server.mjs
       - cli_codex_auth:/root/.codex
       - cli_claude_auth:/root/.claude
     restart: unless-stopped
@@ -70,6 +71,7 @@ services:
     container_name: ai_agent_frontend
     env_file:
       - frontend/.env.example
+      - frontend/.env.local
     ports:
       - '3010:3010'
     volumes:

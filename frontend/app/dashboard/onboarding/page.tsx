@@ -467,6 +467,8 @@ function StepRepo({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }
   function handleSave() {
     if (selection) {
       localStorage.setItem('agena_default_repo', JSON.stringify(selection));
+      const mapping = { label: selection.repo, provider: selection.provider, project: selection.project || '', repo: selection.repo, branch: selection.branch };
+      savePrefs({ repo_mappings: [mapping] }).catch(() => {});
     }
     onNext();
   }
@@ -530,6 +532,7 @@ function StepAgent({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
       },
     ];
     localStorage.setItem('agena_agent_configs', JSON.stringify(config));
+    savePrefs({ agents: config }).catch(() => {});
     onNext();
   }
 

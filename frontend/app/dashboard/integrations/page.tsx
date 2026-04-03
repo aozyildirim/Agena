@@ -966,26 +966,34 @@ export default function IntegrationsPage() {
                   )}
                   {cliBridgeStatus?.codex && !cliBridgeStatus?.codex_auth && (
                     <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                      <button className='button button-primary' style={{ width: '100%', padding: '9px 14px', fontSize: 12, justifyContent: 'center' }} onClick={() => {
-                        setMsg(t('integrations.codexLoginStarting'));
-                        fetch('http://localhost:9876/codex/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                      <button style={{ width: '100%', padding: '11px 14px', fontSize: 13, fontWeight: 700, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => {
+                        setMsg('Starting device auth...');
+                        fetch('http://localhost:9876/codex/device-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
                           .then(r => r.json()).then(d => {
                             if (d.login_url) {
                               window.open(d.login_url, '_blank');
-                              setMsg(t('integrations.codexLoginCopyCallback'));
-                              const cbEl = document.getElementById('codex-callback-section');
-                              if (cbEl) cbEl.style.display = 'grid';
+                              const codeEl = document.getElementById('codex-device-code');
+                              const section = document.getElementById('codex-device-section');
+                              if (codeEl && d.device_code) (codeEl as HTMLElement).textContent = d.device_code;
+                              if (section) section.style.display = 'grid';
+                              setMsg(d.device_code ? `Enter code: ${d.device_code}` : 'Complete login in browser');
                               const poll = setInterval(() => {
                                 fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
-                                  if (h.codex_auth) { clearInterval(poll); setMsg(t('integrations.codexLoginSuccess')); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); if (cbEl) cbEl.style.display = 'none'; }
+                                  if (h.codex_auth) { clearInterval(poll); setMsg('Login successful!'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); if (section) section.style.display = 'none'; }
                                 }).catch(() => {});
                               }, 3000);
-                              setTimeout(() => clearInterval(poll), 180000);
-                            } else if (d.already_auth) { setMsg(t('integrations.cliAlreadyLoggedIn')); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
-                            else setMsg(d.message || t('integrations.cliLoginStarted'));
+                              setTimeout(() => clearInterval(poll), 300000);
+                            } else if (d.already_auth) { setMsg('Already logged in'); setCliBridgeStatus(s => s ? { ...s, codex_auth: true } : s); }
+                            else setMsg(d.message || 'Device auth started');
                           }).catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
-                      }}>{t('integrations.connectWithChatgpt')}</button>
-                      <div id='codex-callback-section' style={{ display: 'none', gap: 6 }}>
+                      }}>Connect with ChatGPT</button>
+                      <div id='codex-device-section' style={{ display: 'none', gap: 6, textAlign: 'center', padding: '16px', borderRadius: 12, border: '1px solid rgba(94,234,212,0.3)', background: 'rgba(94,234,212,0.06)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>Enter this code in the browser:</div>
+                        <div id='codex-device-code' style={{ fontSize: 28, fontWeight: 800, letterSpacing: 6, color: '#5eead4', fontFamily: 'monospace', padding: '10px 0' }}>----</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>Waiting for confirmation...</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> {t('integrations.or')} <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
+                      <div style={{ display: 'none', gap: 6 }}>
                         <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5 }}>{t('integrations.codexCallbackHint')}</div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <input id='codex-callback-url' type='text' placeholder={t('integrations.codexCallbackPlaceholder')} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
