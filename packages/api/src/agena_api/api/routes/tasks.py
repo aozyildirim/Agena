@@ -1,18 +1,53 @@
+import asyncio
 import base64
+import hashlib
+import json
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_api.api.dependencies import CurrentTenant, get_current_tenant
 from agena_core.database import get_db_session
+from agena_core.settings import get_settings
 from agena_models.schemas.task import TaskListResponse
 from agena_services.services.integration_config_service import IntegrationConfigService
 from agena_services.services.notification_service import NotificationService
 from agena_services.services.task_service import TaskService
 
 router = APIRouter(prefix='/tasks', tags=['external-tasks'])
+
+_CACHE_TTL = 300  # 5 minutes
+
+_redis: Redis | None = None
+
+
+async def _get_redis() -> Redis:
+    global _redis  # noqa: PLW0603
+    if _redis is None:
+        _redis = Redis.from_url(get_settings().redis_url, decode_responses=True)
+    return _redis
+
+
+def _cache_key(org_id: int, *parts: str) -> str:
+    raw = json.dumps([org_id, *parts], sort_keys=True)
+    h = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    return f'ext_cache:{h}'
+
+
+async def _cache_get(org_id: int, *parts: str) -> Any | None:
+    r = await _get_redis()
+    val = await r.get(_cache_key(org_id, *parts))
+    if val:
+        return json.loads(val)
+    return None
+
+
+async def _cache_set(data: Any, org_id: int, *parts: str) -> None:
+    r = await _get_redis()
+    await r.set(_cache_key(org_id, *parts), json.dumps(data), ex=_CACHE_TTL)
 
 
 def _azure_headers(pat: str) -> dict[str, str]:
@@ -48,6 +83,9 @@ async def list_azure_projects(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, Any]]:
+    cached = await _cache_get(tenant.organization_id, 'azure', 'projects')
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'azure')
     if config is None or not config.secret:
@@ -62,7 +100,9 @@ async def list_azure_projects(
                 await _notify_integration_auth_expired(db, tenant, 'Azure DevOps', 'Please update your Azure PAT in Integrations.')
                 raise HTTPException(status_code=401, detail='Azure PAT is invalid or expired') from exc
             raise
-    return [{'id': p['id'], 'name': p['name']} for p in r.json().get('value', [])]
+    result = [{'id': p['id'], 'name': p['name']} for p in r.json().get('value', [])]
+    await _cache_set(result, tenant.organization_id, 'azure', 'projects')
+    return result
 
 
 @router.get('/azure/teams')
@@ -71,6 +111,9 @@ async def list_azure_teams(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, Any]]:
+    cached = await _cache_get(tenant.organization_id, 'azure', 'teams', project)
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'azure')
     if config is None or not config.secret:
@@ -86,7 +129,9 @@ async def list_azure_teams(
                 await _notify_integration_auth_expired(db, tenant, 'Azure DevOps', 'Please update your Azure PAT in Integrations.')
                 raise HTTPException(status_code=401, detail='Azure PAT is invalid or expired') from exc
             raise
-    return [{'id': t['id'], 'name': t['name']} for t in r.json().get('value', [])]
+    result = [{'id': t['id'], 'name': t['name']} for t in r.json().get('value', [])]
+    await _cache_set(result, tenant.organization_id, 'azure', 'teams', project)
+    return result
 
 
 @router.get('/azure/sprints')
@@ -96,6 +141,9 @@ async def list_azure_sprints(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, Any]]:
+    cached = await _cache_get(tenant.organization_id, 'azure', 'sprints', project, team)
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'azure')
     if config is None or not config.secret:
@@ -108,9 +156,17 @@ async def list_azure_sprints(
         f"{config.base_url.rstrip('/')}/{project}/{team}"
         f'/_apis/work/teamsettings/iterations?$timeframe=current&api-version=7.1-preview.1'
     )
+    headers = _azure_headers(config.secret)
     async with httpx.AsyncClient(timeout=15) as client:
+        # Fetch all iterations and current iterations in parallel
+        r, rc = await asyncio.gather(
+            client.get(url, headers=headers),
+            client.get(current_url, headers=headers),
+            return_exceptions=True,
+        )
+        if isinstance(r, Exception):
+            raise r
         try:
-            r = await client.get(url, headers=_azure_headers(config.secret))
             r.raise_for_status()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 401:
@@ -120,19 +176,14 @@ async def list_azure_sprints(
         current_paths: set[str] = set()
         current_ids: set[str] = set()
         current_names: set[str] = set()
-        try:
-            rc = await client.get(current_url, headers=_azure_headers(config.secret))
-            if rc.status_code == 200:
-                for c in rc.json().get('value', []):
-                    if c.get('path'):
-                        current_paths.add(_norm_iteration(str(c.get('path'))))
-                    if c.get('id'):
-                        current_ids.add(str(c.get('id')))
-                    if c.get('name'):
-                        current_names.add(_norm_iteration(str(c.get('name'))))
-        except Exception:
-            # Fallback silently if current sprint endpoint is unavailable
-            pass
+        if not isinstance(rc, Exception) and rc.status_code == 200:
+            for c in rc.json().get('value', []):
+                if c.get('path'):
+                    current_paths.add(_norm_iteration(str(c.get('path'))))
+                if c.get('id'):
+                    current_ids.add(str(c.get('id')))
+                if c.get('name'):
+                    current_names.add(_norm_iteration(str(c.get('name'))))
 
     rows: list[dict[str, Any]] = []
     for s in r.json().get('value', []):
@@ -154,6 +205,7 @@ async def list_azure_sprints(
                 'finish_date': attrs.get('finishDate'),
             }
         )
+    await _cache_set(rows, tenant.organization_id, 'azure', 'sprints', project, team)
     return rows
 
 
@@ -224,6 +276,9 @@ async def list_azure_org_members(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, Any]]:
     """FloTechnology org genelindeki tüm kullanıcıları döndürür."""
+    cached = await _cache_get(tenant.organization_id, 'azure', 'members')
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'azure')
     if config is None or not config.secret:
@@ -240,7 +295,9 @@ async def list_azure_org_members(
                 uid     = u.get('descriptor', unique)
                 if display and unique:
                     members.append({'id': uid, 'displayName': display, 'uniqueName': unique})
-            return sorted(members, key=lambda x: x['displayName'])
+            result = sorted(members, key=lambda x: x['displayName'])
+            await _cache_set(result, tenant.organization_id, 'azure', 'members')
+            return result
         # Fallback: tüm projelerin takımlarından üyeleri topla
         projects_r = await client.get(
             f"{config.base_url.rstrip('/')}/_apis/projects?api-version=7.1-preview.4",
@@ -270,7 +327,9 @@ async def list_azure_org_members(
                     unique = identity.get('uniqueName', '')
                     if uid and uid not in seen and display and unique:
                         seen[uid] = {'id': uid, 'displayName': display, 'uniqueName': unique}
-        return sorted(seen.values(), key=lambda x: x['displayName'])
+        result = sorted(seen.values(), key=lambda x: x['displayName'])
+        await _cache_set(result, tenant.organization_id, 'azure', 'members')
+        return result
 
 
 @router.get('/azure/member/workitems')
@@ -661,11 +720,12 @@ async def list_jira_projects(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, str]]:
+    cached = await _cache_get(tenant.organization_id, 'jira', 'projects')
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'jira')
     if config is None or not config.secret:
-        # Return empty list instead of 400 so UI can degrade gracefully
-        # when Jira is not configured yet.
         return []
 
     task_service = TaskService(db)
@@ -678,7 +738,9 @@ async def list_jira_projects(
             await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
             raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
         raise HTTPException(status_code=502, detail='Jira projects fetch failed') from exc
-    return [{'id': p['key'], 'name': p['name']} for p in projects if p.get('key') and p.get('name')]
+    result = [{'id': p['key'], 'name': p['name']} for p in projects if p.get('key') and p.get('name')]
+    await _cache_set(result, tenant.organization_id, 'jira', 'projects')
+    return result
 
 
 @router.get('/jira/boards')
@@ -687,6 +749,9 @@ async def list_jira_boards(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, str]]:
+    cached = await _cache_get(tenant.organization_id, 'jira', 'boards', project_key or '')
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'jira')
     if config is None or not config.secret:
@@ -703,7 +768,9 @@ async def list_jira_boards(
             await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
             raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
         raise HTTPException(status_code=502, detail='Jira boards fetch failed') from exc
-    return [{'id': b['id'], 'name': b['name']} for b in boards if b.get('id') and b.get('name')]
+    result = [{'id': b['id'], 'name': b['name']} for b in boards if b.get('id') and b.get('name')]
+    await _cache_set(result, tenant.organization_id, 'jira', 'boards', project_key or '')
+    return result
 
 
 @router.get('/jira/sprints')
@@ -712,6 +779,9 @@ async def list_jira_sprints(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, Any]]:
+    cached = await _cache_get(tenant.organization_id, 'jira', 'sprints', board_id)
+    if cached is not None:
+        return cached
     service = IntegrationConfigService(db)
     config = await service.get_config(tenant.organization_id, 'jira')
     if config is None or not config.secret:
@@ -728,7 +798,7 @@ async def list_jira_sprints(
             await _notify_integration_auth_expired(db, tenant, 'Jira', 'Please update your Jira email/API token in Integrations.')
             raise HTTPException(status_code=401, detail='Jira credentials are invalid (email or API token)') from exc
         raise HTTPException(status_code=502, detail='Jira sprints fetch failed') from exc
-    return [
+    result = [
         {
             'id': s['id'],
             'name': s['name'],
@@ -741,6 +811,8 @@ async def list_jira_sprints(
         for s in sprints
         if s.get('id') and s.get('name')
     ]
+    await _cache_set(result, tenant.organization_id, 'jira', 'sprints', board_id)
+    return result
 
 
 @router.get('/jira/states')
