@@ -292,6 +292,19 @@ curl -X POST http://localhost:8010/auth/signup \
   }'
 ```
 
+### 6. Create platform admin (optional)
+
+```bash
+docker exec ai_agent_api python /app/scripts/create_admin.py \
+  --email admin@agena.dev \
+  --password 'YourStr0ng!Pass#2026' \
+  --name 'Platform Admin'
+```
+
+Password requirements: 12+ characters, uppercase, lowercase, digit, and special character.
+
+The admin panel is accessible at `/dashboard/admin` after login. Only platform admins can see it.
+
 ---
 
 ## Environment Variables
