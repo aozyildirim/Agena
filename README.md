@@ -577,6 +577,34 @@ Map Azure DevOps repositories to local paths for code generation.
 
 ---
 
+## Why AGENA?
+
+| Challenge | How AGENA Solves It |
+|---|---|
+| Repetitive coding tasks eat developer hours | AI agents autonomously generate code from task descriptions |
+| Code review bottlenecks slow delivery | Built-in AI reviewer catches issues before human review |
+| Context switching kills productivity | Queue tasks, get PRs — AI handles the implementation |
+| Copilot only suggests, you still code | AGENA delivers complete pull requests, not snippets |
+| No visibility into AI work | Pixel agent dashboard shows real-time agent activity |
+
+### AGENA vs GitHub Copilot
+
+- **Copilot** = AI-assisted coding (you drive, AI suggests line by line)
+- **AGENA** = Agentic AI coding (AI drives the full task-to-PR pipeline)
+
+They're complementary: use Copilot for creative work, AGENA for well-defined tasks. Read more: [AGENA vs GitHub Copilot](https://agena.dev/blog/github-copilot-alternative)
+
+### Learn More
+
+- [What is Agentic AI?](https://agena.dev/blog/what-is-agentic-ai)
+- [Agentic AI Nedir?](https://agena.dev/blog/agentic-ai-nedir)
+- [AI Code Generation Best Practices](https://agena.dev/blog/ai-code-generation-best-practices)
+- [Pixel Agent Technology](https://agena.dev/blog/pixel-agent-technology)
+- [Use Cases](https://agena.dev/use-cases)
+- [Documentation](https://agena.dev/docs)
+
+---
+
 ## Contributing
 
 This repository is open-source under the MIT License.

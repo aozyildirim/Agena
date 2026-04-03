@@ -78,6 +78,33 @@ const posts = [
     tags: ['AI Agent', 'Yapay Zeka', 'Agentic AI'],
   },
   {
+    slug: 'ai-ile-pr-otomasyonu',
+    title: 'AI ile Pull Request Otomasyonu: Backlog\'dan PR\'a Dakikalar İçinde',
+    description:
+      'AI ile otomatik pull request oluşturma nasıl çalışır? AGENA\'nın agentic AI pipeline\'ı ile görev tanımından production-ready PR\'a kadar tüm süreci öğrenin.',
+    date: '2026-04-03',
+    readTime: '7 dk okuma',
+    tags: ['PR Otomasyonu', 'AI', 'DevOps', 'Otomasyon'],
+  },
+  {
+    slug: 'otonom-kodlama-rehberi',
+    title: 'Otonom Kodlama: AI Agentlar ile Yazılım Geliştirmenin Yeni Çağı',
+    description:
+      'Otonom kodlama nedir ve nasıl çalışır? AI agentların bağımsız olarak kod yazması, review etmesi ve PR açması hakkında kapsamlı rehber.',
+    date: '2026-04-02',
+    readTime: '10 dk okuma',
+    tags: ['Otonom Kodlama', 'AI Agent', 'Yazılım Geliştirme'],
+  },
+  {
+    slug: 'agentic-ai-nedir',
+    title: 'Agentic AI Nedir? Otonom Yapay Zeka Sistemlerinin Geleceği',
+    description:
+      'Agentic AI nedir, geleneksel yapay zekadan farkı ne? Otonom AI agentların yazılım geliştirme, kod üretimi ve PR otomasyonundaki devrimci rolünü keşfedin.',
+    date: '2026-04-01',
+    readTime: '8 dk okuma',
+    tags: ['Agentic AI', 'Yapay Zeka', 'Otonom Sistemler'],
+  },
+  {
     slug: 'github-copilot-alternative',
     title: 'AGENA vs GitHub Copilot: The Agentic AI Alternative for Full Autonomy',
     description:

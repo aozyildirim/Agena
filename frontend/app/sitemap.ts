@@ -12,6 +12,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     'yapay-zeka-ile-kod-yazma',
     'ai-agent-nedir',
     'github-copilot-alternative',
+    'agentic-ai-nedir',
+    'otonom-kodlama-rehberi',
+    'ai-ile-pr-otomasyonu',
   ];
 
   return [

@@ -520,6 +520,301 @@ AGENA açık kaynaklıdır ve ücretsiz kullanılabilir. GitHub reponuzu bağlay
 - [Kullanım Senaryoları](/use-cases)
     `,
   },
+  'agentic-ai-nedir': {
+    title: 'Agentic AI Nedir? Otonom Yapay Zeka Sistemlerinin Geleceği',
+    description:
+      'Agentic AI nedir, geleneksel yapay zekadan farkı ne? Otonom AI agentların yazılım geliştirme, kod üretimi ve PR otomasyonundaki devrimci rolünü keşfedin.',
+    date: '2026-04-01',
+    readTime: '8 dk okuma',
+    content: `
+## Agentic AI Nedir?
+
+**Agentic AI** (otonom yapay zeka), karmaşık görevleri **bağımsız olarak planlayabilen, yürütebilen ve sonuçlandırabilen** yapay zeka sistemlerini ifade eder. Geleneksel AI chatbot'larından farklı olarak, agentic AI sistemleri tek bir komutla çok adımlı iş akışlarını tamamlar.
+
+### Geleneksel AI vs Agentic AI
+
+| Özellik | Geleneksel AI | Agentic AI |
+|---------|---------------|------------|
+| **Çalışma şekli** | Soru-cevap | Otonom görev tamamlama |
+| **Kapsam** | Tek prompt → tek cevap | Görev → plan → uygulama → teslim |
+| **Bağlam** | Konuşma geçmişi | Tüm codebase + vektör bellek |
+| **İnsan müdahalesi** | Her adımda gerekli | Sadece review aşamasında |
+| **Çıktı** | Metin/kod parçacığı | Branch + commit + pull request |
+
+## Agentic AI Yazılım Geliştirmede Nasıl Çalışır?
+
+AGENA platformunda agentic AI şu pipeline ile çalışır:
+
+### 1. Görev Analizi (PM Agent)
+PM agentı, backlog'dan gelen görevi analiz eder. Gereksinimleri anlar, codebase context'i toplar ve bir uygulama planı oluşturur.
+
+### 2. Planlama (Planner Agent)
+Planner agentı, dosya seviyesinde hangi değişikliklerin yapılacağını belirler. Her dosya için ne eklenmeli, ne değiştirilmeli detaylı bir plan çıkarır.
+
+### 3. Kod Üretimi (Developer Agent)
+Developer agentı, plana uygun olarak production-ready kod yazar. Mevcut codebase kalıplarına uyum sağlar, test yazabilir ve edge case'leri düşünür.
+
+### 4. Kalite Kontrolü (Reviewer Agent)
+Reviewer agentı, üretilen kodu bağımsız olarak inceler:
+- Bug ve hata kontrolü
+- Güvenlik açıkları taraması
+- Best practice uyumu
+- Performance değerlendirmesi
+
+### 5. Teslim (Finalizer Agent)
+Finalizer agentı, GitHub veya Azure DevOps'ta branch oluşturur, temiz commit'ler atar ve pull request açar.
+
+## Neden Agentic AI?
+
+### Geliştirici Verimliliği
+Rutin görevler (bug fix, refactoring, feature implementation) için geliştirici saatlerinden tasarruf sağlar. AI agentlar 7/24 çalışır.
+
+### Tutarlı Kalite
+Her PR aynı standartlarda üretilir. Reviewer agentı her seferinde aynı titizlikle kontrol eder.
+
+### Ölçeklenebilirlik
+Tek bir geliştirici yerine birden fazla AI agentı paralel çalışarak sprint velocity'yi artırır.
+
+## AGENA ile Agentic AI'ı Deneyimleyin
+
+AGENA, açık kaynaklı bir agentic AI platformudur. Pixel agent teknolojisi ile AI agentlarınızı görsel olarak takip edebilir, CrewAI + LangGraph orkestrasyon altyapısı ile güvenilir sonuçlar alabilirsiniz.
+
+- **Ücretsiz tier** — Ayda 5 görev
+- **Open source** — Self-host veya managed platform
+- **7 dil desteği** — Türkçe dahil
+
+[Agentic AI'ı Ücretsiz Deneyin →](/signup)
+
+## İlgili Yazılar
+
+- [AI Agent Nedir?](/blog/ai-agent-nedir)
+- [Yapay Zeka ile Kod Yazma Rehberi](/blog/yapay-zeka-ile-kod-yazma)
+- [What is Agentic AI?](/blog/what-is-agentic-ai)
+- [Pixel Agent Teknolojisi](/blog/pixel-agent-technology)
+    `,
+  },
+  'otonom-kodlama-rehberi': {
+    title: 'Otonom Kodlama: AI Agentlar ile Yazılım Geliştirmenin Yeni Çağı',
+    description:
+      'Otonom kodlama nedir ve nasıl çalışır? AI agentların bağımsız olarak kod yazması, review etmesi ve PR açması hakkında kapsamlı rehber.',
+    date: '2026-04-02',
+    readTime: '10 dk okuma',
+    content: `
+## Otonom Kodlama Nedir?
+
+**Otonom kodlama**, yapay zeka agentlarının insan müdahalesi olmadan kod yazma, test etme, review etme ve teslim etme sürecidir. Geleneksel "autocomplete" tarzı AI yardımından temelden farklıdır — burada AI sadece öneri yapmaz, **baştan sona görevi tamamlar**.
+
+## Otonom Kodlama vs Kod Önerileri
+
+### GitHub Copilot Yaklaşımı
+- Siz yazarsınız, AI tamamlar
+- Dosya bazında çalışır
+- Her satırda insan kararı gerekir
+- Çıktı: kod parçacıkları
+
+### AGENA Otonom Kodlama Yaklaşımı
+- Görev tanımlarsınız, AI tamamlar
+- Tüm codebase'i anlar
+- İnsan sadece PR review eder
+- Çıktı: branch + commit + pull request
+
+## Otonom Kodlama Pipeline'ı
+
+AGENA'nın otonom kodlama pipeline'ı 5 aşamadan oluşur:
+
+\`\`\`
+fetch_context → analyze → generate_code → review_code → finalize
+\`\`\`
+
+### Aşama 1: Context Toplama
+Vektör bellek (Qdrant) kullanarak benzer geçmiş görevleri bulur. Codebase'den ilgili dosyaları, kalıpları ve convention'ları çıkarır.
+
+### Aşama 2: Analiz
+PM agentı görevi derinlemesine analiz eder:
+- Story point tahmini
+- Etkilenen dosyaların listesi
+- Teknik kısıtlamalar
+- Kabul kriterleri
+
+### Aşama 3: Kod Üretimi
+Developer agentı, analize dayalı olarak kod yazar:
+- Mevcut kalıplara uygun kod
+- Import ve dependency yönetimi
+- Hata yönetimi ve edge case'ler
+
+### Aşama 4: Otomatik Review
+Reviewer agentı kodu bağımsız olarak değerlendirir:
+- Fonksiyonel doğruluk
+- Güvenlik taraması
+- Performance analizi
+- Code style uyumu
+
+### Aşama 5: Teslim
+Finalizer agentı Git işlemlerini halleder:
+- Feature branch oluşturma
+- Temiz commit mesajları
+- PR açma ve açıklama yazma
+
+## Otonom Kodlama İçin En İyi Pratikler
+
+### 1. Görevleri İyi Tanımlayın
+AI agentlar, net tanımlanmış görevlerde en iyi sonucu verir:
+- Bug fix'lerde reproduction step'leri ekleyin
+- Feature'larda acceptance criteria belirleyin
+- Refactoring'de hedef pattern'i açıklayın
+
+### 2. Codebase Convention'larını Koruyun
+AGENA otomatik olarak mevcut kalıpları öğrenir, ama:
+- Lint kurallarınızı güncel tutun
+- README ve dökümanları zenginleştirin
+- Tutarlı klasör yapısı kullanın
+
+### 3. Review Sürecini Optimize Edin
+AI ürettiği kodu başka bir AI agentı review eder, ama insan review'u da önemlidir:
+- PR açıklamalarını okuyun
+- Diff'leri kontrol edin
+- Edge case'leri doğrulayın
+
+## Kimler Otonom Kodlamayı Kullanmalı?
+
+| Ekip Tipi | Kullanım Senaryosu |
+|-----------|-------------------|
+| **Startup** | Sınırlı kaynakla daha fazla feature ship etme |
+| **Enterprise** | Rutin görevleri otomatize etme |
+| **Freelancer** | Verimlilik artırma, paralel proje yönetimi |
+| **Open Source** | Issue'ları otomatik çözme |
+
+## Başlayın
+
+AGENA ile otonom kodlamayı bugün deneyin. Ücretsiz tier ile başlayın, GitHub veya Azure DevOps reponuzu bağlayın.
+
+[Otonom Kodlamayı Deneyin →](/signup)
+
+## İlgili Yazılar
+
+- [Agentic AI Nedir?](/blog/agentic-ai-nedir)
+- [AI Agent Nedir?](/blog/ai-agent-nedir)
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [AGENA vs GitHub Copilot](/blog/github-copilot-alternative)
+    `,
+  },
+  'ai-ile-pr-otomasyonu': {
+    title: 'AI ile Pull Request Otomasyonu: Backlog\'dan PR\'a Dakikalar İçinde',
+    description:
+      'AI ile otomatik pull request oluşturma nasıl çalışır? AGENA\'nın agentic AI pipeline\'ı ile görev tanımından production-ready PR\'a kadar tüm süreci öğrenin.',
+    date: '2026-04-03',
+    readTime: '7 dk okuma',
+    content: `
+## AI ile Pull Request Otomasyonu
+
+Yazılım geliştirmede en çok zaman alan süreçlerden biri **görevden PR'a giden yol**dur: görevi anlama, kodu yazma, test etme, review etme, branch açma, commit atma, PR oluşturma. **AI ile PR otomasyonu** bu sürecin tamamını dakikalara indirger.
+
+## Geleneksel PR Süreci vs AI Otomasyonu
+
+### Geleneksel Süreç (Saatler/Günler)
+1. Görevi anlama ve planlama (~30 dk)
+2. Kod yazma (~2-8 saat)
+3. Self-review (~30 dk)
+4. Branch oluşturma, commit (~10 dk)
+5. PR açma, açıklama yazma (~15 dk)
+6. Code review bekleme (~24 saat)
+7. Revision'lar (~1-4 saat)
+
+**Toplam: 1-3 gün**
+
+### AGENA AI Otomasyonu (Dakikalar)
+1. Görev seçimi (1 dk — backlog'dan seç)
+2. AI analiz + planlama (~2 dk)
+3. AI kod üretimi (~3-5 dk)
+4. AI code review (~2 dk)
+5. Otomatik branch + commit + PR (~1 dk)
+
+**Toplam: ~10 dakika**
+
+## AGENA ile PR Otomasyonu Nasıl Çalışır?
+
+### Adım 1: Görev İmport
+Görevlerinizi üç kaynaktan alabilirsiniz:
+- **Azure DevOps** — Sprint'ten iş öğelerini seçin
+- **Jira** — Board'dan task'ları import edin
+- **Manuel** — Doğrudan AGENA'da görev oluşturun
+
+### Adım 2: AI Pipeline Başlatma
+Görevi seçip "Assign to AI" dediğinizde pipeline başlar:
+
+\`\`\`
+PM Agent → Planner Agent → Developer Agent → Reviewer Agent → Finalizer
+\`\`\`
+
+Her aşamayı pixel agent dashboard'undan gerçek zamanlı izleyebilirsiniz.
+
+### Adım 3: Otomatik PR Oluşturma
+Pipeline tamamlandığında AGENA otomatik olarak:
+- **Feature branch** oluşturur (ör. \`feature/TASK-123-user-auth\`)
+- **Clean commit'ler** atar (anlamlı mesajlarla)
+- **PR açar** (başlık, açıklama, dosya listesi ile)
+- **Reviewer atar** (ayarlıysa)
+
+### Adım 4: İnsan Review
+Siz sadece PR'ı review edersiniz:
+- AI'ın ürettiği kodu inceleyin
+- Gerekirse yorum bırakın
+- Merge edin
+
+## Desteklenen Platformlar
+
+| Platform | Özellikler |
+|----------|-----------|
+| **GitHub** | Branch, commit, PR, reviewer atama, label |
+| **Azure DevOps** | Branch, PR, work item güncelleme, reviewer |
+
+## PR Otomasyonunun Faydaları
+
+### Sprint Velocity Artışı
+Rutin görevler (bug fix, küçük feature, refactoring) AI tarafından dakikalar içinde PR'a dönüşür. Ekip büyük, yaratıcı görevlere odaklanır.
+
+### Tutarlı PR Kalitesi
+Her PR aynı standartta:
+- Açıklayıcı başlık ve description
+- Clean diff, gereksiz değişiklik yok
+- AI reviewer tarafından önceden kontrol edilmiş
+
+### 7/24 Çalışma
+AI agentlar uyumaz. Gece oluşturulan görevler sabaha PR olarak hazırdır.
+
+### DORA Metrikleri İyileşmesi
+- **Lead Time** azalır — görevden PR'a süre dakikalara iner
+- **Deployment Frequency** artar — daha fazla PR, daha sık deploy
+- **Change Failure Rate** düşer — AI review kaliteyi artırır
+
+## Flow Builder ile Gelişmiş Otomasyon
+
+AGENA'nın visual flow builder'ı ile daha karmaşık senaryolar oluşturabilirsiniz:
+
+- **Sprint başında**: Tüm "New" durumundaki görevleri otomatik import et
+- **PR açıldığında**: Slack'e bildirim gönder
+- **Review tamamlandığında**: Azure DevOps work item'ı "Done"a çek
+- **Koşullu akışlar**: Story point'e göre farklı model kullan
+
+## Başlayın
+
+AGENA ile ilk otomatik PR'ınızı dakikalar içinde oluşturun:
+
+1. [Ücretsiz kaydolun](/signup)
+2. GitHub veya Azure DevOps reponuzu bağlayın
+3. Bir görev oluşturun veya import edin
+4. "Assign to AI" deyin ve izleyin
+
+[İlk Otomatik PR'ınızı Oluşturun →](/signup)
+
+## İlgili Yazılar
+
+- [Otonom Kodlama Rehberi](/blog/otonom-kodlama-rehberi)
+- [Agentic AI Nedir?](/blog/agentic-ai-nedir)
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [Yapay Zeka ile Kod Yazma](/blog/yapay-zeka-ile-kod-yazma)
+    `,
+  },
   'github-copilot-alternative': {
     title: 'AGENA vs GitHub Copilot: The Agentic AI Alternative for Full Autonomy',
     description:
