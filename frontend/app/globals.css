@@ -2091,6 +2091,8 @@ input:focus, textarea:focus {
 
   /* ── Contact page: stack sidebar below form ── */
   .contact-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+  .contact-form-row { grid-template-columns: 1fr !important; }
+  .contact-form-wrapper { padding: 20px !important; }
 
   /* ── Docs page: hide sidebar, full-width content ── */
   .docs-layout { flex-direction: column !important; padding-top: 64px !important; }

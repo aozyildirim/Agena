@@ -42,6 +42,7 @@ export default function ContactPage() {
         <div className='contact-grid' style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 48, alignItems: 'start' }}>
           {/* Form */}
           <div
+            className='contact-form-wrapper'
             style={{
               padding: '32px',
               borderRadius: 16,
