@@ -5,9 +5,11 @@ export const metadata: Metadata = {
   title: 'Use Cases – AGENA Agentic AI Platform',
   description:
     'Discover how teams use AGENA\'s agentic AI and pixel agent technology for autonomous code generation, PR automation, sprint acceleration, and AI-powered development workflows.',
+  alternates: { canonical: '/use-cases' },
   openGraph: {
     title: 'Use Cases – AGENA Agentic AI Platform',
     description: 'How teams use agentic AI for autonomous code generation and PR automation.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'AGENA Use Cases' }],
   },
 };
 

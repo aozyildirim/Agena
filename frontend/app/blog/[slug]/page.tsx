@@ -608,6 +608,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   return {
     title: post.title,
     description: post.description,
+    alternates: { canonical: `/blog/${params.slug}` },
     openGraph: {
       type: 'article',
       title: post.title,
@@ -615,11 +616,13 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
       publishedTime: post.date,
       authors: ['AGENA'],
       url: `https://agena.dev/blog/${params.slug}`,
+      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: post.title }],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
+      images: ['/og-image.png'],
     },
   };
 }
@@ -635,8 +638,14 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
     description: post.description,
     datePublished: post.date,
     url: `https://agena.dev/blog/${params.slug}`,
+    image: 'https://agena.dev/og-image.png',
     author: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'AGENA',
+      url: 'https://agena.dev',
+      logo: { '@type': 'ImageObject', url: 'https://agena.dev/media/agena-logo.svg' },
+    },
   };
 
   const breadcrumbLd = {

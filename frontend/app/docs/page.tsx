@@ -5,9 +5,11 @@ export const metadata: Metadata = {
   title: 'Documentation – AGENA Agentic AI Platform',
   description:
     'AGENA documentation — setup guide, API reference, agent configuration, integrations, and deployment. Get started with the agentic AI platform for autonomous code generation.',
+  alternates: { canonical: '/docs' },
   openGraph: {
     title: 'Documentation – AGENA Agentic AI Platform',
     description: 'Complete documentation for the AGENA agentic AI platform.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'AGENA Documentation' }],
   },
 };
 

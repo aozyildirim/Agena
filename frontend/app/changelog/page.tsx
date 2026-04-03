@@ -5,9 +5,11 @@ export const metadata: Metadata = {
   title: 'Changelog – AGENA Agentic AI Platform',
   description:
     'Latest updates, new features, and improvements to AGENA — the agentic AI platform for autonomous code generation and pixel agent orchestration.',
+  alternates: { canonical: '/changelog' },
   openGraph: {
     title: 'Changelog – AGENA',
     description: 'Latest updates and new features from the AGENA agentic AI platform.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'AGENA Changelog' }],
   },
 };
 
