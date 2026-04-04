@@ -2099,13 +2099,8 @@ input:focus, textarea:focus {
   .page-container-narrow { padding: 48px 16px !important; }
   .page-container-narrow h1 { word-break: break-word; }
 
-  /* ── Contact page: stack sidebar below form ── */
-  .contact-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
-  .contact-grid > * { width: 100% !important; max-width: 100% !important; }
-  .contact-form-row { grid-template-columns: 1fr !important; }
-  .contact-form-wrapper { padding: 20px !important; }
-  .contact-faq details { padding: 14px 16px !important; }
-  .contact-faq summary { font-size: 14px !important; }
+  /* ── Contact page ── */
+  .contact-info-row { grid-template-columns: 1fr !important; }
 
   /* ── Docs page: hide sidebar, full-width content ── */
   .docs-layout { flex-direction: column !important; padding-top: 64px !important; }
@@ -2155,7 +2150,7 @@ input:focus, textarea:focus {
 
   /* ── Tighter page containers ── */
   .page-container-narrow { padding: 32px 12px !important; }
-  .contact-grid { gap: 16px !important; }
+  .contact-info-row { gap: 10px !important; }
   .blog-container { padding: 32px 12px !important; }
   .changelog-container { padding: 32px 12px !important; }
 }

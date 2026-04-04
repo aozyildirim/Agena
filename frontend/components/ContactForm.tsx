@@ -4,7 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useLocale } from '@/lib/i18n';
 
 const inputStyle: React.CSSProperties = {
-  padding: '12px 16px',
+  padding: '10px 14px',
   borderRadius: 10,
   border: '1px solid rgba(13,148,136,0.25)',
   background: 'rgba(7,15,26,0.5)',
@@ -13,6 +13,7 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   outline: 'none',
   fontFamily: 'inherit',
+  boxSizing: 'border-box',
 };
 
 export default function ContactForm() {
@@ -32,14 +33,8 @@ export default function ContactForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, message, newsletter }),
       });
-      if (res.ok) {
-        setStatus('ok');
-        setName('');
-        setEmail('');
-        setMessage('');
-      } else {
-        setStatus('err');
-      }
+      setStatus(res.ok ? 'ok' : 'err');
+      if (res.ok) { setName(''); setEmail(''); setMessage(''); }
     } catch {
       setStatus('err');
     }
@@ -47,29 +42,29 @@ export default function ContactForm() {
 
   if (status === 'ok') {
     return (
-      <div style={{ textAlign: 'center', padding: '40px 0' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>&#10003;</div>
-        <h3 style={{ color: '#5EEAD4', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{t('contact.form.success')}</h3>
-        <p style={{ color: 'var(--ink-45)', fontSize: 14 }}>{t('contact.form.successSub')}</p>
+      <div style={{ textAlign: 'center', padding: '32px 0' }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>&#10003;</div>
+        <h3 style={{ color: '#5EEAD4', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{t('contact.form.success')}</h3>
+        <p style={{ color: 'var(--ink-45)', fontSize: 13 }}>{t('contact.form.successSub')}</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div className='contact-form-row' style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <input type='text' value={name} onChange={(e) => setName(e.target.value)} placeholder={t('contact.form.name')} required style={inputStyle} />
-        <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('contact.form.email')} required style={inputStyle} />
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <input type='text' value={name} onChange={(e) => setName(e.target.value)} placeholder={t('contact.form.name')} required style={{ ...inputStyle, flex: '1 1 140px' }} />
+        <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('contact.form.email')} required style={{ ...inputStyle, flex: '1 1 180px' }} />
       </div>
-      <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t('contact.form.message')} required rows={5} style={{ ...inputStyle, resize: 'vertical' }} />
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--ink-45)', lineHeight: 1.5, maxWidth: '100%', overflow: 'hidden' }}>
-        <input type='checkbox' checked={newsletter} onChange={(e) => setNewsletter(e.target.checked)} style={{ accentColor: '#0d9488', marginTop: 3, flexShrink: 0 }} />
-        <span style={{ wordBreak: 'break-word', overflowWrap: 'break-word', minWidth: 0 }}>{t('contact.form.newsletter')}</span>
+      <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t('contact.form.message')} required rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--ink-45)' }}>
+        <input type='checkbox' checked={newsletter} onChange={(e) => setNewsletter(e.target.checked)} style={{ accentColor: '#0d9488', flexShrink: 0 }} />
+        {t('contact.form.newsletter')}
       </label>
-      <button type='submit' className='button button-primary' disabled={status === 'sending'} style={{ padding: '13px 28px', fontSize: 15, alignSelf: 'flex-start' }}>
+      <button type='submit' className='button button-primary' disabled={status === 'sending'} style={{ padding: '11px 24px', fontSize: 14, alignSelf: 'flex-start' }}>
         {status === 'sending' ? t('contact.form.sending') : t('contact.form.send')}
       </button>
-      {status === 'err' && <p style={{ color: '#f87171', fontSize: 13 }}>{t('contact.form.error')}</p>}
+      {status === 'err' && <p style={{ color: '#f87171', fontSize: 12 }}>{t('contact.form.error')}</p>}
     </form>
   );
 }
