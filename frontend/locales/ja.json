@@ -2160,5 +2160,7 @@
   "sdk.feat4": "インテグレーション管理（GitHub、Azure DevOps、Jira）",
   "sdk.feat5": "型定義付きの完全なTypeScriptサポート",
   "sdk.docsLink": "完全なドキュメントを読む",
-  "sdk.openSource": "MITライセンスのオープンソース"
+  "sdk.openSource": "MITライセンスのオープンソース",
+  "landing.testimonialsLabel": "お客様の声",
+  "landing.testimonialsTitle": "開発者に愛されています"
 }

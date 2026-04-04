@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import PricingCard from '@/components/PricingCard';
 import { useLocale } from '@/lib/i18n';
 
 /* ── Spotlight that follows mouse ── */
@@ -913,31 +912,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── PRICING ── */}
-        <section style={{ padding: '60px 0' }}>
-          <div style={{ marginBottom: 48, textAlign: 'center' }}>
-            <div className='section-label' style={{ justifyContent: 'center' }}>{t('landing.pricingLabel')}</div>
-            <h2 style={{ fontSize: 'clamp(28px, 3vw, 42px)', fontWeight: 800, color: 'var(--ink-90)' }}>
-              {t('landing.pricingTitle')}
-            </h2>
-          </div>
-          <div className='pricing-grid'>
-            <PricingCard name={t('landing.pricingFree')} price='$0' items={[t('landing.pricingFreeItem1'), t('landing.pricingFreeItem2'), t('landing.pricingFreeItem3')]} />
-            <PricingCard
-              name={t('landing.pricingPro')}
-              price='$49/mo'
-              items={[t('landing.pricingProItem1'), t('landing.pricingProItem2'), t('landing.pricingProItem3')]}
-              highlight
-            />
-          </div>
-        </section>
-
         {/* ── TESTIMONIALS ── */}
         <section style={{ padding: '60px 0' }}>
           <div style={{ marginBottom: 48, textAlign: 'center' }}>
-            <div className='section-label' style={{ justifyContent: 'center' }}>{t('landing.testimonialsLabel') || 'Testimonials'}</div>
+            <div className='section-label' style={{ justifyContent: 'center' }}>{t('landing.testimonialsLabel')}</div>
             <h2 style={{ fontSize: 'clamp(28px, 3vw, 42px)', fontWeight: 800, color: 'var(--ink-90)' }}>
-              {t('landing.testimonialsTitle') || 'Loved by developers'}
+              {t('landing.testimonialsTitle')}
             </h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, maxWidth: 960, margin: '0 auto' }}>

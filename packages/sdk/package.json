@@ -1,5 +1,5 @@
 {
-  "name": "@agena/sdk",
+  "name": "agenai-sdk",
   "version": "0.1.0",
   "description": "Official TypeScript SDK for the AGENA Agentic AI Platform API",
   "main": "dist/index.js",

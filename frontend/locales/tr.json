@@ -2160,5 +2160,7 @@
   "sdk.feat4": "Entegrasyonları yönetin (GitHub, Azure DevOps, Jira)",
   "sdk.feat5": "Tip tanımlarıyla tam TypeScript desteği",
   "sdk.docsLink": "Tam dokümantasyonu okuyun",
-  "sdk.openSource": "MIT lisansı altında açık kaynak"
+  "sdk.openSource": "MIT lisansı altında açık kaynak",
+  "landing.testimonialsLabel": "Referanslar",
+  "landing.testimonialsTitle": "Geliştiriciler tarafından seviliyor"
 }

@@ -2160,5 +2160,7 @@
   "sdk.feat4": "Integrationen verwalten (GitHub, Azure DevOps, Jira)",
   "sdk.feat5": "Vollständige TypeScript-Unterstützung mit Typdefinitionen",
   "sdk.docsLink": "Lesen Sie die vollständige Dokumentation",
-  "sdk.openSource": "Open Source unter MIT-Lizenz"
+  "sdk.openSource": "Open Source unter MIT-Lizenz",
+  "landing.testimonialsLabel": "Referenzen",
+  "landing.testimonialsTitle": "Von Entwicklern geliebt"
 }

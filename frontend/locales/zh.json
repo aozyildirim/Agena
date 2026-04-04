@@ -2160,5 +2160,7 @@
   "sdk.feat4": "管理集成（GitHub、Azure DevOps、Jira）",
   "sdk.feat5": "完整的TypeScript支持和类型定义",
   "sdk.docsLink": "阅读完整文档",
-  "sdk.openSource": "MIT许可证开源"
+  "sdk.openSource": "MIT许可证开源",
+  "landing.testimonialsLabel": "用户评价",
+  "landing.testimonialsTitle": "深受开发者喜爱"
 }
