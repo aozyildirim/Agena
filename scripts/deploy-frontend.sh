@@ -8,6 +8,28 @@ cd /var/www/tiqr
 
 echo "=== Zero-downtime frontend deploy ==="
 
+# 0) Regenerate changelog data from git history
+echo "[0/4] Generating changelog-data.json..."
+git log --oneline -100 --format="%h|%s|%ai|%an" | python3 -c "
+import json, sys, re
+lines = sys.stdin.read().strip().split('\n')
+commits = []
+for line in lines:
+    parts = line.split('|', 3)
+    if len(parts) < 4: continue
+    short, message, date, author = parts
+    msg_clean = message
+    ctype = 'other'
+    for prefix in ['feat', 'fix', 'docs', 'chore', 'refactor', 'style', 'test', 'perf', 'ci', 'build']:
+        if message.startswith(prefix):
+            ctype = prefix if prefix in ('feat','fix','docs') else 'other'
+            msg_clean = re.sub(r'^(feat|fix|docs|chore|refactor|style|test|perf|ci|build)(\(.+?\))?:\s*', '', message)
+            break
+    commits.append({'hash': short, 'short': short, 'message': msg_clean, 'date': date[:10], 'author': author, 'type': ctype})
+json.dump(commits, open('frontend/public/changelog-data.json','w'), indent=2)
+print(f'  Generated {len(commits)} changelog entries')
+"
+
 # 1) Rebuild BLUE while GREEN keeps serving
 echo "[1/4] Rebuilding frontend_blue..."
 docker-compose up -d --build --no-deps frontend_blue

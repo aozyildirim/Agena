@@ -1961,7 +1961,6 @@
   "command.team": "Ekip Üyeleri",
   "command.repoMapping": "Repo Eşleme",
   "command.notifications": "Bildirimler",
-
   "blog.label": "Blog",
   "blog.title": "Agentic AI & Pixel Agent Yazıları",
   "blog.subtitle": "Otonom yazılım geliştirme, yapay zeka ile kod üretimi ve agentic AI'ın geleceği — AGENA ekibinden.",
@@ -1969,14 +1968,12 @@
   "blog.noResults": "Sonuç bulunamadı:",
   "blog.newsletter.title": "Agentic AI güncellemelerinden haberdar olun",
   "blog.newsletter.subtitle": "Otonom kod üretimi, AI agentlar ve pixel agent teknolojisi hakkında en son bilgileri alın. Spam yok.",
-
   "blogPost.share": "Paylaş:",
   "blogPost.copyLink": "Linki kopyala",
   "blogPost.toc": "Bu sayfada",
   "blogPost.cta.title": "Agentic AI'ı denemek ister misiniz?",
   "blogPost.cta.subtitle": "Ücretsiz başlayın ve AGENA'nın pixel agentlarının geliştirme iş akışınızı yönetmesine izin verin.",
   "blogPost.cta.button": "Ücretsiz Başla",
-
   "contact.label": "İletişim",
   "contact.title": "Bize Ulaşın",
   "contact.subtitle": "AGENA hakkında bir sorunuz mu var, kurulum konusunda yardım mı istiyorsunuz veya kurumsal planlarla mı ilgileniyorsunuz? Bize mesaj gönderin.",
@@ -2007,7 +2004,6 @@
   "contact.faq5A": "Ücretsiz plan ayda 5 AI görevi içerir, tüm özelliklere erişim sağlar. Kredi kartı gerekmez. Sınırsız görev ve öncelikli işlem için Pro'ya yükseltin.",
   "contact.faq6Q": "Kodum güvende mi?",
   "contact.faq6A": "AGENA kaynak kodunuzu asla saklamaz. Tüm repo erişimi OAuth tokenları ile kapsamlandırılmıştır ve kod izole oturumlarda işlenir. Kendi sunucunuzda barındırma tam kontrol sağlar.",
-
   "changelog.label": "Değişiklik Günlüğü",
   "changelog.title": "AGENA'da Neler Yeni",
   "changelog.subtitle": "Git geçmişimizden çekilen gerçek zamanlı değişiklik günlüğü.",
@@ -2021,13 +2017,10 @@
   "changelog.badge.fix": "Düzeltme",
   "changelog.badge.docs": "Doküman",
   "changelog.badge.other": "Güncelleme",
-
   "useCases.label": "Kullanım Alanları",
-
   "docs.searchPlaceholder": "Dokümanlarda ara...",
   "docs.noResults": "Sonuç bulunamadı",
   "docs.tocTitle": "Bu sayfada",
-
   "status.label": "Sistem Durumu",
   "status.title": "Servis Durumu",
   "status.allOk": "Tüm sistemler çalışıyor",
@@ -2040,11 +2033,10 @@
   "status.lastChecked": "Son kontrol:",
   "status.autoRefresh": "Her 30 saniyede otomatik yenilenir",
   "status.reportIssue": "Sorun bildir",
-
   "footer.stayInLoop": "Gelişmelerden haberdar olun",
   "footer.noSpam": "Agentic AI güncellemeleri alın. Spam yok.",
-
   "cookie.text": "Deneyiminizi geliştirmek için çerezler ve analitik (Google Analytics, Microsoft Clarity) kullanıyoruz. Devam ederek çerez kullanımımızı kabul etmiş olursunuz.",
   "cookie.accept": "Kabul Et",
-  "cookie.decline": "Reddet"
+  "cookie.decline": "Reddet",
+  "nav.webhooks": "Webhook Test"
 }

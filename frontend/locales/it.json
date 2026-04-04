@@ -2037,5 +2037,6 @@
   "footer.noSpam": "Ricevi aggiornamenti sull'IA agentica. Niente spam.",
   "cookie.text": "Utilizziamo cookie e analisi (Google Analytics, Microsoft Clarity) per migliorare la tua esperienza. Continuando, accetti l'uso dei cookie.",
   "cookie.accept": "Accetta",
-  "cookie.decline": "Rifiuta"
+  "cookie.decline": "Rifiuta",
+  "nav.webhooks": "Test Webhook"
 }

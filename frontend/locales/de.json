@@ -2037,5 +2037,6 @@
   "footer.noSpam": "Agentic AI Updates erhalten. Kein Spam.",
   "cookie.text": "Wir verwenden Cookies und Analysen (Google Analytics, Microsoft Clarity) zur Verbesserung Ihrer Erfahrung. Durch Fortfahren stimmen Sie der Verwendung von Cookies zu.",
   "cookie.accept": "Akzeptieren",
-  "cookie.decline": "Ablehnen"
+  "cookie.decline": "Ablehnen",
+  "nav.webhooks": "Webhook-Tester"
 }

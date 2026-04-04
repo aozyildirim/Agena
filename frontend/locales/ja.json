@@ -2037,5 +2037,6 @@
   "footer.noSpam": "エージェンティックAIの更新を受け取る。スパムなし。",
   "cookie.text": "当サイトではCookieとアナリティクス（Google Analytics、Microsoft Clarity）を使用して体験を向上させています。続行すると、Cookieの使用に同意したことになります。",
   "cookie.accept": "同意する",
-  "cookie.decline": "拒否する"
+  "cookie.decline": "拒否する",
+  "nav.webhooks": "Webhookテスト"
 }

@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🔗' },
       { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const },
+      { href: '/dashboard/webhooks', key: 'nav.webhooks', icon: '🪝', permission: 'integrations:manage' as const },
       { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🛡', permission: 'roles:manage' as const },
     ],

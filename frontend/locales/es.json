@@ -2037,5 +2037,6 @@
   "footer.noSpam": "Recibe actualizaciones de IA agéntica. Sin spam.",
   "cookie.text": "Usamos cookies y analíticas (Google Analytics, Microsoft Clarity) para mejorar tu experiencia. Al continuar, aceptas el uso de cookies.",
   "cookie.accept": "Aceptar",
-  "cookie.decline": "Rechazar"
+  "cookie.decline": "Rechazar",
+  "nav.webhooks": "Prueba de Webhooks"
 }

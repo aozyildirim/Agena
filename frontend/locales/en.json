@@ -1961,7 +1961,6 @@
   "command.team": "Team Members",
   "command.repoMapping": "Repo Mapping",
   "command.notifications": "Notifications",
-
   "blog.label": "Blog",
   "blog.title": "Agentic AI & Pixel Agent Insights",
   "blog.subtitle": "Autonomous software development, AI code generation, and the future of agentic AI — from the AGENA team.",
@@ -1969,14 +1968,12 @@
   "blog.noResults": "No articles found for",
   "blog.newsletter.title": "Stay updated on Agentic AI",
   "blog.newsletter.subtitle": "Get the latest insights on autonomous code generation, AI agents, and pixel agent technology. No spam.",
-
   "blogPost.share": "Share:",
   "blogPost.copyLink": "Copy link",
   "blogPost.toc": "On this page",
   "blogPost.cta.title": "Ready to try agentic AI?",
   "blogPost.cta.subtitle": "Start free and let AGENA's pixel agents handle your development workflow.",
   "blogPost.cta.button": "Start Free",
-
   "contact.label": "Contact",
   "contact.title": "Get in Touch",
   "contact.subtitle": "Have a question about AGENA, need help with setup, or interested in enterprise plans? Drop us a message.",
@@ -2007,7 +2004,6 @@
   "contact.faq5A": "The free tier includes 5 AI tasks per month with full feature access. No credit card required. Upgrade to Pro for unlimited tasks and priority processing.",
   "contact.faq6Q": "Is my code secure?",
   "contact.faq6A": "AGENA never stores your source code. All repository access is scoped via OAuth tokens and code is processed in isolated sessions. Self-hosting gives you full control.",
-
   "changelog.label": "Changelog",
   "changelog.title": "What's New in AGENA",
   "changelog.subtitle": "Real-time changelog pulled from our git history.",
@@ -2021,13 +2017,10 @@
   "changelog.badge.fix": "Fix",
   "changelog.badge.docs": "Docs",
   "changelog.badge.other": "Update",
-
   "useCases.label": "Use Cases",
-
   "docs.searchPlaceholder": "Search docs...",
   "docs.noResults": "No results found",
   "docs.tocTitle": "On this page",
-
   "status.label": "System Status",
   "status.title": "Service Status",
   "status.allOk": "All systems operational",
@@ -2040,11 +2033,10 @@
   "status.lastChecked": "Last checked:",
   "status.autoRefresh": "Auto-refreshes every 30s",
   "status.reportIssue": "Report an issue",
-
   "footer.stayInLoop": "Stay in the loop",
   "footer.noSpam": "Get agentic AI updates. No spam.",
-
   "cookie.text": "We use cookies and analytics (Google Analytics, Microsoft Clarity) to improve your experience. By continuing, you agree to our use of cookies.",
   "cookie.accept": "Accept",
-  "cookie.decline": "Decline"
+  "cookie.decline": "Decline",
+  "nav.webhooks": "Webhook Tester"
 }

@@ -56,8 +56,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${baseUrl}/changelog`,
-      lastModified: new Date('2026-04-01'),
+      lastModified: new Date('2026-04-04'),
       changeFrequency: 'weekly',
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/roadmap`,
+      lastModified: new Date('2026-04-04'),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/api-docs`,
+      lastModified: new Date('2026-04-04'),
+      changeFrequency: 'monthly',
       priority: 0.6,
     },
     ...blogPosts.map((post) => ({

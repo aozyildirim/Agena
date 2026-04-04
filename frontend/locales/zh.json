@@ -2037,5 +2037,6 @@
   "footer.noSpam": "获取智能代理AI更新。无垃圾邮件。",
   "cookie.text": "我们使用cookies和分析工具（Google Analytics、Microsoft Clarity）来改善您的体验。继续即表示您同意使用cookies。",
   "cookie.accept": "接受",
-  "cookie.decline": "拒绝"
+  "cookie.decline": "拒绝",
+  "nav.webhooks": "Webhook测试"
 }
