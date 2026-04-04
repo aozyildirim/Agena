@@ -1,0 +1,36 @@
+{
+  "name": "@agena/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for the AGENA Agentic AI Platform API",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+  },
+  "keywords": [
+    "agena", "agentic-ai", "ai-agent", "code-generation",
+    "pull-request-automation", "sdk", "api-client"
+  ],
+  "author": "AGENA <hello@agena.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aozyildirim/Agena"
+  },
+  "homepage": "https://agena.dev/sdk",
+  "bugs": "https://github.com/aozyildirim/Agena/issues",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  }
+}

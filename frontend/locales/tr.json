@@ -2144,5 +2144,21 @@
   "nav.docs": "Dokümanlar",
   "nav.blog": "Blog",
   "nav.contact": "İletişim",
-  "nav.changelog": "Değişiklikler"
+  "nav.changelog": "Değişiklikler",
+  "docs.sec.sdk": "SDK",
+  "docs.sdkInstall": "Kurulum",
+  "docs.sdkQuickstart": "Hızlı Başlangıç",
+  "docs.sdkReference": "API Referansı",
+  "sdk.label": "SDK",
+  "sdk.title": "AGENA SDK",
+  "sdk.subtitle": "AGENA'nın agentic AI platformuyla geliştirin. Programatik olarak görev oluşturun, akış çalıştırın ve iş akışınızı otomatikleştirin.",
+  "sdk.install": "Kurulum",
+  "sdk.features": "Neler yapabilirsiniz",
+  "sdk.feat1": "AI görevleri oluşturun ve otomatik PR'lar alın",
+  "sdk.feat2": "API ile görsel otomasyon akışlarını çalıştırın",
+  "sdk.feat3": "AI agent durumunu gerçek zamanlı izleyin",
+  "sdk.feat4": "Entegrasyonları yönetin (GitHub, Azure DevOps, Jira)",
+  "sdk.feat5": "Tip tanımlarıyla tam TypeScript desteği",
+  "sdk.docsLink": "Tam dokümantasyonu okuyun",
+  "sdk.openSource": "MIT lisansı altında açık kaynak"
 }

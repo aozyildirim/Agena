@@ -2144,5 +2144,21 @@
   "nav.docs": "ドキュメント",
   "nav.blog": "ブログ",
   "nav.contact": "お問い合わせ",
-  "nav.changelog": "変更履歴"
+  "nav.changelog": "変更履歴",
+  "docs.sec.sdk": "SDK",
+  "docs.sdkInstall": "インストール",
+  "docs.sdkQuickstart": "クイックスタート",
+  "docs.sdkReference": "APIリファレンス",
+  "sdk.label": "SDK",
+  "sdk.title": "AGENA SDK",
+  "sdk.subtitle": "AGENAのエージェンティックAIプラットフォームで構築。プログラムでタスク作成、フロー実行、ワークフロー自動化を行えます。",
+  "sdk.install": "インストール",
+  "sdk.features": "できること",
+  "sdk.feat1": "AIタスクを作成し自動生成PRを取得",
+  "sdk.feat2": "APIでビジュアルオートメーションフローを実行",
+  "sdk.feat3": "AIエージェントのステータスをリアルタイム監視",
+  "sdk.feat4": "インテグレーション管理（GitHub、Azure DevOps、Jira）",
+  "sdk.feat5": "型定義付きの完全なTypeScriptサポート",
+  "sdk.docsLink": "完全なドキュメントを読む",
+  "sdk.openSource": "MITライセンスのオープンソース"
 }

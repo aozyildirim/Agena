@@ -68,6 +68,14 @@ const sectionsDef = [
       { id: 'integrations-api', titleKey: 'docs.integrationsApi' },
     ],
   },
+  {
+    id: 'sdk', icon: '📦', titleKey: 'docs.sec.sdk',
+    children: [
+      { id: 'sdk-install', titleKey: 'docs.sdkInstall' },
+      { id: 'sdk-quickstart', titleKey: 'docs.sdkQuickstart' },
+      { id: 'sdk-reference', titleKey: 'docs.sdkReference' },
+    ],
+  },
 ];
 
 // EN content imported statically; other langs loaded dynamically
@@ -908,6 +916,49 @@ GET /integrations/github/repos
 # List GitHub branches
 GET /integrations/github/branches?owner=...&repo=...
 \`\`\`
+  `,
+  'sdk-install': `
+### Installation
+
+Install the AGENA SDK via npm:
+
+\`\`\`bash
+npm install @agena/sdk
+\`\`\`
+
+#### Requirements
+- Node.js 18+ or any environment with \\\`fetch\\\` support
+- An AGENA account with an API token
+  `,
+  'sdk-quickstart': `
+### Quick Start
+
+\`\`\`typescript
+import { AgenaClient } from '@agena/sdk';
+
+const agena = new AgenaClient({ apiKey: 'your-token' });
+
+const task = await agena.tasks.create({
+  title: 'Add dark mode',
+  description: 'Implement dark/light theme toggle',
+});
+
+console.log(task.pr_url);
+\`\`\`
+  `,
+  'sdk-reference': `
+### API Reference
+
+| Method | Description |
+|--------|-------------|
+| \\\`agena.tasks.create(params)\\\` | Create a new AI task |
+| \\\`agena.tasks.get(id)\\\` | Get task by ID |
+| \\\`agena.tasks.list()\\\` | List tasks |
+| \\\`agena.flows.run({ flow_id })\\\` | Execute a flow |
+| \\\`agena.agents.liveStatus(taskId)\\\` | Get live agent status |
+| \\\`agena.integrations.list()\\\` | List integrations |
+
+See full docs at [agena.dev/sdk](/sdk).
   `,
 };
 

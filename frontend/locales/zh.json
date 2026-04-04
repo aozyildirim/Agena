@@ -2144,5 +2144,21 @@
   "nav.docs": "文档",
   "nav.blog": "博客",
   "nav.contact": "联系我们",
-  "nav.changelog": "更新日志"
+  "nav.changelog": "更新日志",
+  "docs.sec.sdk": "SDK",
+  "docs.sdkInstall": "安装",
+  "docs.sdkQuickstart": "快速入门",
+  "docs.sdkReference": "API参考",
+  "sdk.label": "SDK",
+  "sdk.title": "AGENA SDK",
+  "sdk.subtitle": "使用AGENA的智能代理AI平台进行构建。以编程方式创建任务、运行流程并自动化开发工作流。",
+  "sdk.install": "安装",
+  "sdk.features": "您可以做什么",
+  "sdk.feat1": "创建AI任务并获取自动生成的PR",
+  "sdk.feat2": "通过API执行可视化自动化流程",
+  "sdk.feat3": "实时监控AI代理状态",
+  "sdk.feat4": "管理集成（GitHub、Azure DevOps、Jira）",
+  "sdk.feat5": "完整的TypeScript支持和类型定义",
+  "sdk.docsLink": "阅读完整文档",
+  "sdk.openSource": "MIT许可证开源"
 }

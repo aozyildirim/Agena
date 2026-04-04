@@ -2144,5 +2144,21 @@
   "nav.docs": "Documentación",
   "nav.blog": "Blog",
   "nav.contact": "Contacto",
-  "nav.changelog": "Cambios"
+  "nav.changelog": "Cambios",
+  "docs.sec.sdk": "SDK",
+  "docs.sdkInstall": "Instalación",
+  "docs.sdkQuickstart": "Inicio Rápido",
+  "docs.sdkReference": "Referencia API",
+  "sdk.label": "SDK",
+  "sdk.title": "AGENA SDK",
+  "sdk.subtitle": "Construye con la plataforma de IA agéntica de AGENA. Crea tareas, ejecuta flujos y automatiza tu flujo de trabajo programáticamente.",
+  "sdk.install": "Instalar",
+  "sdk.features": "Qué puedes hacer",
+  "sdk.feat1": "Crea tareas IA y obtén PRs autogenerados",
+  "sdk.feat2": "Ejecuta flujos de automatización visual via API",
+  "sdk.feat3": "Monitorea el estado de agentes IA en tiempo real",
+  "sdk.feat4": "Gestiona integraciones (GitHub, Azure DevOps, Jira)",
+  "sdk.feat5": "Soporte completo de TypeScript con tipos",
+  "sdk.docsLink": "Lee la documentación completa",
+  "sdk.openSource": "Código abierto bajo licencia MIT"
 }
