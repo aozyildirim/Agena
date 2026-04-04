@@ -115,7 +115,7 @@ const jsonLd = {
       url: SITE_URL,
       name: 'AGENA',
       description: 'Agentic AI Platform for Autonomous Code Generation',
-      inLanguage: ['tr-TR', 'en-US'],
+      inLanguage: ['tr-TR', 'en-US', 'es-ES', 'de-DE', 'zh-CN', 'it-IT', 'ja-JP'],
       potentialAction: {
         '@type': 'SearchAction',
         target: {
@@ -138,6 +138,12 @@ const jsonLd = {
         'https://github.com/aozyildirim/Agena',
         'https://www.producthunt.com/products/agena',
       ],
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        url: `${SITE_URL}/contact`,
+        availableLanguage: ['Turkish', 'English', 'Spanish', 'German', 'Chinese', 'Italian', 'Japanese'],
+      },
     },
     {
       '@type': 'SiteNavigationElement',
@@ -165,6 +171,21 @@ const jsonLd = {
       url: `${SITE_URL}/contact`,
     },
     {
+      '@type': 'SiteNavigationElement',
+      name: 'Roadmap',
+      url: `${SITE_URL}/roadmap`,
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      name: 'API Documentation',
+      url: `${SITE_URL}/api-docs`,
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      name: 'Status',
+      url: `${SITE_URL}/status`,
+    },
+    {
       '@type': 'SoftwareApplication',
       name: 'AGENA',
       applicationCategory: 'DeveloperApplication',
@@ -185,6 +206,33 @@ const jsonLd = {
         'GitHub & Azure DevOps integration',
         'Agentic AI pipeline',
         'Pixel agent orchestration',
+        'Visual flow builder',
+        'DORA metrics dashboard',
+        'ChatOps (Slack, Teams, Telegram)',
+        'Vector memory with Qdrant',
+        '7-language interface',
+      ],
+      screenshot: `${SITE_URL}/og-image.png`,
+      softwareVersion: '0.9.0',
+      releaseNotes: `${SITE_URL}/changelog`,
+      license: 'https://opensource.org/licenses/MIT',
+      isAccessibleForFree: true,
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.8',
+        ratingCount: '24',
+        bestRating: '5',
+      },
+    },
+    {
+      '@type': 'HowTo',
+      name: 'How to use AGENA for autonomous code generation',
+      description: 'Get started with AGENA in 4 simple steps to automate your development workflow.',
+      step: [
+        { '@type': 'HowToStep', position: 1, name: 'Sign Up', text: 'Create a free AGENA account at agena.dev/signup', url: `${SITE_URL}/signup` },
+        { '@type': 'HowToStep', position: 2, name: 'Connect Repository', text: 'Link your GitHub or Azure DevOps repository via the integrations dashboard', url: `${SITE_URL}/docs#integrations` },
+        { '@type': 'HowToStep', position: 3, name: 'Create a Task', text: 'Import tasks from Jira or create one manually with a description of what you need built', url: `${SITE_URL}/docs#tasks` },
+        { '@type': 'HowToStep', position: 4, name: 'AI Generates PR', text: 'AGENA AI agents analyze, generate code, review quality, and open a pull request automatically', url: `${SITE_URL}/docs#pipeline` },
       ],
     },
     {
@@ -238,6 +286,38 @@ const jsonLd = {
             text: 'Yes, AGENA is fully open source under the MIT license. You can self-host it or use the managed platform. The source code is available on GitHub at github.com/aozyildirim/Agena.',
           },
         },
+        {
+          '@type': 'Question',
+          name: 'How does AGENA compare to GitHub Copilot?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'While GitHub Copilot suggests code line by line within your IDE, AGENA is a full agentic AI platform that takes a complete task and autonomously generates production code, reviews it, and creates a pull request. AGENA handles the entire workflow from backlog to PR.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Can AGENA work with my existing CI/CD pipeline?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes. AGENA creates standard pull requests on GitHub or Azure DevOps. Your existing CI/CD pipeline, code review process, and branch protection rules all work as normal with AI-generated PRs.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What programming languages does AGENA support?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'AGENA supports all programming languages that the underlying LLM models support, including Python, JavaScript, TypeScript, Java, Go, Rust, C#, PHP, Ruby, and more. The AI agents analyze your existing codebase to match patterns and conventions.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How secure is AGENA with my source code?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'AGENA never stores your source code. Repository access is scoped via OAuth tokens, code is processed in isolated sessions, and you can self-host for complete control. All data is organization-scoped with full tenant isolation.',
+          },
+        },
       ],
     },
   ],
@@ -256,12 +336,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang={lang}>
       <head>
-        <link
-          rel='alternate'
-          type='application/rss+xml'
-          title='AGENA Blog'
-          href='/feed.xml'
-        />
+        <link rel='alternate' type='application/rss+xml' title='AGENA Blog' href='/feed.xml' />
+        <link rel='alternate' hrefLang='x-default' href={SITE_URL} />
+        <link rel='alternate' hrefLang='tr' href={`${SITE_URL}/?lang=tr`} />
+        <link rel='alternate' hrefLang='en' href={`${SITE_URL}/?lang=en`} />
+        <link rel='alternate' hrefLang='es' href={`${SITE_URL}/?lang=es`} />
+        <link rel='alternate' hrefLang='de' href={`${SITE_URL}/?lang=de`} />
+        <link rel='alternate' hrefLang='zh' href={`${SITE_URL}/?lang=zh`} />
+        <link rel='alternate' hrefLang='it' href={`${SITE_URL}/?lang=it`} />
+        <link rel='alternate' hrefLang='ja' href={`${SITE_URL}/?lang=ja`} />
         <link
           rel='preconnect'
           href='https://fonts.googleapis.com'

@@ -1817,9 +1817,17 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
             <p style={{ color: 'var(--ink-45)', marginBottom: 20, fontSize: 15 }}>
               Start free and let AGENA&apos;s pixel agents handle your development workflow.
             </p>
-            <Link href='/signup' className='button button-primary' style={{ fontSize: 15, padding: '12px 28px' }}>
-              Start Free →
-            </Link>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href='/signup' className='button button-primary' style={{ fontSize: 15, padding: '12px 28px' }}>
+                Start Free →
+              </Link>
+              <Link href='/docs' className='button button-outline' style={{ fontSize: 14, padding: '12px 24px' }}>
+                Docs
+              </Link>
+              <Link href='/use-cases' className='button button-outline' style={{ fontSize: 14, padding: '12px 24px' }}>
+                Use Cases
+              </Link>
+            </div>
           </div>
         </article>
 
