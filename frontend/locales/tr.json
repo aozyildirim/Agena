@@ -2038,5 +2038,21 @@
   "cookie.text": "Deneyiminizi geliştirmek için çerezler ve analitik (Google Analytics, Microsoft Clarity) kullanıyoruz. Devam ederek çerez kullanımımızı kabul etmiş olursunuz.",
   "cookie.accept": "Kabul Et",
   "cookie.decline": "Reddet",
-  "nav.webhooks": "Webhook Test"
+  "nav.webhooks": "Webhook Test",
+  "footer.product": "Ürün",
+  "footer.resources": "Kaynaklar",
+  "footer.community": "Topluluk",
+  "footer.useCases": "Kullanım Alanları",
+  "footer.contact": "İletişim",
+  "footer.changelog": "Değişiklik Günlüğü",
+  "footer.docs": "Dokümantasyon",
+  "footer.blog": "Blog",
+  "footer.agenticAI": "Agentic AI Nedir?",
+  "footer.pixelAgent": "Pixel Agent Teknolojisi",
+  "footer.vsCopilot": "AGENA vs Copilot",
+  "footer.sponsor": "Sponsor",
+  "footer.issues": "Sorunlar",
+  "footer.roadmap": "Yol Haritası",
+  "footer.apiDocs": "API Dokümanları",
+  "footer.copyright": "Agentic AI Platformu & Pixel Agent Teknolojisi."
 }

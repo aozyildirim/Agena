@@ -2038,5 +2038,21 @@
   "cookie.text": "当サイトではCookieとアナリティクス（Google Analytics、Microsoft Clarity）を使用して体験を向上させています。続行すると、Cookieの使用に同意したことになります。",
   "cookie.accept": "同意する",
   "cookie.decline": "拒否する",
-  "nav.webhooks": "Webhookテスト"
+  "nav.webhooks": "Webhookテスト",
+  "footer.product": "製品",
+  "footer.resources": "リソース",
+  "footer.community": "コミュニティ",
+  "footer.useCases": "ユースケース",
+  "footer.contact": "お問い合わせ",
+  "footer.changelog": "変更履歴",
+  "footer.docs": "ドキュメント",
+  "footer.blog": "ブログ",
+  "footer.agenticAI": "エージェンティックAIとは？",
+  "footer.pixelAgent": "ピクセルエージェント技術",
+  "footer.vsCopilot": "AGENA vs Copilot",
+  "footer.sponsor": "スポンサー",
+  "footer.issues": "Issues",
+  "footer.roadmap": "ロードマップ",
+  "footer.apiDocs": "APIドキュメント",
+  "footer.copyright": "エージェンティックAIプラットフォーム＆ピクセルエージェント技術。"
 }

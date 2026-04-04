@@ -2038,5 +2038,21 @@
   "cookie.text": "We use cookies and analytics (Google Analytics, Microsoft Clarity) to improve your experience. By continuing, you agree to our use of cookies.",
   "cookie.accept": "Accept",
   "cookie.decline": "Decline",
-  "nav.webhooks": "Webhook Tester"
+  "nav.webhooks": "Webhook Tester",
+  "footer.product": "Product",
+  "footer.resources": "Resources",
+  "footer.community": "Community",
+  "footer.useCases": "Use Cases",
+  "footer.contact": "Contact",
+  "footer.changelog": "Changelog",
+  "footer.docs": "Documentation",
+  "footer.blog": "Blog",
+  "footer.agenticAI": "What is Agentic AI?",
+  "footer.pixelAgent": "Pixel Agent Technology",
+  "footer.vsCopilot": "AGENA vs Copilot",
+  "footer.sponsor": "Sponsor",
+  "footer.issues": "Issues",
+  "footer.roadmap": "Roadmap",
+  "footer.apiDocs": "API Docs",
+  "footer.copyright": "Agentic AI Platform & Pixel Agent Technology."
 }
