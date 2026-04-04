@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 const posts = [
   {
     slug: 'what-is-agentic-ai',
+    lang: 'en',
     title: 'What is Agentic AI? The Future of Autonomous Software Development',
     description:
       'Agentic AI represents a paradigm shift in software development. Learn how autonomous AI agents can write code, review pull requests, and ship features without human intervention.',
@@ -27,6 +28,7 @@ const posts = [
   },
   {
     slug: 'pixel-agent-technology',
+    lang: 'en',
     title: 'Pixel Agent Technology: How AGENA Orchestrates AI Workflows Visually',
     description:
       'Discover how pixel agent technology powers AGENA\'s visual orchestration layer, enabling teams to monitor and manage autonomous AI agents in real-time.',
@@ -36,6 +38,7 @@ const posts = [
   },
   {
     slug: 'ai-code-generation-best-practices',
+    lang: 'en',
     title: 'AI Code Generation Best Practices: From Backlog to Pull Request in Minutes',
     description:
       'How to leverage agentic AI for production-grade code generation. Best practices for autonomous PR creation, code review, and quality assurance with AI agents.',
@@ -45,6 +48,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-orchestration',
+    lang: 'en',
     title: 'Building Multi-Agent Pipelines with CrewAI and LangGraph',
     description:
       'A deep dive into how AGENA combines CrewAI role orchestration with LangGraph state machines to create reliable, observable AI agent pipelines for software delivery.',
@@ -54,6 +58,7 @@ const posts = [
   },
   {
     slug: 'multi-tenant-ai-saas-architecture',
+    lang: 'en',
     title: 'Designing a Multi-Tenant AI SaaS: Lessons from Building AGENA',
     description:
       'Architecture decisions behind building a production-ready multi-tenant AI agent platform. Organization isolation, usage limits, billing, and security patterns.',
@@ -63,6 +68,7 @@ const posts = [
   },
   {
     slug: 'yapay-zeka-ile-kod-yazma',
+    lang: 'tr',
     title: 'Yapay Zeka ile Kod Yazma: AGENA ile Otonom Geliştirme Rehberi',
     description:
       'Yapay zeka ile kod yazma artık hayal değil. AGENA\'nın agentic AI platformu ile otonom kod üretimi, PR oluşturma ve kalite kontrolünü öğrenin.',
@@ -72,6 +78,7 @@ const posts = [
   },
   {
     slug: 'ai-agent-nedir',
+    lang: 'tr',
     title: 'AI Agent Nedir? Yapay Zeka Agentlarının Yazılım Geliştirmedeki Rolü',
     description:
       'AI agent nedir, nasıl çalışır ve yazılım geliştirmede nasıl kullanılır? Agentic AI kavramını ve AGENA platformunun agent mimarisini keşfedin.',
@@ -81,6 +88,7 @@ const posts = [
   },
   {
     slug: 'ai-ile-pr-otomasyonu',
+    lang: 'tr',
     title: 'AI ile Pull Request Otomasyonu: Backlog\'dan PR\'a Dakikalar İçinde',
     description:
       'AI ile otomatik pull request oluşturma nasıl çalışır? AGENA\'nın agentic AI pipeline\'ı ile görev tanımından production-ready PR\'a kadar tüm süreci öğrenin.',
@@ -90,6 +98,7 @@ const posts = [
   },
   {
     slug: 'otonom-kodlama-rehberi',
+    lang: 'tr',
     title: 'Otonom Kodlama: AI Agentlar ile Yazılım Geliştirmenin Yeni Çağı',
     description:
       'Otonom kodlama nedir ve nasıl çalışır? AI agentların bağımsız olarak kod yazması, review etmesi ve PR açması hakkında kapsamlı rehber.',
@@ -99,6 +108,7 @@ const posts = [
   },
   {
     slug: 'agentic-ai-nedir',
+    lang: 'tr',
     title: 'Agentic AI Nedir? Otonom Yapay Zeka Sistemlerinin Geleceği',
     description:
       'Agentic AI nedir, geleneksel yapay zekadan farkı ne? Otonom AI agentların yazılım geliştirme, kod üretimi ve PR otomasyonundaki devrimci rolünü keşfedin.',
@@ -108,6 +118,7 @@ const posts = [
   },
   {
     slug: 'github-copilot-alternative',
+    lang: 'en',
     title: 'AGENA vs GitHub Copilot: The Agentic AI Alternative for Full Autonomy',
     description:
       'Compare AGENA with GitHub Copilot. While Copilot suggests code line by line, AGENA\'s agentic AI agents autonomously generate complete PRs from task descriptions.',
@@ -117,6 +128,7 @@ const posts = [
   },
   {
     slug: 'ia-agentes-autonomos',
+    lang: 'es',
     title: 'Agentes IA Autónomos: Cómo Revolucionan el Desarrollo de Software',
     description:
       'Los agentes IA autónomos están transformando la forma en que los equipos desarrollan software. Descubre cómo AGENA automatiza desde el análisis hasta la creación de pull requests.',
@@ -126,6 +138,7 @@ const posts = [
   },
   {
     slug: 'automatizacion-pull-requests-ia',
+    lang: 'es',
     title: 'Automatización de Pull Requests con IA: De la Idea al Código en Minutos',
     description:
       'Aprende cómo la IA agéntica automatiza la creación de pull requests. AGENA genera código, revisa calidad y abre PRs automáticamente desde descripciones de tareas.',
@@ -135,6 +148,7 @@ const posts = [
   },
   {
     slug: 'ki-agenten-softwareentwicklung',
+    lang: 'de',
     title: 'KI-Agenten in der Softwareentwicklung: Autonome Code-Generierung mit AGENA',
     description:
       'Erfahren Sie, wie KI-Agenten die Softwareentwicklung revolutionieren. AGENA automatisiert den gesamten Prozess von der Aufgabe bis zum Pull Request.',
@@ -144,6 +158,7 @@ const posts = [
   },
   {
     slug: 'automatische-pull-requests-ki',
+    lang: 'de',
     title: 'Automatische Pull Requests mit KI: Vom Backlog zum Code in Minuten',
     description:
       'Wie agentische KI die Erstellung von Pull Requests automatisiert. AGENA generiert Code, überprüft Qualität und öffnet PRs automatisch.',
@@ -153,6 +168,7 @@ const posts = [
   },
   {
     slug: 'zhineng-daili-ai-ruanjian-kaifa',
+    lang: 'zh',
     title: '智能代理AI：自主软件开发的未来',
     description:
       '了解智能代理AI如何革命性地改变软件开发。AGENA的自主AI代理可以自动编写代码、审查质量并创建拉取请求。',
@@ -162,6 +178,7 @@ const posts = [
   },
   {
     slug: 'ai-zidong-pull-request',
+    lang: 'zh',
     title: 'AI自动化Pull Request：从需求到代码只需几分钟',
     description:
       '了解智能代理AI如何自动化拉取请求的创建。AGENA从任务描述自动生成代码、审查质量并创建PR。',
@@ -171,6 +188,7 @@ const posts = [
   },
   {
     slug: 'ai-agent-jisedai-kaihatsu',
+    lang: 'ja',
     title: 'AIエージェントによる次世代ソフトウェア開発',
     description:
       'AIエージェントがソフトウェア開発をどのように革新するか。AGENAの自律型AIエージェントはコード生成からプルリクエスト作成まで自動化します。',
@@ -180,6 +198,7 @@ const posts = [
   },
   {
     slug: 'jidou-pull-request-ai',
+    lang: 'ja',
     title: 'AIによるPull Request自動化：バックログからコードまで数分で',
     description:
       'エージェンティックAIがプルリクエストの作成をどのように自動化するか。AGENAはタスク説明からコード生成、品質レビュー、PR作成まで自動で行います。',
@@ -189,6 +208,7 @@ const posts = [
   },
   {
     slug: 'agenti-ia-sviluppo-software',
+    lang: 'it',
     title: 'Agenti IA nello Sviluppo Software: Generazione Autonoma di Codice con AGENA',
     description:
       'Scopri come gli agenti IA stanno rivoluzionando lo sviluppo software. AGENA automatizza l\'intero processo dall\'analisi alla creazione di pull request.',
@@ -198,6 +218,7 @@ const posts = [
   },
   {
     slug: 'automazione-pull-request-ia',
+    lang: 'it',
     title: 'Automazione Pull Request con IA: Dall\'Idea al Codice in Minuti',
     description:
       'Come l\'IA agentica automatizza la creazione di pull request. AGENA genera codice, rivede la qualità e apre PR automaticamente.',
@@ -207,6 +228,7 @@ const posts = [
   },
   {
     slug: 'agentic-ai-nedir-rehber',
+    lang: 'tr',
     title: 'Agentic AI Nedir? Otonom Yazılım Geliştirmenin Geleceği',
     description: 'Agentic AI, yazılım geliştirmede paradigma değişimi yaratıyor. Otonom AI agentlarının nasıl kod yazıp, PR oluşturup, özellikleri teslim ettiğini öğrenin.',
     date: '2026-04-04',
@@ -215,6 +237,7 @@ const posts = [
   },
   {
     slug: 'que-es-ia-agente',
+    lang: 'es',
     title: '¿Qué es la IA Agéntica? El Futuro del Desarrollo Autónomo',
     description: 'La IA agéntica representa un cambio de paradigma. Aprende cómo los agentes IA autónomos escriben código y crean PRs.',
     date: '2026-04-04',
@@ -223,6 +246,7 @@ const posts = [
   },
   {
     slug: 'was-ist-agentische-ki',
+    lang: 'de',
     title: 'Was ist Agentische KI? Die Zukunft der autonomen Softwareentwicklung',
     description: 'Agentische KI stellt einen Paradigmenwechsel dar. Erfahren Sie, wie autonome KI-Agenten Code schreiben und PRs erstellen.',
     date: '2026-04-04',
@@ -231,6 +255,7 @@ const posts = [
   },
   {
     slug: 'shenme-shi-zhineng-daili-ai',
+    lang: 'zh',
     title: '什么是智能代理AI？自主软件开发的未来',
     description: '智能代理AI正在改变软件开发的范式。了解自主AI代理如何编写代码并创建拉取请求。',
     date: '2026-04-04',
@@ -239,6 +264,7 @@ const posts = [
   },
   {
     slug: 'cosa-e-ia-agentica',
+    lang: 'it',
     title: 'Cos\'è l\'IA Agentica? Il Futuro dello Sviluppo Software Autonomo',
     description: 'L\'IA agentica rappresenta un cambio di paradigma. Scopri come gli agenti IA autonomi scrivono codice e creano PR.',
     date: '2026-04-04',
@@ -247,6 +273,7 @@ const posts = [
   },
   {
     slug: 'ejentikku-ai-toha',
+    lang: 'ja',
     title: 'エージェンティックAIとは？自律型ソフトウェア開発の未来',
     description: 'エージェンティックAIはソフトウェア開発のパラダイムシフトです。自律型AIエージェントの仕組みを学びましょう。',
     date: '2026-04-04',
@@ -255,6 +282,7 @@ const posts = [
   },
   {
     slug: 'pixel-agent-teknolojisi',
+    lang: 'tr',
     title: 'Pixel Agent Teknolojisi: AGENA AI İş Akışlarını Nasıl Görselleştiriyor',
     description: 'Pixel agent teknolojisinin AGENA\'nın görsel orkestrasyon katmanını nasıl güçlendirdiğini keşfedin.',
     date: '2026-04-04',
@@ -263,6 +291,7 @@ const posts = [
   },
   {
     slug: 'tecnologia-pixel-agent',
+    lang: 'es',
     title: 'Tecnología Pixel Agent: Cómo AGENA Orquesta Flujos de IA Visualmente',
     description: 'Descubre cómo la tecnología pixel agent impulsa la orquestación visual de AGENA.',
     date: '2026-04-04',
@@ -271,6 +300,7 @@ const posts = [
   },
   {
     slug: 'pixel-agent-technologie',
+    lang: 'de',
     title: 'Pixel-Agent-Technologie: Wie AGENA KI-Workflows visuell orchestriert',
     description: 'Entdecken Sie die Pixel-Agent-Technologie für visuelle KI-Orchestrierung.',
     date: '2026-04-04',
@@ -279,6 +309,7 @@ const posts = [
   },
   {
     slug: 'xiangsu-daili-jishu',
+    lang: 'zh',
     title: '像素代理技术：AGENA如何可视化编排AI工作流',
     description: '了解像素代理技术如何为AGENA的可视化编排层提供动力。',
     date: '2026-04-04',
@@ -287,6 +318,7 @@ const posts = [
   },
   {
     slug: 'tecnologia-pixel-agent-it',
+    lang: 'it',
     title: 'Tecnologia Pixel Agent: Come AGENA Orchestra i Flussi IA Visivamente',
     description: 'Scopri come la tecnologia pixel agent alimenta l\'orchestrazione visiva di AGENA.',
     date: '2026-04-04',
@@ -295,6 +327,7 @@ const posts = [
   },
   {
     slug: 'pikueru-ejento-gijutsu',
+    lang: 'ja',
     title: 'ピクセルエージェント技術：AGENAがAIワークフローを視覚的に管理する方法',
     description: 'ピクセルエージェント技術がAGENAの視覚的オーケストレーション層をどう強化するかを学びましょう。',
     date: '2026-04-04',
@@ -303,6 +336,7 @@ const posts = [
   },
   {
     slug: 'ai-kod-uretimi-en-iyi-pratikler',
+    lang: 'tr',
     title: 'AI Kod Üretimi En İyi Pratikler: Backlog\'dan PR\'a Dakikalar İçinde',
     description: 'Agentic AI ile üretim kalitesinde kod üretimi için en iyi pratikler.',
     date: '2026-04-04',
@@ -311,6 +345,7 @@ const posts = [
   },
   {
     slug: 'mejores-practicas-generacion-codigo-ia',
+    lang: 'es',
     title: 'Mejores Prácticas de Generación de Código con IA',
     description: 'Cómo aprovechar la IA agéntica para generación de código de producción.',
     date: '2026-04-04',
@@ -319,6 +354,7 @@ const posts = [
   },
   {
     slug: 'ki-codegenerierung-best-practices',
+    lang: 'de',
     title: 'KI-Codegenerierung Best Practices: Vom Backlog zum PR in Minuten',
     description: 'Best Practices für produktionsreife Codegenerierung mit AGENA.',
     date: '2026-04-04',
@@ -327,6 +363,7 @@ const posts = [
   },
   {
     slug: 'ai-daima-shengcheng-zuijia-shijian',
+    lang: 'zh',
     title: 'AI代码生成最佳实践：从待办事项到PR只需几分钟',
     description: '利用智能代理AI进行生产级代码生成的最佳实践。',
     date: '2026-04-04',
@@ -335,6 +372,7 @@ const posts = [
   },
   {
     slug: 'generazione-codice-ia-best-practice',
+    lang: 'it',
     title: 'Generazione Codice IA Best Practice: Dal Backlog alla PR in Minuti',
     description: 'Come sfruttare l\'IA agentica per la generazione di codice di produzione.',
     date: '2026-04-04',
@@ -343,6 +381,7 @@ const posts = [
   },
   {
     slug: 'ai-koodo-seisei-besuto-purakutisu',
+    lang: 'ja',
     title: 'AIコード生成ベストプラクティス：バックログからPRまで数分で',
     description: 'エージェンティックAIを活用した本番グレードのコード生成のベストプラクティス。',
     date: '2026-04-04',
@@ -351,6 +390,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-orkestrasyon',
+    lang: 'tr',
     title: 'CrewAI ve LangGraph ile Çoklu Agent Pipeline\'ları Oluşturma',
     description: 'AGENA\'nın CrewAI ve LangGraph\'ı birleştirerek güvenilir AI pipeline\'ları oluşturmasına bakış.',
     date: '2026-04-04',
@@ -359,6 +399,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-orquestacion',
+    lang: 'es',
     title: 'Construyendo Pipelines Multi-Agente con CrewAI y LangGraph',
     description: 'Cómo AGENA combina CrewAI con LangGraph para pipelines de agentes confiables.',
     date: '2026-04-04',
@@ -367,6 +408,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-orchestrierung',
+    lang: 'de',
     title: 'Multi-Agent-Pipelines mit CrewAI und LangGraph erstellen',
     description: 'Wie AGENA CrewAI und LangGraph für zuverlässige KI-Pipelines kombiniert.',
     date: '2026-04-04',
@@ -375,6 +417,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-bianpai',
+    lang: 'zh',
     title: '使用CrewAI和LangGraph构建多代理管道',
     description: 'AGENA如何将CrewAI与LangGraph结合创建可靠的AI管道。',
     date: '2026-04-04',
@@ -383,6 +426,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-orchestrazione',
+    lang: 'it',
     title: 'Costruire Pipeline Multi-Agente con CrewAI e LangGraph',
     description: 'Come AGENA combina CrewAI con LangGraph per pipeline affidabili.',
     date: '2026-04-04',
@@ -391,6 +435,7 @@ const posts = [
   },
   {
     slug: 'crewai-langgraph-okesutoreeshon',
+    lang: 'ja',
     title: 'CrewAIとLangGraphでマルチエージェントパイプラインを構築',
     description: 'AGENAがCrewAIとLangGraphを組み合わせて信頼性の高いAIパイプラインを構築する方法。',
     date: '2026-04-04',
@@ -399,6 +444,7 @@ const posts = [
   },
   {
     slug: 'coklu-kiracili-ai-saas-mimarisi',
+    lang: 'tr',
     title: 'Çoklu Kiracılı AI SaaS Tasarımı: AGENA\'yı İnşa Etmekten Dersler',
     description: 'Üretim hazır çoklu kiracılı AI agent platformu oluşturmanın mimari kararları.',
     date: '2026-04-04',
@@ -407,6 +453,7 @@ const posts = [
   },
   {
     slug: 'arquitectura-saas-ia-multiinquilino',
+    lang: 'es',
     title: 'Diseñando un SaaS IA Multi-Tenant: Lecciones de AGENA',
     description: 'Decisiones arquitectónicas para una plataforma multi-tenant de agentes IA.',
     date: '2026-04-04',
@@ -415,6 +462,7 @@ const posts = [
   },
   {
     slug: 'multi-tenant-ki-saas-architektur',
+    lang: 'de',
     title: 'Multi-Tenant KI-SaaS entwerfen: Lehren aus AGENA',
     description: 'Architekturentscheidungen für eine Multi-Tenant KI-Agent-Plattform.',
     date: '2026-04-04',
@@ -423,6 +471,7 @@ const posts = [
   },
   {
     slug: 'duozuhu-ai-saas-jiagou',
+    lang: 'zh',
     title: '设计多租户AI SaaS：构建AGENA的经验教训',
     description: '构建多租户AI代理平台的架构决策。',
     date: '2026-04-04',
@@ -431,6 +480,7 @@ const posts = [
   },
   {
     slug: 'architettura-saas-ia-multi-tenant',
+    lang: 'it',
     title: 'Progettare un SaaS IA Multi-Tenant: Lezioni da AGENA',
     description: 'Decisioni architetturali per una piattaforma multi-tenant di agenti IA.',
     date: '2026-04-04',
@@ -439,6 +489,7 @@ const posts = [
   },
   {
     slug: 'maruchi-tenanto-ai-saas-aakitekucha',
+    lang: 'ja',
     title: 'マルチテナントAI SaaSの設計：AGENAの構築から学んだ教訓',
     description: 'マルチテナントAIエージェントプラットフォーム構築のアーキテクチャ決定。',
     date: '2026-04-04',
@@ -447,6 +498,7 @@ const posts = [
   },
   {
     slug: 'github-copilot-alternatifi',
+    lang: 'tr',
     title: 'AGENA vs GitHub Copilot: Tam Otonomi için Agentic AI Alternatifi',
     description: 'AGENA ile GitHub Copilot karşılaştırması. Copilot satır satır önerirken AGENA tam PR üretir.',
     date: '2026-04-04',
@@ -455,6 +507,7 @@ const posts = [
   },
   {
     slug: 'alternativa-github-copilot',
+    lang: 'es',
     title: 'AGENA vs GitHub Copilot: La Alternativa de IA Agéntica',
     description: 'Compara AGENA con GitHub Copilot. AGENA genera PRs completas autónomamente.',
     date: '2026-04-04',
@@ -463,6 +516,7 @@ const posts = [
   },
   {
     slug: 'github-copilot-alternative-de',
+    lang: 'de',
     title: 'AGENA vs GitHub Copilot: Die agentische KI-Alternative',
     description: 'AGENA vs Copilot. AGENA generiert autonom vollständige PRs.',
     date: '2026-04-04',
@@ -471,6 +525,7 @@ const posts = [
   },
   {
     slug: 'github-copilot-tidai',
+    lang: 'zh',
     title: 'AGENA vs GitHub Copilot：智能代理AI替代方案',
     description: 'AGENA与Copilot对比。AGENA自主生成完整PR。',
     date: '2026-04-04',
@@ -479,6 +534,7 @@ const posts = [
   },
   {
     slug: 'alternativa-github-copilot-it',
+    lang: 'it',
     title: 'AGENA vs GitHub Copilot: L\'Alternativa IA Agentica',
     description: 'Confronta AGENA con Copilot. AGENA genera PR complete autonomamente.',
     date: '2026-04-04',
@@ -487,6 +543,7 @@ const posts = [
   },
   {
     slug: 'github-copilot-daitai',
+    lang: 'ja',
     title: 'AGENA vs GitHub Copilot：エージェンティックAI代替',
     description: 'AGENAとCopilotを比較。AGENAは完全なPRを自律生成します。',
     date: '2026-04-04',

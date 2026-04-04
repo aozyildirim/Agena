@@ -11,14 +11,19 @@ interface Post {
   date: string;
   readTime: string;
   tags: string[];
+  lang?: string;
 }
 
 export default function BlogList({ posts }: { posts: Post[] }) {
-  const { t } = useLocale();
+  const { lang, t } = useLocale();
   const [query, setQuery] = useState('');
 
+  // Filter by active language first
+  const langPosts = posts.filter((p) => (p.lang || 'en') === lang);
+
+  // Then filter by search query
   const filtered = query.trim()
-    ? posts.filter((p) => {
+    ? langPosts.filter((p) => {
         const q = query.toLowerCase();
         return (
           p.title.toLowerCase().includes(q) ||
@@ -26,7 +31,7 @@ export default function BlogList({ posts }: { posts: Post[] }) {
           p.tags.some((t) => t.toLowerCase().includes(q))
         );
       })
-    : posts;
+    : langPosts;
 
   return (
     <>
@@ -56,7 +61,7 @@ export default function BlogList({ posts }: { posts: Post[] }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {filtered.length === 0 && (
           <p style={{ color: 'var(--ink-35)', fontSize: 15, textAlign: 'center', padding: '40px 0' }}>
-            {t('blog.noResults')} &ldquo;{query}&rdquo;
+            {query.trim() ? <>{t('blog.noResults')} &ldquo;{query}&rdquo;</> : t('blog.noResults')}
           </p>
         )}
         {filtered.map((post) => (
