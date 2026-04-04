@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Monorepo Package Structure
 
-Backend is split into **6 pip-installable packages** under `packages/`:
+Backend is split into **6 pip-installable packages** + **1 npm package** under `packages/`:
 
 ```
 packages/
@@ -14,6 +14,7 @@ packages/
   agents/      → agena-agents    (CrewAI/LangGraph pipeline + vector memory)
   api/         → agena-api       (FastAPI routes, middleware, dependencies)
   worker/      → agena-worker    (Redis background task consumer)
+  sdk/         → @agena/sdk      (TypeScript API client for npm)
 ```
 
 **Import paths** use package prefixes:
@@ -177,3 +178,24 @@ Nodes pass data via `context['outputs'][node_id]`. Use `{{outputs.node_id.field}
 - System prompts stored in DB `prompts` table — edit via Prompt Studio UI or PromptService
 - Corporate SSL cert bundled in `docker/InternalProxy.crt` for proxy environments
 - When adding new ORM models, register them in `packages/models/src/agena_models/models/__init__.py`
+
+### SDK (@agena/sdk) Rules
+
+- SDK lives in `packages/sdk/` — TypeScript API client published to npm as `@agena/sdk`
+- SDK is a **thin HTTP client** — only wraps API calls, does NOT contain backend code
+- **Version bumps only when SDK code changes**, not on every commit:
+  - Bug fix → patch (`0.1.0` → `0.1.1`)
+  - New feature/endpoint → minor (`0.1.0` → `0.2.0`)
+  - Breaking change → major (`0.x` → `1.0.0`)
+- To publish: `cd packages/sdk && npm run build && npm publish --access public`
+- When adding new API routes to backend, also add corresponding methods to SDK client
+- SDK docs are in `frontend/locales/docs/{lang}.json` under keys `sdk-install`, `sdk-quickstart`, `sdk-reference`
+
+### i18n Rules
+
+- **ALL frontend user-visible text must be in 7 languages**: tr, en, es, de, zh, it, ja
+- Never hardcode strings in components — always use `t('key')` from `useLocale()`
+- Locale files: `frontend/locales/{lang}.json` (flat dot-notation keys)
+- Docs content: `frontend/locales/docs/{lang}.json` (markdown content per section)
+- When adding new text, add keys to ALL 7 locale files simultaneously
+- Blog posts have a `lang` field — filtered by active language in BlogList component
