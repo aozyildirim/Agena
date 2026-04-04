@@ -2038,5 +2038,21 @@
   "cookie.text": "Utilizziamo cookie e analisi (Google Analytics, Microsoft Clarity) per migliorare la tua esperienza. Continuando, accetti l'uso dei cookie.",
   "cookie.accept": "Accetta",
   "cookie.decline": "Rifiuta",
-  "nav.webhooks": "Test Webhook"
+  "nav.webhooks": "Test Webhook",
+  "footer.product": "Prodotto",
+  "footer.resources": "Risorse",
+  "footer.community": "Comunità",
+  "footer.useCases": "Casi d'Uso",
+  "footer.contact": "Contatto",
+  "footer.changelog": "Registro Modifiche",
+  "footer.docs": "Documentazione",
+  "footer.blog": "Blog",
+  "footer.agenticAI": "Cos'è l'IA Agentica?",
+  "footer.pixelAgent": "Tecnologia Pixel Agent",
+  "footer.vsCopilot": "AGENA vs Copilot",
+  "footer.sponsor": "Sponsorizza",
+  "footer.issues": "Issues",
+  "footer.roadmap": "Roadmap",
+  "footer.apiDocs": "Docs API",
+  "footer.copyright": "Piattaforma IA Agentica & Tecnologia Pixel Agent."
 }

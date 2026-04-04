@@ -2038,5 +2038,21 @@
   "cookie.text": "我们使用cookies和分析工具（Google Analytics、Microsoft Clarity）来改善您的体验。继续即表示您同意使用cookies。",
   "cookie.accept": "接受",
   "cookie.decline": "拒绝",
-  "nav.webhooks": "Webhook测试"
+  "nav.webhooks": "Webhook测试",
+  "footer.product": "产品",
+  "footer.resources": "资源",
+  "footer.community": "社区",
+  "footer.useCases": "使用场景",
+  "footer.contact": "联系我们",
+  "footer.changelog": "更新日志",
+  "footer.docs": "文档",
+  "footer.blog": "博客",
+  "footer.agenticAI": "什么是智能代理AI？",
+  "footer.pixelAgent": "像素代理技术",
+  "footer.vsCopilot": "AGENA vs Copilot",
+  "footer.sponsor": "赞助",
+  "footer.issues": "问题",
+  "footer.roadmap": "路线图",
+  "footer.apiDocs": "API文档",
+  "footer.copyright": "智能代理AI平台 & 像素代理技术。"
 }

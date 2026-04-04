@@ -2038,5 +2038,21 @@
   "cookie.text": "Wir verwenden Cookies und Analysen (Google Analytics, Microsoft Clarity) zur Verbesserung Ihrer Erfahrung. Durch Fortfahren stimmen Sie der Verwendung von Cookies zu.",
   "cookie.accept": "Akzeptieren",
   "cookie.decline": "Ablehnen",
-  "nav.webhooks": "Webhook-Tester"
+  "nav.webhooks": "Webhook-Tester",
+  "footer.product": "Produkt",
+  "footer.resources": "Ressourcen",
+  "footer.community": "Community",
+  "footer.useCases": "Anwendungsfälle",
+  "footer.contact": "Kontakt",
+  "footer.changelog": "Änderungsprotokoll",
+  "footer.docs": "Dokumentation",
+  "footer.blog": "Blog",
+  "footer.agenticAI": "Was ist Agentische KI?",
+  "footer.pixelAgent": "Pixel-Agent-Technologie",
+  "footer.vsCopilot": "AGENA vs Copilot",
+  "footer.sponsor": "Sponsern",
+  "footer.issues": "Issues",
+  "footer.roadmap": "Roadmap",
+  "footer.apiDocs": "API-Dokumentation",
+  "footer.copyright": "Agentische KI-Plattform & Pixel-Agent-Technologie."
 }
