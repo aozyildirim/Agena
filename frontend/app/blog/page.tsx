@@ -115,6 +115,96 @@ const posts = [
     readTime: '8 min read',
     tags: ['GitHub Copilot', 'Alternative', 'Comparison', 'Agentic AI'],
   },
+  {
+    slug: 'ia-agentes-autonomos',
+    title: 'Agentes IA Autónomos: Cómo Revolucionan el Desarrollo de Software',
+    description:
+      'Los agentes IA autónomos están transformando la forma en que los equipos desarrollan software. Descubre cómo AGENA automatiza desde el análisis hasta la creación de pull requests.',
+    date: '2026-04-03',
+    readTime: '8 min lectura',
+    tags: ['IA Agéntica', 'Agentes Autónomos', 'Desarrollo de Software'],
+  },
+  {
+    slug: 'automatizacion-pull-requests-ia',
+    title: 'Automatización de Pull Requests con IA: De la Idea al Código en Minutos',
+    description:
+      'Aprende cómo la IA agéntica automatiza la creación de pull requests. AGENA genera código, revisa calidad y abre PRs automáticamente desde descripciones de tareas.',
+    date: '2026-04-02',
+    readTime: '7 min lectura',
+    tags: ['PR Automation', 'IA', 'DevOps', 'Automatización'],
+  },
+  {
+    slug: 'ki-agenten-softwareentwicklung',
+    title: 'KI-Agenten in der Softwareentwicklung: Autonome Code-Generierung mit AGENA',
+    description:
+      'Erfahren Sie, wie KI-Agenten die Softwareentwicklung revolutionieren. AGENA automatisiert den gesamten Prozess von der Aufgabe bis zum Pull Request.',
+    date: '2026-04-03',
+    readTime: '8 Min. Lesezeit',
+    tags: ['KI-Agenten', 'Softwareentwicklung', 'Autonome Codierung'],
+  },
+  {
+    slug: 'automatische-pull-requests-ki',
+    title: 'Automatische Pull Requests mit KI: Vom Backlog zum Code in Minuten',
+    description:
+      'Wie agentische KI die Erstellung von Pull Requests automatisiert. AGENA generiert Code, überprüft Qualität und öffnet PRs automatisch.',
+    date: '2026-04-02',
+    readTime: '7 Min. Lesezeit',
+    tags: ['PR-Automatisierung', 'KI', 'DevOps'],
+  },
+  {
+    slug: 'zhineng-daili-ai-ruanjian-kaifa',
+    title: '智能代理AI：自主软件开发的未来',
+    description:
+      '了解智能代理AI如何革命性地改变软件开发。AGENA的自主AI代理可以自动编写代码、审查质量并创建拉取请求。',
+    date: '2026-04-03',
+    readTime: '8 分钟阅读',
+    tags: ['智能代理AI', '自主编码', '软件开发'],
+  },
+  {
+    slug: 'ai-zidong-pull-request',
+    title: 'AI自动化Pull Request：从需求到代码只需几分钟',
+    description:
+      '了解智能代理AI如何自动化拉取请求的创建。AGENA从任务描述自动生成代码、审查质量并创建PR。',
+    date: '2026-04-02',
+    readTime: '7 分钟阅读',
+    tags: ['PR自动化', 'AI', 'DevOps'],
+  },
+  {
+    slug: 'ai-agent-jisedai-kaihatsu',
+    title: 'AIエージェントによる次世代ソフトウェア開発',
+    description:
+      'AIエージェントがソフトウェア開発をどのように革新するか。AGENAの自律型AIエージェントはコード生成からプルリクエスト作成まで自動化します。',
+    date: '2026-04-03',
+    readTime: '8 分で読める',
+    tags: ['AIエージェント', '自律型開発', 'ソフトウェア開発'],
+  },
+  {
+    slug: 'jidou-pull-request-ai',
+    title: 'AIによるPull Request自動化：バックログからコードまで数分で',
+    description:
+      'エージェンティックAIがプルリクエストの作成をどのように自動化するか。AGENAはタスク説明からコード生成、品質レビュー、PR作成まで自動で行います。',
+    date: '2026-04-02',
+    readTime: '7 分で読める',
+    tags: ['PR自動化', 'AI', 'DevOps'],
+  },
+  {
+    slug: 'agenti-ia-sviluppo-software',
+    title: 'Agenti IA nello Sviluppo Software: Generazione Autonoma di Codice con AGENA',
+    description:
+      'Scopri come gli agenti IA stanno rivoluzionando lo sviluppo software. AGENA automatizza l\'intero processo dall\'analisi alla creazione di pull request.',
+    date: '2026-04-03',
+    readTime: '8 min di lettura',
+    tags: ['IA Agentica', 'Sviluppo Software', 'Codifica Autonoma'],
+  },
+  {
+    slug: 'automazione-pull-request-ia',
+    title: 'Automazione Pull Request con IA: Dall\'Idea al Codice in Minuti',
+    description:
+      'Come l\'IA agentica automatizza la creazione di pull request. AGENA genera codice, rivede la qualità e apre PR automaticamente.',
+    date: '2026-04-02',
+    readTime: '7 min di lettura',
+    tags: ['Automazione PR', 'IA', 'DevOps'],
+  },
 ];
 
 export default function BlogPage() {

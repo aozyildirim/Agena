@@ -893,6 +893,427 @@ The key difference is **autonomy**. Copilot waits for you to type. AGENA takes a
 - [Documentation — Quick Start](/docs#quickstart)
     `,
   },
+  'ia-agentes-autonomos': {
+    title: 'Agentes IA Autónomos: Cómo Revolucionan el Desarrollo de Software',
+    description:
+      'Los agentes IA autónomos están transformando la forma en que los equipos desarrollan software. Descubre cómo AGENA automatiza desde el análisis hasta la creación de pull requests.',
+    date: '2026-04-03',
+    readTime: '8 min lectura',
+    content: `
+## ¿Qué son los Agentes IA Autónomos?
+
+Los agentes IA autónomos son sistemas de inteligencia artificial capaces de **planificar, ejecutar y adaptarse** de forma independiente para lograr objetivos complejos. A diferencia de los asistentes IA tradicionales, estos agentes operan con mínima supervisión humana.
+
+### El Pipeline de AGENA
+
+AGENA implementa un pipeline de agentes especializados:
+
+- **Agente PM** — Analiza requisitos y prioriza tareas
+- **Agente Desarrollador** — Genera código de producción usando el contexto del repositorio
+- **Agente Revisor** — Revisa calidad, seguridad y mejores prácticas
+- **Agente Finalizador** — Crea branches, commits y pull requests
+
+### Beneficios para Equipos de Desarrollo
+
+| Aspecto | Sin IA | Con AGENA |
+|---------|--------|-----------|
+| Tiempo por PR | 2-5 días | 10-30 minutos |
+| Revisión de código | Manual | Automática + Manual |
+| Contexto | Limitado | Memoria vectorial completa |
+| Escalabilidad | Lineal con equipo | Ilimitada |
+
+### Cómo Empezar
+
+1. Crea una cuenta gratuita en AGENA
+2. Conecta tu repositorio de GitHub o Azure DevOps
+3. Importa tareas desde Jira o créalas manualmente
+4. Los agentes IA se encargan del resto
+
+AGENA es completamente **open source** bajo licencia MIT. Puedes auto-hospedarlo o usar la plataforma gestionada.
+
+### Lecturas Relacionadas
+
+- [What is Agentic AI?](/blog/what-is-agentic-ai)
+- [AGENA vs GitHub Copilot](/blog/github-copilot-alternative)
+- [Documentación — Quick Start](/docs#quickstart)
+    `,
+  },
+  'automatizacion-pull-requests-ia': {
+    title: 'Automatización de Pull Requests con IA: De la Idea al Código en Minutos',
+    description:
+      'Aprende cómo la IA agéntica automatiza la creación de pull requests. AGENA genera código, revisa calidad y abre PRs automáticamente desde descripciones de tareas.',
+    date: '2026-04-02',
+    readTime: '7 min lectura',
+    content: `
+## Automatización de Pull Requests con IA
+
+La creación manual de pull requests consume tiempo valioso del equipo de desarrollo. Con **AGENA**, este proceso se automatiza completamente mediante agentes IA especializados.
+
+### El Flujo Automatizado
+
+1. **Entrada**: Descripción de tarea (desde Jira, Azure DevOps, o manual)
+2. **Análisis**: El agente PM analiza requisitos y contexto del código
+3. **Generación**: El agente Desarrollador escribe código siguiendo patrones del repositorio
+4. **Revisión**: El agente Revisor verifica calidad y seguridad
+5. **Entrega**: Branch, commit y PR creados automáticamente
+
+### Integraciones Soportadas
+
+AGENA se integra con las herramientas que ya usas:
+
+- **GitHub** — Creación de branches, PRs con reviewers y labels
+- **Azure DevOps** — PRs, work items y pipelines
+- **Jira** — Importación de tareas con sincronización bidireccional
+- **Slack / Teams** — Notificaciones en tiempo real
+
+### Flow Builder Visual
+
+El Flow Builder de AGENA permite crear pipelines personalizados conectando agentes, condiciones y acciones. Similar a n8n, pero diseñado específicamente para automatización de desarrollo.
+
+### Seguridad
+
+- AGENA **nunca almacena** tu código fuente
+- Acceso al repositorio mediante OAuth tokens con alcance limitado
+- Procesamiento en sesiones aisladas
+- Auto-hospedaje disponible para control total
+
+### Lecturas Relacionadas
+
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [Building Multi-Agent Pipelines](/blog/crewai-langgraph-orchestration)
+    `,
+  },
+  'ki-agenten-softwareentwicklung': {
+    title: 'KI-Agenten in der Softwareentwicklung: Autonome Code-Generierung mit AGENA',
+    description:
+      'Erfahren Sie, wie KI-Agenten die Softwareentwicklung revolutionieren. AGENA automatisiert den gesamten Prozess von der Aufgabe bis zum Pull Request.',
+    date: '2026-04-03',
+    readTime: '8 Min. Lesezeit',
+    content: `
+## KI-Agenten in der Softwareentwicklung
+
+KI-Agenten sind autonome Systeme, die **selbstständig planen, ausführen und sich anpassen** können, um komplexe Aufgaben zu erledigen. In der Softwareentwicklung bedeutet dies: von der Aufgabenbeschreibung bis zum fertigen Pull Request — vollautomatisch.
+
+### Die AGENA-Pipeline
+
+AGENA nutzt spezialisierte KI-Agenten in einer Pipeline:
+
+- **PM-Agent** — Analysiert Anforderungen und priorisiert Aufgaben
+- **Entwickler-Agent** — Generiert produktionsreifen Code basierend auf dem Repository-Kontext
+- **Reviewer-Agent** — Überprüft Codequalität, Sicherheit und Best Practices
+- **Finalisierer-Agent** — Erstellt Branches, Commits und Pull Requests
+
+### Vorteile für Entwicklungsteams
+
+| Aspekt | Ohne KI | Mit AGENA |
+|--------|---------|-----------|
+| Zeit pro PR | 2-5 Tage | 10-30 Minuten |
+| Code-Review | Manuell | Automatisch + Manuell |
+| Kontext | Begrenzt | Vollständiges Vektorspeicher |
+| Skalierbarkeit | Linear mit Team | Unbegrenzt |
+
+### Erste Schritte
+
+1. Erstellen Sie ein kostenloses AGENA-Konto
+2. Verbinden Sie Ihr GitHub- oder Azure DevOps-Repository
+3. Importieren Sie Aufgaben aus Jira oder erstellen Sie diese manuell
+4. Die KI-Agenten erledigen den Rest
+
+### Weiterführende Artikel
+
+- [What is Agentic AI?](/blog/what-is-agentic-ai)
+- [Multi-Agent Pipelines with CrewAI](/blog/crewai-langgraph-orchestration)
+- [Dokumentation — Quick Start](/docs#quickstart)
+    `,
+  },
+  'automatische-pull-requests-ki': {
+    title: 'Automatische Pull Requests mit KI: Vom Backlog zum Code in Minuten',
+    description:
+      'Wie agentische KI die Erstellung von Pull Requests automatisiert. AGENA generiert Code, überprüft Qualität und öffnet PRs automatisch.',
+    date: '2026-04-02',
+    readTime: '7 Min. Lesezeit',
+    content: `
+## Automatische Pull Requests mit KI
+
+Die manuelle Erstellung von Pull Requests kostet wertvolle Entwicklerzeit. Mit **AGENA** wird dieser Prozess vollständig durch spezialisierte KI-Agenten automatisiert.
+
+### Der automatisierte Ablauf
+
+1. **Eingabe**: Aufgabenbeschreibung (aus Jira, Azure DevOps oder manuell)
+2. **Analyse**: Der PM-Agent analysiert Anforderungen und Code-Kontext
+3. **Generierung**: Der Entwickler-Agent schreibt Code nach Repository-Mustern
+4. **Überprüfung**: Der Reviewer-Agent verifiziert Qualität und Sicherheit
+5. **Lieferung**: Branch, Commit und PR werden automatisch erstellt
+
+### Unterstützte Integrationen
+
+- **GitHub** — Branch-Erstellung, PRs mit Reviewern und Labels
+- **Azure DevOps** — PRs, Work Items und Pipelines
+- **Jira** — Aufgabenimport mit bidirektionaler Synchronisation
+- **Slack / Teams** — Echtzeit-Benachrichtigungen
+
+### Sicherheit
+
+- AGENA speichert **niemals** Ihren Quellcode
+- Repository-Zugriff über OAuth-Tokens mit begrenztem Umfang
+- Verarbeitung in isolierten Sitzungen
+- Self-Hosting für volle Kontrolle verfügbar
+
+### Weiterführende Artikel
+
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [Pixel Agent Technology](/blog/pixel-agent-technology)
+    `,
+  },
+  'ai-agent-jisedai-kaihatsu': {
+    title: 'AIエージェントによる次世代ソフトウェア開発',
+    description:
+      'AIエージェントがソフトウェア開発をどのように革新するか。AGENAの自律型AIエージェントはコード生成からプルリクエスト作成まで自動化します。',
+    date: '2026-04-03',
+    readTime: '8 分で読める',
+    content: `
+## AIエージェントによる次世代開発
+
+AIエージェントは、複雑な目標を達成するために**自律的に計画、実行、適応**できる人工知能システムです。従来のAIアシスタントとは異なり、最小限の人間の監視で多段階推論を行います。
+
+### AGENAのAIエージェントパイプライン
+
+AGENAは専門化されたAIエージェントのパイプラインを実装しています：
+
+- **PMエージェント** — 要件を分析し、タスクを優先順位付け
+- **開発者エージェント** — リポジトリのコンテキストに基づいて本番グレードのコードを生成
+- **レビュアーエージェント** — コード品質、セキュリティ、ベストプラクティスを検証
+- **ファイナライザーエージェント** — ブランチ、コミット、プルリクエストを作成
+
+### チームへのメリット
+
+| 項目 | AI無し | AGENA使用 |
+|------|--------|-----------|
+| PR作成時間 | 2-5日 | 10-30分 |
+| コードレビュー | 手動 | 自動＋手動 |
+| コンテキスト | 限定的 | 完全なベクトルメモリ |
+| スケーラビリティ | チームに比例 | 無制限 |
+
+### 始め方
+
+1. AGENAで無料アカウントを作成
+2. GitHubまたはAzure DevOpsリポジトリを接続
+3. Jiraからタスクをインポートまたは手動作成
+4. AIエージェントが残りを処理
+
+AGENAはMITライセンスの完全**オープンソース**です。
+
+### 関連記事
+
+- [What is Agentic AI?](/blog/what-is-agentic-ai)
+- [ドキュメント — Quick Start](/docs#quickstart)
+    `,
+  },
+  'jidou-pull-request-ai': {
+    title: 'AIによるPull Request自動化：バックログからコードまで数分で',
+    description:
+      'エージェンティックAIがプルリクエストの作成をどのように自動化するか。AGENAはタスク説明からコード生成、品質レビュー、PR作成まで自動で行います。',
+    date: '2026-04-02',
+    readTime: '7 分で読める',
+    content: `
+## AIによるPull Request自動化
+
+プルリクエストの手動作成は、開発チームの貴重な時間を消費します。**AGENA**を使用すると、このプロセスは専門AIエージェントによって完全に自動化されます。
+
+### 自動化フロー
+
+1. **入力**：タスク説明（Jira、Azure DevOps、または手動入力）
+2. **分析**：PMエージェントが要件とコードコンテキストを分析
+3. **生成**：開発者エージェントがリポジトリパターンに従ってコードを作成
+4. **レビュー**：レビュアーエージェントが品質とセキュリティを検証
+5. **配信**：ブランチ、コミット、PRが自動作成
+
+### サポートされている統合
+
+- **GitHub** — ブランチ作成、レビュアーとラベル付きPR
+- **Azure DevOps** — PR、ワークアイテム、パイプライン
+- **Jira** — 双方向同期によるタスクインポート
+- **Slack / Teams** — リアルタイム通知
+
+### セキュリティ
+
+- AGENAはソースコードを**保存しません**
+- OAuthトークンによる限定スコープのリポジトリアクセス
+- 隔離されたセッションでのコード処理
+- セルフホスティングで完全なコントロール
+
+### 関連記事
+
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [Pixel Agent Technology](/blog/pixel-agent-technology)
+    `,
+  },
+  'agenti-ia-sviluppo-software': {
+    title: 'Agenti IA nello Sviluppo Software: Generazione Autonoma di Codice con AGENA',
+    description:
+      'Scopri come gli agenti IA stanno rivoluzionando lo sviluppo software. AGENA automatizza l\'intero processo dall\'analisi alla creazione di pull request.',
+    date: '2026-04-03',
+    readTime: '8 min di lettura',
+    content: `
+## Agenti IA nello Sviluppo Software
+
+Gli agenti IA sono sistemi autonomi capaci di **pianificare, eseguire e adattarsi** indipendentemente per raggiungere obiettivi complessi. Nello sviluppo software, questo significa: dalla descrizione del task alla pull request completata — tutto automatico.
+
+### La Pipeline di AGENA
+
+AGENA utilizza agenti IA specializzati in una pipeline:
+
+- **Agente PM** — Analizza requisiti e prioritizza le attività
+- **Agente Sviluppatore** — Genera codice di produzione basato sul contesto del repository
+- **Agente Revisore** — Verifica qualità del codice, sicurezza e best practice
+- **Agente Finalizzatore** — Crea branch, commit e pull request
+
+### Vantaggi per i Team di Sviluppo
+
+| Aspetto | Senza IA | Con AGENA |
+|---------|----------|-----------|
+| Tempo per PR | 2-5 giorni | 10-30 minuti |
+| Code Review | Manuale | Automatica + Manuale |
+| Contesto | Limitato | Memoria vettoriale completa |
+| Scalabilità | Lineare con il team | Illimitata |
+
+### Come Iniziare
+
+1. Crea un account gratuito su AGENA
+2. Collega il tuo repository GitHub o Azure DevOps
+3. Importa le attività da Jira o creale manualmente
+4. Gli agenti IA si occupano del resto
+
+AGENA è completamente **open source** sotto licenza MIT.
+
+### Letture Correlate
+
+- [What is Agentic AI?](/blog/what-is-agentic-ai)
+- [Documentazione — Quick Start](/docs#quickstart)
+    `,
+  },
+  'automazione-pull-request-ia': {
+    title: 'Automazione Pull Request con IA: Dall\'Idea al Codice in Minuti',
+    description:
+      'Come l\'IA agentica automatizza la creazione di pull request. AGENA genera codice, rivede la qualità e apre PR automaticamente.',
+    date: '2026-04-02',
+    readTime: '7 min di lettura',
+    content: `
+## Automazione Pull Request con IA
+
+La creazione manuale di pull request consuma tempo prezioso del team di sviluppo. Con **AGENA**, questo processo è completamente automatizzato da agenti IA specializzati.
+
+### Il Flusso Automatizzato
+
+1. **Input**: Descrizione dell'attività (da Jira, Azure DevOps o manuale)
+2. **Analisi**: L'agente PM analizza requisiti e contesto del codice
+3. **Generazione**: L'agente Sviluppatore scrive codice seguendo i pattern del repository
+4. **Revisione**: L'agente Revisore verifica qualità e sicurezza
+5. **Consegna**: Branch, commit e PR creati automaticamente
+
+### Integrazioni Supportate
+
+- **GitHub** — Creazione branch, PR con reviewer e label
+- **Azure DevOps** — PR, work item e pipeline
+- **Jira** — Importazione attività con sincronizzazione bidirezionale
+- **Slack / Teams** — Notifiche in tempo reale
+
+### Sicurezza
+
+- AGENA **non memorizza mai** il tuo codice sorgente
+- Accesso al repository tramite token OAuth con ambito limitato
+- Elaborazione in sessioni isolate
+- Self-hosting disponibile per il controllo completo
+
+### Letture Correlate
+
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [Multi-Agent Pipelines](/blog/crewai-langgraph-orchestration)
+    `,
+  },
+  'zhineng-daili-ai-ruanjian-kaifa': {
+    title: '智能代理AI：自主软件开发的未来',
+    description:
+      '了解智能代理AI如何革命性地改变软件开发。AGENA的自主AI代理可以自动编写代码、审查质量并创建拉取请求。',
+    date: '2026-04-03',
+    readTime: '8 分钟阅读',
+    content: `
+## 什么是智能代理AI？
+
+智能代理AI是一种能够**自主规划、执行和适应**的人工智能系统，能够在最少人类监督下完成复杂目标。与传统AI助手不同，智能代理系统能够独立进行多步推理、工具使用和自我纠正。
+
+### AGENA的AI代理管道
+
+AGENA实现了专业化的AI代理管道：
+
+- **PM代理** — 分析需求并优先排序任务
+- **开发者代理** — 基于代码库上下文生成生产级代码
+- **审查者代理** — 检查代码质量、安全性和最佳实践
+- **完成者代理** — 创建分支、提交和拉取请求
+
+### 团队收益
+
+| 方面 | 无AI | 使用AGENA |
+|------|------|-----------|
+| 每个PR时间 | 2-5天 | 10-30分钟 |
+| 代码审查 | 手动 | 自动+手动 |
+| 上下文 | 有限 | 完整向量记忆 |
+| 可扩展性 | 随团队线性增长 | 无限 |
+
+### 如何开始
+
+1. 在AGENA创建免费账户
+2. 连接您的GitHub或Azure DevOps仓库
+3. 从Jira导入任务或手动创建
+4. AI代理会处理剩余工作
+
+AGENA在MIT许可证下完全**开源**。您可以自行托管或使用托管平台。
+
+### 相关阅读
+
+- [What is Agentic AI?](/blog/what-is-agentic-ai)
+- [Documentation — Quick Start](/docs#quickstart)
+    `,
+  },
+  'ai-zidong-pull-request': {
+    title: 'AI自动化Pull Request：从需求到代码只需几分钟',
+    description:
+      '了解智能代理AI如何自动化拉取请求的创建。AGENA从任务描述自动生成代码、审查质量并创建PR。',
+    date: '2026-04-02',
+    readTime: '7 分钟阅读',
+    content: `
+## AI自动化Pull Request
+
+手动创建拉取请求消耗开发团队的宝贵时间。通过**AGENA**，这个过程由专业AI代理完全自动化。
+
+### 自动化流程
+
+1. **输入**：任务描述（来自Jira、Azure DevOps或手动输入）
+2. **分析**：PM代理分析需求和代码上下文
+3. **生成**：开发者代理按照仓库模式编写代码
+4. **审查**：审查者代理验证质量和安全性
+5. **交付**：自动创建分支、提交和PR
+
+### 支持的集成
+
+- **GitHub** — 创建分支、带审查者和标签的PR
+- **Azure DevOps** — PR、工作项和管道
+- **Jira** — 双向同步的任务导入
+- **Slack / Teams** — 实时通知
+
+### 安全保障
+
+- AGENA**从不存储**您的源代码
+- 通过有限范围的OAuth令牌访问仓库
+- 在隔离会话中处理代码
+- 可自行托管以获得完全控制
+
+### 相关阅读
+
+- [AI Code Generation Best Practices](/blog/ai-code-generation-best-practices)
+- [Pixel Agent Technology](/blog/pixel-agent-technology)
+    `,
+  },
 };
 
 export function generateStaticParams() {
