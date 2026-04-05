@@ -76,7 +76,7 @@ class OrchestrationService:
         self.local_repo_service = LocalRepoService()
         self.cost_tracker = CostTracker()
 
-    async def run_task_record(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_model: str | None = None, agent_provider: str | None = None) -> AgentRunResult:
+    async def run_task_record(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_model: str | None = None, agent_provider: str | None = None, assignment_id: int | None = None) -> AgentRunResult:
         task = await self.db_session.get(TaskRecord, task_id)
         if task is None or task.organization_id != organization_id:
             raise ValueError('Task not found for organization')
@@ -95,7 +95,7 @@ class OrchestrationService:
             'task_id': task_id, 'status': 'running', 'title': task.title,
         })
 
-        repo_mapping = await self._resolve_repo_mapping(task)
+        repo_mapping = await self._resolve_repo_mapping(task, assignment_id=assignment_id)
         routing = self._extract_task_routing(task, repo_mapping)
 
         # Override model/provider if explicitly passed from assignment
@@ -1529,12 +1529,23 @@ class OrchestrationService:
         logger.info(f'Trimmed agents.md: kept {kept_sections} / {kept_sections + skipped_sections} signature sections, keywords={keywords}')
         return '\n'.join(result)
 
-    async def _resolve_repo_mapping(self, task: TaskRecord) -> 'RepoMapping | None':
-        """Load the RepoMapping linked to this task, if any."""
+    async def _resolve_repo_mapping(self, task: TaskRecord, *, assignment_id: int | None = None) -> 'RepoMapping | None':
+        """Load the RepoMapping linked to this task or assignment."""
+        from agena_models.models.repo_mapping import RepoMapping
+
+        # Multi-repo: resolve from assignment
+        if assignment_id:
+            from agena_models.models.task_repo_assignment import TaskRepoAssignment
+            assignment = await self.db_session.get(TaskRepoAssignment, assignment_id)
+            if assignment and assignment.repo_mapping_id:
+                mapping = await self.db_session.get(RepoMapping, assignment.repo_mapping_id)
+                if mapping and mapping.organization_id == task.organization_id and mapping.is_active:
+                    return mapping
+
+        # Single-repo: resolve from task
         mapping_id = getattr(task, 'repo_mapping_id', None)
         if not mapping_id:
             return None
-        from agena_models.models.repo_mapping import RepoMapping
         mapping = await self.db_session.get(RepoMapping, mapping_id)
         if mapping and mapping.organization_id == task.organization_id and mapping.is_active:
             return mapping

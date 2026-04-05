@@ -585,6 +585,7 @@ export default function HomePage() {
               { icon: '🤖', title: t('landing.feature2Title'), desc: t('landing.feature2Desc') },
               { icon: '⚡', title: t('landing.feature3Title'), desc: t('landing.feature3Desc') },
               { icon: '💰', title: t('landing.feature4Title'), desc: t('landing.feature4Desc') },
+              { icon: '🔀', title: t('landing.feature5Title'), desc: t('landing.feature5Desc') },
             ].map((f) => (
               <div key={f.title} className='feature-box'>
                 <div className='feature-icon'>{f.icon}</div>

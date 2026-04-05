@@ -2,8 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch, loadPrefs } from '@/lib/api';
-import { TaskItem } from '@/components/TaskTable';
+import { apiFetch, loadPrefs, type BackendRepoMapping } from '@/lib/api';
+import { TaskItem, type RepoAssignment } from '@/components/TaskTable';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector from '@/components/RemoteRepoSelector';
 
@@ -210,7 +210,7 @@ export default function DashboardTasksPage() {
     setFlowPopupTaskId(id);
   }
 
-  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string) {
+  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[]) {
     setAiPopupTaskId(null);
     try {
       await apiFetch('/tasks/' + id + '/assign', {
@@ -222,16 +222,17 @@ export default function DashboardTasksPage() {
           agent_model: agent.model,
           agent_provider: agent.provider,
           extra_description: extraDesc || undefined,
+          repo_mapping_ids: repoMappingIds || undefined,
         }),
       });
       setMsg(`${t('tasks.assignedAi')} (${agent.role} / ${agent.provider}:${agent.model})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 
-  async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string) {
+  async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[]) {
     setFlowPopupTaskId(null);
     try {
-      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: 'flow', extra_description: extraDesc || undefined }) });
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: defaultCreatePr, mode: 'flow', extra_description: extraDesc || undefined, repo_mapping_ids: repoMappingIds || undefined }) });
       setMsg(`${t('tasks.assignedFlow')} (${flowName})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
@@ -544,7 +545,30 @@ export default function DashboardTasksPage() {
                 </span>
               </div>
               <div>
-                {task.pr_url ? (
+                {task.repo_assignments && task.repo_assignments.length > 0 ? (
+                  task.repo_assignments.length === 1 ? (
+                    task.repo_assignments[0].pr_url ? (
+                      <a href={task.repo_assignments[0].pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
+                    ) : (
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: `${statusColor(task.repo_assignments[0].status)}18`, color: statusColor(task.repo_assignments[0].status), fontWeight: 600 }}>
+                        {statusLabel(task.repo_assignments[0].status, t)}
+                      </span>
+                    )
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#5eead4' }}>
+                        {t('tasks.multiPrCount', { n: task.repo_assignments.filter((ra: RepoAssignment) => ra.pr_url).length, total: task.repo_assignments.length })}
+                      </span>
+                      {task.repo_assignments.slice(0, 2).map((ra: RepoAssignment) => (
+                        <span key={ra.id} style={{ fontSize: 10, color: ra.pr_url ? '#5eead4' : 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
+                          {ra.pr_url ? (
+                            <a href={ra.pr_url} target='_blank' rel='noreferrer' style={{ color: '#5eead4', textDecoration: 'none' }}>↗ {ra.repo_display_name.split('/').pop()}</a>
+                          ) : ra.repo_display_name.split('/').pop()}
+                        </span>
+                      ))}
+                    </div>
+                  )
+                ) : task.pr_url ? (
                   <a href={task.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
                 ) : (
                   <span style={{ fontSize: 12, color: 'var(--ink-25)' }}>—</span>
@@ -616,13 +640,13 @@ export default function DashboardTasksPage() {
           tasks={tasks}
           agents={agentConfigs}
           flows={savedFlows}
-          onAssignAI={(id, agent, repoMeta) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignAI(id, agent, extra);
+            void doAssignAI(id, agent, extra, repoMappingIds);
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds);
           }}
           onClose={() => setAiPopupTaskId(null)}
           t={t}
@@ -636,13 +660,13 @@ export default function DashboardTasksPage() {
           tasks={tasks}
           agents={agentConfigs}
           flows={savedFlows}
-          onAssignAI={(id, agent, repoMeta) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignAI(id, agent, extra);
+            void doAssignAI(id, agent, extra, repoMappingIds);
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds);
           }}
           onClose={() => setFlowPopupTaskId(null)}
           t={t}
@@ -686,15 +710,30 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignF
   tasks: TaskItem[];
   agents: { role: string; model: string; provider: string; enabled: boolean }[];
   flows: { id: string; name: string }[];
-  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string) => void;
-  onAssignFlow: (id: number, flowId: string, flowName: string, repoMeta?: string) => void;
+  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[]) => void;
+  onAssignFlow: (id: number, flowId: string, flowName: string, repoMeta?: string, repoMappingIds?: number[]) => void;
   onClose: () => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
   const [repoSel, setRepoSel] = useState<{ meta: string } | null>(null);
+  const [backendMappings, setBackendMappings] = useState<BackendRepoMapping[]>([]);
+  const [selectedMappingIds, setSelectedMappingIds] = useState<number[]>([]);
+  const [mappingsLoaded, setMappingsLoaded] = useState(false);
   const task = tasks.find((tk) => tk.id === taskId);
   const taskDesc = ((task as unknown as { description?: string })?.description || '').toLowerCase();
   const hasRepo = taskDesc.includes('local repo path') || taskDesc.includes('remote repo');
+
+  useEffect(() => {
+    apiFetch<BackendRepoMapping[]>('/repo-mappings')
+      .then((data) => { setBackendMappings(data); setMappingsLoaded(true); })
+      .catch(() => setMappingsLoaded(true));
+  }, []);
+
+  function toggleMapping(id: number) {
+    setSelectedMappingIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  const mappingIds = selectedMappingIds.length > 0 ? selectedMappingIds : undefined;
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -705,17 +744,42 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignF
             {mode === 'ai' ? t('tasks.selectAgent') : t('tasks.assignFlow')}
           </h3>
 
-          {/* Repo selector — only if task has no repo config */}
-          {!hasRepo && (
+          {/* Multi-repo selector from backend mappings */}
+          {mappingsLoaded && backendMappings.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.multiRepo.title' as TranslationKey)}</div>
+              <div style={{ maxHeight: 160, overflowY: 'auto', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '4px 0' }}>
+                {backendMappings.map((m) => (
+                  <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', transition: 'background 0.15s', background: selectedMappingIds.includes(m.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                    <input
+                      type='checkbox'
+                      checked={selectedMappingIds.includes(m.id)}
+                      onChange={() => toggleMapping(m.id)}
+                      style={{ accentColor: '#0d9488', width: 14, height: 14 }}
+                    />
+                    <span style={{ fontWeight: 600 }}>{m.display_name || `${m.provider}:${m.owner}/${m.repo_name}`}</span>
+                  </label>
+                ))}
+              </div>
+              {selectedMappingIds.length > 0 && (
+                <div style={{ fontSize: 11, color: '#5eead4', marginTop: 4 }}>
+                  {t('tasks.multiRepo.selected' as TranslationKey, { n: selectedMappingIds.length })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Repo selector — only if task has no repo config and no backend mappings selected */}
+          {!hasRepo && selectedMappingIds.length === 0 && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Target Repository</div>
               <RemoteRepoSelector compact onChange={(sel) => setRepoSel(sel ? { meta: sel.meta } : null)} />
             </div>
           )}
-          {hasRepo && (
+          {hasRepo && selectedMappingIds.length === 0 && (
             <div style={{ fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
-              Repo configured
+              {t('tasks.multiRepo.configured' as TranslationKey)}
             </div>
           )}
 
@@ -723,18 +787,21 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignF
           {mode === 'ai' && (
             <div style={{ display: 'grid', gap: 6 }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.selectAgent')}</div>
-              {agents.filter((a) => a.enabled).map((agent) => (
+              {agents.filter((a) => a.enabled).map((agent) => {
+                const canAssign = hasRepo || repoSel || selectedMappingIds.length > 0;
+                return (
                 <button key={agent.role}
-                  onClick={() => onAssignAI(taskId, agent, !hasRepo ? repoSel?.meta : undefined)}
-                  disabled={!hasRepo && !repoSel}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: (!hasRepo && !repoSel) ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: (!hasRepo && !repoSel) ? 0.5 : 1 }}>
+                  onClick={() => onAssignAI(taskId, agent, !hasRepo && selectedMappingIds.length === 0 ? repoSel?.meta : undefined, mappingIds)}
+                  disabled={!canAssign}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: !canAssign ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: !canAssign ? 0.5 : 1 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', textTransform: 'capitalize' }}>{agent.role}</div>
                     <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{agent.model || 'default'} {agent.provider ? `· ${agent.provider}` : ''}</div>
                   </div>
                   <span style={{ fontSize: 16, color: 'var(--muted)' }}>→</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
           {mode === 'flow' && (
@@ -742,17 +809,20 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignF
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.assignFlow')}</div>
               {flows.length === 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--muted)', padding: 10 }}>{t('tasks.noSavedFlows')}</div>
-              ) : flows.map((flow) => (
+              ) : flows.map((flow) => {
+                const canAssignFlow = hasRepo || repoSel || selectedMappingIds.length > 0;
+                return (
                 <button key={flow.id}
-                  onClick={() => onAssignFlow(taskId, flow.id, flow.name, !hasRepo ? repoSel?.meta : undefined)}
-                  disabled={!hasRepo && !repoSel}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.06)', cursor: (!hasRepo && !repoSel) ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: (!hasRepo && !repoSel) ? 0.5 : 1 }}>
+                  onClick={() => onAssignFlow(taskId, flow.id, flow.name, !hasRepo && selectedMappingIds.length === 0 ? repoSel?.meta : undefined, mappingIds)}
+                  disabled={!canAssignFlow}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.06)', cursor: !canAssignFlow ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: !canAssignFlow ? 0.5 : 1 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{flow.name}</div>
                   </div>
                   <span style={{ fontSize: 16, color: '#a78bfa' }}>▶</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
 

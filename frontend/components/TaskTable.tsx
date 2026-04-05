@@ -1,6 +1,16 @@
 import Link from 'next/link';
 import StatusBadge from './StatusBadge';
 
+export type RepoAssignment = {
+  id: number;
+  repo_mapping_id: number;
+  repo_display_name: string;
+  status: string;
+  pr_url?: string | null;
+  branch_name?: string | null;
+  failure_reason?: string | null;
+};
+
 export type TaskItem = {
   id: number;
   title: string;
@@ -25,6 +35,7 @@ export type TaskItem = {
   pr_risk_level?: string | null;
   pr_risk_reason?: string | null;
   total_tokens?: number | null;
+  repo_assignments?: RepoAssignment[];
 };
 
 type Props = {

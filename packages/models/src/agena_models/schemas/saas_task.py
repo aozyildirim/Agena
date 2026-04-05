@@ -46,11 +46,22 @@ class TaskResponse(BaseModel):
     pr_risk_level: str | None = None
     pr_risk_reason: str | None = None
     total_tokens: int | None = None
+    repo_assignments: list['RepoAssignmentResponse'] = Field(default_factory=list)
 
 
 class AssignTaskResponse(BaseModel):
     queued: bool
     queue_key: str
+
+
+class RepoAssignmentResponse(BaseModel):
+    id: int
+    repo_mapping_id: int
+    repo_display_name: str = ''
+    status: str = 'pending'
+    pr_url: str | None = None
+    branch_name: str | None = None
+    failure_reason: str | None = None
 
 
 class AssignTaskRequest(BaseModel):
@@ -60,6 +71,7 @@ class AssignTaskRequest(BaseModel):
     agent_model: str | None = None
     agent_provider: str | None = None
     extra_description: str | None = None  # appended to task description before assign
+    repo_mapping_ids: list[int] | None = None  # multi-repo: assign to multiple repos
 
 
 class TaskLogItem(BaseModel):
