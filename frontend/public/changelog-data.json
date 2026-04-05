@@ -1,5 +1,45 @@
 [
   {
+    "hash": "daa3312",
+    "short": "daa3312",
+    "message": "add task dependencies showcase to landing, docs, and use-cases",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "ecc1d25",
+    "short": "ecc1d25",
+    "message": "fix task dependencies — runtime check, auto-unblock, full UI",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "c3d2cf6",
+    "short": "c3d2cf6",
+    "message": "add multi-repo showcase section to landing page with visual diagram",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "711a6e5",
+    "short": "711a6e5",
+    "message": "multi-repo orchestration — 1 task, N repos, parallel PRs",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "670e37f",
+    "short": "670e37f",
+    "message": "add glossary, integrations pages, notification upgrade, multi-repo, blog scripts",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
     "hash": "130c368",
     "short": "130c368",
     "message": "add missing lang destructure in docs page causing client-side 500",
@@ -757,46 +797,6 @@
     "message": "prompt studio shows default prompts in editor for direct editing",
     "date": "2026-04-02",
     "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "d3e3de5",
-    "short": "d3e3de5",
-    "message": "sync all locale files — add missing translations for ES, ZH, IT, DE, JA",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "1854560",
-    "short": "1854560",
-    "message": "add guided tour for dashboard onboarding",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "d263bca",
-    "short": "d263bca",
-    "message": "load LLM prompts from database instead of static constants",
-    "date": "2026-04-02",
-    "author": "omer.bolatan",
-    "type": "feat"
-  },
-  {
-    "hash": "1fdafbc",
-    "short": "1fdafbc",
-    "message": "prompt studio dark mode - replace hardcoded colors with CSS variables",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
-  },
-  {
-    "hash": "0ef9fa9",
-    "short": "0ef9fa9",
-    "message": "optimize node dragging with deferred state update",
-    "date": "2026-04-02",
-    "author": "omer.bolatan",
     "type": "feat"
   }
 ]
