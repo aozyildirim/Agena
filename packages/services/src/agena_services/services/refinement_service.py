@@ -42,9 +42,9 @@ class _SafeDict(dict[str, Any]):
 
 class _RefinementStructuredOutput(BaseModel):
     summary: str = ''
-    suggested_story_points: int = 0
+    suggested_story_points: int | str = 0  # Accept string too (LLM may return "5 puan")
     estimation_rationale: str = ''
-    confidence: int = 0
+    confidence: int | str = 0  # Accept string too
     comment: str = ''
     ambiguities: list[str] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
@@ -554,8 +554,29 @@ class RefinementService:
         provider: str,
         language: str,
     ) -> RefinementSuggestion:
-        point = payload.get('suggested_story_points', 0)
+        point = self._safe_int(payload.get('suggested_story_points', 0))
         confidence = max(0, min(100, self._safe_int(payload.get('confidence', 0))))
+
+        # If point is still 0, try to extract from rationale text (LLM sometimes puts it there)
+        if point == 0:
+            rationale_text = str(payload.get('estimation_rationale') or '')
+            comment_text = str(payload.get('comment') or '')
+            for text in [rationale_text, comment_text]:
+                import re
+                # Match patterns like "5 puan", "5 points", "5 pts", "score: 5", "= 5"
+                match = re.search(r'(\d+)\s*(?:puan|point|pts|story\s*point)', text, re.IGNORECASE)
+                if match:
+                    extracted = int(match.group(1))
+                    if 1 <= extracted <= 21:  # valid fibonacci range
+                        point = extracted
+                        break
+                # Also try "X puan uygun" or "X is appropriate"
+                match = re.search(r'(\d+)\s*(?:uygun|appropriate|suitable|recommend)', text, re.IGNORECASE)
+                if match:
+                    extracted = int(match.group(1))
+                    if 1 <= extracted <= 21:
+                        point = extracted
+                        break
         summary = str(payload.get('summary') or '').strip()
         rationale = str(payload.get('estimation_rationale') or '').strip()
         comment = str(payload.get('comment') or '').strip()

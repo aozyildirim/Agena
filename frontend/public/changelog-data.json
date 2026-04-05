@@ -1,5 +1,13 @@
 [
   {
+    "hash": "3aa8935",
+    "short": "3aa8935",
+    "message": "writeback includes questions alongside comment",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
     "hash": "1c4bfab",
     "short": "1c4bfab",
     "message": "all refinement popups via createPortal + better confidence/scoring prompt",
@@ -787,14 +795,6 @@
     "hash": "32cc3a1",
     "short": "32cc3a1",
     "message": "align pixel office map to top of container",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
-  },
-  {
-    "hash": "71f31a3",
-    "short": "71f31a3",
-    "message": "increase office pixel map height to prevent bottom toolbar overlap",
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"
