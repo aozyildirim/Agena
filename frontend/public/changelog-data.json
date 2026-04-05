@@ -1,5 +1,13 @@
 [
   {
+    "hash": "822d0d7",
+    "short": "822d0d7",
+    "message": "refinement YAML path error + cleaner prompt UI",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "765bcfd",
     "short": "765bcfd",
     "message": "integrate refinement prompts into Prompt Studio + DB",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"
-  },
-  {
-    "hash": "ff5f8c4",
-    "short": "ff5f8c4",
-    "message": "monorepo package split — 6 pip-installable packages",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
   }
 ]

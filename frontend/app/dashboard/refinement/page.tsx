@@ -776,16 +776,16 @@ export default function RefinementPage() {
   }, [provider, azureSprint, jiraSprint, normalizeAnalyzeResponse]);
 
   return (
-    <div style={{ display: 'grid', gap: 18, maxWidth: 1200 }}>
+    <div className="refinement-page" style={{ display: 'grid', gap: 18, maxWidth: 1200 }}>
       <div>
         <div className='section-label'>{copy.section}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>{copy.title}</h1>
         <p style={{ fontSize: 14, color: 'var(--ink-30)', margin: 0 }}>{copy.subtitle}</p>
       </div>
 
-      <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+      <div className="refinement-top-grid" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 14 }}>
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <Field label={copy.source}>
               <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); }} style={inputStyle}>
                 <option value='azure'>Azure DevOps</option>
@@ -798,7 +798,7 @@ export default function RefinementPage() {
           </div>
 
           {provider === 'azure' ? (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               <Field label={copy.project}>
                 <select value={azureProject} onChange={(e) => void loadAzureTeams(e.target.value)} style={inputStyle}>
                   <option value=''>{copy.chooseProject}</option>
@@ -819,7 +819,7 @@ export default function RefinementPage() {
               </Field>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               <Field label={copy.project}>
                 <select value={jiraProject} onChange={(e) => void loadJiraBoards(e.target.value)} style={inputStyle}>
                   <option value=''>{copy.chooseProject}</option>
@@ -841,7 +841,7 @@ export default function RefinementPage() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <Field label={copy.agentProvider}>
               <select
                 value={agentProvider}
@@ -972,7 +972,7 @@ export default function RefinementPage() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="refinement-actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={() => void refreshItems()} style={primaryButton} disabled={loadingItems}>
               {loadingItems ? copy.loadingItems : copy.loadItems}
             </button>
@@ -1012,7 +1012,7 @@ export default function RefinementPage() {
           )}
         </div>
 
-        <div style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'linear-gradient(180deg, rgba(15,23,42,0.94), rgba(13,18,30,0.98))', padding: 18, display: 'grid', gap: 12 }}>
+        <div className="refinement-stats" style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'linear-gradient(180deg, rgba(15,23,42,0.94), rgba(13,18,30,0.98))', padding: 18, display: 'grid', gap: 12 }}>
           <Stat label={copy.total} value={String(itemsData?.items.length || 0)} />
           <Stat label={copy.unestimated} value={String(itemsData?.unestimated_count || 0)} accent='#fbbf24' />
           <Stat label={copy.pointed} value={String(itemsData?.pointed_count || 0)} accent='#34d399' />
@@ -1029,7 +1029,7 @@ export default function RefinementPage() {
         </div>
       </div>
 
-      <div style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', overflow: 'hidden' }}>
+      <div className="refinement-table-wrap" style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', overflow: 'hidden' }}>
         <div style={panelHeader}>Sprint Items</div>
         {!sortedItems.length ? (
           <div style={emptyStyle}>{loadingItems ? copy.loadingItems : copy.noItems}</div>
@@ -1124,7 +1124,7 @@ export default function RefinementPage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {copy.resultOverview}
               </div>
-              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+              <div className="refinement-results-grid" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                 {results.results.map((item) => (
                   <div key={`${item.item_id}-summary`} style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.03)', padding: 14, display: 'grid', gap: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
@@ -1183,7 +1183,7 @@ export default function RefinementPage() {
                         {item.fallback_note}
                       </div>
                     )}
-                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                    <div className="refinement-metrics-row" style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                       <ResultMetric label={copy.currentEstimate} value={displaySuggestionEstimate(item.current_story_points)} accent='var(--ink-80)' />
                       <ResultMetric label={copy.suggestedEstimate} value={displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })} accent='#fde68a' />
                       <ResultMetric label={copy.confidence} value={`${item.confidence}%`} accent='#93c5fd' />
@@ -1203,7 +1203,7 @@ export default function RefinementPage() {
 
       {resultsModalOpen && (
         <div style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
-          <div style={modalCard} onClick={(e) => e.stopPropagation()}>
+          <div className="refinement-modal" style={modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</div>
               <button type='button' style={ghostButton} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>{copy.close}</button>

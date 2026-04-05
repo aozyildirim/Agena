@@ -525,6 +525,26 @@ class RefinementService:
             'description': self._normalize_description(item.description),
         }
 
+    @staticmethod
+    def _safe_int(value: Any, default: int = 0) -> int:
+        """Safely parse a value to int, handling LLM returning text like 'düşük' instead of numbers."""
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).strip()
+        # Try direct parse
+        try:
+            return int(s)
+        except (ValueError, TypeError):
+            pass
+        # Try extracting first number from string like "3 points" or "~5"
+        import re
+        match = re.search(r'\d+', s)
+        if match:
+            return int(match.group())
+        return default
+
     def _to_suggestion(
         self,
         item: ExternalTask,
@@ -535,7 +555,7 @@ class RefinementService:
         language: str,
     ) -> RefinementSuggestion:
         point = payload.get('suggested_story_points', 0)
-        confidence = max(0, min(100, int(payload.get('confidence', 0) or 0)))
+        confidence = max(0, min(100, self._safe_int(payload.get('confidence', 0))))
         summary = str(payload.get('summary') or '').strip()
         rationale = str(payload.get('estimation_rationale') or '').strip()
         comment = str(payload.get('comment') or '').strip()
@@ -544,7 +564,7 @@ class RefinementService:
 
         fallback_fields: list[str] = []
         tr = self._is_turkish(language)
-        point_value = max(0, int(point or 0))
+        point_value = max(0, self._safe_int(point))
 
         if not summary:
             fallback_fields.append('summary')
