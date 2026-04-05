@@ -1,5 +1,13 @@
 [
   {
+    "hash": "59365c2",
+    "short": "59365c2",
+    "message": "unified item list for refinement — single responsive list for mobile+desktop",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "1c61965",
     "short": "1c61965",
     "message": "mobile cards — remove inline display:none, explicit text colors, word-break",
@@ -787,14 +795,6 @@
     "hash": "fc80e3b",
     "short": "fc80e3b",
     "message": "center pixel office canvas in iframe container",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
-  },
-  {
-    "hash": "9d3c3e7",
-    "short": "9d3c3e7",
-    "message": "office page height calc for top bar, prevent content cutoff",
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"

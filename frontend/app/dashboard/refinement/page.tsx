@@ -1554,7 +1554,7 @@ export default function RefinementPage() {
         )}
       </div>
 
-      {resultsModalOpen && (
+      {resultsModalOpen && typeof document !== 'undefined' && createPortal(
         <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
           <div className="refinement-modal" style={{ ...modalCard, padding: 24 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -1694,10 +1694,11 @@ export default function RefinementPage() {
                 })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {confirmBulkWriteback && results && (
+      {confirmBulkWriteback && results && typeof document !== 'undefined' && createPortal(
         <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => setConfirmBulkWriteback(false)}>
           <div className="refinement-modal refinement-modal-sm" style={{ ...modalCard, width: 'min(560px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
@@ -1756,10 +1757,12 @@ export default function RefinementPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {confirmWritebackItemId && (() => {
+      {confirmWritebackItemId && typeof document !== 'undefined' && createPortal(
+        (() => {
         const confirmRow = resultByItemId.get(confirmWritebackItemId);
         return (
           <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => setConfirmWritebackItemId('')}>
@@ -1804,7 +1807,9 @@ export default function RefinementPage() {
             </div>
           </div>
         );
-      })()}
+      })(),
+        document.body,
+      )}
     </div>
   );
 }
