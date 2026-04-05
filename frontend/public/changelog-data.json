@@ -1,5 +1,13 @@
 [
   {
+    "hash": "051e8ca",
+    "short": "051e8ca",
+    "message": "refinement int parse error + mobile responsive for refinement & usage pages",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "822d0d7",
     "short": "822d0d7",
     "message": "refinement YAML path error + cleaner prompt UI",
@@ -787,14 +795,6 @@
     "hash": "ce67170",
     "short": "ce67170",
     "message": "replace 'from db import models' with agena_models in main.py and worker",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
-  },
-  {
-    "hash": "42e35cf",
-    "short": "42e35cf",
-    "message": "complete import rewrite for all package files",
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"
