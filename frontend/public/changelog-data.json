@@ -1,5 +1,13 @@
 [
   {
+    "hash": "eb76606",
+    "short": "eb76606",
+    "message": "refinement mobile — portal overlay, title wrap, z-index boost",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "c0f39f5",
     "short": "c0f39f5",
     "message": "complete mobile-first redesign of refinement page",
@@ -787,14 +795,6 @@
     "hash": "1b47cc2",
     "short": "1b47cc2",
     "message": "office agent wizard step 4 (prompt/settings), fix promptSlugs prop, compact sidebar",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "860c672",
-    "short": "860c672",
-    "message": "agent prompt selector — choose from Prompt Studio or write custom",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"

@@ -1402,7 +1402,7 @@ export default function RefinementPage() {
           </div>
 
           {/* Mobile card list */}
-          <div className="refinement-cards-mobile" style={{ display: 'none' }}>
+          <div className="refinement-cards-mobile">
             {sortedItems.map((item) => {
               const estimated = hasEstimate(item);
               const checked = selectedIds.includes(item.id);
@@ -1427,19 +1427,18 @@ export default function RefinementPage() {
                       onChange={() => toggleItem(item)}
                       style={{ marginTop: 3, flexShrink: 0 }}
                     />
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'visible' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.id}</span>
+                        <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', fontWeight: 600 }}>{item.id}</span>
                         <span style={{ ...(estimated ? estimatedPill : unestimatedPill), fontSize: 10, padding: '2px 6px' }}>
                           {displayEstimate(item)}
                         </span>
                         {item.state && <span style={{ fontSize: 10, color: 'var(--ink-42)', padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.04)' }}>{item.state}</span>}
                       </div>
                       <div style={{
-                        fontSize: 13, fontWeight: 600, lineHeight: 1.4,
-                        color: itemSourceUrl ? '#93c5fd' : 'var(--ink-90)',
-                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
-                        overflow: 'hidden',
+                        fontSize: 14, fontWeight: 600, lineHeight: 1.4,
+                        color: itemSourceUrl ? '#93c5fd' : '#e2e8f0',
+                        wordBreak: 'break-word',
                       }}>
                         {itemSourceUrl ? (
                           <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ color: '#93c5fd', textDecoration: 'none' }}>
