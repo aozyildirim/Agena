@@ -41,6 +41,7 @@ const sectionsDef = [
       { id: 'team-management', titleKey: 'docs.teamManagement' },
       { id: 'profile-settings', titleKey: 'docs.profileSettings' },
       { id: 'chatops', titleKey: 'docs.chatops' },
+      { id: 'multi-repo', titleKey: 'docs.multiRepo' },
     ],
   },
   {

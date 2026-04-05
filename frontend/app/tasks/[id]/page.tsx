@@ -40,6 +40,15 @@ type TaskDetail = {
   pr_risk_level?: string | null;
   pr_risk_reason?: string | null;
   total_tokens?: number | null;
+  repo_assignments?: {
+    id: number;
+    repo_mapping_id: number;
+    repo_display_name: string;
+    status: string;
+    pr_url?: string | null;
+    branch_name?: string | null;
+    failure_reason?: string | null;
+  }[];
 };
 
 type TaskLog = {
@@ -759,13 +768,58 @@ export default function TaskDetailPage() {
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                 <button className='button button-outline' onClick={downloadLogs} style={{ fontSize: 11, padding: '5px 10px' }}>{t('taskDetail.downloadLogs')}</button>
-                {task.pr_url ? <a href={task.pr_url} target='_blank' rel='noreferrer' className='button button-outline' style={{ fontSize: 11, padding: '5px 10px' }}>{t('taskDetail.openPullRequest')}</a> : null}
-                {task.branch_name ? (
+                {task.repo_assignments && task.repo_assignments.length > 0 ? (
+                  task.repo_assignments.filter((ra) => ra.pr_url).map((ra) => (
+                    <a key={ra.id} href={ra.pr_url!} target='_blank' rel='noreferrer' className='button button-outline' style={{ fontSize: 11, padding: '5px 10px' }}>
+                      {t('taskDetail.openPullRequest')} — {ra.repo_display_name.split('/').pop()}
+                    </a>
+                  ))
+                ) : task.pr_url ? (
+                  <a href={task.pr_url} target='_blank' rel='noreferrer' className='button button-outline' style={{ fontSize: 11, padding: '5px 10px' }}>{t('taskDetail.openPullRequest')}</a>
+                ) : null}
+                {task.repo_assignments && task.repo_assignments.length > 0 ? (
+                  task.repo_assignments.filter((ra) => ra.branch_name).map((ra) => (
+                    <button key={ra.id} className='button button-outline' onClick={() => navigator.clipboard.writeText(ra.branch_name || '')} style={{ fontSize: 11, padding: '5px 10px' }}>
+                      {t('taskDetail.copyBranch')} — {ra.repo_display_name.split('/').pop()}
+                    </button>
+                  ))
+                ) : task.branch_name ? (
                   <button className='button button-outline' onClick={() => navigator.clipboard.writeText(task.branch_name || '')} style={{ fontSize: 11, padding: '5px 10px' }}>
                     {t('taskDetail.copyBranch')}
                   </button>
                 ) : null}
               </div>
+              {/* Multi-repo assignment cards */}
+              {task.repo_assignments && task.repo_assignments.length > 0 && (
+                <div style={{ border: '1px solid rgba(94,234,212,0.25)', borderRadius: 10, background: 'rgba(94,234,212,0.06)', padding: '9px 10px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', marginBottom: 6 }}>{t('taskDetail.repoAssignments' as never)}</div>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {task.repo_assignments.map((ra) => {
+                      const sc: Record<string, string> = { completed: '#22c55e', running: '#38bdf8', failed: '#f87171', queued: '#f59e0b', new: '#94a3b8' };
+                      const c = sc[ra.status] ?? '#6b7280';
+                      return (
+                        <div key={ra.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border)' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-78)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ra.repo_display_name}
+                          </span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: `${c}18`, color: c, textTransform: 'capitalize' }}>
+                            {ra.status}
+                          </span>
+                          {ra.pr_url && (
+                            <a href={ra.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 11, color: '#5eead4', textDecoration: 'none', whiteSpace: 'nowrap' }}>PR ↗</a>
+                          )}
+                          {ra.failure_reason && (
+                            <span style={{ fontSize: 10, color: '#f87171', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ra.failure_reason}>
+                              {ra.failure_reason}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'grid', gap: 7, marginBottom: 12 }}>
                 <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>{t('taskDetail.created')}: {new Date(task.created_at).toLocaleString()}</div>
                 {metrics?.startedAt ? <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>{t('taskDetail.runStart')}: {new Date(metrics.startedAt).toLocaleString()}</div> : null}

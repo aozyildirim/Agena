@@ -16,6 +16,7 @@ from agena_models.schemas.saas_task import (
     AzureImportRequest,
     JiraImportRequest,
     ImportTasksResponse,
+    RepoAssignmentResponse,
     TaskListResponse,
     QueueTaskItem,
     TaskDependencyUpdateRequest,
@@ -34,6 +35,29 @@ router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
 async def _to_task_response(service: TaskService, organization_id: int, task) -> TaskResponse:
     insights = await service.get_task_insights(organization_id, task)
     preferred_agent_model, preferred_agent_provider = service._extract_preferred_agent_selection(task.description)
+
+    # Load multi-repo assignments if any
+    from agena_models.models.task_repo_assignment import TaskRepoAssignment
+    from agena_models.models.repo_mapping import RepoMapping
+    assign_rows = (await service.db.execute(
+        select(TaskRepoAssignment, RepoMapping)
+        .outerjoin(RepoMapping, TaskRepoAssignment.repo_mapping_id == RepoMapping.id)
+        .where(TaskRepoAssignment.task_id == task.id, TaskRepoAssignment.organization_id == organization_id)
+        .order_by(TaskRepoAssignment.id)
+    )).all()
+    repo_assignments = [
+        RepoAssignmentResponse(
+            id=a.id,
+            repo_mapping_id=a.repo_mapping_id,
+            repo_display_name=f"{m.provider}:{m.owner}/{m.repo_name}" if m else '',
+            status=a.status,
+            pr_url=a.pr_url,
+            branch_name=a.branch_name,
+            failure_reason=a.failure_reason,
+        )
+        for a, m in assign_rows
+    ]
+
     return TaskResponse(
         id=task.id,
         title=task.title,
@@ -66,6 +90,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         pr_risk_level=insights['pr_risk_level'],
         pr_risk_reason=insights['pr_risk_reason'],
         total_tokens=insights['total_tokens'],
+        repo_assignments=repo_assignments,
     )
 
 
@@ -276,6 +301,65 @@ async def assign_task(
                 desc = re.sub(r'\n{3,}', '\n\n', desc).strip()
             task_record.description = desc + '\n\n---\n' + extra
             await db.commit()
+    # Multi-repo: create assignments and fan-out to queue
+    mapping_ids = payload.repo_mapping_ids or []
+    if len(mapping_ids) > 1:
+        from agena_models.models.repo_mapping import RepoMapping
+        from agena_models.models.task_repo_assignment import TaskRepoAssignment
+        from agena_models.models.task_record import TaskRecord
+
+        task_record = (await db.execute(
+            select(TaskRecord).where(TaskRecord.id == task_id, TaskRecord.organization_id == tenant.organization_id)
+        )).scalar_one_or_none()
+        if not task_record:
+            raise HTTPException(404, 'Task not found')
+
+        # Validate all mapping IDs
+        mappings = (await db.execute(
+            select(RepoMapping).where(
+                RepoMapping.id.in_(mapping_ids),
+                RepoMapping.organization_id == tenant.organization_id,
+                RepoMapping.is_active.is_(True),
+            )
+        )).scalars().all()
+        if len(mappings) != len(mapping_ids):
+            raise HTTPException(400, 'One or more repo mappings not found or inactive')
+
+        # Create assignments
+        assignments = []
+        for m in mappings:
+            a = TaskRepoAssignment(
+                task_id=task_id,
+                organization_id=tenant.organization_id,
+                repo_mapping_id=m.id,
+                status='queued',
+            )
+            db.add(a)
+            assignments.append(a)
+        await db.flush()
+
+        # Enqueue each assignment separately
+        from agena_services.services.queue_service import QueueService
+        queue = QueueService()
+        first_key = ''
+        for a in assignments:
+            key = await queue.enqueue({
+                'organization_id': tenant.organization_id,
+                'task_id': task_id,
+                'assignment_id': a.id,
+                'create_pr': payload.create_pr,
+                'mode': payload.mode,
+                'agent_model': payload.agent_model or '',
+                'agent_provider': payload.agent_provider or '',
+            })
+            if not first_key:
+                first_key = key
+
+        task_record.status = 'queued'
+        await db.commit()
+        return AssignTaskResponse(queued=True, queue_key=first_key)
+
+    # Single-repo or legacy flow
     try:
         queue_key = await service.assign_task_to_ai(
             tenant.organization_id,

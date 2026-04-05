@@ -85,6 +85,50 @@ async def _cleanup_stale_repo_locks() -> None:
         logger.warning('Cleaned %s stale repo lock(s)', removed)
 
 
+async def _update_multi_repo_task_status(session, task_id: int, organization_id: int) -> None:
+    """Aggregate assignment statuses into the parent task status."""
+    from agena_models.models.task_repo_assignment import TaskRepoAssignment
+    rows = (await session.execute(
+        select(TaskRepoAssignment).where(
+            TaskRepoAssignment.task_id == task_id,
+            TaskRepoAssignment.organization_id == organization_id,
+        )
+    )).scalars().all()
+    if not rows:
+        return
+
+    statuses = [r.status for r in rows]
+    task = await session.get(TaskRecord, task_id)
+    if not task:
+        return
+
+    all_terminal = all(s in {'completed', 'failed'} for s in statuses)
+    if not all_terminal:
+        return
+
+    all_completed = all(s == 'completed' for s in statuses)
+    all_failed = all(s == 'failed' for s in statuses)
+
+    if all_completed:
+        task.status = 'completed'
+    elif all_failed:
+        task.status = 'failed'
+        task.failure_reason = 'All repo assignments failed'
+    else:
+        task.status = 'completed'  # partial success is still completion
+        task.failure_reason = f'{sum(1 for s in statuses if s == "failed")}/{len(statuses)} repo assignments failed'
+
+    # Aggregate PR URLs
+    pr_urls = [r.pr_url for r in rows if r.pr_url]
+    if pr_urls:
+        task.pr_url = pr_urls[0] if len(pr_urls) == 1 else ', '.join(pr_urls)
+    await session.commit()
+
+    publish_fire_and_forget(organization_id, 'task_status', {
+        'task_id': task_id, 'status': task.status, 'title': task.title,
+    })
+
+
 async def _run_single_task(payload: dict) -> None:
     organization_id = int(payload.get('organization_id', 0) or 0)
     task_id = int(payload.get('task_id', 0) or 0)
@@ -94,6 +138,7 @@ async def _run_single_task(payload: dict) -> None:
     agent_model = payload.get('agent_model') or None
     agent_provider = payload.get('agent_provider') or None
     lock_retries = int(payload.get('lock_retries', 0) or 0)
+    assignment_id = int(payload.get('assignment_id', 0) or 0) or None
 
     if organization_id <= 0 or task_id <= 0:
         logger.error('Invalid queue payload: %s', payload)
@@ -105,24 +150,46 @@ async def _run_single_task(payload: dict) -> None:
         if task is None:
             logger.warning('Task not found, skipping payload=%s', payload)
             return
-        if task.status in {'completed', 'failed', 'cancelled'}:
+        if not assignment_id and task.status in {'completed', 'failed', 'cancelled'}:
             logger.info('Skipping terminal task id=%s status=%s', task.id, task.status)
             return
 
+        # Load assignment if multi-repo
+        assignment = None
+        assignment_mapping = None
+        if assignment_id:
+            from agena_models.models.task_repo_assignment import TaskRepoAssignment
+            from agena_models.models.repo_mapping import RepoMapping
+            assignment = await session.get(TaskRepoAssignment, assignment_id)
+            if not assignment or assignment.task_id != task_id:
+                logger.warning('Assignment %s not found for task %s', assignment_id, task_id)
+                return
+            if assignment.status in {'completed', 'failed'}:
+                logger.info('Skipping terminal assignment id=%s', assignment_id)
+                return
+            assignment_mapping = await session.get(RepoMapping, assignment.repo_mapping_id)
+            assignment.status = 'running'
+            await session.commit()
+
         publish_fire_and_forget(organization_id, 'task_status', {
             'task_id': task_id, 'status': 'picked_up', 'title': task.title,
+            **(({'assignment_id': assignment_id}) if assignment_id else {}),
         })
 
+        # Determine lock scope
         lock_scope = None
-        for line in (task.description or '').splitlines():
-            if line.lower().startswith('local repo path:'):
-                lock_scope = line.split(':', 1)[1].strip()
-                break
-        if not lock_scope and 'external source:' in (task.description or '').lower():
-            lock_scope = f"org:{organization_id}:external:{task.external_id or task.id}"
+        if assignment_mapping:
+            lock_scope = assignment_mapping.local_repo_path or f"repo:{assignment_mapping.id}"
+        else:
+            for line in (task.description or '').splitlines():
+                if line.lower().startswith('local repo path:'):
+                    lock_scope = line.split(':', 1)[1].strip()
+                    break
+            if not lock_scope and 'external source:' in (task.description or '').lower():
+                lock_scope = f"org:{organization_id}:external:{task.external_id or task.id}"
 
         queue_service = QueueService()
-        lock_owner = f'task:{task_id}'
+        lock_owner = f'task:{task_id}' if not assignment_id else f'assignment:{assignment_id}'
         lock_key = f'org:{organization_id}:{lock_scope}' if lock_scope else None
         if lock_key:
             acquired = await queue_service.acquire_lock(lock_key, lock_owner, ttl_sec=1800)
@@ -147,31 +214,57 @@ async def _run_single_task(payload: dict) -> None:
 
             if not acquired:
                 if lock_retries >= settings.queue_lock_max_retries:
-                    task.status = 'failed'
-                    task.failure_reason = 'Repo lock busy for too long; task aborted after retries'
-                    await session.commit()
-                    await task_service.add_log(task.id, organization_id, 'failed', task.failure_reason)
+                    fail_reason = 'Repo lock busy for too long; task aborted after retries'
+                    if assignment:
+                        assignment.status = 'failed'
+                        assignment.failure_reason = fail_reason
+                        await session.commit()
+                        await _update_multi_repo_task_status(session, task_id, organization_id)
+                    else:
+                        task.status = 'failed'
+                        task.failure_reason = fail_reason
+                        await session.commit()
+                    await task_service.add_log(task.id, organization_id, 'failed', fail_reason)
                     publish_fire_and_forget(organization_id, 'task_status', {
                         'task_id': task_id, 'status': 'failed', 'title': task.title,
                     })
                     return
                 await task_service.add_log(task.id, organization_id, 'queued', 'Repo lock busy, re-queued')
-                task.status = 'queued'
-                await session.commit()
+                if assignment:
+                    assignment.status = 'queued'
+                    await session.commit()
+                else:
+                    task.status = 'queued'
+                    await session.commit()
                 payload['lock_retries'] = lock_retries + 1
                 await queue_service.enqueue(payload)
                 return
 
         service = OrchestrationService(db_session=session)
         try:
-            await service.run_task_record(
+            result = await service.run_task_record(
                 organization_id=organization_id,
                 task_id=task_id,
                 create_pr=create_pr,
                 mode=run_mode,
                 agent_model=agent_model,
                 agent_provider=agent_provider,
+                assignment_id=assignment_id,
             )
+            # Update assignment with results
+            if assignment:
+                assignment.status = 'completed'
+                assignment.pr_url = task.pr_url
+                assignment.branch_name = task.branch_name
+                await session.commit()
+                await _update_multi_repo_task_status(session, task_id, organization_id)
+        except Exception:
+            if assignment:
+                assignment.status = 'failed'
+                assignment.failure_reason = (task.failure_reason or 'Unknown error')[:500]
+                await session.commit()
+                await _update_multi_repo_task_status(session, task_id, organization_id)
+            raise
         finally:
             if lock_key:
                 await queue_service.release_lock(lock_key, lock_owner)

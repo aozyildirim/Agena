@@ -204,6 +204,17 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
   return (await response.json()) as T;
 }
 
+// ── Backend repo mapping (multi-repo orchestration) ─────────────────────────
+
+export type BackendRepoMapping = {
+  id: number;
+  provider: string;
+  owner: string;
+  repo_name: string;
+  display_name?: string;
+  is_active?: boolean;
+};
+
 // ── Preferences helpers ──────────────────────────────────────────────────────
 
 export type AzureMember = { id: string; displayName: string; uniqueName: string };

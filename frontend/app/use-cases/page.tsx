@@ -13,6 +13,7 @@ export default function UseCasesPage() {
     { icon: '🔍', key: 'uc4', keyword: 'automated-code-review' },
     { icon: '🧠', key: 'uc5', keyword: 'vector-memory-ai' },
     { icon: '💬', key: 'uc6', keyword: 'chatops-ai' },
+    { icon: '🔀', key: 'uc7', keyword: 'multi-repo-orchestration' },
   ];
 
   return (
