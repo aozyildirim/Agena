@@ -714,7 +714,10 @@ export default function RefinementPage() {
       const normalized = normalizeAnalyzeResponse(response);
       setResults(normalized);
       setAutoFocusResults(true);
-      setResultsModalOpen(normalized.results.length > 0);
+      if (normalized.results.length > 0) {
+        setFocusedResultId(normalized.results[0].item_id);
+        setResultsModalOpen(true);
+      }
       const failures = normalized.results.filter((item) => Boolean(item.error)).length;
       if (!normalized.results.length) {
         setRunMessage({ kind: 'error', text: copy.failedRun });
@@ -1571,13 +1574,48 @@ export default function RefinementPage() {
       </div>
 
       {resultsModalOpen && typeof document !== 'undefined' && createPortal(
-        <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
-          <div className="refinement-modal" style={{ ...modalCard, padding: 24 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</div>
-              <button type='button' style={ghostButton} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>{copy.close}</button>
-            </div>
-            <div style={{ display: 'grid', gap: 16, maxHeight: '78vh', overflowY: 'auto', paddingRight: 4 }}>
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)',
+          zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
+        }} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
+          <div style={{
+            width: 'min(560px, 96vw)', maxHeight: '90vh', borderRadius: 18,
+            background: '#111827', border: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          }} onClick={(e) => e.stopPropagation()}>
+            {/* Header with navigation */}
+            {(() => {
+              const allResults = results?.results || [];
+              const currentIdx = focusedResultId ? allResults.findIndex(r => r.item_id === focusedResultId) : 0;
+              const total = allResults.length;
+              return (
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {total > 1 && (
+                      <>
+                        <button type='button' onClick={() => {
+                          const prev = currentIdx > 0 ? currentIdx - 1 : total - 1;
+                          setFocusedResultId(allResults[prev]?.item_id || '');
+                        }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>←</button>
+                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{currentIdx + 1} / {total}</span>
+                        <button type='button' onClick={() => {
+                          const next = currentIdx < total - 1 ? currentIdx + 1 : 0;
+                          setFocusedResultId(allResults[next]?.item_id || '');
+                        }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>→</button>
+                      </>
+                    )}
+                    <span style={{ fontSize: 16, fontWeight: 800, color: '#e2e8f0' }}>{copy.resultsTitle}</span>
+                  </div>
+                  <button type='button' onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}
+                    style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', padding: '6px 14px', fontSize: 12, fontWeight: 600 }}>
+                    ✕
+                  </button>
+                </div>
+              );
+            })()}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+              <div style={{ display: 'grid', gap: 16 }}>
               {(results?.results || [])
                 .filter((item) => !focusedResultId || item.item_id === focusedResultId)
                 .map((item) => {
@@ -1708,6 +1746,7 @@ export default function RefinementPage() {
                 </div>
                   );
                 })}
+              </div>
             </div>
           </div>
         </div>,

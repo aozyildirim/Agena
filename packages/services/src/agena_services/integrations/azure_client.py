@@ -133,10 +133,12 @@ class AzureDevOpsClient:
                 'value': int(suggested_story_points),
             })
         if str(comment or '').strip():
+            # Azure DevOps System.History accepts HTML — convert newlines to <br> and format sections
+            html_comment = self._format_comment_html(str(comment).strip())
             patch_ops.append({
                 'op': 'add',
                 'path': '/fields/System.History',
-                'value': str(comment).strip(),
+                'value': html_comment,
             })
         if not patch_ops:
             return
@@ -147,6 +149,32 @@ class AzureDevOpsClient:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.patch(url, headers=headers, json=patch_ops)
             response.raise_for_status()
+
+    @staticmethod
+    def _format_comment_html(text: str) -> str:
+        """Convert plain-text refinement comment to formatted HTML for Azure DevOps."""
+        import html as html_mod
+        lines = text.split('\n')
+        html_parts: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                html_parts.append('<br/>')
+            elif stripped.startswith('📊') or stripped.startswith('🎯') or stripped.startswith('❓') or stripped.startswith('⚠️'):
+                html_parts.append(f'<p><strong>{html_mod.escape(stripped)}</strong></p>')
+            elif stripped.startswith('---'):
+                html_parts.append('<hr/>')
+            elif stripped[0:1].isdigit() and '. ' in stripped[:4]:
+                html_parts.append(f'<li>{html_mod.escape(stripped[stripped.index(". ") + 2:])}</li>')
+            elif stripped.startswith('• ') or stripped.startswith('- '):
+                html_parts.append(f'<li>{html_mod.escape(stripped[2:])}</li>')
+            else:
+                html_parts.append(f'<p>{html_mod.escape(stripped)}</p>')
+        # Wrap consecutive <li> items in <ul>
+        result = '\n'.join(html_parts)
+        import re
+        result = re.sub(r'((?:<li>.*?</li>\n?)+)', r'<ul>\1</ul>', result)
+        return result
 
     def _headers(self, pat: str) -> dict[str, str]:
         token = base64.b64encode(f':{pat}'.encode()).decode()

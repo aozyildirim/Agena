@@ -273,17 +273,59 @@ class JiraClient:
             if comment_text:
                 comment_url = f"{base_url.rstrip('/')}/rest/api/3/issue/{key}/comment"
                 comment_payload = {
-                    'body': {
-                        'type': 'doc',
-                        'version': 1,
-                        'content': [{
-                            'type': 'paragraph',
-                            'content': [{'type': 'text', 'text': comment_text}],
-                        }],
-                    },
+                    'body': self._format_comment_adf(comment_text),
                 }
                 response = await client.post(comment_url, json=comment_payload, auth=(email, api_token))
                 response.raise_for_status()
+
+    @staticmethod
+    def _format_comment_adf(text: str) -> dict:
+        """Convert plain-text refinement comment to Jira ADF (Atlassian Document Format)."""
+        content: list[dict] = []
+        lines = text.split('\n')
+        list_items: list[dict] = []
+
+        def flush_list():
+            nonlocal list_items
+            if list_items:
+                content.append({'type': 'bulletList', 'content': list_items})
+                list_items = []
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                flush_list()
+                continue
+            elif stripped.startswith('📊') or stripped.startswith('🎯') or stripped.startswith('❓') or stripped.startswith('⚠️'):
+                flush_list()
+                content.append({
+                    'type': 'heading', 'attrs': {'level': 3},
+                    'content': [{'type': 'text', 'text': stripped}],
+                })
+            elif stripped.startswith('---'):
+                flush_list()
+                content.append({'type': 'rule'})
+            elif stripped[0:1].isdigit() and '. ' in stripped[:4]:
+                list_items.append({
+                    'type': 'listItem',
+                    'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': stripped[stripped.index('. ') + 2:]}]}],
+                })
+            elif stripped.startswith('• ') or stripped.startswith('- '):
+                list_items.append({
+                    'type': 'listItem',
+                    'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': stripped[2:]}]}],
+                })
+            else:
+                flush_list()
+                content.append({
+                    'type': 'paragraph',
+                    'content': [{'type': 'text', 'text': stripped}],
+                })
+
+        flush_list()
+        if not content:
+            content.append({'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]})
+        return {'type': 'doc', 'version': 1, 'content': content}
 
     def _resolve_config(self, cfg: dict[str, str] | None) -> tuple[str, str, str]:
         cfg = cfg or {}

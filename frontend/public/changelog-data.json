@@ -1,5 +1,13 @@
 [
   {
+    "hash": "404f84d",
+    "short": "404f84d",
+    "message": "compact writeback modal + rich comment with rationale & questions",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "2a7a97c",
     "short": "2a7a97c",
     "message": "extract story points from rationale when structured output returns 0",
@@ -787,14 +795,6 @@
     "hash": "eaa675e",
     "short": "eaa675e",
     "message": "compact office header to give more height to pixel map",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
-  },
-  {
-    "hash": "8c9c42b",
-    "short": "8c9c42b",
-    "message": "revert pixel office CSS, increase container height to 100vh-104px",
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"
