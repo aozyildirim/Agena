@@ -169,6 +169,8 @@ type Copy = {
   writeConfirm: string;
   alreadyWritten: string;
   bulkSkipped: string;
+  analyzingProgress: string;
+  overlayWait: string;
 };
 
 const COPY: Record<'tr' | 'en', Copy> = {
@@ -251,6 +253,8 @@ const COPY: Record<'tr' | 'en', Copy> = {
     writeConfirm: 'Yorum ve puani yaz',
     alreadyWritten: 'Zaten yazildi',
     bulkSkipped: 'Atlanan (zaten yazilmis)',
+    analyzingProgress: '{done} / {total} analiz ediliyor...',
+    overlayWait: 'Lutfen bekleyin',
   },
   en: {
     section: 'Refinement',
@@ -331,6 +335,8 @@ const COPY: Record<'tr' | 'en', Copy> = {
     writeConfirm: 'Write comment & points',
     alreadyWritten: 'Already written',
     bulkSkipped: 'Skipped (already written)',
+    analyzingProgress: 'Analyzing {done} / {total}...',
+    overlayWait: 'Please wait',
   },
 };
 
@@ -442,6 +448,7 @@ export default function RefinementPage() {
   const [bulkWritebackRunning, setBulkWritebackRunning] = useState(false);
   const [commentSignature, setCommentSignature] = useState('AGENA AI');
   const [focusedResultId, setFocusedResultId] = useState('');
+  const [analyzedCount, setAnalyzedCount] = useState(0);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [customPromptText, setCustomPromptText] = useState('');
@@ -662,8 +669,13 @@ export default function RefinementPage() {
   const runRefinement = useCallback(async () => {
     if (!selectedIds.length) return;
     setRunning(true);
+    setAnalyzedCount(0);
     setError('');
     setRunMessage(null);
+    const totalCount = selectedIds.length;
+    const progressInterval = setInterval(() => {
+      setAnalyzedCount((prev) => prev < totalCount - 1 ? prev + 1 : prev);
+    }, Math.max(3000, 8000 / totalCount));
     try {
       const customSystemPrompt = useCustomPrompt && customPromptText.trim() ? customPromptText.trim() : undefined;
       const payload = provider === 'azure'
@@ -696,6 +708,8 @@ export default function RefinementPage() {
         method: 'POST',
         body: JSON.stringify(payload),
       });
+      clearInterval(progressInterval);
+      setAnalyzedCount(totalCount);
       const normalized = normalizeAnalyzeResponse(response);
       setResults(normalized);
       setAutoFocusResults(true);
@@ -711,10 +725,12 @@ export default function RefinementPage() {
         setRunMessage({ kind: 'warning', text: copy.partialRun });
       }
     } catch (err) {
+      clearInterval(progressInterval);
       const message = err instanceof Error ? err.message : 'Refinement failed';
       setError(message);
       setRunMessage({ kind: 'error', text: message });
     } finally {
+      clearInterval(progressInterval);
       setRunning(false);
     }
   }, [provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, jiraBoard, jiraSprint, selectedJiraSprint, language, agentProvider, agentModel, selectedIds, maxItems, useCustomPrompt, customPromptText, normalizeAnalyzeResponse, copy.failedRun, copy.successRun, copy.partialRun]);
@@ -836,7 +852,44 @@ export default function RefinementPage() {
   }, [provider, azureSprint, jiraSprint, normalizeAnalyzeResponse]);
 
   return (
-    <div className="refinement-page" style={{ display: 'grid', gap: 18, maxWidth: 1200 }}>
+    <div className="refinement-page" style={{ display: 'grid', gap: 18, maxWidth: 1200, paddingBottom: 40 }}>
+      {/* ── LOADING OVERLAY ── */}
+      {running && (
+        <div className="refinement-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 9999, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 20,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            border: '3px solid rgba(94,234,212,0.15)',
+            borderTopColor: '#5eead4',
+            animation: 'refinement-spin 0.8s linear infinite',
+          }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#5eead4', marginBottom: 6 }}>
+              {copy.analyzingProgress
+                .replace('{done}', String(analyzedCount))
+                .replace('{total}', String(selectedIds.length))}
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>{copy.overlayWait}</div>
+          </div>
+          <div style={{
+            width: 200, height: 4, borderRadius: 2,
+            background: 'rgba(255,255,255,0.08)', overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%', borderRadius: 2,
+              background: 'linear-gradient(90deg, #0d9488, #5eead4)',
+              width: selectedIds.length > 0
+                ? `${Math.max(5, (analyzedCount / selectedIds.length) * 100)}%`
+                : '5%',
+              transition: 'width 0.4s ease',
+            }} />
+          </div>
+        </div>
+      )}
       <div>
         <div className='section-label'>{copy.section}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>{copy.title}</h1>
@@ -1085,7 +1138,7 @@ export default function RefinementPage() {
           )}
         </div>
 
-        <div className="refinement-stats" style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'linear-gradient(180deg, rgba(15,23,42,0.94), rgba(13,18,30,0.98))', padding: 18, display: 'grid', gap: 12 }}>
+        <div className="refinement-stats" style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'linear-gradient(180deg, rgba(15,23,42,0.94), rgba(13,18,30,0.98))', padding: 18, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <Stat label={copy.total} value={String(itemsData?.items.length || 0)} />
           <Stat label={copy.unestimated} value={String(itemsData?.unestimated_count || 0)} accent='#fbbf24' />
           <Stat label={copy.pointed} value={String(itemsData?.pointed_count || 0)} accent='#34d399' />
@@ -1107,7 +1160,9 @@ export default function RefinementPage() {
         {!sortedItems.length ? (
           <div style={emptyStyle}>{loadingItems ? copy.loadingItems : copy.noItems}</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <>
+          {/* Desktop table */}
+          <div className="refinement-table-desktop" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -1343,6 +1398,171 @@ export default function RefinementPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile card list */}
+          <div className="refinement-cards-mobile" style={{ display: 'none' }}>
+            {sortedItems.map((item) => {
+              const estimated = hasEstimate(item);
+              const checked = selectedIds.includes(item.id);
+              const suggestion = resultByItemId.get(item.id);
+              const isWrittenBack = writtenBackIds.has(item.id);
+              const isExpanded = expandedItemId === item.id;
+              const itemSourceUrl = resultByItemId.get(item.id)?.item_url || item.web_url || '';
+              return (
+                <div key={`card-${item.id}`} className="refinement-item-card" style={{
+                  padding: '10px 12px',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  background: isWrittenBack
+                    ? 'rgba(34,197,94,0.06)'
+                    : checked ? 'rgba(59,130,246,0.06)' : 'transparent',
+                  borderLeft: isWrittenBack ? '3px solid #22c55e' : '3px solid transparent',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <input
+                      type='checkbox'
+                      checked={checked}
+                      disabled={estimated}
+                      onChange={() => toggleItem(item)}
+                      style={{ marginTop: 3, flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.id}</span>
+                        <span style={{ ...(estimated ? estimatedPill : unestimatedPill), fontSize: 10, padding: '2px 6px' }}>
+                          {displayEstimate(item)}
+                        </span>
+                        {item.state && <span style={{ fontSize: 10, color: 'var(--ink-42)', padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.04)' }}>{item.state}</span>}
+                      </div>
+                      <div style={{
+                        fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+                        color: itemSourceUrl ? '#93c5fd' : 'var(--ink-90)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {itemSourceUrl ? (
+                          <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ color: '#93c5fd', textDecoration: 'none' }}>
+                            {item.title}
+                          </a>
+                        ) : item.title}
+                      </div>
+                      {suggestion && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                          <span style={{ ...suggestedPointsPill(suggestion.suggested_story_points), fontSize: 11, padding: '2px 7px' }}>
+                            {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })} {copy.pts}
+                          </span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700,
+                            color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                          }}>
+                            {suggestion.confidence}%
+                          </span>
+                          {isWrittenBack && <span style={{ ...writtenBadge, fontSize: 9, padding: '1px 6px' }}>{copy.writtenBack}</span>}
+                        </div>
+                      )}
+                    </div>
+                    {suggestion && (
+                      <button
+                        type='button'
+                        onClick={() => setExpandedItemId(isExpanded ? '' : item.id)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                          color: 'var(--ink-42)', fontSize: 11, flexShrink: 0,
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s',
+                        }}
+                      >
+                        ▼
+                      </button>
+                    )}
+                  </div>
+                  {isExpanded && suggestion && (
+                    <div className="refinement-expanded-mobile" style={{
+                      marginTop: 10, padding: '12px 0 4px',
+                      borderTop: '1px solid rgba(13,148,136,0.15)',
+                      display: 'grid', gap: 12,
+                    }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                            {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })}
+                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 3 }}>{copy.suggestedEstimate}</div>
+                        </div>
+                        <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.08)' }} />
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5' }}>
+                            {suggestion.confidence}%
+                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 3 }}>{copy.confidence}</div>
+                        </div>
+                        <span style={{ ...(suggestion.ready_for_planning ? readyPill : pendingPill), fontSize: 10, padding: '3px 8px' }}>
+                          {suggestion.ready_for_planning ? copy.ready : copy.notReady}
+                        </span>
+                      </div>
+                      {suggestion.error ? (
+                        <div style={{ borderRadius: 8, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '8px 10px', fontSize: 12 }}>
+                          {suggestion.error}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={expandedSection}>
+                            <div style={expandedSectionLabel}>{copy.summary}</div>
+                            <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ink-80)', whiteSpace: 'pre-wrap' }}>{suggestion.summary || '-'}</div>
+                          </div>
+                          <div style={expandedSection}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={expandedSectionLabel}>{copy.comment}</div>
+                              <button type='button' style={{ ...ghostButton, padding: '3px 8px', fontSize: 10 }}
+                                onClick={() => copyToClipboard(suggestion.comment, item.id)}>
+                                {copiedCommentId === item.id ? copy.copied : copy.copyComment}
+                              </button>
+                            </div>
+                            <div style={{
+                              fontSize: 12, lineHeight: 1.5, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
+                              padding: '8px 10px', borderRadius: 8,
+                              background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                            }}>
+                              {suggestion.comment || '-'}
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gap: 10 }}>
+                            {suggestion.ambiguities.length > 0 && (
+                              <div style={expandedSection}>
+                                <div style={expandedSectionLabel}>{copy.ambiguities}</div>
+                                <ul style={{ margin: 0, paddingLeft: 14, color: 'var(--ink-75)', lineHeight: 1.5, fontSize: 12 }}>
+                                  {suggestion.ambiguities.map((a, i) => <li key={i}>{a}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            {suggestion.questions.length > 0 && (
+                              <div style={expandedSection}>
+                                <div style={expandedSectionLabel}>{copy.questions}</div>
+                                <ul style={{ margin: 0, paddingLeft: 14, color: 'var(--ink-75)', lineHeight: 1.5, fontSize: 12 }}>
+                                  {suggestion.questions.map((q, i) => <li key={i}>{q}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            {isWrittenBack ? (
+                              <span style={{ ...writtenButtonDone, textAlign: 'center', display: 'block', padding: '8px 12px', fontSize: 12 }}>{copy.writtenBack}</span>
+                            ) : (
+                              <button type='button' style={{ ...writeProviderButton, width: '100%', textAlign: 'center', padding: '8px 12px', fontSize: 12 }}
+                                disabled={writebackItemId === item.id || !!suggestion.error}
+                                onClick={() => requestWritebackForItem(item.id)}>
+                                {writebackItemId === item.id ? copy.writebackRunning : `${copy.writeToProvider} → ${providerLabel}`}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 
@@ -1523,7 +1743,7 @@ export default function RefinementPage() {
       </div>
 
       {resultsModalOpen && (
-        <div style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
+        <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
           <div className="refinement-modal" style={{ ...modalCard, padding: 24 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</div>
@@ -1666,8 +1886,8 @@ export default function RefinementPage() {
       )}
 
       {confirmBulkWriteback && results && (
-        <div style={modalOverlay} onClick={() => setConfirmBulkWriteback(false)}>
-          <div style={{ ...modalCard, width: 'min(560px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+        <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => setConfirmBulkWriteback(false)}>
+          <div className="refinement-modal refinement-modal-sm" style={{ ...modalCard, width: 'min(560px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
               {copy.writebackSelected || 'Write Selected Items'}
             </div>
@@ -1730,8 +1950,8 @@ export default function RefinementPage() {
       {confirmWritebackItemId && (() => {
         const confirmRow = resultByItemId.get(confirmWritebackItemId);
         return (
-          <div style={modalOverlay} onClick={() => setConfirmWritebackItemId('')}>
-            <div style={{ ...modalCard, width: 'min(520px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="refinement-modal-overlay" style={modalOverlay} onClick={() => setConfirmWritebackItemId('')}>
+            <div className="refinement-modal refinement-modal-sm" style={{ ...modalCard, width: 'min(520px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
               <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
                 {copy.writeConfirm}
               </div>
@@ -1939,14 +2159,18 @@ const pendingPill: React.CSSProperties = {
 
 const modalOverlay: React.CSSProperties = {
   position: 'fixed',
-  inset: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   background: 'rgba(2,6,23,0.74)',
   backdropFilter: 'blur(2px)',
-  zIndex: 80,
+  zIndex: 10000,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   padding: 16,
+  overflowY: 'auto',
 };
 
 const modalCard: React.CSSProperties = {
@@ -1958,6 +2182,7 @@ const modalCard: React.CSSProperties = {
   display: 'grid',
   gap: 12,
   maxHeight: '90vh',
+  overflowY: 'auto',
 };
 
 const modelChip: React.CSSProperties = {

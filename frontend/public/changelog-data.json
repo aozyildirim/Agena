@@ -1,5 +1,13 @@
 [
   {
+    "hash": "1f308a5",
+    "short": "1f308a5",
+    "message": "redesign refinement results UI",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
     "hash": "74776f2",
     "short": "74776f2",
     "message": "bulk writeback + improved refinement prompts",
@@ -790,13 +798,5 @@
     "date": "2026-04-03",
     "author": "Ali Ozyildirim",
     "type": "feat"
-  },
-  {
-    "hash": "92f186b",
-    "short": "92f186b",
-    "message": "comprehensive README rewrite for monorepo package structure",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "docs"
   }
 ]

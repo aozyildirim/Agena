@@ -2164,6 +2164,16 @@ input:focus, textarea:focus {
 }
 
 /* ─── REFINEMENT PAGE RESPONSIVE ─── */
+
+/* Spin animation for loading overlay */
+@keyframes refinement-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Hide mobile cards by default, show desktop table */
+.refinement-cards-mobile { display: none !important; }
+.refinement-table-desktop { display: block; }
+
 @media (max-width: 1024px) {
   .refinement-top-grid {
     grid-template-columns: 1fr !important;
@@ -2178,73 +2188,163 @@ input:focus, textarea:focus {
 
 @media (max-width: 768px) {
   .refinement-page {
-    gap: 14px !important;
+    gap: 12px !important;
   }
   .refinement-top-grid {
     grid-template-columns: 1fr !important;
   }
+
+  /* Compact dropdowns */
   .refinement-fields-row {
-    grid-template-columns: 1fr !important;
-  }
-  .refinement-stats {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
   }
+  .refinement-fields-row select,
+  .refinement-fields-row input {
+    height: 36px !important;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+  }
+  .refinement-fields-row label > span {
+    font-size: 10px !important;
+  }
+
+  /* Compact stats - 2 columns */
+  .refinement-stats {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+  .refinement-stats > div {
+    padding: 10px !important;
+    border-radius: 10px !important;
+  }
+  .refinement-stats > div > div:first-child {
+    font-size: 9px !important;
+  }
+  .refinement-stats > div > div:last-child {
+    font-size: 16px !important;
+    margin-top: 2px !important;
+  }
+
+  /* Action buttons stacked */
   .refinement-actions {
     flex-direction: column !important;
     align-items: stretch !important;
+    gap: 8px !important;
   }
   .refinement-actions button {
     width: 100% !important;
     text-align: center !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
   }
   .refinement-actions span {
     text-align: center !important;
+    font-size: 11px !important;
   }
+
+  /* Switch: hide table, show cards */
+  .refinement-table-desktop { display: none !important; }
+  .refinement-cards-mobile { display: block !important; }
+
   .refinement-table-wrap {
     border-radius: 12px !important;
   }
-  .refinement-table-wrap table {
-    min-width: 640px;
-  }
-  .refinement-table-wrap td,
-  .refinement-table-wrap th {
-    padding: 8px 10px !important;
-    font-size: 12px !important;
-  }
-  .refinement-table-wrap td:last-child {
-    min-width: 200px !important;
-    word-break: break-word !important;
-  }
+
+  /* Result suggestion grid */
   .refinement-results-grid {
     grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .refinement-results-grid > div {
+    padding: 12px !important;
+    border-radius: 12px !important;
   }
   .refinement-metrics-row {
     grid-template-columns: 1fr !important;
   }
+
+  /* All modals: full screen on mobile */
+  .refinement-modal-overlay {
+    padding: 0 !important;
+    align-items: stretch !important;
+  }
   .refinement-modal {
     width: 100% !important;
     max-width: 100% !important;
-    border-radius: 12px !important;
-    padding: 12px !important;
-    margin: 8px !important;
-    max-height: 92vh !important;
+    border-radius: 0 !important;
+    padding: 14px !important;
+    margin: 0 !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    overflow-y: auto !important;
+  }
+  .refinement-modal-sm {
+    height: auto !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
   }
   .refinement-modal > div:last-child {
-    max-height: 78vh !important;
+    max-height: calc(100vh - 80px) !important;
     padding-right: 2px !important;
+  }
+
+  /* Suggestion detail cards on mobile */
+  #refinement-results > div[style] {
+    padding: 14px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Ambiguities/questions stacked on mobile */
+  #refinement-results div[style*="grid-template-columns: repeat(auto-fit"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Model chips smaller */
+  .refinement-page button[style*="border-radius: 999"] {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
   }
 }
 
 @media (max-width: 480px) {
   .refinement-stats {
     grid-template-columns: 1fr 1fr !important;
-    gap: 6px !important;
-    padding: 12px !important;
+    gap: 4px !important;
+    padding: 10px !important;
+  }
+  .refinement-stats > div {
+    padding: 8px !important;
+  }
+  .refinement-stats > div > div:last-child {
+    font-size: 14px !important;
   }
   .refinement-page h1 {
-    font-size: 22px !important;
+    font-size: 20px !important;
+  }
+  .refinement-page > div:first-child p {
+    font-size: 12px !important;
+  }
+  .refinement-fields-row {
+    grid-template-columns: 1fr !important;
+  }
+  .refinement-fields-row select,
+  .refinement-fields-row input {
+    height: 34px !important;
+    font-size: 11px !important;
+  }
+  /* Item cards even tighter */
+  .refinement-item-card {
+    padding: 8px 10px !important;
+  }
+  .refinement-expanded-mobile {
+    padding: 10px 0 2px !important;
   }
 }
 
