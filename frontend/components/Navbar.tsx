@@ -37,6 +37,7 @@ export default function Navbar() {
             <Link href='/integrations' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>{t('nav.integrations')}</Link>
             <Link href='/docs' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>{t('nav.docs')}</Link>
             <Link href='/blog' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>{t('nav.blog')}</Link>
+            <Link href='/changelog' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>{t('nav.changelog')}</Link>
             <Link href='/contact' style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 10px', borderRadius: 8, textDecoration: 'none', fontWeight: 500 }}>{t('nav.contact')}</Link>
           </div>
 

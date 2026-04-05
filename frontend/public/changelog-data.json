@@ -1,5 +1,13 @@
 [
   {
+    "hash": "1226764",
+    "short": "1226764",
+    "message": "formatted refinement comments for Azure/Jira + popup navigation",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "404f84d",
     "short": "404f84d",
     "message": "compact writeback modal + rich comment with rationale & questions",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "revert"
-  },
-  {
-    "hash": "eaa675e",
-    "short": "eaa675e",
-    "message": "compact office header to give more height to pixel map",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
   }
 ]
