@@ -1,5 +1,13 @@
 [
   {
+    "hash": "74776f2",
+    "short": "74776f2",
+    "message": "bulk writeback + improved refinement prompts",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
     "hash": "296efbe",
     "short": "296efbe",
     "message": "improve refinement prompts — no more 0 points, unique per-item analysis",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "docs"
-  },
-  {
-    "hash": "7b4af9c",
-    "short": "7b4af9c",
-    "message": "remove old source directories after package migration",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "refactor"
   }
 ]

@@ -156,6 +156,19 @@ type Copy = {
   useCustomPrompt: string;
   promptPreview: string;
   editInStudio: string;
+  writtenBack: string;
+  writtenBackAzure: string;
+  writtenBackJira: string;
+  writeToProvider: string;
+  copyComment: string;
+  copied: string;
+  lowConfidence: string;
+  collapse: string;
+  expand: string;
+  pts: string;
+  writeConfirm: string;
+  alreadyWritten: string;
+  bulkSkipped: string;
 };
 
 const COPY: Record<'tr' | 'en', Copy> = {
@@ -225,6 +238,19 @@ const COPY: Record<'tr' | 'en', Copy> = {
     useCustomPrompt: 'Ozel prompt kullan',
     promptPreview: 'Sistem prompt onizlemesi',
     editInStudio: 'Prompt Studio\'da Duzenle →',
+    writtenBack: 'Yazildi',
+    writtenBackAzure: 'Azure\'a yazildi',
+    writtenBackJira: 'Jira\'ya yazildi',
+    writeToProvider: 'Yaz',
+    copyComment: 'Kopyala',
+    copied: 'Kopyalandi',
+    lowConfidence: 'Dusuk Guven',
+    collapse: 'Kapat',
+    expand: 'Detay',
+    pts: 'puan',
+    writeConfirm: 'Yorum ve puani yaz',
+    alreadyWritten: 'Zaten yazildi',
+    bulkSkipped: 'Atlanan (zaten yazilmis)',
   },
   en: {
     section: 'Refinement',
@@ -292,6 +318,19 @@ const COPY: Record<'tr' | 'en', Copy> = {
     useCustomPrompt: 'Use custom prompt',
     promptPreview: 'System prompt preview',
     editInStudio: 'Edit in Prompt Studio →',
+    writtenBack: 'Written',
+    writtenBackAzure: 'Written to Azure',
+    writtenBackJira: 'Written to Jira',
+    writeToProvider: 'Write',
+    copyComment: 'Copy',
+    copied: 'Copied',
+    lowConfidence: 'Low Confidence',
+    collapse: 'Collapse',
+    expand: 'Details',
+    pts: 'pts',
+    writeConfirm: 'Write comment & points',
+    alreadyWritten: 'Already written',
+    bulkSkipped: 'Skipped (already written)',
   },
 };
 
@@ -397,6 +436,9 @@ export default function RefinementPage() {
   const [writebackItemId, setWritebackItemId] = useState('');
   const [confirmWritebackItemId, setConfirmWritebackItemId] = useState('');
   const [confirmBulkWriteback, setConfirmBulkWriteback] = useState(false);
+  const [writtenBackIds, setWrittenBackIds] = useState<Set<string>>(new Set());
+  const [expandedItemId, setExpandedItemId] = useState('');
+  const [copiedCommentId, setCopiedCommentId] = useState('');
   const [bulkWritebackRunning, setBulkWritebackRunning] = useState(false);
   const [commentSignature, setCommentSignature] = useState('AGENA AI');
   const [focusedResultId, setFocusedResultId] = useState('');
@@ -558,6 +600,8 @@ export default function RefinementPage() {
     setError('');
     setLoadingItems(true);
     setResults(null);
+    setWrittenBackIds(new Set());
+    setExpandedItemId('');
     try {
       let data: RefinementItemsResponse;
       if (provider === 'azure') {
@@ -722,10 +766,12 @@ export default function RefinementPage() {
         body: JSON.stringify(payload),
       });
       if (response.success_count > 0 && response.failure_count === 0) {
+        setWrittenBackIds((prev) => new Set(prev).add(row.item_id));
         setRunMessage({ kind: 'success', text: `${row.item_id} writeback basarili.` });
       } else if (response.success_count === 0) {
         setRunMessage({ kind: 'error', text: `${row.item_id} writeback basarisiz.` });
       } else {
+        setWrittenBackIds((prev) => new Set(prev).add(row.item_id));
         setRunMessage({ kind: 'warning', text: `${row.item_id} writeback kismi.` });
       }
     } catch (err) {
@@ -742,6 +788,15 @@ export default function RefinementPage() {
     if (!row) return;
     setConfirmWritebackItemId(itemId);
   }, [results]);
+
+  const copyToClipboard = useCallback((text: string, itemId: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedCommentId(itemId);
+      setTimeout(() => setCopiedCommentId(''), 2000);
+    }).catch(() => {});
+  }, []);
+
+  const providerLabel = provider === 'azure' ? 'Azure DevOps' : 'Jira';
 
   const sortedItems = useMemo(() => {
     const items = itemsData?.items || [];
@@ -792,7 +847,7 @@ export default function RefinementPage() {
         <div style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 14 }}>
           <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <Field label={copy.source}>
-              <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); }} style={inputStyle}>
+              <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); setWrittenBackIds(new Set()); setExpandedItemId(''); }} style={inputStyle}>
                 <option value='azure'>Azure DevOps</option>
                 <option value='jira'>Jira</option>
               </select>
@@ -987,14 +1042,14 @@ export default function RefinementPage() {
             {results && results.results.filter(r => !r.error).length > 0 && (
               <button
                 onClick={() => {
-                  const validResults = results.results.filter(r => !r.error && selectedIds.includes(r.item_id));
+                  const validResults = results.results.filter(r => !r.error && selectedIds.includes(r.item_id) && !writtenBackIds.has(r.item_id));
                   if (validResults.length === 0) return;
                   setConfirmBulkWriteback(true);
                 }}
                 style={{ ...secondaryButton, background: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)', color: '#4ade80' }}
-                disabled={writebackItemId !== '' || !selectedIds.some(id => results.results.some(r => r.item_id === id && !r.error))}
+                disabled={writebackItemId !== '' || !selectedIds.some(id => results.results.some(r => r.item_id === id && !r.error) && !writtenBackIds.has(id))}
               >
-                {copy.writebackSelected || 'Write Selected'} ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error)).length})
+                {copy.writebackSelected || 'Write Selected'} ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error) && !writtenBackIds.has(id)).length})
               </button>
             )}
             <span style={{ fontSize: 12, color: 'var(--ink-35)' }}>{copy.selectionHint}</span>
@@ -1070,58 +1125,219 @@ export default function RefinementPage() {
                   const estimated = hasEstimate(item);
                   const checked = selectedIds.includes(item.id);
                   const itemSourceUrl = resultByItemId.get(item.id)?.item_url || item.web_url || '';
+                  const suggestion = resultByItemId.get(item.id);
+                  const isWrittenBack = writtenBackIds.has(item.id);
+                  const isExpanded = expandedItemId === item.id;
                   return (
-                    <tr key={item.id} style={{ background: checked ? 'rgba(59,130,246,0.08)' : 'transparent' }}>
-                      <td style={tdStyle}>
-                        <input type='checkbox' checked={checked} disabled={estimated} onChange={() => toggleItem(item)} />
-                      </td>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{item.id}</td>
-                      <td style={tdStyle}>{item.work_item_type || 'Task'}</td>
-                      <td style={tdStyle}>{item.state || '-'}</td>
-                      <td style={tdStyle}>
-                        <span style={estimated ? estimatedPill : unestimatedPill}>{displayEstimate(item)}</span>
-                      </td>
-                      <td style={tdStyle}>
-                        {resultByItemId.has(item.id) ? (
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <button
-                              type='button'
-                              style={{ ...ghostButton, padding: '4px 8px', fontSize: 11 }}
-                              onClick={() => {
-                                setFocusedResultId(item.id);
-                                setResultsModalOpen(true);
-                              }}
-                            >
-                              Ac
-                            </button>
-                            <button
-                              type='button'
-                              style={{ ...ghostButton, padding: '4px 8px', fontSize: 11 }}
-                              onClick={() => requestWritebackForItem(item.id)}
-                              disabled={writebackItemId === item.id}
-                              title={provider === 'azure' ? copy.writeback : copy.writeback}
-                            >
-                              {writebackItemId === item.id ? '...' : provider === 'azure' ? 'AZ' : 'JR'}
-                            </button>
+                    <React.Fragment key={item.id}>
+                      <tr
+                        style={{
+                          background: isWrittenBack
+                            ? 'rgba(34,197,94,0.06)'
+                            : checked ? 'rgba(59,130,246,0.08)' : 'transparent',
+                          borderLeft: isWrittenBack ? '3px solid #22c55e' : '3px solid transparent',
+                          cursor: suggestion ? 'pointer' : 'default',
+                        }}
+                        onClick={() => {
+                          if (suggestion) setExpandedItemId(isExpanded ? '' : item.id);
+                        }}
+                      >
+                        <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                          <input type='checkbox' checked={checked} disabled={estimated} onChange={() => toggleItem(item)} />
+                        </td>
+                        <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{item.id}</td>
+                        <td style={tdStyle}>{item.work_item_type || 'Task'}</td>
+                        <td style={tdStyle}>{item.state || '-'}</td>
+                        <td style={tdStyle}>
+                          <span style={estimated ? estimatedPill : unestimatedPill}>{displayEstimate(item)}</span>
+                        </td>
+                        <td style={tdStyle}>
+                          {suggestion ? (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <span style={suggestedPointsPill(suggestion.suggested_story_points)}>
+                                {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })} {copy.pts}
+                              </span>
+                              <span style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                              }}>
+                                {suggestion.confidence}%
+                              </span>
+                              {isWrittenBack && (
+                                <span style={writtenBadge}>
+                                  {provider === 'azure' ? copy.writtenBackAzure : copy.writtenBackJira}
+                                </span>
+                              )}
+                            </div>
+                          ) : '-'}
+                        </td>
+                        <td style={{ ...tdStyle, minWidth: 360 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1 }}>
+                              {itemSourceUrl ? (
+                                <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ fontWeight: 600, color: '#93c5fd', textDecoration: 'none' }}
+                                  onClick={(e) => e.stopPropagation()}>
+                                  {item.title}
+                                </a>
+                              ) : (
+                                <div style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
+                              )}
+                              {item.refined_before && (
+                                <div style={{ fontSize: 12, color: '#fde68a', marginTop: 4 }}>
+                                  Daha once yorumlandi ({item.refinement_count || 1})
+                                </div>
+                              )}
+                              {item.assigned_to && <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 4 }}>{item.assigned_to}</div>}
+                            </div>
+                            {suggestion && (
+                              <span style={{ fontSize: 11, color: 'var(--ink-42)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                ▼
+                              </span>
+                            )}
                           </div>
-                        ) : '-'}
-                      </td>
-                      <td style={{ ...tdStyle, minWidth: 360 }}>
-                        {itemSourceUrl ? (
-                          <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ fontWeight: 600, color: '#93c5fd', textDecoration: 'none' }}>
-                            {item.title}
-                          </a>
-                        ) : (
-                          <div style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
-                        )}
-                        {item.refined_before && (
-                          <div style={{ fontSize: 12, color: '#fde68a', marginTop: 4 }}>
-                            Daha once yorumlandi ({item.refinement_count || 1})
-                          </div>
-                        )}
-                        {item.assigned_to && <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 4 }}>{item.assigned_to}</div>}
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                      {isExpanded && suggestion && (
+                        <tr>
+                          <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={expandedCard}>
+                              {/* Header row: big points + confidence + write button */}
+                              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 36, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                                      {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })}
+                                    </div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
+                                      {copy.suggestedEstimate}
+                                    </div>
+                                  </div>
+                                  <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                                  <div style={{ textAlign: 'center' }}>
+                                    <div style={{
+                                      fontSize: 24,
+                                      fontWeight: 800,
+                                      lineHeight: 1,
+                                      color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                                    }}>
+                                      {suggestion.confidence}%
+                                    </div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
+                                      {copy.confidence}
+                                    </div>
+                                    {suggestion.confidence < 40 && (
+                                      <div style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>{copy.lowConfidence}</div>
+                                    )}
+                                  </div>
+                                  <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                                  <span style={suggestion.ready_for_planning ? readyPill : pendingPill}>
+                                    {suggestion.ready_for_planning ? copy.ready : copy.notReady}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                  {isWrittenBack ? (
+                                    <span style={writtenButtonDone}>
+                                      {copy.writtenBack}
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type='button'
+                                      style={writeProviderButton}
+                                      disabled={writebackItemId === item.id || !!suggestion.error}
+                                      onClick={() => requestWritebackForItem(item.id)}
+                                    >
+                                      {writebackItemId === item.id
+                                        ? copy.writebackRunning
+                                        : `${copy.writeToProvider} → ${providerLabel}`}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {suggestion.error ? (
+                                <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
+                                  {suggestion.error}
+                                </div>
+                              ) : (
+                                <>
+                                  {suggestion.fallback_applied && suggestion.fallback_note && (
+                                    <div style={{ borderRadius: 10, border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.08)', color: '#fde68a', padding: '8px 10px', fontSize: 12 }}>
+                                      {suggestion.fallback_note}
+                                    </div>
+                                  )}
+
+                                  {/* Summary */}
+                                  <div style={expandedSection}>
+                                    <div style={expandedSectionLabel}>{copy.summary}</div>
+                                    <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-80)', whiteSpace: 'pre-wrap' }}>{suggestion.summary || '-'}</div>
+                                  </div>
+
+                                  {/* Rationale */}
+                                  <div style={expandedSection}>
+                                    <div style={expandedSectionLabel}>{copy.rationale}</div>
+                                    <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-80)', whiteSpace: 'pre-wrap' }}>{suggestion.estimation_rationale || '-'}</div>
+                                  </div>
+
+                                  {/* Comment with Copy button */}
+                                  <div style={expandedSection}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div style={expandedSectionLabel}>{copy.comment}</div>
+                                      <button
+                                        type='button'
+                                        style={{
+                                          ...ghostButton,
+                                          padding: '4px 10px',
+                                          fontSize: 11,
+                                          border: copiedCommentId === item.id ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(148,163,184,0.25)',
+                                          color: copiedCommentId === item.id ? '#86efac' : '#cbd5e1',
+                                        }}
+                                        onClick={(e) => { e.stopPropagation(); copyToClipboard(suggestion.comment, item.id); }}
+                                      >
+                                        {copiedCommentId === item.id ? copy.copied : copy.copyComment}
+                                      </button>
+                                    </div>
+                                    <div style={{
+                                      fontSize: 13, lineHeight: 1.6, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
+                                      padding: '10px 12px', borderRadius: 10,
+                                      background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                                      marginTop: 6,
+                                    }}>
+                                      {suggestion.comment || '-'}
+                                    </div>
+                                  </div>
+
+                                  {/* Ambiguities & Questions side by side */}
+                                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                                    <div style={expandedSection}>
+                                      <div style={expandedSectionLabel}>{copy.ambiguities}</div>
+                                      {suggestion.ambiguities.length ? (
+                                        <ul style={{ margin: 0, paddingLeft: 16, color: 'var(--ink-75)', lineHeight: 1.6, fontSize: 13 }}>
+                                          {suggestion.ambiguities.map((a, i) => <li key={i}>{a}</li>)}
+                                        </ul>
+                                      ) : (
+                                        <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>-</div>
+                                      )}
+                                    </div>
+                                    <div style={expandedSection}>
+                                      <div style={expandedSectionLabel}>{copy.questions}</div>
+                                      {suggestion.questions.length ? (
+                                        <ul style={{ margin: 0, paddingLeft: 16, color: 'var(--ink-75)', lineHeight: 1.6, fontSize: 13 }}>
+                                          {suggestion.questions.map((q, i) => <li key={i}>{q}</li>)}
+                                        </ul>
+                                      ) : (
+                                        <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>-</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -1142,37 +1358,77 @@ export default function RefinementPage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {copy.resultOverview}
               </div>
-              <div className="refinement-results-grid" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-                {results.results.map((item) => (
-                  <div key={`${item.item_id}-summary`} style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.03)', padding: 14, display: 'grid', gap: 8 }}>
-                    <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
+              <div className="refinement-results-grid" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+                {results.results.map((item) => {
+                  const isItemWritten = writtenBackIds.has(item.item_id);
+                  return (
+                  <div
+                    key={`${item.item_id}-summary`}
+                    style={{
+                      borderRadius: 16, padding: 16, display: 'grid', gap: 10, cursor: 'pointer',
+                      border: isItemWritten ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--panel-border-2)',
+                      background: isItemWritten ? 'rgba(34,197,94,0.04)' : 'rgba(255,255,255,0.03)',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onClick={() => setExpandedItemId(expandedItemId === item.item_id ? '' : item.item_id)}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
+                      {isItemWritten && (
+                        <span style={writtenBadgeSmall}>
+                          {copy.writtenBack}
+                        </span>
+                      )}
+                    </div>
                     {item.item_url ? (
-                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 15, fontWeight: 700, color: '#93c5fd', lineHeight: 1.4, textDecoration: 'none' }}>
+                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 15, fontWeight: 700, color: '#93c5fd', lineHeight: 1.4, textDecoration: 'none' }}
+                        onClick={(e) => e.stopPropagation()}>
                         {item.title}
                       </a>
                     ) : (
                       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.4 }}>{item.title}</div>
                     )}
-                    {item.item_url && (
-                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#93c5fd', textDecoration: 'none' }}>
-                        {copy.openSource}
-                      </a>
-                    )}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={resultPill}>{copy.currentEstimate}: {displaySuggestionEstimate(item.current_story_points)}</span>
-                      <span style={resultPill}>{copy.suggestedEstimate}: {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}</span>
-                      <span style={resultPill}>{copy.confidence}: {item.confidence}%</span>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: 22, fontWeight: 800, color: '#5eead4', lineHeight: 1,
+                      }}>
+                        {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-42)', marginLeft: 4 }}>{copy.pts}</span>
+                      </span>
+                      <span style={{
+                        fontSize: 13, fontWeight: 700,
+                        color: item.confidence >= 70 ? '#86efac' : item.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                      }}>
+                        {item.confidence}%
+                      </span>
+                      <span style={item.ready_for_planning ? { ...readyPill, fontSize: 10, padding: '3px 8px' } : { ...pendingPill, fontSize: 10, padding: '3px 8px' }}>
+                        {item.ready_for_planning ? copy.ready : copy.notReady}
+                      </span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            {results.results.map((item) => (
-              <div key={item.item_id} style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 18, display: 'grid', gap: 12 }}>
+            {results.results.map((item) => {
+              const isItemWritten = writtenBackIds.has(item.item_id);
+              return (
+              <div key={item.item_id} style={{
+                borderRadius: 18, padding: 20, display: 'grid', gap: 14,
+                border: isItemWritten ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--panel-border-2)',
+                background: isItemWritten ? 'linear-gradient(180deg, rgba(34,197,94,0.04), var(--panel))' : 'var(--panel)',
+              }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</span>
+                      {isItemWritten && (
+                        <span style={writtenBadge}>
+                          {provider === 'azure' ? copy.writtenBackAzure : copy.writtenBackJira}
+                        </span>
+                      )}
+                    </div>
                     {item.item_url ? (
                       <a href={item.item_url} target='_blank' rel='noreferrer' style={{ margin: '4px 0 0', fontSize: 18, color: '#93c5fd', textDecoration: 'none', fontWeight: 700, display: 'inline-block' }}>
                         {item.title}
@@ -1181,9 +1437,19 @@ export default function RefinementPage() {
                       <h3 style={{ margin: '4px 0 0', fontSize: 18, color: 'var(--ink-90)' }}>{item.title}</h3>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={resultPill}>{copy.suggestedEstimate}: {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}</span>
-                    <span style={resultPill}>{copy.confidence}: {item.confidence}%</span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ textAlign: 'center', padding: '0 8px' }}>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                        {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}
+                      </div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 2 }}>{copy.pts}</div>
+                    </div>
+                    <span style={{
+                      fontSize: 16, fontWeight: 700,
+                      color: item.confidence >= 70 ? '#86efac' : item.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                    }}>
+                      {item.confidence}%
+                    </span>
                     <span style={item.ready_for_planning ? readyPill : pendingPill}>
                       {item.ready_for_planning ? copy.ready : copy.notReady}
                     </span>
@@ -1201,50 +1467,135 @@ export default function RefinementPage() {
                         {item.fallback_note}
                       </div>
                     )}
-                    <div className="refinement-metrics-row" style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-                      <ResultMetric label={copy.currentEstimate} value={displaySuggestionEstimate(item.current_story_points)} accent='var(--ink-80)' />
-                      <ResultMetric label={copy.suggestedEstimate} value={displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })} accent='#fde68a' />
-                      <ResultMetric label={copy.confidence} value={`${item.confidence}%`} accent='#93c5fd' />
-                    </div>
                     <Section title={copy.summary} body={item.summary} />
                     <Section title={copy.rationale} body={item.estimation_rationale} />
-                    <Section title={copy.comment} body={item.comment} />
-                    <ListSection title={copy.ambiguities} items={item.ambiguities} />
-                    <ListSection title={copy.questions} items={item.questions} />
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.comment}</div>
+                        <button
+                          type='button'
+                          style={{
+                            ...ghostButton,
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            border: copiedCommentId === `detail-${item.item_id}` ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(148,163,184,0.25)',
+                            color: copiedCommentId === `detail-${item.item_id}` ? '#86efac' : '#cbd5e1',
+                          }}
+                          onClick={() => copyToClipboard(item.comment, `detail-${item.item_id}`)}
+                        >
+                          {copiedCommentId === `detail-${item.item_id}` ? copy.copied : copy.copyComment}
+                        </button>
+                      </div>
+                      <div style={{
+                        fontSize: 13, lineHeight: 1.6, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
+                        padding: '10px 12px', borderRadius: 10,
+                        background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      }}>
+                        {item.comment || '-'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                      <ListSection title={copy.ambiguities} items={item.ambiguities} />
+                      <ListSection title={copy.questions} items={item.questions} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
+                      {isItemWritten ? (
+                        <span style={writtenButtonDone}>{copy.writtenBack}</span>
+                      ) : (
+                        <button
+                          type='button'
+                          style={writeProviderButton}
+                          disabled={writebackItemId === item.item_id || !!item.error}
+                          onClick={() => requestWritebackForItem(item.item_id)}
+                        >
+                          {writebackItemId === item.item_id ? copy.writebackRunning : `${copy.writeToProvider} → ${providerLabel}`}
+                        </button>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
-            ))}
+              );
+            })}
           </>
         )}
       </div>
 
       {resultsModalOpen && (
         <div style={modalOverlay} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
-          <div className="refinement-modal" style={modalCard} onClick={(e) => e.stopPropagation()}>
+          <div className="refinement-modal" style={{ ...modalCard, padding: 24 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</div>
               <button type='button' style={ghostButton} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>{copy.close}</button>
             </div>
-            <div style={{ display: 'grid', gap: 12, maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
+            <div style={{ display: 'grid', gap: 16, maxHeight: '78vh', overflowY: 'auto', paddingRight: 4 }}>
               {(results?.results || [])
                 .filter((item) => !focusedResultId || item.item_id === focusedResultId)
-                .map((item) => (
-                <div key={`modal-${item.item_id}`} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'rgba(255,255,255,0.02)', padding: 14, display: 'grid', gap: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{item.title}</div>
-                  {item.item_url && (
-                    <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#93c5fd', textDecoration: 'none' }}>
-                      {copy.openSource}
-                    </a>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={resultPill}>{copy.currentEstimate}: {displaySuggestionEstimate(item.current_story_points)}</span>
-                    <span style={resultPill}>{copy.suggestedEstimate}: {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}</span>
-                    <span style={resultPill}>{copy.confidence}: {item.confidence}%</span>
+                .map((item) => {
+                  const isItemWritten = writtenBackIds.has(item.item_id);
+                  return (
+                <div key={`modal-${item.item_id}`} style={{
+                  borderRadius: 16, padding: 20, display: 'grid', gap: 14,
+                  border: isItemWritten ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--panel-border-2)',
+                  background: isItemWritten ? 'rgba(34,197,94,0.04)' : 'rgba(255,255,255,0.02)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
+                      {item.item_url ? (
+                        <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 18, fontWeight: 700, color: '#93c5fd', textDecoration: 'none', display: 'block', marginTop: 4, lineHeight: 1.4 }}>
+                          {item.title}
+                        </a>
+                      ) : (
+                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-90)', marginTop: 4, lineHeight: 1.4 }}>{item.title}</div>
+                      )}
+                    </div>
+                    {isItemWritten && (
+                      <span style={writtenBadge}>
+                        {provider === 'azure' ? copy.writtenBackAzure : copy.writtenBackJira}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Big points display */}
+                  <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 42, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                        {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
+                        {copy.suggestedEstimate}
+                      </div>
+                    </div>
+                    <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{
+                        fontSize: 28, fontWeight: 800, lineHeight: 1,
+                        color: item.confidence >= 70 ? '#86efac' : item.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                      }}>
+                        {item.confidence}%
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
+                        {copy.confidence}
+                      </div>
+                    </div>
+                    <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-60)', lineHeight: 1 }}>
+                        {displaySuggestionEstimate(item.current_story_points)}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
+                        {copy.currentEstimate}
+                      </div>
+                    </div>
+                    <span style={item.ready_for_planning ? readyPill : pendingPill}>
+                      {item.ready_for_planning ? copy.ready : copy.notReady}
+                    </span>
+                  </div>
+
                   {item.error ? (
-                    <div style={{ borderRadius: 10, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '8px 10px', fontSize: 12 }}>
+                    <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
                       {item.error}
                     </div>
                   ) : (
@@ -1256,13 +1607,59 @@ export default function RefinementPage() {
                       )}
                       <Section title={copy.summary} body={item.summary} />
                       <Section title={copy.rationale} body={item.estimation_rationale} />
-                      <Section title={copy.comment} body={item.comment} />
-                      <ListSection title={copy.ambiguities} items={item.ambiguities} />
-                      <ListSection title={copy.questions} items={item.questions} />
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.comment}</div>
+                          <button
+                            type='button'
+                            style={{
+                              ...ghostButton,
+                              padding: '4px 10px',
+                              fontSize: 11,
+                              border: copiedCommentId === `modal-${item.item_id}` ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(148,163,184,0.25)',
+                              color: copiedCommentId === `modal-${item.item_id}` ? '#86efac' : '#cbd5e1',
+                            }}
+                            onClick={() => copyToClipboard(item.comment, `modal-${item.item_id}`)}
+                          >
+                            {copiedCommentId === `modal-${item.item_id}` ? copy.copied : copy.copyComment}
+                          </button>
+                        </div>
+                        <div style={{
+                          fontSize: 13, lineHeight: 1.6, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
+                          padding: '10px 12px', borderRadius: 10,
+                          background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                        }}>
+                          {item.comment || '-'}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                        <ListSection title={copy.ambiguities} items={item.ambiguities} />
+                        <ListSection title={copy.questions} items={item.questions} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
+                        {isItemWritten ? (
+                          <span style={writtenButtonDone}>{copy.writtenBack}</span>
+                        ) : (
+                          <button
+                            type='button'
+                            style={writeProviderButton}
+                            disabled={writebackItemId === item.item_id || !!item.error}
+                            onClick={() => {
+                              setResultsModalOpen(false);
+                              setFocusedResultId('');
+                              requestWritebackForItem(item.item_id);
+                            }}
+                          >
+                            {writebackItemId === item.item_id ? copy.writebackRunning : `${copy.writeToProvider} → ${providerLabel}`}
+                          </button>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
-              ))}
+                  );
+                })}
             </div>
           </div>
         </div>
@@ -1276,15 +1673,27 @@ export default function RefinementPage() {
             </div>
             <div style={{ fontSize: 13, color: 'var(--ink-50)', margin: '8px 0 16px' }}>
               {(() => {
-                const valid = results.results.filter(r => !r.error && selectedIds.includes(r.item_id));
-                return `${valid.length} item → ${provider === 'azure' ? 'Azure DevOps' : 'Jira'} (story point + comment)`;
+                const valid = results.results.filter(r => !r.error && selectedIds.includes(r.item_id) && !writtenBackIds.has(r.item_id));
+                const skipped = results.results.filter(r => !r.error && selectedIds.includes(r.item_id) && writtenBackIds.has(r.item_id));
+                return `${valid.length} item → ${providerLabel} (story point + comment)${skipped.length ? ` — ${skipped.length} ${copy.bulkSkipped}` : ''}`;
               })()}
             </div>
             <div style={{ maxHeight: 200, overflowY: 'auto', display: 'grid', gap: 6, marginBottom: 16 }}>
               {results.results.filter(r => !r.error && selectedIds.includes(r.item_id)).map(r => (
-                <div key={r.item_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.2)', fontSize: 12 }}>
-                  <span style={{ color: 'var(--ink-65)' }}>{r.item_id} — {r.title?.slice(0, 40)}</span>
-                  <span style={{ color: '#5eead4', fontWeight: 700 }}>{r.suggested_story_points} pts</span>
+                <div key={r.item_id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '6px 10px', borderRadius: 8,
+                  background: writtenBackIds.has(r.item_id) ? 'rgba(34,197,94,0.08)' : 'rgba(0,0,0,0.2)',
+                  fontSize: 12,
+                  opacity: writtenBackIds.has(r.item_id) ? 0.5 : 1,
+                }}>
+                  <span style={{ color: 'var(--ink-65)' }}>
+                    {writtenBackIds.has(r.item_id) && <span style={{ color: '#22c55e', marginRight: 6 }}>&#10003;</span>}
+                    {r.item_id} — {r.title?.slice(0, 40)}
+                  </span>
+                  <span style={{ color: writtenBackIds.has(r.item_id) ? '#86efac' : '#5eead4', fontWeight: 700 }}>
+                    {writtenBackIds.has(r.item_id) ? copy.writtenBack : `${r.suggested_story_points} ${copy.pts}`}
+                  </span>
                 </div>
               ))}
             </div>
@@ -1298,7 +1707,7 @@ export default function RefinementPage() {
                 style={{ ...secondaryButton, background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.3)', color: '#4ade80' }}
                 onClick={async () => {
                   setBulkWritebackRunning(true);
-                  const valid = results.results.filter(r => !r.error && selectedIds.includes(r.item_id));
+                  const valid = results.results.filter(r => !r.error && selectedIds.includes(r.item_id) && !writtenBackIds.has(r.item_id));
                   let ok = 0, fail = 0;
                   for (const row of valid) {
                     try {
@@ -1318,34 +1727,52 @@ export default function RefinementPage() {
         </div>
       )}
 
-      {confirmWritebackItemId && (
-        <div style={modalOverlay} onClick={() => setConfirmWritebackItemId('')}>
-          <div style={{ ...modalCard, width: 'min(520px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
-              {provider === 'azure' ? copy.confirmAzure : copy.confirmJira}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--ink-35)', fontFamily: 'monospace' }}>
-              {confirmWritebackItemId}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type='button' style={ghostButton} onClick={() => setConfirmWritebackItemId('')}>
-                {copy.close}
-              </button>
-              <button
-                type='button'
-                style={secondaryButton}
-                onClick={() => {
-                  const itemId = confirmWritebackItemId;
-                  setConfirmWritebackItemId('');
-                  void runWritebackForItem(itemId);
-                }}
-              >
-                {copy.writeShort}
-              </button>
+      {confirmWritebackItemId && (() => {
+        const confirmRow = resultByItemId.get(confirmWritebackItemId);
+        return (
+          <div style={modalOverlay} onClick={() => setConfirmWritebackItemId('')}>
+            <div style={{ ...modalCard, width: 'min(520px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
+                {copy.writeConfirm}
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px', borderRadius: 12, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{confirmWritebackItemId}</div>
+                  {confirmRow && <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-80)', marginTop: 4 }}>{confirmRow.title}</div>}
+                </div>
+                {confirmRow && (
+                  <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#5eead4' }}>
+                      {displaySuggestionEstimate(confirmRow.suggested_story_points, { allowZero: true })}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--ink-42)', textTransform: 'uppercase' }}>{copy.pts}</div>
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-50)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: provider === 'azure' ? '#38bdf8' : '#a78bfa' }} />
+                {providerLabel}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button type='button' style={ghostButton} onClick={() => setConfirmWritebackItemId('')}>
+                  {copy.close}
+                </button>
+                <button
+                  type='button'
+                  style={writeProviderButton}
+                  onClick={() => {
+                    const itemId = confirmWritebackItemId;
+                    setConfirmWritebackItemId('');
+                    void runWritebackForItem(itemId);
+                  }}
+                >
+                  {copy.writeToProvider} → {providerLabel}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -1368,14 +1795,6 @@ function Stat({ label, value, accent = '#38bdf8' }: { label: string; value: stri
   );
 }
 
-function ResultMetric({ label, value, accent }: { label: string; value: string; accent: string }) {
-  return (
-    <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: accent, marginTop: 6 }}>{value}</div>
-    </div>
-  );
-}
 
 function Section({ title, body }: { title: string; body: string }) {
   return (
@@ -1557,4 +1976,82 @@ const activeModelChip: React.CSSProperties = {
   border: '1px solid rgba(56,189,248,0.35)',
   background: 'rgba(56,189,248,0.15)',
   color: '#bae6fd',
+};
+
+function suggestedPointsPill(_points: number): React.CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '3px 8px',
+    borderRadius: 999,
+    border: '1px solid rgba(13,148,136,0.35)',
+    background: 'rgba(13,148,136,0.12)',
+    color: '#5eead4',
+    fontSize: 12,
+    fontWeight: 800,
+  };
+}
+
+const writtenBadge: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: '3px 10px',
+  borderRadius: 999,
+  border: '1px solid rgba(34,197,94,0.35)',
+  background: 'rgba(34,197,94,0.12)',
+  color: '#86efac',
+  fontSize: 11,
+  fontWeight: 700,
+};
+
+const writtenBadgeSmall: React.CSSProperties = {
+  ...writtenBadge,
+  padding: '2px 7px',
+  fontSize: 10,
+};
+
+const writeProviderButton: React.CSSProperties = {
+  borderRadius: 12,
+  border: '1px solid rgba(13,148,136,0.4)',
+  background: 'rgba(13,148,136,0.12)',
+  color: '#5eead4',
+  padding: '8px 16px',
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: 'pointer',
+  transition: 'background 0.15s',
+};
+
+const writtenButtonDone: React.CSSProperties = {
+  borderRadius: 12,
+  border: '1px solid rgba(34,197,94,0.3)',
+  background: 'rgba(34,197,94,0.1)',
+  color: '#86efac',
+  padding: '8px 16px',
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: 'default',
+  opacity: 0.8,
+};
+
+const expandedCard: React.CSSProperties = {
+  padding: '20px 24px',
+  background: 'linear-gradient(180deg, rgba(13,148,136,0.04), rgba(0,0,0,0.15))',
+  borderTop: '1px solid rgba(13,148,136,0.15)',
+  display: 'grid',
+  gap: 14,
+};
+
+const expandedSection: React.CSSProperties = {
+  display: 'grid',
+  gap: 4,
+};
+
+const expandedSectionLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: 'var(--ink-35)',
+  textTransform: 'uppercase',
+  letterSpacing: 0.5,
 };
