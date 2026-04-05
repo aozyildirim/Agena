@@ -1,5 +1,13 @@
 [
   {
+    "hash": "1c4bfab",
+    "short": "1c4bfab",
+    "message": "all refinement popups via createPortal + better confidence/scoring prompt",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "59365c2",
     "short": "59365c2",
     "message": "unified item list for refinement — single responsive list for mobile+desktop",
@@ -787,14 +795,6 @@
     "hash": "71f31a3",
     "short": "71f31a3",
     "message": "increase office pixel map height to prevent bottom toolbar overlap",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
-  },
-  {
-    "hash": "fc80e3b",
-    "short": "fc80e3b",
-    "message": "center pixel office canvas in iframe container",
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"

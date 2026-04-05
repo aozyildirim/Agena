@@ -751,6 +751,13 @@ export default function RefinementPage() {
     setWritebackItemId(itemId);
     setError('');
     setRunMessage(null);
+
+    // Build rich comment: comment + questions
+    let richComment = (row.comment || '').trim();
+    if (row.questions && row.questions.length > 0) {
+      richComment += '\n\n--- Sorular / Questions ---\n' + row.questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n');
+    }
+
     try {
       const payload = provider === 'azure'
         ? {
@@ -763,7 +770,7 @@ export default function RefinementPage() {
           items: [{
             item_id: row.item_id,
             suggested_story_points: row.suggested_story_points,
-            comment: row.comment,
+            comment: richComment,
           }],
         }
         : {
@@ -775,7 +782,7 @@ export default function RefinementPage() {
           items: [{
             item_id: row.item_id,
             suggested_story_points: row.suggested_story_points,
-            comment: row.comment,
+            comment: richComment,
           }],
         };
       const response = await apiFetch<RefinementWritebackResponse>('/refinement/writeback', {
