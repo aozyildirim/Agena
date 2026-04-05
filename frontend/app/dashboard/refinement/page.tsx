@@ -919,45 +919,55 @@ export default function RefinementPage() {
             </button>
             {promptExpanded && (
               <div style={{ padding: '0 14px 14px', display: 'grid', gap: 10 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type='checkbox'
-                    checked={useCustomPrompt}
-                    onChange={(e) => {
-                      setUseCustomPrompt(e.target.checked);
-                      if (e.target.checked && !customPromptText) {
-                        setCustomPromptText(defaultPromptText);
-                      }
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+                  <button
+                    onClick={() => {
+                      setUseCustomPrompt(!useCustomPrompt);
+                      if (!useCustomPrompt && !customPromptText) setCustomPromptText(defaultPromptText);
                     }}
-                    style={{ accentColor: 'var(--accent)' }}
-                  />
-                  <span style={{ fontSize: 12, color: 'var(--ink-75)', fontWeight: 600 }}>{copy.useCustomPrompt}</span>
-                </label>
-                {useCustomPrompt ? (
+                    style={{
+                      padding: '6px 14px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                      border: useCustomPrompt ? '1px solid var(--accent)' : '1px solid var(--panel-border)',
+                      background: useCustomPrompt ? 'rgba(13,148,136,0.12)' : 'transparent',
+                      color: useCustomPrompt ? '#5eead4' : 'var(--ink-50)',
+                    }}
+                  >
+                    {useCustomPrompt ? '✓ ' : ''}{copy.useCustomPrompt}
+                  </button>
+                  <a
+                    href='/dashboard/prompt-studio'
+                    style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    {copy.editInStudio}
+                  </a>
+                </div>
+                {useCustomPrompt && (
                   <textarea
                     value={customPromptText}
                     onChange={(e) => setCustomPromptText(e.target.value)}
-                    rows={8}
+                    rows={6}
                     style={{
                       ...inputStyle,
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                      lineHeight: 1.45,
+                      fontSize: 11,
+                      lineHeight: 1.5,
                       resize: 'vertical',
-                      minHeight: 120,
-                      borderColor: 'var(--accent)',
+                      minHeight: 100,
+                      borderColor: 'rgba(13,148,136,0.3)',
                     }}
                   />
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--ink-42)', fontStyle: 'italic' }}>
-                    {copy.promptPreview}: {defaultPromptText ? defaultPromptText.slice(0, 120) + (defaultPromptText.length > 120 ? '...' : '') : '-'}
+                )}
+                {!useCustomPrompt && defaultPromptText && (
+                  <div style={{
+                    fontSize: 11, color: 'var(--ink-35)', lineHeight: 1.5,
+                    padding: '8px 10px', borderRadius: 8,
+                    background: 'rgba(0,0,0,0.15)', border: '1px solid var(--panel-border)',
+                    maxHeight: 80, overflow: 'hidden',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  }}>
+                    {defaultPromptText.slice(0, 200)}{defaultPromptText.length > 200 ? '...' : ''}
                   </div>
                 )}
-                <a
-                  href='/dashboard/prompt-studio'
-                  style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
-                >
-                  {copy.editInStudio}
-                </a>
               </div>
             )}
           </div>

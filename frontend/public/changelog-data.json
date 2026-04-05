@@ -1,5 +1,13 @@
 [
   {
+    "hash": "765bcfd",
+    "short": "765bcfd",
+    "message": "integrate refinement prompts into Prompt Studio + DB",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "feat"
+  },
+  {
     "hash": "501bbd3",
     "short": "501bbd3",
     "message": "disable CrewAI cache at Agent, Task, and Crew level for refinement",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
-  },
-  {
-    "hash": "32e0f0c",
-    "short": "32e0f0c",
-    "message": "remove overview from sidebar, remove duplicate lang toggle from topbar",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "fix"
   }
 ]

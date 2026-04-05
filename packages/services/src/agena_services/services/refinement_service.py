@@ -480,27 +480,26 @@ class RefinementService:
         except ValueError:
             expected_tpl = ''
 
-        # Fallback to YAML if DB prompts are empty
+        # Fallback to hardcoded defaults if DB prompts are empty
         if not system_tpl or not desc_tpl or not expected_tpl:
-            _, task_cfg = self._load_prompt_config_yaml()
+            from agena_agents.agents.prompts import (
+                REFINEMENT_SYSTEM_PROMPT,
+                REFINEMENT_DESCRIPTION_PROMPT,
+                REFINEMENT_EXPECTED_OUTPUT,
+            )
             if not system_tpl:
-                system_tpl = str(task_cfg.get('system_prompt') or '')
+                system_tpl = REFINEMENT_SYSTEM_PROMPT
             if not desc_tpl:
-                desc_tpl = str(task_cfg.get('description') or '')
+                desc_tpl = REFINEMENT_DESCRIPTION_PROMPT
             if not expected_tpl:
-                expected_tpl = str(task_cfg.get('expected_output') or '')
+                expected_tpl = REFINEMENT_EXPECTED_OUTPUT
 
-        agent_cfg, _ = self._load_prompt_config_yaml()
+        agent_cfg = {
+            'role': 'Sprint Refinement Analyst',
+            'goal': 'Review backlog items that are still unestimated, remove ambiguity, and recommend the most defensible Fibonacci story point.',
+            'backstory': 'You are a senior delivery lead who refines sprint scope before engineering starts. You do not invent hidden requirements. You work only from the work item content, you keep comments concise, and you reduce confidence when the item is underspecified.',
+        }
         return system_tpl, desc_tpl, expected_tpl, agent_cfg
-
-    def _load_prompt_config_yaml(self) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Legacy: load refinement prompts from YAML config files."""
-        base = Path(__file__).resolve().parents[1] / 'agents' / 'config'
-        with (base / 'refinement_agents.yaml').open('r', encoding='utf-8') as fh:
-            agents = yaml.safe_load(fh) or {}
-        with (base / 'refinement_tasks.yaml').open('r', encoding='utf-8') as fh:
-            tasks = yaml.safe_load(fh) or {}
-        return agents.get('sprint_refiner') or {}, tasks.get('refine_backlog_item') or {}
 
     def _build_prompt_vars(
         self,
