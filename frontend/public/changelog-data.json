@@ -1,5 +1,21 @@
 [
   {
+    "hash": "b31af74",
+    "short": "b31af74",
+    "message": "add multi-repo orchestration and task dependencies to README and CLAUDE.md",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "docs"
+  },
+  {
+    "hash": "a78a270",
+    "short": "a78a270",
+    "message": "update changelog-data.json with today's features",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "chore"
+  },
+  {
     "hash": "daa3312",
     "short": "daa3312",
     "message": "add task dependencies showcase to landing, docs, and use-cases",
@@ -779,22 +795,6 @@
     "hash": "283e9f9",
     "short": "283e9f9",
     "message": "move notifications/profile/usage to top bar, clean up sidebar",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "0763143",
-    "short": "0763143",
-    "message": "group sidebar navigation into collapsible sections",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "5e11267",
-    "short": "5e11267",
-    "message": "prompt studio shows default prompts in editor for direct editing",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"

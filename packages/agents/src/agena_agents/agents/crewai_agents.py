@@ -341,6 +341,7 @@ class CrewAIAgentRunner:
                     'verbose': False,
                     'allow_delegation': False,
                     'respect_context_window': True,
+                    'cache': False,
                 }
                 if multimodal and materialized_images:
                     agent_kwargs['multimodal'] = True
@@ -354,6 +355,7 @@ class CrewAIAgentRunner:
                     'expected_output': expected_output,
                     'agent': agent,
                     'markdown': False,
+                    'cache': False,
                 }
                 if structured_output is not None:
                     task_kwargs['output_json'] = structured_output
@@ -365,6 +367,8 @@ class CrewAIAgentRunner:
                     process=Process.sequential,
                     planning=False,
                     verbose=False,
+                    memory=False,
+                    cache=False,
                 )
                 result = await crew.kickoff_async()
                 content = self._extract_raw_output(result)
