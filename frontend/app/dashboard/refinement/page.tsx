@@ -1163,21 +1163,8 @@ export default function RefinementPage() {
           <div style={emptyStyle}>{loadingItems ? copy.loadingItems : copy.noItems}</div>
         ) : (
           <>
-          {/* Desktop table */}
-          <div className="refinement-table-desktop" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>{copy.select}</th>
-                  <th style={thStyle}>ID</th>
-                  <th style={thStyle}>{copy.type}</th>
-                  <th style={thStyle}>{copy.state}</th>
-                  <th style={thStyle}>{copy.estimate}</th>
-                  <th style={thStyle}>{copy.result}</th>
-                  <th style={thStyle}>Title</th>
-                </tr>
-              </thead>
-              <tbody>
+          {/* Unified item list — works on both mobile and desktop */}
+          <div style={{ padding: '0' }}>
                 {sortedItems.map((item) => {
                   const estimated = hasEstimate(item);
                   const checked = selectedIds.includes(item.id);
@@ -1187,77 +1174,65 @@ export default function RefinementPage() {
                   const isExpanded = expandedItemId === item.id;
                   return (
                     <React.Fragment key={item.id}>
-                      <tr
+                      <div
                         style={{
+                          padding: '12px 14px',
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
                           background: isWrittenBack
                             ? 'rgba(34,197,94,0.06)'
-                            : checked ? 'rgba(59,130,246,0.08)' : 'transparent',
+                            : checked ? 'rgba(59,130,246,0.06)' : 'transparent',
                           borderLeft: isWrittenBack ? '3px solid #22c55e' : '3px solid transparent',
                           cursor: suggestion ? 'pointer' : 'default',
                         }}
-                        onClick={() => {
-                          if (suggestion) setExpandedItemId(isExpanded ? '' : item.id);
-                        }}
+                        onClick={() => { if (suggestion) setExpandedItemId(isExpanded ? '' : item.id); }}
                       >
-                        <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
-                          <input type='checkbox' checked={checked} disabled={estimated} onChange={() => toggleItem(item)} />
-                        </td>
-                        <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{item.id}</td>
-                        <td style={tdStyle}>{item.work_item_type || 'Task'}</td>
-                        <td style={tdStyle}>{item.state || '-'}</td>
-                        <td style={tdStyle}>
-                          <span style={estimated ? estimatedPill : unestimatedPill}>{displayEstimate(item)}</span>
-                        </td>
-                        <td style={tdStyle}>
-                          {suggestion ? (
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <span style={suggestedPointsPill(suggestion.suggested_story_points)}>
-                                {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })} {copy.pts}
+                        {/* Row 1: checkbox + ID + badges + arrow */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                          <input type='checkbox' checked={checked} disabled={estimated}
+                            onChange={() => toggleItem(item)} onClick={(e) => e.stopPropagation()}
+                            style={{ flexShrink: 0, width: 18, height: 18 }} />
+                          <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', fontWeight: 700 }}>{item.id}</span>
+                          <span style={{ fontSize: 10, color: '#64748b', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
+                            {item.work_item_type || 'Task'}
+                          </span>
+                          <span style={{ ...(estimated ? estimatedPill : unestimatedPill), fontSize: 10, padding: '2px 6px' }}>
+                            {displayEstimate(item)}
+                          </span>
+                          {suggestion && (
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <span style={{ ...suggestedPointsPill(suggestion.suggested_story_points), fontSize: 11, padding: '2px 8px' }}>
+                                {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })} pts
                               </span>
-                              <span style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5',
-                              }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5' }}>
                                 {suggestion.confidence}%
                               </span>
-                              {isWrittenBack && (
-                                <span style={writtenBadge}>
-                                  {provider === 'azure' ? copy.writtenBackAzure : copy.writtenBackJira}
-                                </span>
-                              )}
                             </div>
-                          ) : '-'}
-                        </td>
-                        <td style={{ ...tdStyle, minWidth: 360 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ flex: 1 }}>
-                              {itemSourceUrl ? (
-                                <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ fontWeight: 600, color: '#93c5fd', textDecoration: 'none' }}
-                                  onClick={(e) => e.stopPropagation()}>
-                                  {item.title}
-                                </a>
-                              ) : (
-                                <div style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
-                              )}
-                              {item.refined_before && (
-                                <div style={{ fontSize: 12, color: '#fde68a', marginTop: 4 }}>
-                                  Daha once yorumlandi ({item.refinement_count || 1})
-                                </div>
-                              )}
-                              {item.assigned_to && <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 4 }}>{item.assigned_to}</div>}
-                            </div>
-                            {suggestion && (
-                              <span style={{ fontSize: 11, color: 'var(--ink-42)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
-                                ▼
-                              </span>
-                            )}
+                          )}
+                          {isWrittenBack && <span style={{ ...writtenBadge, fontSize: 9, padding: '1px 6px' }}>{copy.writtenBack}</span>}
+                          {suggestion && (
+                            <span style={{ fontSize: 11, color: '#64748b', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>▼</span>
+                          )}
+                        </div>
+                        {/* Row 2: Title */}
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                          {itemSourceUrl ? (
+                            <a href={itemSourceUrl} target='_blank' rel='noreferrer'
+                              style={{ color: '#93c5fd', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+                              {item.title}
+                            </a>
+                          ) : item.title}
+                        </div>
+                        {/* Row 3: Meta */}
+                        {(item.state || item.assigned_to || item.refined_before) && (
+                          <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                            {item.state && <span style={{ fontSize: 11, color: '#64748b' }}>{item.state}</span>}
+                            {item.assigned_to && <span style={{ fontSize: 11, color: '#64748b' }}>{item.assigned_to}</span>}
+                            {item.refined_before && <span style={{ fontSize: 11, color: '#fde68a' }}>Refined ({item.refinement_count || 1}x)</span>}
                           </div>
-                        </td>
-                      </tr>
+                        )}
+                      </div>
                       {isExpanded && suggestion && (
-                        <tr>
-                          <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ padding: '0 14px 14px', borderBottom: '1px solid rgba(13,148,136,0.15)' }}>
                             <div style={expandedCard}>
                               {/* Header row: big points + confidence + write button */}
                               <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -1391,179 +1366,14 @@ export default function RefinementPage() {
                                 </>
                               )}
                             </div>
-                          </td>
-                        </tr>
+                        </div>
                       )}
                     </React.Fragment>
                   );
                 })}
-              </tbody>
-            </table>
           </div>
 
-          {/* Mobile card list */}
-          <div className="refinement-cards-mobile">
-            {sortedItems.map((item) => {
-              const estimated = hasEstimate(item);
-              const checked = selectedIds.includes(item.id);
-              const suggestion = resultByItemId.get(item.id);
-              const isWrittenBack = writtenBackIds.has(item.id);
-              const isExpanded = expandedItemId === item.id;
-              const itemSourceUrl = resultByItemId.get(item.id)?.item_url || item.web_url || '';
-              return (
-                <div key={`card-${item.id}`} className="refinement-item-card" style={{
-                  padding: '10px 12px',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: isWrittenBack
-                    ? 'rgba(34,197,94,0.06)'
-                    : checked ? 'rgba(59,130,246,0.06)' : 'transparent',
-                  borderLeft: isWrittenBack ? '3px solid #22c55e' : '3px solid transparent',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <input
-                      type='checkbox'
-                      checked={checked}
-                      disabled={estimated}
-                      onChange={() => toggleItem(item)}
-                      style={{ marginTop: 3, flexShrink: 0 }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'visible' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', fontWeight: 600 }}>{item.id}</span>
-                        <span style={{ ...(estimated ? estimatedPill : unestimatedPill), fontSize: 10, padding: '2px 6px' }}>
-                          {displayEstimate(item)}
-                        </span>
-                        {item.state && <span style={{ fontSize: 10, color: 'var(--ink-42)', padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.04)' }}>{item.state}</span>}
-                      </div>
-                      <div style={{
-                        fontSize: 14, fontWeight: 600, lineHeight: 1.4,
-                        color: itemSourceUrl ? '#93c5fd' : '#e2e8f0',
-                        wordBreak: 'break-word',
-                      }}>
-                        {itemSourceUrl ? (
-                          <a href={itemSourceUrl} target='_blank' rel='noreferrer' style={{ color: '#93c5fd', textDecoration: 'none' }}>
-                            {item.title}
-                          </a>
-                        ) : item.title}
-                      </div>
-                      {suggestion && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                          <span style={{ ...suggestedPointsPill(suggestion.suggested_story_points), fontSize: 11, padding: '2px 7px' }}>
-                            {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })} {copy.pts}
-                          </span>
-                          <span style={{
-                            fontSize: 10, fontWeight: 700,
-                            color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5',
-                          }}>
-                            {suggestion.confidence}%
-                          </span>
-                          {isWrittenBack && <span style={{ ...writtenBadge, fontSize: 9, padding: '1px 6px' }}>{copy.writtenBack}</span>}
-                        </div>
-                      )}
-                    </div>
-                    {suggestion && (
-                      <button
-                        type='button'
-                        onClick={() => setExpandedItemId(isExpanded ? '' : item.id)}
-                        style={{
-                          background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                          color: 'var(--ink-42)', fontSize: 11, flexShrink: 0,
-                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                        }}
-                      >
-                        ▼
-                      </button>
-                    )}
-                  </div>
-                  {isExpanded && suggestion && (
-                    <div className="refinement-expanded-mobile" style={{
-                      marginTop: 10, padding: '12px 0 4px',
-                      borderTop: '1px solid rgba(13,148,136,0.15)',
-                      display: 'grid', gap: 12,
-                    }}>
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 28, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
-                            {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })}
-                          </div>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 3 }}>{copy.suggestedEstimate}</div>
-                        </div>
-                        <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.08)' }} />
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5' }}>
-                            {suggestion.confidence}%
-                          </div>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 3 }}>{copy.confidence}</div>
-                        </div>
-                        <span style={{ ...(suggestion.ready_for_planning ? readyPill : pendingPill), fontSize: 10, padding: '3px 8px' }}>
-                          {suggestion.ready_for_planning ? copy.ready : copy.notReady}
-                        </span>
-                      </div>
-                      {suggestion.error ? (
-                        <div style={{ borderRadius: 8, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '8px 10px', fontSize: 12 }}>
-                          {suggestion.error}
-                        </div>
-                      ) : (
-                        <>
-                          <div style={expandedSection}>
-                            <div style={expandedSectionLabel}>{copy.summary}</div>
-                            <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--ink-80)', whiteSpace: 'pre-wrap' }}>{suggestion.summary || '-'}</div>
-                          </div>
-                          <div style={expandedSection}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={expandedSectionLabel}>{copy.comment}</div>
-                              <button type='button' style={{ ...ghostButton, padding: '3px 8px', fontSize: 10 }}
-                                onClick={() => copyToClipboard(suggestion.comment, item.id)}>
-                                {copiedCommentId === item.id ? copy.copied : copy.copyComment}
-                              </button>
-                            </div>
-                            <div style={{
-                              fontSize: 12, lineHeight: 1.5, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
-                              padding: '8px 10px', borderRadius: 8,
-                              background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
-                              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                            }}>
-                              {suggestion.comment || '-'}
-                            </div>
-                          </div>
-                          <div style={{ display: 'grid', gap: 10 }}>
-                            {suggestion.ambiguities.length > 0 && (
-                              <div style={expandedSection}>
-                                <div style={expandedSectionLabel}>{copy.ambiguities}</div>
-                                <ul style={{ margin: 0, paddingLeft: 14, color: 'var(--ink-75)', lineHeight: 1.5, fontSize: 12 }}>
-                                  {suggestion.ambiguities.map((a, i) => <li key={i}>{a}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                            {suggestion.questions.length > 0 && (
-                              <div style={expandedSection}>
-                                <div style={expandedSectionLabel}>{copy.questions}</div>
-                                <ul style={{ margin: 0, paddingLeft: 14, color: 'var(--ink-75)', lineHeight: 1.5, fontSize: 12 }}>
-                                  {suggestion.questions.map((q, i) => <li key={i}>{q}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ display: 'grid', gap: 6 }}>
-                            {isWrittenBack ? (
-                              <span style={{ ...writtenButtonDone, textAlign: 'center', display: 'block', padding: '8px 12px', fontSize: 12 }}>{copy.writtenBack}</span>
-                            ) : (
-                              <button type='button' style={{ ...writeProviderButton, width: '100%', textAlign: 'center', padding: '8px 12px', fontSize: 12 }}
-                                disabled={writebackItemId === item.id || !!suggestion.error}
-                                onClick={() => requestWritebackForItem(item.id)}>
-                                {writebackItemId === item.id ? copy.writebackRunning : `${copy.writeToProvider} → ${providerLabel}`}
-                              </button>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {/* Old mobile cards removed — unified list above handles both mobile and desktop */}
           </>
         )}
       </div>
