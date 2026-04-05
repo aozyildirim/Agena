@@ -1,5 +1,13 @@
 [
   {
+    "hash": "9fc6812",
+    "short": "9fc6812",
+    "message": "add changelog link to desktop navbar",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "1226764",
     "short": "1226764",
     "message": "formatted refinement comments for Azure/Jira + popup navigation",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
-  },
-  {
-    "hash": "4014197",
-    "short": "4014197",
-    "message": "restore office page to pre-height-fix state",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "revert"
   }
 ]

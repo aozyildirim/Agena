@@ -166,7 +166,20 @@ class RefinementService:
                         skip_cache=True,
                     )
                     total_usage = self._merge_usage(total_usage, usage)
-                    payload = structured or self._extract_json_dict(content) or {}
+                    # Convert structured Pydantic model to dict if needed
+                    if structured is not None:
+                        payload = structured.model_dump() if hasattr(structured, 'model_dump') else (structured.dict() if hasattr(structured, 'dict') else dict(structured))
+                    else:
+                        payload = self._extract_json_dict(content) or {}
+                    # Debug: log raw payload to understand scoring issues
+                    logger.info(
+                        'Refinement item %s raw payload: suggested_story_points=%r (type=%s), confidence=%r, structured_type=%s',
+                        item.id,
+                        payload.get('suggested_story_points'),
+                        type(payload.get('suggested_story_points')).__name__,
+                        payload.get('confidence'),
+                        type(structured).__name__ if structured else 'dict',
+                    )
                     results.append(
                         self._to_suggestion(
                             item,
