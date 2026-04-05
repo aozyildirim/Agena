@@ -1,5 +1,13 @@
 [
   {
+    "hash": "1c61965",
+    "short": "1c61965",
+    "message": "mobile cards — remove inline display:none, explicit text colors, word-break",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "eb76606",
     "short": "eb76606",
     "message": "refinement mobile — portal overlay, title wrap, z-index boost",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"
-  },
-  {
-    "hash": "1b47cc2",
-    "short": "1b47cc2",
-    "message": "office agent wizard step 4 (prompt/settings), fix promptSlugs prop, compact sidebar",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
   }
 ]
