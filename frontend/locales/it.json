@@ -2360,5 +2360,22 @@
   "landing.mr3": "Blocco per repository previene conflitti tra operazioni concorrenti",
   "landing.mr4": "Dashboard unificata mostra tutti i PR e il loro stato in una vista",
   "landing.mrCompleted": "completati",
-  "multiRepo.learnMore": "Scopri di più"
+  "multiRepo.learnMore": "Scopri di più",
+  "docs.taskDependencies": "Dipendenze delle Attività",
+  "landing.depsLabel": "Dipendenze delle Attività",
+  "landing.depsTitle": "Concatena le Attività. Automatizza la Sequenza.",
+  "landing.depsDesc": "Definisci l'ordine di esecuzione tra le attività. Quando una dipendenza viene completata, l'attività successiva nella catena parte automaticamente — nessun intervento manuale necessario.",
+  "landing.dep1": "Imposta le dipendenze alla creazione dell'attività o in qualsiasi momento successivo",
+  "landing.dep2": "Auto-coda: le attività dipendenti partono quando i bloccanti sono completati",
+  "landing.dep3": "Il rilevamento dei cicli previene catene di dipendenze circolari",
+  "landing.dep4": "Il flusso visivo delle dipendenze mostra l'intera pipeline di esecuzione",
+  "landing.depsCompleted": "auto-accodata dopo il completamento delle dipendenze",
+  "landing.depsLearnMore": "Scopri di più",
+  "useCases.uc8.title": "Dipendenze delle Attività",
+  "useCases.uc8.subtitle": "Concatena attività con ordine di esecuzione automatico",
+  "useCases.uc8.desc": "Definisci quali attività devono essere completate prima che altre possano iniziare. Il worker verifica le dipendenze prima dell'esecuzione — le attività bloccate attendono automaticamente. Quando un bloccante viene completato, le attività dipendenti vengono automaticamente accodate e avviate.",
+  "useCases.uc8.b1": "Imposta le dipendenze alla creazione o aggiornale successivamente",
+  "useCases.uc8.b2": "Auto-coda: le attività dipendenti partono quando tutti i bloccanti sono completati",
+  "useCases.uc8.b3": "Il rilevamento dei cicli previene catene di dipendenze circolari",
+  "useCases.uc8.b4": "Il flusso visivo delle dipendenze mostra l'intera pipeline di esecuzione"
 }

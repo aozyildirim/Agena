@@ -2360,5 +2360,22 @@
   "landing.mr3": "Per-repo locking prevents conflicts between concurrent operations",
   "landing.mr4": "Unified dashboard shows all PRs and their status in one view",
   "landing.mrCompleted": "completed",
-  "multiRepo.learnMore": "Learn More"
+  "multiRepo.learnMore": "Learn More",
+  "docs.taskDependencies": "Task Dependencies",
+  "landing.depsLabel": "Task Dependencies",
+  "landing.depsTitle": "Chain Tasks. Automate the Sequence.",
+  "landing.depsDesc": "Define execution order between tasks. When a dependency completes, the next task in the chain starts automatically — no manual intervention needed.",
+  "landing.dep1": "Set dependencies at task creation or anytime after",
+  "landing.dep2": "Auto-queue: dependent tasks start when blockers complete",
+  "landing.dep3": "Cycle detection prevents circular dependency chains",
+  "landing.dep4": "Visual dependency flow shows the full execution pipeline",
+  "landing.depsCompleted": "auto-queued after dependencies completed",
+  "landing.depsLearnMore": "Learn More",
+  "useCases.uc8.title": "Task Dependencies",
+  "useCases.uc8.subtitle": "Chain tasks with automatic execution order",
+  "useCases.uc8.desc": "Define which tasks must complete before others can start. The worker checks dependencies before executing — blocked tasks wait automatically. When a blocker completes, dependent tasks auto-queue and start without manual intervention.",
+  "useCases.uc8.b1": "Set dependencies at creation time or update them later",
+  "useCases.uc8.b2": "Auto-queue: dependent tasks start when all blockers complete",
+  "useCases.uc8.b3": "Cycle detection prevents circular dependency chains",
+  "useCases.uc8.b4": "Visual dependency flow shows the full execution pipeline"
 }

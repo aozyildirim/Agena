@@ -31,6 +31,7 @@ const sectionsDef = [
       { id: 'flows', titleKey: 'docs.flows' },
       { id: 'templates', titleKey: 'docs.templates' },
       { id: 'dora', titleKey: 'docs.dora' },
+      { id: 'task-dependencies', titleKey: 'docs.taskDependencies' },
     ],
   },
   {

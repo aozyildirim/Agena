@@ -2360,5 +2360,22 @@
   "landing.mr3": "リポジトリごとのロックで同時操作間の競合を防止",
   "landing.mr4": "統合ダッシュボードですべてのPRとステータスを一画面で表示",
   "landing.mrCompleted": "完了",
-  "multiRepo.learnMore": "詳しく見る"
+  "multiRepo.learnMore": "詳しく見る",
+  "docs.taskDependencies": "タスク依存関係",
+  "landing.depsLabel": "タスク依存関係",
+  "landing.depsTitle": "タスクを連鎖。シーケンスを自動化。",
+  "landing.depsDesc": "タスク間の実行順序を定義します。依存関係が完了すると、チェーン内の次のタスクが自動的に開始されます — 手動介入は不要です。",
+  "landing.dep1": "タスク作成時またはいつでも依存関係を設定",
+  "landing.dep2": "自動キュー：ブロッカーが完了すると依存タスクが開始",
+  "landing.dep3": "循環検出により循環依存チェーンを防止",
+  "landing.dep4": "ビジュアル依存フローで実行パイプライン全体を表示",
+  "landing.depsCompleted": "依存関係完了後に自動キューイング",
+  "landing.depsLearnMore": "詳しく見る",
+  "useCases.uc8.title": "タスク依存関係",
+  "useCases.uc8.subtitle": "自動実行順序でタスクを連鎖",
+  "useCases.uc8.desc": "他のタスクが開始する前に完了する必要があるタスクを定義します。Workerは実行前に依存関係をチェックし、ブロックされたタスクは自動的に待機します。ブロッカーが完了すると、依存タスクは手動介入なしに自動的にキューイングされ開始します。",
+  "useCases.uc8.b1": "作成時に依存関係を設定するか、後で更新",
+  "useCases.uc8.b2": "自動キュー：すべてのブロッカーが完了すると依存タスクが開始",
+  "useCases.uc8.b3": "循環検出により循環依存チェーンを防止",
+  "useCases.uc8.b4": "ビジュアル依存フローで実行パイプライン全体を表示"
 }

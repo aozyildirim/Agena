@@ -2360,5 +2360,22 @@
   "landing.mr3": "Bloqueo por repositorio previene conflictos entre operaciones concurrentes",
   "landing.mr4": "Dashboard unificado muestra todos los PRs y su estado en una vista",
   "landing.mrCompleted": "completados",
-  "multiRepo.learnMore": "Más Información"
+  "multiRepo.learnMore": "Más Información",
+  "docs.taskDependencies": "Dependencias de Tareas",
+  "landing.depsLabel": "Dependencias de Tareas",
+  "landing.depsTitle": "Encadena Tareas. Automatiza la Secuencia.",
+  "landing.depsDesc": "Define el orden de ejecución entre tareas. Cuando una dependencia se completa, la siguiente tarea en la cadena comienza automáticamente — sin intervención manual.",
+  "landing.dep1": "Establece dependencias al crear la tarea o en cualquier momento posterior",
+  "landing.dep2": "Auto-cola: las tareas dependientes comienzan cuando los bloqueadores se completan",
+  "landing.dep3": "Detección de ciclos previene cadenas de dependencias circulares",
+  "landing.dep4": "Flujo visual de dependencias muestra el pipeline de ejecución completo",
+  "landing.depsCompleted": "auto-encolada después de completar dependencias",
+  "landing.depsLearnMore": "Más Información",
+  "useCases.uc8.title": "Dependencias de Tareas",
+  "useCases.uc8.subtitle": "Encadena tareas con orden de ejecución automático",
+  "useCases.uc8.desc": "Define qué tareas deben completarse antes de que otras puedan comenzar. El worker verifica las dependencias antes de ejecutar — las tareas bloqueadas esperan automáticamente. Cuando un bloqueador se completa, las tareas dependientes se encolan y comienzan sin intervención manual.",
+  "useCases.uc8.b1": "Establece dependencias al crear o actualízalas después",
+  "useCases.uc8.b2": "Auto-cola: las tareas dependientes comienzan cuando todos los bloqueadores se completan",
+  "useCases.uc8.b3": "Detección de ciclos previene cadenas de dependencias circulares",
+  "useCases.uc8.b4": "Flujo visual de dependencias muestra el pipeline de ejecución completo"
 }

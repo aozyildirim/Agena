@@ -2360,5 +2360,22 @@
   "landing.mr3": "Pro-Repo-Sperrung verhindert Konflikte zwischen gleichzeitigen Operationen",
   "landing.mr4": "Einheitliches Dashboard zeigt alle PRs und deren Status in einer Ansicht",
   "landing.mrCompleted": "abgeschlossen",
-  "multiRepo.learnMore": "Mehr erfahren"
+  "multiRepo.learnMore": "Mehr erfahren",
+  "docs.taskDependencies": "Aufgabenabhängigkeiten",
+  "landing.depsLabel": "Aufgabenabhängigkeiten",
+  "landing.depsTitle": "Aufgaben verketten. Reihenfolge automatisieren.",
+  "landing.depsDesc": "Definieren Sie die Ausführungsreihenfolge zwischen Aufgaben. Wenn eine Abhängigkeit abgeschlossen ist, startet die nächste Aufgabe in der Kette automatisch — kein manuelles Eingreifen nötig.",
+  "landing.dep1": "Abhängigkeiten bei der Erstellung oder jederzeit danach festlegen",
+  "landing.dep2": "Auto-Queue: abhängige Aufgaben starten, wenn Blocker abgeschlossen sind",
+  "landing.dep3": "Zykluserkennung verhindert zirkuläre Abhängigkeitsketten",
+  "landing.dep4": "Visueller Abhängigkeitsfluss zeigt die gesamte Ausführungspipeline",
+  "landing.depsCompleted": "automatisch eingereiht nach Abschluss der Abhängigkeiten",
+  "landing.depsLearnMore": "Mehr erfahren",
+  "useCases.uc8.title": "Aufgabenabhängigkeiten",
+  "useCases.uc8.subtitle": "Aufgaben mit automatischer Ausführungsreihenfolge verketten",
+  "useCases.uc8.desc": "Definieren Sie, welche Aufgaben abgeschlossen sein müssen, bevor andere starten können. Der Worker prüft Abhängigkeiten vor der Ausführung — blockierte Aufgaben warten automatisch. Wenn ein Blocker abgeschlossen ist, werden abhängige Aufgaben automatisch eingereiht und gestartet.",
+  "useCases.uc8.b1": "Abhängigkeiten bei Erstellung festlegen oder später aktualisieren",
+  "useCases.uc8.b2": "Auto-Queue: abhängige Aufgaben starten, wenn alle Blocker abgeschlossen sind",
+  "useCases.uc8.b3": "Zykluserkennung verhindert zirkuläre Abhängigkeitsketten",
+  "useCases.uc8.b4": "Visueller Abhängigkeitsfluss zeigt die gesamte Ausführungspipeline"
 }

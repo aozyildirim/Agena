@@ -2360,5 +2360,22 @@
   "landing.mr3": "按仓库锁定防止并发操作之间的冲突",
   "landing.mr4": "统一仪表板在一个视图中显示所有PR及其状态",
   "landing.mrCompleted": "已完成",
-  "multiRepo.learnMore": "了解更多"
+  "multiRepo.learnMore": "了解更多",
+  "docs.taskDependencies": "任务依赖",
+  "landing.depsLabel": "任务依赖",
+  "landing.depsTitle": "链接任务。自动化执行顺序。",
+  "landing.depsDesc": "定义任务之间的执行顺序。当依赖项完成时，链中的下一个任务自动启动——无需手动干预。",
+  "landing.dep1": "在创建任务时或之后随时设置依赖关系",
+  "landing.dep2": "自动排队：阻塞项完成后依赖任务自动启动",
+  "landing.dep3": "循环检测防止循环依赖链",
+  "landing.dep4": "可视化依赖流程展示完整执行管线",
+  "landing.depsCompleted": "依赖完成后自动排队",
+  "landing.depsLearnMore": "了解更多",
+  "useCases.uc8.title": "任务依赖",
+  "useCases.uc8.subtitle": "通过自动执行顺序链接任务",
+  "useCases.uc8.desc": "定义哪些任务必须在其他任务开始之前完成。Worker在执行前检查依赖关系——被阻塞的任务自动等待。当阻塞项完成时，依赖任务自动排队并启动，无需手动干预。",
+  "useCases.uc8.b1": "在创建时设置依赖关系或稍后更新",
+  "useCases.uc8.b2": "自动排队：所有阻塞项完成后依赖任务启动",
+  "useCases.uc8.b3": "循环检测防止循环依赖链",
+  "useCases.uc8.b4": "可视化依赖流程展示完整执行管线"
 }

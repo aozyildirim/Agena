@@ -677,6 +677,85 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── TASK DEPENDENCIES SHOWCASE ── */}
+        <section style={{ padding: '80px 0 60px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className='deps-chain-grid'>
+            {/* Left: Visual diagram */}
+            <div style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--panel-border-2)',
+              borderRadius: 20,
+              padding: 'clamp(24px, 3vw, 40px)',
+              fontFamily: 'monospace',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0d9488, #f59e0b, #0d9488)', borderRadius: '20px 20px 0 0' }} />
+              {/* Header */}
+              <div style={{ marginBottom: 20, fontSize: 13, fontWeight: 700, color: 'var(--ink-58)', letterSpacing: '0.5px' }}>
+                Task Dependency Pipeline
+              </div>
+              {/* Dependency chain */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {[
+                  { id: '#31', name: 'DB Migration', status: 'done', statusIcon: '\u2713', color: '#22c55e' },
+                  { id: '#32', name: 'Backend API Update', status: 'done', statusIcon: '\u2713', color: '#22c55e' },
+                  { id: '#33', name: 'Frontend Update', status: 'running', statusIcon: '\u27F3', color: '#f59e0b' },
+                  { id: '#34', name: 'E2E Tests', status: 'waiting', statusIcon: '\u23F3', color: 'var(--ink-30)' },
+                ].map((task, i, arr) => (
+                  <div key={task.id}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px', borderRadius: 10,
+                      background: 'rgba(0,0,0,0.2)',
+                      border: '1px solid var(--panel-border)',
+                    }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: task.color }}>{task.id}</span>
+                        <span style={{ fontSize: 13, color: 'var(--ink-65)', marginLeft: 8 }}>{task.name}</span>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: task.color }}>{task.statusIcon} {task.status}</span>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div style={{ textAlign: 'center', color: 'var(--ink-25)', fontSize: 16, lineHeight: 1, padding: '6px 0' }}>&#8595;</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/* Bottom auto-queue note */}
+              <div style={{ textAlign: 'center', marginTop: 16, padding: '8px 16px', borderRadius: 8, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.15)' }}>
+                <span style={{ fontSize: 12, color: 'var(--ink-45)' }}>{'\u2713'} Auto-queue: #33 {t('landing.depsCompleted')}</span>
+              </div>
+            </div>
+            {/* Right: Text */}
+            <div>
+              <div className='section-label'>{t('landing.depsLabel')}</div>
+              <h2 style={{ fontSize: 'clamp(28px, 3vw, 42px)', fontWeight: 800, color: 'var(--ink-90)', marginBottom: 16 }}>
+                {t('landing.depsTitle')}
+              </h2>
+              <p style={{ color: 'var(--ink-50)', fontSize: 16, lineHeight: 1.8, marginBottom: 28 }}>
+                {t('landing.depsDesc')}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { icon: '🔗', text: t('landing.dep1') },
+                  { icon: '⚡', text: t('landing.dep2') },
+                  { icon: '🛡️', text: t('landing.dep3') },
+                  { icon: '📈', text: t('landing.dep4') },
+                ].map((item) => (
+                  <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{item.icon}</span>
+                    <span style={{ color: 'var(--ink-65)', fontSize: 14, lineHeight: 1.6 }}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
+              <Link href='/docs' className='button button-outline' style={{ marginTop: 28, fontSize: 14, padding: '10px 24px', display: 'inline-block' }}>
+                {t('landing.depsLearnMore')} →
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* ── HOW IT WORKS ── */}
         <section style={{ padding: '60px 0' }}>
           <div style={{ marginBottom: 48, textAlign: 'center' }}>

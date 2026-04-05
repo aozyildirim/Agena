@@ -2360,5 +2360,22 @@
   "landing.mr3": "Repo bazlı kilitleme, eş zamanlı işlemler arasında çakışmayı önler",
   "landing.mr4": "Birleşik dashboard tüm PR'ları ve durumlarını tek ekranda gösterir",
   "landing.mrCompleted": "tamamlandı",
-  "multiRepo.learnMore": "Daha Fazla"
+  "multiRepo.learnMore": "Daha Fazla",
+  "docs.taskDependencies": "Görev Bağımlılıkları",
+  "landing.depsLabel": "Görev Bağımlılıkları",
+  "landing.depsTitle": "Görevleri Zincirle. Sıralamayı Otomatikleştir.",
+  "landing.depsDesc": "Görevler arasında yürütme sırası tanımlayın. Bir bağımlılık tamamlandığında, zincirdeki sonraki görev otomatik olarak başlar — manuel müdahale gerekmez.",
+  "landing.dep1": "Görev oluşturulurken veya sonrasında bağımlılıkları ayarlayın",
+  "landing.dep2": "Otomatik kuyruk: bağımlı görevler engelleyiciler tamamlandığında başlar",
+  "landing.dep3": "Döngü algılama, dairesel bağımlılık zincirlerini önler",
+  "landing.dep4": "Görsel bağımlılık akışı tüm yürütme hattını gösterir",
+  "landing.depsCompleted": "bağımlılıklar tamamlandıktan sonra otomatik kuyruğa alındı",
+  "landing.depsLearnMore": "Daha Fazla",
+  "useCases.uc8.title": "Görev Bağımlılıkları",
+  "useCases.uc8.subtitle": "Otomatik yürütme sırası ile görevleri zincirleyin",
+  "useCases.uc8.desc": "Hangi görevlerin diğerlerinden önce tamamlanması gerektiğini tanımlayın. Worker yürütmeden önce bağımlılıkları kontrol eder — engellenen görevler otomatik olarak bekler. Bir engelleyici tamamlandığında, bağımlı görevler manuel müdahale olmadan otomatik kuyruğa alınır ve başlar.",
+  "useCases.uc8.b1": "Oluşturma sırasında veya sonradan bağımlılıkları ayarlayın",
+  "useCases.uc8.b2": "Otomatik kuyruk: tüm engelleyiciler tamamlandığında bağımlı görevler başlar",
+  "useCases.uc8.b3": "Döngü algılama, dairesel bağımlılık zincirlerini önler",
+  "useCases.uc8.b4": "Görsel bağımlılık akışı tüm yürütme hattını gösterir"
 }
