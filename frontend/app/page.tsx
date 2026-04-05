@@ -596,6 +596,87 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── MULTI-REPO SHOWCASE ── */}
+        <section style={{ padding: '80px 0 60px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className='multi-repo-grid'>
+            {/* Left: Text */}
+            <div>
+              <div className='section-label'>{t('multiRepo.label')}</div>
+              <h2 style={{ fontSize: 'clamp(28px, 3vw, 42px)', fontWeight: 800, color: 'var(--ink-90)', marginBottom: 16 }}>
+                {t('multiRepo.title')}
+              </h2>
+              <p style={{ color: 'var(--ink-50)', fontSize: 16, lineHeight: 1.8, marginBottom: 28 }}>
+                {t('multiRepo.desc')}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { icon: '🎯', text: t('landing.mr1') },
+                  { icon: '⚡', text: t('landing.mr2') },
+                  { icon: '🔒', text: t('landing.mr3') },
+                  { icon: '📊', text: t('landing.mr4') },
+                ].map((item) => (
+                  <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{item.icon}</span>
+                    <span style={{ color: 'var(--ink-65)', fontSize: 14, lineHeight: 1.6 }}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
+              <Link href='/docs' className='button button-outline' style={{ marginTop: 28, fontSize: 14, padding: '10px 24px', display: 'inline-block' }}>
+                {t('multiRepo.learnMore')} →
+              </Link>
+            </div>
+            {/* Right: Visual diagram */}
+            <div style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--panel-border-2)',
+              borderRadius: 20,
+              padding: 'clamp(24px, 3vw, 40px)',
+              fontFamily: 'monospace',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0d9488, #7c3aed, #0d9488)', borderRadius: '20px 20px 0 0' }} />
+              {/* Task */}
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <div style={{ display: 'inline-block', padding: '10px 20px', borderRadius: 10, background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)' }}>
+                  <span style={{ color: '#5eead4', fontSize: 13, fontWeight: 700 }}>Task #142</span>
+                  <span style={{ color: 'var(--ink-45)', fontSize: 12, marginLeft: 8 }}>Fix auth flow</span>
+                </div>
+              </div>
+              {/* Arrow down */}
+              <div style={{ textAlign: 'center', color: 'var(--ink-25)', fontSize: 18, lineHeight: 1, marginBottom: 12 }}>↓ fan-out</div>
+              {/* Repos */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { repo: 'backend-api', status: '✓ PR #87', color: '#22c55e', branch: 'fix/auth-jwt' },
+                  { repo: 'frontend-app', status: '✓ PR #214', color: '#22c55e', branch: 'fix/auth-ui' },
+                  { repo: 'shared-types', status: '⟳ running', color: '#f59e0b', branch: 'fix/auth-types' },
+                ].map((r) => (
+                  <div key={r.repo} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', borderRadius: 10,
+                    background: 'rgba(0,0,0,0.2)',
+                    border: '1px solid var(--panel-border)',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-78)' }}>{r.repo}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-30)', marginTop: 2 }}>{r.branch}</div>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: r.color }}>{r.status}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Bottom status */}
+              <div style={{ textAlign: 'center', marginTop: 16, padding: '8px 16px', borderRadius: 8, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.15)' }}>
+                <span style={{ fontSize: 12, color: 'var(--ink-45)' }}>2/3 {t('landing.mrCompleted')}</span>
+                <span style={{ display: 'inline-block', width: 80, height: 4, borderRadius: 2, background: 'var(--panel-border)', marginLeft: 10, verticalAlign: 'middle', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '66%', borderRadius: 2, background: '#0d9488' }} />
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── HOW IT WORKS ── */}
         <section style={{ padding: '60px 0' }}>
           <div style={{ marginBottom: 48, textAlign: 'center' }}>

@@ -2341,5 +2341,11 @@
   "glossary.ctaDesc": "Comienza a usar los agentes de IA de AGENA para automatizar tu flujo de trabajo de desarrollo.",
   "glossary.ctaButton": "Empezar Gratis",
   "footer.glossary": "Glosario",
-  "footer.integrations": "Integraciones"
+  "footer.integrations": "Integraciones",
+  "landing.mr1": "Una tarea activa pipelines independientes en todos los repositorios vinculados",
+  "landing.mr2": "Ejecución paralela — cada repo ejecuta sus propios agentes de IA simultáneamente",
+  "landing.mr3": "Bloqueo por repositorio previene conflictos entre operaciones concurrentes",
+  "landing.mr4": "Dashboard unificado muestra todos los PRs y su estado en una vista",
+  "landing.mrCompleted": "completados",
+  "multiRepo.learnMore": "Más Información"
 }

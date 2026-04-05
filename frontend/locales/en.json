@@ -2341,5 +2341,11 @@
   "integrations.ctaDesc": "Set up your first integration in under 5 minutes.",
   "integrations.ctaButton": "Start Free",
   "footer.glossary": "Glossary",
-  "footer.integrations": "Integrations"
+  "footer.integrations": "Integrations",
+  "landing.mr1": "One task triggers independent pipelines across all linked repositories",
+  "landing.mr2": "Parallel execution — each repo runs its own AI agents simultaneously",
+  "landing.mr3": "Per-repo locking prevents conflicts between concurrent operations",
+  "landing.mr4": "Unified dashboard shows all PRs and their status in one view",
+  "landing.mrCompleted": "completed",
+  "multiRepo.learnMore": "Learn More"
 }

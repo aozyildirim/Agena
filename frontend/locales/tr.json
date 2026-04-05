@@ -2341,5 +2341,11 @@
   "integrations.ctaDesc": "İlk entegrasyonunuzu 5 dakikadan kısa sürede kurun.",
   "integrations.ctaButton": "Ücretsiz Başla",
   "footer.glossary": "Sözlük",
-  "footer.integrations": "Entegrasyonlar"
+  "footer.integrations": "Entegrasyonlar",
+  "landing.mr1": "Tek bir görev, bağlı tüm repo'larda bağımsız pipeline'lar tetikler",
+  "landing.mr2": "Paralel çalışma — her repo kendi AI agent'larını eş zamanlı çalıştırır",
+  "landing.mr3": "Repo bazlı kilitleme, eş zamanlı işlemler arasında çakışmayı önler",
+  "landing.mr4": "Birleşik dashboard tüm PR'ları ve durumlarını tek ekranda gösterir",
+  "landing.mrCompleted": "tamamlandı",
+  "multiRepo.learnMore": "Daha Fazla"
 }

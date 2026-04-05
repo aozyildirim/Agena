@@ -2341,5 +2341,11 @@
   "glossary.term20.full": "Webhooks are HTTP POST requests sent automatically when specific events occur. In AGENA, webhooks notify external systems when tasks complete, PRs are created, or agent status changes. They enable real-time integration with CI/CD pipelines, monitoring tools, and custom automation without polling the API.",
   "glossary.ctaTitle": "准备将这些概念付诸实践？",
   "glossary.ctaDesc": "开始使用AGENA的AI代理自动化您的开发工作流程。",
-  "glossary.ctaButton": "免费开始"
+  "glossary.ctaButton": "免费开始",
+  "landing.mr1": "一个任务在所有关联仓库中触发独立的流水线",
+  "landing.mr2": "并行执行 — 每个仓库同时运行自己的AI代理",
+  "landing.mr3": "按仓库锁定防止并发操作之间的冲突",
+  "landing.mr4": "统一仪表板在一个视图中显示所有PR及其状态",
+  "landing.mrCompleted": "已完成",
+  "multiRepo.learnMore": "了解更多"
 }

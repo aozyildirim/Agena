@@ -1982,7 +1982,7 @@ input:focus, textarea:focus {
 /* ─── RESPONSIVE ─── */
 @media (max-width: 768px) {
   /* ── All grids → single column ── */
-  .hero-layout, .steps-grid, .feature-grid, .grid-2, .grid-3, .split-panel, .pricing-grid {
+  .hero-layout, .steps-grid, .feature-grid, .grid-2, .grid-3, .split-panel, .pricing-grid, .multi-repo-grid {
     grid-template-columns: 1fr;
   }
   .flow-showcase {

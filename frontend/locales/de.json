@@ -2341,5 +2341,11 @@
   "integrations.ctaDesc": "Richten Sie Ihre erste Integration in unter 5 Minuten ein.",
   "integrations.ctaButton": "Kostenlos starten",
   "footer.glossary": "Glossar",
-  "footer.integrations": "Integrationen"
+  "footer.integrations": "Integrationen",
+  "landing.mr1": "Eine Aufgabe löst unabhängige Pipelines in allen verknüpften Repositories aus",
+  "landing.mr2": "Parallele Ausführung — jedes Repo führt seine eigenen KI-Agenten gleichzeitig aus",
+  "landing.mr3": "Pro-Repo-Sperrung verhindert Konflikte zwischen gleichzeitigen Operationen",
+  "landing.mr4": "Einheitliches Dashboard zeigt alle PRs und deren Status in einer Ansicht",
+  "landing.mrCompleted": "abgeschlossen",
+  "multiRepo.learnMore": "Mehr erfahren"
 }
