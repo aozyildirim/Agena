@@ -1,5 +1,13 @@
 [
   {
+    "hash": "f4dd6c8",
+    "short": "f4dd6c8",
+    "message": "convert Pydantic structured output to dict before reading story points",
+    "date": "2026-04-05",
+    "author": "root",
+    "type": "fix"
+  },
+  {
     "hash": "9fc6812",
     "short": "9fc6812",
     "message": "add changelog link to desktop navbar",
@@ -790,13 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "fix"
-  },
-  {
-    "hash": "592001b",
-    "short": "592001b",
-    "message": "improved sidebar menu — colored group headers, separators, hover effects",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
   }
 ]

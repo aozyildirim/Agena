@@ -4,13 +4,13 @@ import NewsletterForm from '@/components/NewsletterForm';
 import BlogList from '@/components/BlogList';
 
 export const metadata: Metadata = {
-  title: 'Blog – AGENA Agentic AI Platform',
+  title: 'Blog — Agentic AI, Autonomous Coding, DevOps | AGENA',
   description:
-    'Agentic AI, pixel agent technology, autonomous code generation, and AI-powered software development insights from the AGENA team.',
+    'Insights on agentic AI, autonomous code generation, multi-agent orchestration, and AI-powered DevOps automation.',
   alternates: { canonical: '/blog' },
   openGraph: {
-    title: 'Blog – AGENA Agentic AI Platform',
-    description: 'Insights on agentic AI, pixel agents, and autonomous software development.',
+    title: 'Blog — Agentic AI, Autonomous Coding, DevOps | AGENA',
+    description: 'Insights on agentic AI, autonomous code generation, multi-agent orchestration, and AI-powered DevOps automation.',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'AGENA Blog' }],
   },
 };

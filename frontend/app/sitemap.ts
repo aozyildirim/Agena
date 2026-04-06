@@ -24,6 +24,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/status', modified: '2026-04-04', freq: 'daily' as const, priority: 0.5 },
     { path: '/glossary', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.7 },
     { path: '/integrations', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.8 },
+    { path: '/vs', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.8 },
+    { path: '/vs/cursor', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.8 },
+    { path: '/vs/copilot', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.8 },
+    { path: '/vs/devin', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.8 },
+    { path: '/vs/codex', modified: '2026-04-05', freq: 'monthly' as const, priority: 0.8 },
   ];
 
   // All blog slugs

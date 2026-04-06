@@ -26,6 +26,7 @@ export default function Footer() {
               <Link href='/roadmap' style={{ color: 'var(--ink-35)', fontSize: 13, textDecoration: 'none' }}>{t('footer.roadmap')}</Link>
               <Link href='/api-docs' style={{ color: 'var(--ink-35)', fontSize: 13, textDecoration: 'none' }}>{t('footer.apiDocs')}</Link>
               <Link href='/changelog' style={{ color: 'var(--ink-35)', fontSize: 13, textDecoration: 'none' }}>{t('footer.changelog')}</Link>
+              <Link href='/blog/github-copilot-alternative' style={{ color: 'var(--ink-35)', fontSize: 13, textDecoration: 'none' }}>{t('footer.compare')}</Link>
             </div>
           </div>
           <div>

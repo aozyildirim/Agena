@@ -621,9 +621,14 @@ export default function HomePage() {
                   </div>
                 ))}
               </div>
-              <Link href='/docs' className='button button-outline' style={{ marginTop: 28, fontSize: 14, padding: '10px 24px', display: 'inline-block' }}>
-                {t('multiRepo.learnMore')} →
-              </Link>
+              <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
+                <Link href='/use-cases#multi-repo-orchestration' className='button button-outline' style={{ fontSize: 14, padding: '10px 24px', display: 'inline-block' }}>
+                  {t('multiRepo.learnMore')} →
+                </Link>
+                <Link href='/blog/github-copilot-alternative' className='button button-outline' style={{ fontSize: 14, padding: '10px 24px', display: 'inline-block', opacity: 0.8 }}>
+                  {t('footer.compare')} →
+                </Link>
+              </div>
             </div>
             {/* Right: Visual diagram */}
             <div style={{
@@ -1158,6 +1163,13 @@ export default function HomePage() {
                 </p>
               </details>
             ))}
+          </div>
+          {/* Internal links after FAQ */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 28, flexWrap: 'wrap' }}>
+            <Link href='/glossary' style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>{t('footer.glossary')}</Link>
+            <Link href='/integrations' style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>{t('footer.integrations')}</Link>
+            <Link href='/use-cases' style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>{t('footer.useCases')}</Link>
+            <Link href='/blog/github-copilot-alternative' style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>{t('footer.compare')}</Link>
           </div>
         </section>
 
