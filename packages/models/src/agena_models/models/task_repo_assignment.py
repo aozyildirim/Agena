@@ -20,7 +20,7 @@ class TaskRepoAssignment(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_id: Mapped[int] = mapped_column(ForeignKey('task_records.id', ondelete='CASCADE'), index=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), index=True)
-    repo_mapping_id: Mapped[int] = mapped_column(ForeignKey('repo_mappings.id', ondelete='SET NULL'), index=True)
+    repo_mapping_id: Mapped[int | None] = mapped_column(ForeignKey('repo_mappings.id', ondelete='SET NULL'), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(64), default='pending', index=True)
     pr_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     branch_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
