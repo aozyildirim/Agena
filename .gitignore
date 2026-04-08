@@ -11,6 +11,7 @@ venv/
 
 # Node / Next.js
 frontend/node_modules/
+packages/sdk/node_modules/
 frontend/.next/
 frontend/.env
 frontend/.env.local

@@ -74,6 +74,7 @@ export default function DashboardTasksPage() {
   const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
   const [aiPopupTaskId, setAiPopupTaskId] = useState<number | null>(null);
   const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
+  const [mcpPopupTaskId, setMcpPopupTaskId] = useState<number | null>(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<TaskItem | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -228,6 +229,26 @@ export default function DashboardTasksPage() {
 
   function onAssignFlow(id: number) {
     setFlowPopupTaskId(id);
+  }
+
+  function onAssignMCP(id: number) {
+    setMcpPopupTaskId(id);
+  }
+
+  async function doAssignMCP(id: number, repoMeta?: string, repoMappingIds?: number[]) {
+    setMcpPopupTaskId(null);
+    try {
+      await apiFetch('/tasks/' + id + '/assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          create_pr: defaultCreatePr,
+          mode: 'mcp_agent',
+          extra_description: repoMeta || undefined,
+          repo_mapping_ids: repoMappingIds || undefined,
+        }),
+      });
+      setMsg(t('tasks.assignedMcp' as TranslationKey)); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
 
   async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[]) {
@@ -671,6 +692,14 @@ export default function DashboardTasksPage() {
                 <button
                   className='button button-outline'
                   disabled={task.status === 'queued' || task.status === 'running'}
+                  onClick={() => void onAssignMCP(task.id)}
+                  style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30, opacity: task.status === 'queued' || task.status === 'running' ? 0.6 : 1, cursor: task.status === 'queued' || task.status === 'running' ? 'not-allowed' : 'pointer', background: 'linear-gradient(135deg, #0891b2, #06b6d4)', border: 'none', color: '#fff' }}
+                >
+                  {t('tasks.assignMcp' as TranslationKey)}
+                </button>
+                <button
+                  className='button button-outline'
+                  disabled={task.status === 'queued' || task.status === 'running'}
                   onClick={() => void onAssignFlow(task.id)}
                   style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30, opacity: task.status === 'queued' || task.status === 'running' ? 0.6 : 1, cursor: task.status === 'queued' || task.status === 'running' ? 'not-allowed' : 'pointer', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', border: 'none', color: '#fff' }}
                 >
@@ -757,6 +786,22 @@ export default function DashboardTasksPage() {
           t={t}
         />
       )}
+      {/* MCP Agent Popup — with repo config */}
+      {mcpPopupTaskId !== null && (
+        <AssignPopup
+          taskId={mcpPopupTaskId}
+          mode='mcp_agent'
+          tasks={tasks}
+          agents={agentConfigs}
+          flows={savedFlows}
+          onAssignAI={(id, _agent, repoMeta, repoMappingIds) => {
+            void doAssignMCP(id, repoMeta, repoMappingIds);
+          }}
+          onAssignFlow={() => {}}
+          onClose={() => setMcpPopupTaskId(null)}
+          t={t}
+        />
+      )}
       {/* Delete confirmation modal */}
       {deleteConfirmTask && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
@@ -791,7 +836,7 @@ export default function DashboardTasksPage() {
 
 function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignFlow, onClose, t }: {
   taskId: number;
-  mode: 'ai' | 'flow';
+  mode: 'ai' | 'flow' | 'mcp_agent';
   tasks: TaskItem[];
   agents: { role: string; model: string; provider: string; enabled: boolean }[];
   flows: { id: string; name: string }[];
@@ -823,10 +868,10 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignF
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, minWidth: 360, maxWidth: 480, overflow: 'hidden' }}>
-        <div style={{ height: 3, background: mode === 'ai' ? 'linear-gradient(90deg, #0d9488, #22c55e)' : 'linear-gradient(90deg, #7c3aed, #a78bfa)' }} />
+        <div style={{ height: 3, background: mode === 'ai' ? 'linear-gradient(90deg, #0d9488, #22c55e)' : mode === 'mcp_agent' ? 'linear-gradient(90deg, #0891b2, #06b6d4)' : 'linear-gradient(90deg, #7c3aed, #a78bfa)' }} />
         <div style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
-            {mode === 'ai' ? t('tasks.selectAgent') : t('tasks.assignFlow')}
+            {mode === 'ai' ? t('tasks.selectAgent') : mode === 'mcp_agent' ? t('tasks.assignMcp' as TranslationKey) : t('tasks.assignFlow')}
           </h3>
 
           {/* Dependency blocker warning */}
@@ -907,6 +952,23 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, onAssignAI, onAssignF
                 </button>
                 );
               })}
+            </div>
+          )}
+          {mode === 'mcp_agent' && (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.assignMcp' as TranslationKey)}</div>
+              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(8,145,178,0.2)', background: 'rgba(8,145,178,0.06)', fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5 }}>
+                {t('tasks.mcpDesc' as TranslationKey)}
+              </div>
+              {(() => { const canRun = hasRepo || repoSel || selectedMappingIds.length > 0; return (
+              <button
+                onClick={() => onAssignAI(taskId, { role: 'mcp_agent', model: '', provider: '' }, !hasRepo && selectedMappingIds.length === 0 ? repoSel?.meta : undefined, mappingIds)}
+                disabled={!canRun}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 10, border: 'none', background: canRun ? 'linear-gradient(135deg, #0891b2, #06b6d4)' : 'var(--panel)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: canRun ? '#fff' : 'var(--ink-35)', fontSize: 13, fontWeight: 700 }}>
+                {t('tasks.runMcpAgent' as TranslationKey)}
+                <span style={{ fontSize: 16 }}>→</span>
+              </button>
+              ); })()}
             </div>
           )}
           {mode === 'flow' && (

@@ -430,19 +430,21 @@ function AssignTaskModal({
     } catch { /* silent */ } finally { setSprintAssigning(null); }
   };
 
-  const assignBody = () => {
-    const body: Record<string, unknown> = { create_pr: createPr, mode: 'ai' };
-    if (selProvider) body.agent_provider = selProvider;
-    const m = selModel || customModel;
-    if (m) body.agent_model = m;
-    if (agent.role) body.agent_role = agent.role;
+  const assignBody = (mode: string = 'ai') => {
+    const body: Record<string, unknown> = { create_pr: createPr, mode };
+    if (mode !== 'mcp_agent') {
+      if (selProvider) body.agent_provider = selProvider;
+      const m = selModel || customModel;
+      if (m) body.agent_model = m;
+      if (agent.role) body.agent_role = agent.role;
+    }
     return body;
   };
 
-  const handleAssign = async (taskId: number) => {
+  const handleAssign = async (taskId: number, mode: string = 'ai') => {
     setAssigning(taskId);
     try {
-      await apiFetch(`/tasks/${taskId}/assign`, { method: 'POST', body: JSON.stringify(assignBody()) });
+      await apiFetch(`/tasks/${taskId}/assign`, { method: 'POST', body: JSON.stringify(assignBody(mode)) });
       onClose();
     } catch { /* silent */ } finally { setAssigning(null); }
   };
@@ -543,17 +545,21 @@ function AssignTaskModal({
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {assignable.map((task) => (
-                  <button key={task.id} onClick={() => handleAssign(task.id)} disabled={assigning === task.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 12, fontSize: 13, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', color: 'var(--ink-78)', cursor: 'pointer', textAlign: 'left', opacity: assigning === task.id ? 0.5 : 1 }}>
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px', borderRadius: 12, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', opacity: assigning === task.id ? 0.5 : 1 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, color: task.status === 'failed' ? '#f87171' : '#f59e0b' }}>{task.status === 'failed' ? '✕' : '⏳'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{task.title}</div>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13, color: 'var(--ink-78)' }}>{task.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--ink-25)', marginTop: 2 }}>#{task.id} · {task.status}</div>
                     </div>
-                    <span style={{ color: agent.color, fontSize: 12, fontWeight: 700, flexShrink: 0, padding: '4px 10px', borderRadius: 8, background: `${agent.color}15`, border: `1px solid ${agent.color}30` }}>
+                    <button onClick={() => handleAssign(task.id, 'mcp_agent')} disabled={assigning === task.id}
+                      style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 8px', borderRadius: 8, background: 'rgba(8,145,178,0.12)', border: '1px solid rgba(6,182,212,0.3)', color: '#22d3ee', cursor: 'pointer' }}>
+                      {assigning === task.id ? '...' : '⚡ MCP'}
+                    </button>
+                    <button onClick={() => handleAssign(task.id)} disabled={assigning === task.id}
+                      style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 8px', borderRadius: 8, background: `${agent.color}15`, border: `1px solid ${agent.color}30`, color: agent.color, cursor: 'pointer' }}>
                       {assigning === task.id ? '...' : t('office.run')}
-                    </span>
-                  </button>
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -626,10 +632,36 @@ function AssignTaskModal({
                   )}
                 </div>
 
-                <button onClick={() => void handleSprintAssign()} disabled={sprintAssigning === selectedSprintItem.id}
-                  style={{ width: '100%', padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: agent.color, color: '#000', border: 'none', opacity: sprintAssigning ? 0.6 : 1 }}>
-                  {sprintAssigning ? '...' : t('office.assignAndRun')}
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => void handleSprintAssign()} disabled={sprintAssigning === selectedSprintItem.id}
+                    style={{ flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: agent.color, color: '#000', border: 'none', opacity: sprintAssigning ? 0.6 : 1 }}>
+                    {sprintAssigning ? '...' : t('office.assignAndRun')}
+                  </button>
+                  <button onClick={async () => {
+                    setSprintAssigning(selectedSprintItem.id);
+                    try {
+                      const item = selectedSprintItem;
+                      const ctxParts = [
+                        `External Source: ${sprintProvider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
+                        sprintProject ? `Project: ${sprintProject}` : '',
+                        repoMode !== 'remote' && mapping?.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
+                        repoMode !== 'remote' && mapping?.name ? `Local Repo Mapping: ${mapping.name}` : '',
+                        repoMode !== 'remote' && mapping?.local_path ? `Local Repo Path: ${mapping.local_path}` : '',
+                        repoMode === 'remote' && remoteRepoMeta ? `Remote Repo: ${remoteRepoMeta}` : '',
+                      ].filter(Boolean);
+                      const fullDesc = (sprintDesc || item.title) + '\n\n---\n' + ctxParts.join('\n');
+                      const created = await apiFetch<{ id: number }>('/tasks', {
+                        method: 'POST',
+                        body: JSON.stringify({ title: `[${sprintProvider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`, description: fullDesc }),
+                      });
+                      await apiFetch(`/tasks/${created.id}/assign`, { method: 'POST', body: JSON.stringify({ create_pr: true, mode: 'mcp_agent' }) });
+                      onClose();
+                    } catch { /* silent */ } finally { setSprintAssigning(null); }
+                  }} disabled={sprintAssigning === selectedSprintItem.id}
+                    style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #0891b2, #06b6d4)', color: '#fff', border: 'none', opacity: sprintAssigning ? 0.6 : 1 }}>
+                    ⚡ MCP
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -423,7 +423,11 @@ class TaskService:
             await self._attach_default_repo_mapping(organization_id, task)
             has_local_mapping = 'Local Repo Path:' in (task.description or '')
             local_repo_path = self._extract_local_repo_path(task.description)
-        if not has_local_mapping:
+        has_remote_repo = 'Remote Repo:' in (task.description or '') or any(
+            line.strip().startswith(('azure:', 'github:'))
+            for line in (task.description or '').splitlines()
+        )
+        if not has_local_mapping and not has_remote_repo:
             create_pr = False
 
         explicit_model = (agent_model or '').strip() or None

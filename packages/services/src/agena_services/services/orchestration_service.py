@@ -160,7 +160,7 @@ class OrchestrationService:
 
         state: dict[str, Any] = {}
         try:
-            if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path:
+            if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path and mode != 'mcp_agent':
                 await task_service.add_log(
                     task.id,
                     organization_id,
@@ -210,7 +210,7 @@ class OrchestrationService:
                     'model_usage': [f"codex-cli:{routing.preferred_agent_model or 'default'}"],
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using codex_cli preferred agent')
-            elif routing.preferred_agent_provider == 'claude_cli' and routing.local_repo_path:
+            elif routing.preferred_agent_provider == 'claude_cli' and routing.local_repo_path and mode != 'mcp_agent':
                 await task_service.add_log(task.id, organization_id, 'agent', f"Claude CLI started (model={routing.preferred_agent_model or 'default'})")
                 final_code = await self.claude_cli_service.generate_file_markdown(
                     repo_path=routing.local_repo_path,
@@ -233,6 +233,132 @@ class OrchestrationService:
                     'model_usage': [f"claude-cli:{routing.preferred_agent_model or 'default'}"],
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using claude_cli preferred agent')
+            elif mode == 'mcp_agent':
+                _is_local = bool(routing.local_repo_path)
+                _is_remote = bool(routing.remote_repo) and not _is_local
+                if not _is_local and not _is_remote:
+                    raise ValueError('MCP Agent mode requires a repository (local path or remote repo mapping).')
+
+                _repo_label = routing.local_repo_path or routing.remote_repo or 'unknown'
+                await task_service.add_log(
+                    task.id, organization_id, 'agent',
+                    f"MCP Agent started (model={routing.preferred_agent_model or 'default'}, "
+                    f"repo={_repo_label}, remote={_is_remote})",
+                )
+                # Force LLM provider for MCP — codex_cli/claude_cli are not LLM APIs
+                _mcp_routing = routing
+                if routing.preferred_agent_provider in ('codex_cli', 'claude_cli'):
+                    _mcp_routing = TaskRouting(
+                        effective_source=routing.effective_source,
+                        external_source=routing.external_source,
+                        azure_project=routing.azure_project,
+                        azure_repo_url=routing.azure_repo_url,
+                        local_repo_mapping=routing.local_repo_mapping,
+                        local_repo_path=routing.local_repo_path,
+                        repo_playbook=routing.repo_playbook,
+                        preferred_agent=routing.preferred_agent,
+                        preferred_agent_provider='openai',
+                        preferred_agent_model=routing.preferred_agent_model,
+                        execution_prompt=routing.execution_prompt,
+                        remote_repo=routing.remote_repo,
+                    )
+                llm_runtime = await self._resolve_llm_runtime(organization_id, _mcp_routing)
+                from agena_agents.agents.mcp_engine import MCPAgentEngine
+
+                # For MCP agent, skip codex-specific models that don't support tool calling
+                _mcp_model = routing.preferred_agent_model or (llm_runtime.model if llm_runtime else None)
+                _codex_models = {'gpt-5.1-codex-mini', 'gpt-5.1-mini', 'codex-mini'}
+                if _mcp_model and _mcp_model.lower() in _codex_models:
+                    _mcp_model = self.settings.llm_large_model or 'gpt-4o'
+
+                engine = MCPAgentEngine(
+                    provider=llm_runtime.provider if llm_runtime else 'openai',
+                    api_key=llm_runtime.api_key if llm_runtime else (self.settings.openai_api_key or ''),
+                    base_url=llm_runtime.base_url if llm_runtime else (self.settings.openai_base_url or ''),
+                    model=_mcp_model,
+                )
+
+                # Load agents.md for initial orientation
+                _mcp_agents_md: str | None = None
+                if _is_local:
+                    _mcp_repo_root = Path(routing.local_repo_path).expanduser().resolve()
+                    _mcp_agents_path = _mcp_repo_root / 'agents.md'
+                    if _mcp_agents_path.is_file():
+                        try:
+                            _mcp_agents_md = _mcp_agents_path.read_text(errors='replace')[:50_000]
+                        except Exception:
+                            pass
+                elif _is_remote:
+                    _mcp_agents_md = await self._fetch_remote_agents_md(routing.remote_repo, organization_id)
+
+                # Optional: load custom system prompt from Prompt Studio
+                _mcp_custom_prompt: str | None = None
+                try:
+                    from agena_services.services.prompt_service import PromptService
+                    _ps = PromptService(self.db_session)
+                    _mcp_custom_prompt = await _ps.get_prompt('mcp_agent_system')
+                except Exception:
+                    pass
+
+                async def _mcp_tool_log(name: str, args: dict, result: str) -> None:
+                    preview = str(result)[:300].replace('\n', ' ')
+                    args_preview = json.dumps(args, ensure_ascii=False)[:200]
+                    await task_service.add_log(
+                        task.id, organization_id, 'mcp_tool',
+                        f'{name}({args_preview}) -> {preview}',
+                    )
+
+                # Build executor: local filesystem or remote API
+                _mcp_executor = None
+                if _is_remote:
+                    from agena_agents.agents.tools.remote_executor import RemoteToolExecutor
+                    _remote_spec = routing.remote_repo  # "github:owner/repo" or "azure:project/repo"
+
+                    async def _remote_read_file(path: str) -> str | None:
+                        try:
+                            return await self._fetch_remote_file_content(
+                                _remote_spec, organization_id, path,
+                            )
+                        except Exception:
+                            return None
+
+                    async def _remote_list_files() -> list[str]:
+                        try:
+                            return await self._fetch_remote_file_list(
+                                _remote_spec, organization_id,
+                            )
+                        except Exception:
+                            return []
+
+                    _file_tree = await self._build_remote_file_tree_only(
+                        _remote_spec, organization_id,
+                    )
+                    _mcp_executor = RemoteToolExecutor(
+                        read_file_fn=_remote_read_file,
+                        list_files_fn=_remote_list_files,
+                        file_tree=_file_tree,
+                    )
+
+                mcp_result = await engine.run(
+                    task_title=task.title,
+                    task_description=task.description or '',
+                    workspace_path=routing.local_repo_path if _is_local else None,
+                    executor=_mcp_executor,
+                    system_prompt=_mcp_custom_prompt,
+                    repo_context=_mcp_agents_md,
+                    playbook=routing.repo_playbook or tenant_playbook,
+                    allow_commands=_is_local,
+                    on_tool_call=_mcp_tool_log,
+                )
+                state = mcp_result
+                _fc = len(mcp_result.get('file_changes', []))
+                _tc = mcp_result.get('tool_calls_count', 0)
+                _dur = mcp_result.get('duration_sec', 0)
+                await task_service.add_log(
+                    task.id, organization_id, 'agent',
+                    f'MCP Agent completed: {_tc} tool calls, {_fc} files changed, {_dur}s\n'
+                    f'Summary: {mcp_result.get("completion_summary", "")[:500]}',
+                )
             else:
                 orchestrator = await self._build_orchestrator(organization_id, routing)
                 task_description_for_ai = task.description or ''
@@ -713,34 +839,77 @@ class OrchestrationService:
             )
             pr_url = None
             branch_name = None
-            pr_payload = await self._build_pr_payload(task=payload, reviewed_code=final_code, local_repo_path=routing.local_repo_path)
-            await task_service.add_log(
-                task.id,
-                organization_id,
-                'code_ready',
-                f'Code pipeline finished, {len(pr_payload.files)} file candidate(s) prepared',
-            )
-            await task_service.add_log(
-                task.id,
-                organization_id,
-                'code_preview',
-                self._build_code_preview_message(pr_payload.files),
-            )
-            if routing.local_repo_path:
+
+            # MCP agent mode: build PR payload directly from file_changes
+            # instead of parsing final_code string (which may not have **File:** blocks)
+            mcp_file_changes = state.get('file_changes') if mode == 'mcp_agent' else None
+            if mode == 'mcp_agent' and not mcp_file_changes:
+                # MCP agent ran but produced no file changes — log and continue
+                await task_service.add_log(task.id, organization_id, 'agent',
+                    'MCP Agent completed analysis but produced no file changes.')
+                pr_payload = CreatePRRequest(
+                    title=f"[AGENA #{task.id}] {task.title}"[:120],
+                    body=state.get('completion_summary', '') or 'No changes produced',
+                    branch_name=f"agena/task-{task.id}",
+                    base_branch='main',
+                    commit_message=f"[AGENA #{task.id}] {task.title}"[:120],
+                    files=[],
+                )
+            elif mcp_file_changes:
+                _branch = f"agena/task-{task.id}"
+                _title = f"[AGENA #{task.id}] {task.title}"[:120]
+                _body = state.get('completion_summary', '') or task.title
+                # Extract base branch from remote_repo spec if available
+                _base = 'main'
+                _rr = routing.remote_repo or ''
+                if '@' in _rr:
+                    _base = _rr.rsplit('@', 1)[1]
+                pr_payload = CreatePRRequest(
+                    title=_title,
+                    body=_body,
+                    branch_name=_branch,
+                    base_branch=_base,
+                    commit_message=_title,
+                    files=[
+                        GitHubFileChange(path=fc['path'], content=fc['content'])
+                        for fc in mcp_file_changes
+                    ],
+                )
+            else:
+                pr_payload = await self._build_pr_payload(task=payload, reviewed_code=final_code, local_repo_path=routing.local_repo_path)
+            try:
                 await task_service.add_log(
                     task.id,
                     organization_id,
-                    'code_diff',
-                    self._build_code_diff_message(routing.local_repo_path, pr_payload.files),
+                    'code_ready',
+                    f'Code pipeline finished, {len(pr_payload.files)} file candidate(s) prepared',
                 )
-            elif final_code:
-                # Remote mode: show the raw developer patch output as diff
                 await task_service.add_log(
                     task.id,
                     organization_id,
-                    'code_diff',
-                    f'Code Diff ({len(pr_payload.files)} files):\n\n{final_code}',
+                    'code_preview',
+                    self._build_code_preview_message(pr_payload.files),
                 )
+                if routing.local_repo_path:
+                    await task_service.add_log(
+                        task.id,
+                        organization_id,
+                        'code_diff',
+                        self._build_code_diff_message(routing.local_repo_path, pr_payload.files),
+                    )
+                elif final_code:
+                    await task_service.add_log(
+                        task.id,
+                        organization_id,
+                        'code_diff',
+                        f'Code Diff ({len(pr_payload.files)} files):\n\n{final_code}',
+                    )
+            except Exception as log_exc:
+                logger.error('Code preview/diff logging failed: %s', log_exc)
+
+            logger.info('PR routing: create_pr=%s, files=%d, local=%s, remote=%s, source=%s',
+                create_pr, len(pr_payload.files), routing.local_repo_path,
+                routing.remote_repo, routing.effective_source)
 
             if routing.local_repo_path:
                 azure_remote_pat: str | None = None
@@ -974,12 +1143,15 @@ class OrchestrationService:
             # Auto-unblock: queue dependent tasks whose dependencies are now all completed
             await self._auto_queue_dependents(organization_id, task.id, task_service, create_pr, mode)
 
-            await orchestrator.memory_store.upsert_memory(
-                key=str(task.id),
-                input_text=f"{task.title}\n{task.description or ''}",
-                output_text=final_code,
-                organization_id=organization_id,
-            )
+            try:
+                await orchestrator.memory_store.upsert_memory(
+                    key=str(task.id),
+                    input_text=f"{task.title}\n{task.description or ''}",
+                    output_text=final_code,
+                    organization_id=organization_id,
+                )
+            except NameError:
+                pass  # orchestrator not created in mcp_agent/codex_cli/claude_cli modes
 
             publish_fire_and_forget(organization_id, 'task_status', {
                 'task_id': task.id, 'status': 'completed', 'title': task.title,
@@ -1588,6 +1760,16 @@ class OrchestrationService:
                 pass
 
         remote_repo = meta.get('remote repo') or None
+        # Fallback: detect bare "azure:project/repo" or "github:owner/repo" lines
+        if not remote_repo:
+            for raw_line in (task.description or '').splitlines():
+                stripped = raw_line.strip()
+                if stripped.startswith('azure:') and '/' in stripped and not stripped.startswith('azure: '):
+                    remote_repo = stripped
+                    break
+                if stripped.startswith('github:') and '/' in stripped and not stripped.startswith('github: '):
+                    remote_repo = stripped
+                    break
         # If remote repo is set, ignore local repo path (remote takes priority)
         local_repo_path = meta.get('local repo path') or None
         if remote_repo:
@@ -2599,6 +2781,89 @@ class OrchestrationService:
         except Exception as exc:
             logger.warning('Failed to fetch remote agents.md for %s: %s', remote_repo, exc)
         return None
+
+    async def _fetch_remote_file_content(
+        self, remote_repo: str, organization_id: int, path: str,
+    ) -> str | None:
+        """Read a single file from a remote repo. Used by MCP RemoteToolExecutor."""
+        from agena_services.services.remote_repo_service import RemoteRepoService
+        from agena_services.services.integration_config_service import IntegrationConfigService
+        svc = RemoteRepoService()
+        normalized = str(path or '').strip().replace('\\', '/').lstrip('./')
+        if not normalized:
+            return None
+        try:
+            if remote_repo.startswith('github:'):
+                spec = remote_repo[len('github:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                owner, repo = spec.split('/', 1)
+                token = self.settings.github_token or ''
+                if not token:
+                    cfg_svc = IntegrationConfigService(self.db_session)
+                    gh_cfg = await cfg_svc.get_config(organization_id, 'github')
+                    if gh_cfg and gh_cfg.secret:
+                        token = gh_cfg.secret
+                if not token:
+                    return None
+                return await svc.github_file_content(owner, repo, token, normalized, branch)
+            elif remote_repo.startswith('azure:'):
+                spec = remote_repo[len('azure:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                project, repo = spec.split('/', 1)
+                cfg_svc = IntegrationConfigService(self.db_session)
+                az_cfg = await cfg_svc.get_config(organization_id, 'azure')
+                if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
+                    return None
+                return await svc.azure_file_content(az_cfg.base_url, project, repo, az_cfg.secret, normalized, branch)
+        except Exception as exc:
+            logger.warning('_fetch_remote_file_content(%s, %s) failed: %s', remote_repo, path, exc)
+        return None
+
+    async def _fetch_remote_file_list(
+        self, remote_repo: str, organization_id: int,
+    ) -> list[str]:
+        """Return list of all file paths in a remote repo. Used by MCP RemoteToolExecutor."""
+        from agena_services.services.remote_repo_service import RemoteRepoService
+        from agena_services.services.integration_config_service import IntegrationConfigService
+        svc = RemoteRepoService()
+        try:
+            if remote_repo.startswith('github:'):
+                spec = remote_repo[len('github:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                owner, repo = spec.split('/', 1)
+                token = self.settings.github_token or ''
+                if not token:
+                    cfg_svc = IntegrationConfigService(self.db_session)
+                    gh_cfg = await cfg_svc.get_config(organization_id, 'github')
+                    if gh_cfg and gh_cfg.secret:
+                        token = gh_cfg.secret
+                if not token:
+                    return []
+                tree = await svc.github_tree(owner, repo, token, branch)
+                filtered = svc._filter_tree(tree)
+                return [item['path'] for item in filtered]
+            elif remote_repo.startswith('azure:'):
+                spec = remote_repo[len('azure:'):]
+                branch = 'main'
+                if '@' in spec:
+                    spec, branch = spec.rsplit('@', 1)
+                project, repo = spec.split('/', 1)
+                cfg_svc = IntegrationConfigService(self.db_session)
+                az_cfg = await cfg_svc.get_config(organization_id, 'azure')
+                if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
+                    return []
+                tree = await svc.azure_tree(az_cfg.base_url, project, repo, az_cfg.secret, branch)
+                filtered = svc._filter_tree(tree)
+                return [item['path'] for item in filtered]
+        except Exception as exc:
+            logger.warning('_fetch_remote_file_list(%s) failed: %s', remote_repo, exc)
+        return []
 
     async def _build_remote_repo_context(
         self,

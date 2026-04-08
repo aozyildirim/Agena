@@ -1121,6 +1121,7 @@ export default function RefinementPage() {
               {running ? copy.analyzing : copy.analyze}
             </button>
             {results && results.results.filter(r => !r.error).length > 0 && (
+              <>
               <button
                 onClick={() => {
                   const validResults = results.results.filter(r => !r.error && selectedIds.includes(r.item_id) && !writtenBackIds.has(r.item_id));
@@ -1132,6 +1133,41 @@ export default function RefinementPage() {
               >
                 {copy.writebackSelected || 'Write Selected'} ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error) && !writtenBackIds.has(id)).length})
               </button>
+              <button
+                onClick={async () => {
+                  const validItems = results.results.filter(r => !r.error && selectedIds.includes(r.item_id));
+                  if (!validItems.length) return;
+                  setRunMessage({ kind: 'success', text: `MCP Agent: ${validItems.length} task kuyruga aliniyor...` });
+                  let ok = 0;
+                  for (const r of validItems) {
+                    try {
+                      const desc = r.description || r.summary || r.item_id;
+                      const ctxParts = [
+                        `External Source: ${provider === 'jira' ? `Jira #${r.item_id}` : `Azure #${r.item_id}`}`,
+                        provider === 'azure' && azureProject ? `Project: ${azureProject}` : '',
+                      ].filter(Boolean);
+                      const created = await apiFetch<{ id: number }>('/tasks', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          title: `[${provider === 'jira' ? 'Jira' : 'Azure'} #${r.item_id}] ${r.title || r.item_id}`,
+                          description: `${desc}\n\n---\n${ctxParts.join('\n')}`,
+                        }),
+                      });
+                      await apiFetch('/tasks/' + created.id + '/assign', {
+                        method: 'POST',
+                        body: JSON.stringify({ mode: 'mcp_agent', create_pr: true }),
+                      });
+                      ok++;
+                    } catch { /* skip */ }
+                  }
+                  setRunMessage({ kind: ok > 0 ? 'success' : 'error', text: `MCP Agent: ${ok}/${validItems.length} task atandi` });
+                }}
+                style={{ ...secondaryButton, background: 'rgba(8,145,178,0.1)', borderColor: 'rgba(6,182,212,0.3)', color: '#22d3ee' }}
+                disabled={running || !selectedIds.some(id => results.results.some(r => r.item_id === id && !r.error))}
+              >
+                ⚡ MCP Agent ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error)).length})
+              </button>
+              </>
             )}
             <span style={{ fontSize: 12, color: 'var(--ink-35)' }}>{copy.selectionHint}</span>
           </div>
