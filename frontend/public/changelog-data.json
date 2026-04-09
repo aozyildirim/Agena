@@ -1,5 +1,21 @@
 [
   {
+    "hash": "0683832",
+    "short": "0683832",
+    "message": "MCP multi-provider support, edit reliability, mobile responsive UI",
+    "date": "2026-04-09",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "cce31dd",
+    "short": "cce31dd",
+    "message": "render AssignPopup via portal to fix centering inside dashboard layout",
+    "date": "2026-04-08",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
     "hash": "6187190",
     "short": "6187190",
     "message": "MCP engine, tool executors, orchestration enhancements + dashboard updates",
@@ -782,21 +798,5 @@
     "date": "2026-04-02",
     "author": "root",
     "type": "docs"
-  },
-  {
-    "hash": "1b51794",
-    "short": "1b51794",
-    "message": "analyzer/planner/reviewer agent presets, Azure reviewer picker",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
-  },
-  {
-    "hash": "6758729",
-    "short": "6758729",
-    "message": "Azure DevOps node \u2014 project/repo dropdowns + preset template",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "feat"
   }
 ]

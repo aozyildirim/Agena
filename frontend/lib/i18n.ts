@@ -30,10 +30,10 @@ const dicts: Record<Lang, Record<string, string>> = {
 const _listeners: Set<() => void> = new Set();
 
 function getLang(): Lang {
-  if (typeof window === 'undefined') return 'tr';
+  if (typeof window === 'undefined') return 'en';
   const raw = localStorage.getItem(LS_KEY);
   if (raw === 'tr' || raw === 'en' || raw === 'es' || raw === 'zh' || raw === 'it' || raw === 'de' || raw === 'ja') return raw;
-  return 'tr';
+  return 'en';
 }
 
 function setLang(l: Lang) {
@@ -43,7 +43,7 @@ function setLang(l: Lang) {
 
 export function useLocale() {
   // Keep initial render deterministic for SSR hydration.
-  const [lang, setLangState] = useState<Lang>('tr');
+  const [lang, setLangState] = useState<Lang>('en');
 
   useEffect(() => {
     setLangState(getLang());
