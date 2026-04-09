@@ -38,9 +38,14 @@ class RepoMappingResponse(BaseModel):
     playbook: str | None
     is_default: bool
     is_active: bool
+    display_name: str = ''
 
     class Config:
         from_attributes = True
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.display_name:
+            self.display_name = f"{self.provider}:{self.owner}/{self.repo_name}"
 
 
 @router.get('', response_model=list[RepoMappingResponse])
@@ -77,6 +82,29 @@ async def create_repo_mapping(
         )
         for row in (await db.execute(stmt)).scalars().all():
             row.is_default = False
+
+    # Check if mapping already exists (upsert)
+    existing = (await db.execute(
+        select(RepoMapping).where(
+            RepoMapping.organization_id == tenant.organization_id,
+            RepoMapping.provider == body.provider,
+            RepoMapping.owner == body.owner.strip(),
+            RepoMapping.repo_name == body.repo_name.strip(),
+        )
+    )).scalar_one_or_none()
+
+    if existing:
+        existing.base_branch = body.base_branch
+        if body.local_repo_path is not None:
+            existing.local_repo_path = body.local_repo_path
+        if body.playbook is not None:
+            existing.playbook = body.playbook
+        existing.is_active = True
+        if body.is_default:
+            existing.is_default = True
+        await db.commit()
+        await db.refresh(existing)
+        return existing
 
     mapping = RepoMapping(
         organization_id=tenant.organization_id,

@@ -216,6 +216,33 @@ export default function RepoMappingsPage() {
       await savePrefs({ repo_mappings: next });
       localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(next));
       setItems(next);
+      // Sync each mapping to backend repo_mappings DB table
+      for (const m of next) {
+        const provider = m.provider || 'azure';
+        const owner = provider === 'github'
+          ? (m.github_owner || m.github_repo_full_name?.split('/')[0] || '')
+          : (m.azure_project || '');
+        const repoName = provider === 'github'
+          ? (m.github_repo || m.github_repo_full_name?.split('/').pop() || m.name)
+          : (m.azure_repo_name || m.name);
+        if (owner && repoName) {
+          try {
+            await apiFetch('/repo-mappings', {
+              method: 'POST',
+              body: JSON.stringify({
+                provider,
+                owner,
+                repo_name: repoName,
+                base_branch: m.default_branch || 'main',
+                local_repo_path: m.local_path || null,
+                playbook: m.repo_playbook || null,
+              }),
+            });
+          } catch {
+            // Ignore duplicates (unique constraint) — mapping already exists in DB
+          }
+        }
+      }
       setMsg(t('mappings.saved'));
     } catch (e) {
       setErr(e instanceof Error ? e.message : t('mappings.saveFailed'));
@@ -452,7 +479,7 @@ export default function RepoMappingsPage() {
     <div style={{ display: 'grid', gap: 20, maxWidth: 1180 }}>
       <div>
         <div className='section-label'>{t('nav.mappings')}</div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>
+        <h1 style={{ fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>
           {t('mappings.title')}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--ink-35)', marginTop: 6 }}>
@@ -460,14 +487,14 @@ export default function RepoMappingsPage() {
         </p>
       </div>
 
-      <div className="dash-grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 420px) 1fr', gap: 14, alignItems: 'start' }}>
-        <div style={{ borderRadius: 16, border: '1px solid rgba(56,189,248,0.24)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 10 }}>
+      <div className="dash-grid-responsive mappings-layout" style={{ display: 'grid', gap: 14, alignItems: 'start' }}>
+        <div style={{ borderRadius: 16, border: '1px solid rgba(56,189,248,0.24)', background: 'var(--surface)', padding: '12px', display: 'grid', gap: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7dd3fc' }}>{t('mappings.createMapping')}</div>
             <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('mappings.totalCount', { n: items.length })}</div>
           </div>
 
-          <div className="dash-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="dash-grid-responsive mappings-two-col" style={{ display: 'grid', gap: 8 }}>
             <button type='button' onClick={() => setSourceProvider('azure')} className='button'
               style={{ borderColor: sourceProvider === 'azure' ? 'rgba(56,189,248,0.45)' : 'var(--panel-border-3)', background: sourceProvider === 'azure' ? 'rgba(56,189,248,0.12)' : 'var(--panel-alt)', color: sourceProvider === 'azure' ? '#7dd3fc' : 'var(--ink-58)' }}>
               {t('mappings.providerAzure')}
@@ -530,7 +557,7 @@ export default function RepoMappingsPage() {
             </div>
           )}
 
-          <div className="dash-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="dash-grid-responsive mappings-two-col" style={{ display: 'grid', gap: 10 }}>
             <div>
               <div style={fieldLabelStyle}>{t('mappings.localPath')}</div>
               <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={t('mappings.pathPlaceholder')} style={fieldStyle} />
@@ -624,23 +651,23 @@ export default function RepoMappingsPage() {
             </div>
           ) : (
             items.map((m) => (
-              <div key={m.id} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: '14px 16px', display: 'grid', gap: 10 }}>
+              <div key={m.id} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: '12px 14px', display: 'grid', gap: 8, overflow: 'hidden' }}>
                 {/* Header: Provider + Repo name + actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 6, background: (m.provider === 'github') ? 'rgba(167,139,250,0.12)' : 'rgba(56,189,248,0.12)', color: (m.provider === 'github') ? '#a78bfa' : '#38bdf8', border: `1px solid ${(m.provider === 'github') ? 'rgba(167,139,250,0.3)' : 'rgba(56,189,248,0.3)'}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 6, flexShrink: 0, background: (m.provider === 'github') ? 'rgba(167,139,250,0.12)' : 'rgba(56,189,248,0.12)', color: (m.provider === 'github') ? '#a78bfa' : '#38bdf8', border: `1px solid ${(m.provider === 'github') ? 'rgba(167,139,250,0.3)' : 'rgba(56,189,248,0.3)'}` }}>
                         {(m.provider === 'github') ? t('mappings.providerGithub') : t('mappings.providerAzure')}
                       </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                         {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {m.local_path}
+                    <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{m.local_path}</span>
                       {m.default_branch && (
-                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 6, background: 'rgba(94,234,212,0.12)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)', fontFamily: 'inherit' }}>
-                          🌿 {m.default_branch}
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 6, background: 'rgba(94,234,212,0.12)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)', fontFamily: 'inherit', flexShrink: 0 }}>
+                          {m.default_branch}
                         </span>
                       )}
                     </div>
@@ -652,7 +679,7 @@ export default function RepoMappingsPage() {
                 </div>
 
                 {/* Details row */}
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: 'var(--ink-58)' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--ink-58)' }}>
                   {m.azure_project && <span><b style={{ color: 'var(--ink-78)' }}>{t('mappings.col.source')}:</b> {m.azure_project}</span>}
                   {m.notes && <span><b style={{ color: 'var(--ink-78)' }}>{t('mappings.col.notes')}:</b> {m.notes}</span>}
                   {m.repo_playbook && <span title={m.repo_playbook}><b style={{ color: 'var(--ink-78)' }}>{t('mappings.playbookLabel')}:</b> {m.repo_playbook.length > 60 ? m.repo_playbook.slice(0, 60) + '…' : m.repo_playbook}</span>}

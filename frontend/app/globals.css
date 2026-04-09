@@ -1941,6 +1941,10 @@ input:focus, textarea:focus {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
+/* ─── MAPPINGS PAGE LAYOUT ─── */
+.mappings-layout { grid-template-columns: minmax(320px, 420px) 1fr; }
+.mappings-two-col { grid-template-columns: 1fr 1fr; }
+
 /* ─── DASHBOARD RESPONSIVE ─── */
 @media (max-width: 768px) {
   .dashboard-sidebar-toggle { display: flex !important; }
