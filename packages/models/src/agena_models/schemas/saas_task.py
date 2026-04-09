@@ -12,6 +12,7 @@ class TaskCreateRequest(BaseModel):
     max_tokens: int | None = None
     max_cost_usd: float | None = None
     depends_on_task_ids: list[int] | None = None  # set dependencies at creation time
+    repo_mapping_ids: list[int] | None = None  # pre-select target repos at creation time
 
 
 class TaskResponse(BaseModel):

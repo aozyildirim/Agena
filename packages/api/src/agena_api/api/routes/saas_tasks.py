@@ -123,6 +123,31 @@ async def create_task(
         except ValueError:
             pass  # non-critical: task created, dependency setting failed silently
 
+    # Pre-select repo mappings if provided at creation time
+    if request.repo_mapping_ids:
+        from agena_models.models.repo_mapping import RepoMapping
+        from agena_models.models.task_repo_assignment import TaskRepoAssignment
+        valid_ids = (await db.execute(
+            select(RepoMapping.id).where(
+                RepoMapping.id.in_(request.repo_mapping_ids),
+                RepoMapping.organization_id == tenant.organization_id,
+                RepoMapping.is_active.is_(True),
+            )
+        )).scalars().all()
+        if valid_ids:
+            # Set first mapping as the task's primary repo_mapping_id
+            task.repo_mapping_id = valid_ids[0]
+            # Create assignment rows for all selected repos
+            for mid in valid_ids:
+                db.add(TaskRepoAssignment(
+                    task_id=task.id,
+                    organization_id=tenant.organization_id,
+                    repo_mapping_id=mid,
+                    status='pending',
+                ))
+            await db.commit()
+            await db.refresh(task)
+
     return await _to_task_response(service, tenant.organization_id, task)
 
 

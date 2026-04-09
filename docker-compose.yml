@@ -32,6 +32,8 @@ services:
     container_name: ai_agent_worker
     env_file:
       - .env
+    environment:
+      - CLI_BRIDGE_URL=http://host.docker.internal:9876
     volumes:
       - ./packages:/app/packages
       - ./alembic:/app/alembic

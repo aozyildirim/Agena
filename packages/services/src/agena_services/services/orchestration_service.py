@@ -160,7 +160,7 @@ class OrchestrationService:
 
         state: dict[str, Any] = {}
         try:
-            if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path and mode != 'mcp_agent':
+            if routing.preferred_agent_provider == 'codex_cli' and routing.local_repo_path:
                 await task_service.add_log(
                     task.id,
                     organization_id,
@@ -210,7 +210,7 @@ class OrchestrationService:
                     'model_usage': [f"codex-cli:{routing.preferred_agent_model or 'default'}"],
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using codex_cli preferred agent')
-            elif routing.preferred_agent_provider == 'claude_cli' and routing.local_repo_path and mode != 'mcp_agent':
+            elif routing.preferred_agent_provider == 'claude_cli' and routing.local_repo_path:
                 await task_service.add_log(task.id, organization_id, 'agent', f"Claude CLI started (model={routing.preferred_agent_model or 'default'})")
                 final_code = await self.claude_cli_service.generate_file_markdown(
                     repo_path=routing.local_repo_path,

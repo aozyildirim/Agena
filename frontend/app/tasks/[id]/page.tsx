@@ -1179,7 +1179,7 @@ export default function TaskDetailPage() {
                 const done = Boolean(item);
                 const color = done ? stageColor(step) : 'var(--ink-25)';
                 return (
-                  <div key={step} style={{ display: 'grid', gridTemplateColumns: '110px 1fr auto', gap: 10, alignItems: 'center', border: '1px solid var(--panel-border)', borderRadius: 10, padding: '8px 10px' }}>
+                  <div key={step} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '110px 1fr auto', gap: isMobile ? 4 : 10, alignItems: isMobile ? 'flex-start' : 'center', border: '1px solid var(--panel-border)', borderRadius: 10, padding: '8px 10px' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color }}>{step}</span>
                     <span style={{ fontSize: 12, color: 'var(--ink-72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item?.message || t('taskDetail.pending')}</span>
                     <span style={{ fontSize: 11, color: 'var(--ink-42)' }}>{item ? new Date(item.created_at).toLocaleTimeString() : '—'}</span>
