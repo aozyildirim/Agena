@@ -966,8 +966,8 @@ const MCP_MODELS = [
   { label: 'o4-mini', model: 'o4-mini', provider: 'openai' },
   { label: 'Claude Sonnet 4', model: 'claude-sonnet-4-20250514', provider: 'anthropic' },
   { label: 'Claude Opus 4', model: 'claude-opus-4-20250514', provider: 'anthropic' },
+  { label: 'Gemini 2.5 Flash', model: 'gemini-2.5-flash', provider: 'gemini' },
   { label: 'Gemini 2.5 Pro', model: 'gemini-2.5-pro', provider: 'gemini' },
-  { label: 'Gemini 2.5 Flash', model: 'gemini-2.5-flash-preview-05-20', provider: 'gemini' },
 ];
 
 function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, onAssignAI, t }: {
