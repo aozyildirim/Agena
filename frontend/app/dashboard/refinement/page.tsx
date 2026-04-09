@@ -935,7 +935,7 @@ export default function RefinementPage() {
 
       <div className="refinement-top-grid" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 10 }}>
-          <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
+          <div className="ref-row-2" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
             <Field label={copy.source}>
               <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); setWrittenBackIds(new Set()); setExpandedItemId(''); }} style={inputStyle}>
                 <option value='azure'>Azure DevOps</option>
@@ -956,7 +956,7 @@ export default function RefinementPage() {
           </div>
 
           {provider === 'azure' ? (
-            <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div className="ref-row-3" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
               <Field label={copy.project}>
                 <select value={azureProject} onChange={(e) => void loadAzureTeams(e.target.value)} style={inputStyle}>
                   <option value=''>{copy.chooseProject}</option>
@@ -977,7 +977,7 @@ export default function RefinementPage() {
               </Field>
             </div>
           ) : (
-            <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div className="ref-row-3" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
               <Field label={copy.project}>
                 <select value={jiraProject} onChange={(e) => void loadJiraBoards(e.target.value)} style={inputStyle}>
                   <option value=''>{copy.chooseProject}</option>
@@ -999,7 +999,7 @@ export default function RefinementPage() {
             </div>
           )}
 
-          <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+          <div className="ref-row-4" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
             <Field label={copy.agentProvider}>
               <select
                 value={agentProvider}
@@ -1894,7 +1894,7 @@ export default function RefinementPage() {
           }} onClick={() => setConfirmWritebackItemId('')}>
             <div style={{
               width: 'min(400px, 92vw)', borderRadius: 16, padding: '20px 22px',
-              background: '#111827', border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--surface)', border: '1px solid var(--border)',
               display: 'grid', gap: 14,
             }} onClick={(e) => e.stopPropagation()}>
               {/* Header with title + points */}
@@ -1916,7 +1916,7 @@ export default function RefinementPage() {
               </div>
               {/* Comment preview */}
               {confirmRow?.comment && (
-                <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--panel-border)', maxHeight: 120, overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border)', maxHeight: 120, overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
                   {confirmRow.comment}
                 </div>
               )}
@@ -1928,7 +1928,7 @@ export default function RefinementPage() {
               {/* Buttons */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type='button' onClick={() => setConfirmWritebackItemId('')}
-                  style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   {copy.close}
                 </button>
                 <button type='button'
@@ -1942,6 +1942,118 @@ export default function RefinementPage() {
         );
       })(),
         document.body,
+      )}
+
+      {/* ── Refinement History ── */}
+      <RefinementHistory />
+    </div>
+  );
+}
+
+function RefinementHistory() {
+  const [items, setItems] = useState<Array<{
+    id: number; provider: string; external_item_id: string; sprint_name?: string;
+    item_title?: string; item_url?: string; phase: string; status: string;
+    suggested_story_points?: number; confidence?: number; summary?: string;
+    estimation_rationale?: string; comment?: string; error_message?: string; created_at: string;
+  }>>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  const load = useCallback(async (p: number) => {
+    setLoading(true);
+    try {
+      const data = await apiFetch<{ items: typeof items; total: number }>(`/refinement/history?page=${p}&page_size=10`);
+      setItems(data.items || []);
+      setTotal(data.total || 0);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(page); }, [page, load]);
+
+  if (!items.length && !loading) return null;
+
+  const totalPages = Math.max(1, Math.ceil(total / 10));
+
+  return (
+    <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-90)' }}>Refinement History</div>
+        <span style={{ fontSize: 11, color: 'var(--ink-35)' }}>{total} record{total !== 1 ? 's' : ''}</span>
+      </div>
+      {loading && <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-35)' }}>Loading...</div>}
+      {items.map((r) => (
+        <div key={r.id} style={{ borderBottom: '1px solid var(--panel-border)' }}>
+          <div
+            onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+            style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+          >
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--ink-42)', fontWeight: 700, minWidth: 60 }}>#{r.external_item_id}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-78)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.item_title || r.external_item_id}
+            </span>
+            {r.suggested_story_points != null && (
+              <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, background: 'rgba(13,148,136,0.12)', color: '#0d9488', border: '1px solid rgba(13,148,136,0.3)' }}>
+                {r.suggested_story_points} pts
+              </span>
+            )}
+            {r.confidence != null && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: r.confidence >= 70 ? '#22c55e' : r.confidence >= 40 ? '#f59e0b' : '#ef4444' }}>
+                {r.confidence}%
+              </span>
+            )}
+            <span style={{
+              padding: '2px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+              background: r.phase === 'writeback' ? 'rgba(34,197,94,0.1)' : 'rgba(56,189,248,0.1)',
+              color: r.phase === 'writeback' ? '#22c55e' : '#38bdf8',
+              border: `1px solid ${r.phase === 'writeback' ? 'rgba(34,197,94,0.3)' : 'rgba(56,189,248,0.3)'}`,
+            }}>{r.phase}</span>
+            <span style={{ fontSize: 10, color: 'var(--ink-30)', flexShrink: 0 }}>
+              {new Date(r.created_at).toLocaleDateString()} {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--ink-35)', transform: expanded === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+          </div>
+          {expanded === r.id && (
+            <div style={{ padding: '0 14px 12px', display: 'grid', gap: 8 }}>
+              {r.summary && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', marginBottom: 2 }}>Summary</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-72)', lineHeight: 1.5 }}>{r.summary}</div>
+                </div>
+              )}
+              {r.estimation_rationale && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', marginBottom: 2 }}>Rationale</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-72)', lineHeight: 1.5 }}>{r.estimation_rationale}</div>
+                </div>
+              )}
+              {r.comment && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', marginBottom: 2 }}>Comment</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-60)', lineHeight: 1.5, fontFamily: 'monospace', padding: '6px 8px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border)', whiteSpace: 'pre-wrap' }}>{r.comment}</div>
+                </div>
+              )}
+              {r.error_message && (
+                <div style={{ fontSize: 12, color: '#ef4444', padding: '6px 8px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{r.error_message}</div>
+              )}
+              {r.item_url && (
+                <a href={r.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#0d9488', textDecoration: 'none' }}>Open in {r.provider} ↗</a>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+      {totalPages > 1 && (
+        <div style={{ padding: '8px 14px', display: 'flex', justifyContent: 'center', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', cursor: page <= 1 ? 'not-allowed' : 'pointer', fontSize: 12, opacity: page <= 1 ? 0.5 : 1 }}>←</button>
+          <span style={{ fontSize: 12, color: 'var(--ink-42)' }}>{page} / {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', cursor: page >= totalPages ? 'not-allowed' : 'pointer', fontSize: 12, opacity: page >= totalPages ? 0.5 : 1 }}>→</button>
+        </div>
       )}
     </div>
   );

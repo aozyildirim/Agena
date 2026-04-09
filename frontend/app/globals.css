@@ -2182,9 +2182,8 @@ input:focus, textarea:focus {
   .refinement-top-grid {
     grid-template-columns: 1fr !important;
   }
-  .refinement-fields-row {
+  .ref-row-3, .ref-row-4 {
     grid-template-columns: 1fr 1fr !important;
-    gap: 6px !important;
   }
   .refinement-stats {
     grid-template-columns: repeat(3, 1fr) !important;
@@ -2203,18 +2202,21 @@ input:focus, textarea:focus {
   }
 
   /* Compact dropdowns */
-  .refinement-fields-row {
+  .ref-row-2, .ref-row-3, .ref-row-4 {
     grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+    gap: 6px !important;
   }
-  .refinement-fields-row select,
-  .refinement-fields-row input {
+  .ref-row-2 select, .ref-row-2 input,
+  .ref-row-3 select, .ref-row-3 input,
+  .ref-row-4 select, .ref-row-4 input {
     height: 36px !important;
     padding: 6px 8px !important;
     font-size: 12px !important;
     border-radius: 8px !important;
   }
-  .refinement-fields-row label > span {
+  .ref-row-2 label > span,
+  .ref-row-3 label > span,
+  .ref-row-4 label > span {
     font-size: 10px !important;
   }
 
@@ -2339,11 +2341,12 @@ input:focus, textarea:focus {
   .refinement-page > div:first-child p {
     font-size: 12px !important;
   }
-  .refinement-fields-row {
+  .ref-row-2, .ref-row-3, .ref-row-4 {
     grid-template-columns: 1fr !important;
   }
-  .refinement-fields-row select,
-  .refinement-fields-row input {
+  .ref-row-2 select, .ref-row-2 input,
+  .ref-row-3 select, .ref-row-3 input,
+  .ref-row-4 select, .ref-row-4 input {
     height: 34px !important;
     font-size: 11px !important;
   }
