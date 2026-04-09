@@ -1095,8 +1095,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   const mappingIds = selectedMappingIds.length > 0 ? selectedMappingIds : undefined;
 
   return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, minWidth: 360, maxWidth: 480, maxHeight: '85vh', overflowY: 'auto' }}>
+    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px 16px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, width: 'min(480px, 100%)', maxHeight: '85vh', overflowY: 'auto', margin: 'auto 0' }}>
         <div style={{ height: 3, background: mode === 'ai' ? 'linear-gradient(90deg, #0d9488, #22c55e)' : mode === 'mcp_agent' ? 'linear-gradient(90deg, #0891b2, #06b6d4)' : 'linear-gradient(90deg, #7c3aed, #a78bfa)' }} />
         <div style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>

@@ -7,7 +7,7 @@ import { apiFetch, cachedApiFetch, loadPrefs, loadPromptCatalog } from '@/lib/ap
 import { useLocale } from '@/lib/i18n';
 
 type Provider = 'azure' | 'jira';
-type AgentProvider = 'openai' | 'gemini' | 'hal';
+type AgentProvider = 'openai' | 'gemini' | 'hal' | 'codex_cli' | 'claude_cli';
 
 type Opt = {
   id: string;
@@ -364,8 +364,22 @@ const GEMINI_MODELS: ModelOption[] = [
   { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
 ];
 
+const CODEX_CLI_MODELS: ModelOption[] = [
+  { id: 'gpt-4o', label: 'GPT-4o' },
+  { id: 'o4-mini', label: 'o4-mini' },
+  { id: 'o3', label: 'o3' },
+];
+
+const CLAUDE_CLI_MODELS: ModelOption[] = [
+  { id: 'sonnet', label: 'Sonnet' },
+  { id: 'opus', label: 'Opus' },
+  { id: 'haiku', label: 'Haiku' },
+];
+
 function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'gemini') return GEMINI_MODELS;
+  if (provider === 'codex_cli') return CODEX_CLI_MODELS;
+  if (provider === 'claude_cli') return CLAUDE_CLI_MODELS;
   if (provider === 'hal') return [];
   return OPENAI_MODELS;
 }
@@ -502,7 +516,7 @@ export default function RefinementPage() {
         const settings = ((prefs?.profile_settings || {}) as Record<string, unknown>);
         const preferredProvider = typeof settings.preferred_provider === 'string' ? settings.preferred_provider : 'openai';
         const preferredModel = typeof settings.preferred_model === 'string' ? settings.preferred_model : 'gpt-5.1-codex-mini';
-        setAgentProvider(preferredProvider === 'gemini' ? 'gemini' : preferredProvider === 'hal' ? 'hal' : 'openai');
+        setAgentProvider((['gemini', 'hal', 'codex_cli', 'claude_cli'] as const).includes(preferredProvider as AgentProvider) ? preferredProvider as AgentProvider : 'openai');
         setAgentModel(preferredModel || 'gpt-5.1-codex-mini');
 
         const prefAzureProject = prefs?.azure_project || '';
@@ -874,7 +888,7 @@ export default function RefinementPage() {
   }, [provider, azureSprint, jiraSprint, normalizeAnalyzeResponse]);
 
   return (
-    <div className="refinement-page" style={{ display: 'grid', gap: 18, maxWidth: 1200, paddingBottom: 40 }}>
+    <div className="refinement-page" style={{ display: 'grid', gap: 14, maxWidth: 1200, paddingBottom: 40 }}>
       {/* ── LOADING OVERLAY (portal to body) ── */}
       {running && typeof document !== 'undefined' && createPortal(
         <div className="refinement-overlay" style={{
@@ -915,12 +929,12 @@ export default function RefinementPage() {
       )}
       <div>
         <div className='section-label'>{copy.section}</div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>{copy.title}</h1>
-        <p style={{ fontSize: 14, color: 'var(--ink-30)', margin: 0 }}>{copy.subtitle}</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>{copy.title}</h1>
+        <p style={{ fontSize: 12, color: 'var(--ink-30)', margin: 0 }}>{copy.subtitle}</p>
       </div>
 
       <div className="refinement-top-grid" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-        <div style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 10 }}>
           <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <Field label={copy.source}>
               <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); setWrittenBackIds(new Set()); setExpandedItemId(''); }} style={inputStyle}>
@@ -990,6 +1004,8 @@ export default function RefinementPage() {
               >
                 <option value='openai'>OpenAI</option>
                 <option value='gemini'>Gemini</option>
+                <option value='claude_cli'>Claude CLI</option>
+                <option value='codex_cli'>Codex CLI</option>
                 <option value='hal'>HAL</option>
               </select>
             </Field>
@@ -1016,7 +1032,7 @@ export default function RefinementPage() {
           </div>
 
           {agentProvider !== 'hal' && (
-            <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 14 }}>
+            <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
                 Available Models
               </div>
@@ -1035,7 +1051,7 @@ export default function RefinementPage() {
             </div>
           )}
 
-          <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 0, overflow: 'hidden' }}>
+          <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: 0, overflow: 'hidden' }}>
             <button
               type='button'
               onClick={() => setPromptExpanded((p) => !p)}
@@ -1925,18 +1941,18 @@ export default function RefinementPage() {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: 'grid', gap: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
+    <label style={{ display: 'grid', gap: 4 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
       {children}
     </label>
   );
 }
 
-function Stat({ label, value, accent = '#38bdf8' }: { label: string; value: string; accent?: string }) {
+function Stat({ label, value, accent = '#0d9488' }: { label: string; value: string; accent?: string }) {
   return (
-    <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', padding: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: accent, marginTop: 4, lineHeight: 1.2, wordBreak: 'break-word' }}>{value}</div>
+    <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '10px 12px' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: accent, marginTop: 2, lineHeight: 1.2, wordBreak: 'break-word' }}>{value}</div>
     </div>
   );
 }
@@ -1968,42 +1984,45 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  borderRadius: 12,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
-  background: 'rgba(255,255,255,0.04)',
+  background: 'var(--glass)',
   color: 'var(--ink-90)',
-  padding: '11px 12px',
-  fontSize: 14,
+  padding: '8px 10px',
+  fontSize: 13,
   outline: 'none',
 };
 
 const primaryButton: React.CSSProperties = {
-  borderRadius: 12,
-  border: '1px solid rgba(37,99,235,0.5)',
-  background: 'linear-gradient(135deg, rgba(37,99,235,0.95), rgba(14,165,233,0.9))',
+  borderRadius: 10,
+  border: 'none',
+  background: 'linear-gradient(135deg, #0d9488, #14b8a6)',
   color: '#fff',
-  padding: '11px 14px',
+  padding: '9px 14px',
   fontWeight: 700,
+  fontSize: 13,
   cursor: 'pointer',
 };
 
 const secondaryButton: React.CSSProperties = {
-  borderRadius: 12,
-  border: '1px solid rgba(251,191,36,0.4)',
-  background: 'rgba(251,191,36,0.08)',
-  color: '#fde68a',
-  padding: '11px 14px',
+  borderRadius: 10,
+  border: '1px solid rgba(245,158,11,0.35)',
+  background: 'rgba(245,158,11,0.08)',
+  color: '#f59e0b',
+  padding: '9px 14px',
   fontWeight: 700,
+  fontSize: 13,
   cursor: 'pointer',
 };
 
 const ghostButton: React.CSSProperties = {
-  borderRadius: 12,
-  border: '1px solid rgba(148,163,184,0.35)',
-  background: 'rgba(148,163,184,0.08)',
-  color: '#cbd5e1',
-  padding: '11px 14px',
+  borderRadius: 10,
+  border: '1px solid var(--panel-border-2)',
+  background: 'var(--panel)',
+  color: 'var(--ink-58)',
+  padding: '9px 14px',
   fontWeight: 700,
+  fontSize: 13,
   cursor: 'pointer',
 };
 
@@ -2022,18 +2041,18 @@ const emptyStyle: React.CSSProperties = {
 
 const thStyle: React.CSSProperties = {
   textAlign: 'left',
-  fontSize: 11,
+  fontSize: 10,
   textTransform: 'uppercase',
   letterSpacing: 0.5,
   color: 'var(--ink-35)',
-  padding: '12px 14px',
+  padding: '8px 10px',
   borderBottom: '1px solid var(--panel-border-2)',
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: '12px 14px',
-  borderBottom: '1px solid rgba(255,255,255,0.05)',
-  fontSize: 14,
+  padding: '8px 10px',
+  borderBottom: '1px solid var(--panel-border)',
+  fontSize: 13,
   color: 'var(--ink-70)',
   verticalAlign: 'top',
 };
@@ -2041,12 +2060,12 @@ const tdStyle: React.CSSProperties = {
 const unestimatedPill: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  padding: '4px 8px',
+  padding: '3px 7px',
   borderRadius: 999,
-  border: '1px solid rgba(251,191,36,0.35)',
-  background: 'rgba(251,191,36,0.08)',
-  color: '#fde68a',
-  fontSize: 12,
+  border: '1px solid rgba(245,158,11,0.35)',
+  background: 'rgba(245,158,11,0.08)',
+  color: '#f59e0b',
+  fontSize: 11,
   fontWeight: 700,
 };
 
@@ -2054,7 +2073,7 @@ const estimatedPill: React.CSSProperties = {
   ...unestimatedPill,
   border: '1px solid rgba(34,197,94,0.35)',
   background: 'rgba(34,197,94,0.08)',
-  color: '#86efac',
+  color: '#22c55e',
 };
 
 const resultPill: React.CSSProperties = {
@@ -2089,8 +2108,8 @@ const modalOverlay: React.CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  background: 'rgba(2,6,23,0.74)',
-  backdropFilter: 'blur(2px)',
+  background: 'rgba(0,0,0,0.6)',
+  backdropFilter: 'blur(4px)',
   zIndex: 10000,
   display: 'flex',
   alignItems: 'center',
@@ -2101,9 +2120,9 @@ const modalOverlay: React.CSSProperties = {
 
 const modalCard: React.CSSProperties = {
   width: 'min(980px, 96vw)',
-  borderRadius: 18,
-  border: '1px solid var(--panel-border-2)',
-  background: 'linear-gradient(180deg, rgba(15,23,42,0.98), rgba(12,18,30,0.99))',
+  borderRadius: 16,
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
   padding: 16,
   display: 'grid',
   gap: 12,
@@ -2113,20 +2132,21 @@ const modalCard: React.CSSProperties = {
 
 const modelChip: React.CSSProperties = {
   borderRadius: 999,
-  border: '1px solid rgba(148,163,184,0.22)',
-  background: 'rgba(148,163,184,0.06)',
-  color: '#cbd5e1',
-  padding: '6px 10px',
+  border: '1px solid var(--panel-border-2)',
+  background: 'var(--panel)',
+  color: 'var(--ink-58)',
+  padding: '5px 10px',
   fontSize: 11,
-  fontWeight: 700,
+  fontWeight: 600,
   cursor: 'pointer',
 };
 
 const activeModelChip: React.CSSProperties = {
   ...modelChip,
-  border: '1px solid rgba(56,189,248,0.35)',
-  background: 'rgba(56,189,248,0.15)',
-  color: '#bae6fd',
+  border: '1px solid rgba(13,148,136,0.45)',
+  background: 'rgba(13,148,136,0.12)',
+  color: '#0d9488',
+  fontWeight: 700,
 };
 
 function suggestedPointsPill(_points: number): React.CSSProperties {

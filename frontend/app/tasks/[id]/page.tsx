@@ -1434,8 +1434,8 @@ function RunConfigModal({ task, onRun, onClose }: {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: 'min(480px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px 16px', overflowY: 'auto' }}>
+      <div style={{ width: 'min(480px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden', margin: 'auto 0' }}>
         {/* Header */}
         <div style={{ height: 3, background: 'linear-gradient(90deg, #0d9488, #7c3aed, #f59e0b)' }} />
         <div style={{ padding: '18px 20px', display: 'grid', gap: 16 }}>

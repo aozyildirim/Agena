@@ -211,12 +211,17 @@ class OrchestrationService:
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using codex_cli preferred agent')
             elif routing.preferred_agent_provider == 'claude_cli' and routing.local_repo_path:
-                await task_service.add_log(task.id, organization_id, 'agent', f"Claude CLI started (model={routing.preferred_agent_model or 'default'})")
+                await task_service.add_log(task.id, organization_id, 'agent', f"Claude CLI started (model={routing.preferred_agent_model or 'default'}, repo={routing.local_repo_path})")
+
+                async def _cli_log(msg: str) -> None:
+                    await task_service.add_log(task.id, organization_id, 'agent', msg)
+
                 final_code = await self.claude_cli_service.generate_file_markdown(
                     repo_path=routing.local_repo_path,
                     task_title=task.title,
                     task_description=effective_description,
                     model=routing.preferred_agent_model,
+                    log_callback=_cli_log,
                 )
                 prompt_estimate = self._estimate_tokens(f'{task.title}\n{task.description or ""}')
                 completion_estimate = self._estimate_tokens(final_code)

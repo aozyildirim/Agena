@@ -392,6 +392,40 @@ async def assign_task(
         await db.commit()
         return AssignTaskResponse(queued=True, queue_key=first_key)
 
+    # Single mapping selected → inject repo info into description and set repo_mapping_id
+    if len(mapping_ids) == 1:
+        from agena_models.models.repo_mapping import RepoMapping
+        from agena_models.models.task_record import TaskRecord
+        import re as _re
+
+        mapping = (await db.execute(
+            select(RepoMapping).where(
+                RepoMapping.id == mapping_ids[0],
+                RepoMapping.organization_id == tenant.organization_id,
+                RepoMapping.is_active.is_(True),
+            )
+        )).scalar_one_or_none()
+        if mapping:
+            task_record = (await db.execute(
+                select(TaskRecord).where(TaskRecord.id == task_id, TaskRecord.organization_id == tenant.organization_id)
+            )).scalar_one_or_none()
+            if task_record:
+                desc = task_record.description or ''
+                # Remove stale repo metadata
+                for key in ['Local Repo Path', 'Local Repo Mapping', 'Azure Repo', 'Remote Repo', 'Project']:
+                    desc = _re.sub(rf'^{_re.escape(key)}:.*$', '', desc, flags=_re.MULTILINE)
+                desc = _re.sub(r'\n{3,}', '\n\n', desc).strip()
+                # Inject new repo info
+                repo_lines = []
+                if mapping.local_repo_path:
+                    repo_lines.append(f'Local Repo Path: {mapping.local_repo_path}')
+                repo_lines.append(f'Local Repo Mapping: {mapping.repo_name}')
+                if mapping.provider == 'azure':
+                    repo_lines.append(f'Project: {mapping.owner}')
+                task_record.description = desc + '\n\n---\n' + '\n'.join(repo_lines)
+                task_record.repo_mapping_id = mapping.id
+                await db.commit()
+
     # Single-repo or legacy flow
     try:
         queue_key = await service.assign_task_to_ai(
