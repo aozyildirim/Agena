@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import re
 import time
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -128,21 +131,30 @@ class RefinementService:
         )
         selected = self._select_target_items(items_response.items, request.item_ids, request.max_items)
 
-        agent_provider, agent_model, llm = await self._resolve_llm(
-            organization_id=organization_id,
-            user_id=user_id,
-            explicit_provider=request.agent_provider,
-            explicit_model=request.agent_model,
-        )
+        raw_provider = (request.agent_provider or '').strip().lower()
+        use_cli = raw_provider in ('claude_cli', 'codex_cli')
+
+        if use_cli:
+            agent_provider = raw_provider
+            agent_model = (request.agent_model or 'sonnet').strip()
+        else:
+            agent_provider, agent_model, llm = await self._resolve_llm(
+                organization_id=organization_id,
+                user_id=user_id,
+                explicit_provider=request.agent_provider,
+                explicit_model=request.agent_model,
+            )
 
         total_usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
         results: list[RefinementSuggestion] = []
 
         if selected:
-            runner = CrewAIAgentRunner(llm)
             # Load prompts from DB (Prompt Studio editable) with YAML fallback
             system_tpl, desc_tpl, expected_tpl, agent_cfg = await self._load_prompt_config_from_db()
             point_scale = self._normalize_point_scale(request.point_scale)
+
+            if not use_cli:
+                runner = CrewAIAgentRunner(llm)
 
             for item in selected:
                 try:
@@ -153,19 +165,33 @@ class RefinementService:
                         point_scale=point_scale,
                         item=item,
                     )
-                    content, usage, model, structured = await runner.run_configured_task(
-                        role=str(agent_cfg.get('role') or 'Sprint Refinement Analyst'),
-                        goal=str(agent_cfg.get('goal') or 'Refine and estimate backlog items.'),
-                        backstory=str(agent_cfg.get('backstory') or ''),
-                        system_prompt=self._format_template(system_tpl, prompt_vars),
-                        user_prompt=self._format_template(desc_tpl, prompt_vars),
-                        expected_output=self._format_template(expected_tpl, prompt_vars),
-                        complexity_hint='normal',
-                        max_output_tokens=4000,
-                        structured_output=_RefinementStructuredOutput,
-                        reasoning=False,
-                        skip_cache=True,
-                    )
+
+                    if use_cli:
+                        # Run via CLI bridge instead of LLM API
+                        full_prompt = (
+                            self._format_template(system_tpl, prompt_vars) + '\n\n'
+                            + self._format_template(desc_tpl, prompt_vars) + '\n\n'
+                            + 'Expected output format:\n' + self._format_template(expected_tpl, prompt_vars)
+                        )
+                        content = await self._run_cli_refinement(agent_provider, agent_model, full_prompt)
+                        usage = {'prompt_tokens': len(full_prompt) // 4, 'completion_tokens': len(content) // 4, 'total_tokens': (len(full_prompt) + len(content)) // 4}
+                        structured = None
+                        model = agent_model
+                    else:
+                        content, usage, model, structured = await runner.run_configured_task(
+                            role=str(agent_cfg.get('role') or 'Sprint Refinement Analyst'),
+                            goal=str(agent_cfg.get('goal') or 'Refine and estimate backlog items.'),
+                            backstory=str(agent_cfg.get('backstory') or ''),
+                            system_prompt=self._format_template(system_tpl, prompt_vars),
+                            user_prompt=self._format_template(desc_tpl, prompt_vars),
+                            expected_output=self._format_template(expected_tpl, prompt_vars),
+                            complexity_hint='normal',
+                            max_output_tokens=4000,
+                            structured_output=_RefinementStructuredOutput,
+                            reasoning=False,
+                            skip_cache=True,
+                        )
+
                     total_usage = self._merge_usage(total_usage, usage)
                     # Convert structured Pydantic model to dict if needed
                     if structured is not None:
@@ -414,6 +440,34 @@ class RefinementService:
 
         raise ValueError(f'Unsupported provider: {provider}')
 
+    async def _run_cli_refinement(self, cli_provider: str, model: str, prompt: str) -> str:
+        """Run refinement prompt through CLI bridge (claude or codex)."""
+        import os
+        import httpx
+
+        bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        cli = 'claude' if cli_provider == 'claude_cli' else 'codex'
+
+        async with httpx.AsyncClient(timeout=300) as client:
+            resp = await client.post(
+                f'{bridge_url}/{cli}',
+                json={
+                    'repo_path': '/tmp',
+                    'prompt': prompt,
+                    'model': model or '',
+                    'timeout': 240,
+                },
+            )
+            data = resp.json()
+
+        if data.get('status') != 'ok':
+            raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')
+
+        content = (data.get('stdout') or '').strip()
+        if not content:
+            raise RuntimeError(f'{cli} bridge returned empty output')
+        return content
+
     async def _resolve_llm(
         self,
         *,
@@ -424,7 +478,12 @@ class RefinementService:
     ) -> tuple[str, str, LLMProvider | HalProvider]:
         pref_provider, pref_model = await self._get_user_preferred_agent_selection(user_id)
         provider = (explicit_provider or pref_provider or 'openai').strip().lower()
-        if provider not in {'openai', 'gemini', 'hal'}:
+        # Map CLI providers to their API equivalents for refinement
+        if provider == 'claude_cli':
+            provider = 'anthropic'
+        elif provider == 'codex_cli':
+            provider = 'openai'
+        if provider not in {'openai', 'gemini', 'anthropic', 'hal'}:
             provider = 'openai'
 
         if provider == 'hal':
@@ -451,6 +510,13 @@ class RefinementService:
         if provider == 'openai':
             api_key = api_key or (self.settings.openai_api_key or '').strip()
             base_url = base_url or (self.settings.openai_base_url or '').strip()
+        elif provider == 'anthropic':
+            if not api_key:
+                integration = await self.integration_service.get_config(organization_id, 'anthropic')
+                api_key = ((integration.secret if integration else '') or '').strip()
+            api_key = api_key or (getattr(self.settings, 'anthropic_api_key', '') or '').strip()
+            if not base_url:
+                base_url = 'https://api.anthropic.com'
         elif provider == 'gemini' and not base_url:
             base_url = 'https://generativelanguage.googleapis.com'
 

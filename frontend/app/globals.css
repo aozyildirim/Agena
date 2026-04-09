@@ -2182,6 +2182,10 @@ input:focus, textarea:focus {
   .refinement-top-grid {
     grid-template-columns: 1fr !important;
   }
+  .refinement-fields-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
   .refinement-stats {
     grid-template-columns: repeat(3, 1fr) !important;
   }

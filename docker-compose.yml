@@ -8,6 +8,8 @@ services:
     container_name: ai_agent_api
     env_file:
       - .env
+    environment:
+      - CLI_BRIDGE_URL=http://host.docker.internal:9876
     ports:
       - '8010:8010'
     volumes:

@@ -430,7 +430,7 @@ export default function RefinementPage() {
   const [provider, setProvider] = useState<Provider>('azure');
   const [agentProvider, setAgentProvider] = useState<AgentProvider>('openai');
   const [agentModel, setAgentModel] = useState('gpt-5.1-codex-mini');
-  const [language, setLanguage] = useState(lang === 'tr' ? 'Turkish' : 'English');
+  const [language, setLanguage] = useState('Turkish');
   const [maxItems, setMaxItems] = useState(8);
 
   const [azureProjects, setAzureProjects] = useState<Opt[]>([]);
@@ -913,7 +913,7 @@ export default function RefinementPage() {
           </div>
           <div style={{
             width: 200, height: 4, borderRadius: 2,
-            background: 'rgba(255,255,255,0.08)', overflow: 'hidden',
+            background: 'var(--panel-border)', overflow: 'hidden',
           }}>
             <div style={{
               height: '100%', borderRadius: 2,
@@ -935,7 +935,7 @@ export default function RefinementPage() {
 
       <div className="refinement-top-grid" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 10 }}>
-          <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
             <Field label={copy.source}>
               <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); setWrittenBackIds(new Set()); setExpandedItemId(''); }} style={inputStyle}>
                 <option value='azure'>Azure DevOps</option>
@@ -943,12 +943,20 @@ export default function RefinementPage() {
               </select>
             </Field>
             <Field label={copy.language}>
-              <input value={language} onChange={(e) => setLanguage(e.target.value)} style={inputStyle} />
+              <select value={language} onChange={(e) => setLanguage(e.target.value)} style={inputStyle}>
+                <option value='Turkish'>Turkish</option>
+                <option value='English'>English</option>
+                <option value='German'>German</option>
+                <option value='Spanish'>Spanish</option>
+                <option value='Chinese'>Chinese</option>
+                <option value='Italian'>Italian</option>
+                <option value='Japanese'>Japanese</option>
+              </select>
             </Field>
           </div>
 
           {provider === 'azure' ? (
-            <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
               <Field label={copy.project}>
                 <select value={azureProject} onChange={(e) => void loadAzureTeams(e.target.value)} style={inputStyle}>
                   <option value=''>{copy.chooseProject}</option>
@@ -969,7 +977,7 @@ export default function RefinementPage() {
               </Field>
             </div>
           ) : (
-            <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
               <Field label={copy.project}>
                 <select value={jiraProject} onChange={(e) => void loadJiraBoards(e.target.value)} style={inputStyle}>
                   <option value=''>{copy.chooseProject}</option>
@@ -991,7 +999,7 @@ export default function RefinementPage() {
             </div>
           )}
 
-          <div className="refinement-fields-row" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div className="refinement-fields-row" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
             <Field label={copy.agentProvider}>
               <select
                 value={agentProvider}
@@ -1118,7 +1126,7 @@ export default function RefinementPage() {
                   <div style={{
                     fontSize: 11, color: 'var(--ink-35)', lineHeight: 1.5,
                     padding: '8px 10px', borderRadius: 8,
-                    background: 'rgba(0,0,0,0.15)', border: '1px solid var(--panel-border)',
+                    background: 'var(--panel)', border: '1px solid var(--panel-border)',
                     maxHeight: 80, overflow: 'hidden',
                     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                   }}>
@@ -1218,7 +1226,7 @@ export default function RefinementPage() {
           )}
         </div>
 
-        <div className="refinement-stats" style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'linear-gradient(180deg, rgba(15,23,42,0.94), rgba(13,18,30,0.98))', padding: 18, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <div className="refinement-stats" style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <Stat label={copy.total} value={String(itemsData?.items.length || 0)} />
           <Stat label={copy.unestimated} value={String(itemsData?.unestimated_count || 0)} accent='#fbbf24' />
           <Stat label={copy.pointed} value={String(itemsData?.pointed_count || 0)} accent='#34d399' />
@@ -1235,8 +1243,8 @@ export default function RefinementPage() {
         </div>
       </div>
 
-      <div className="refinement-table-wrap" style={{ borderRadius: 18, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', overflow: 'hidden' }}>
-        <div style={panelHeader}>Sprint Items</div>
+      <div className="refinement-table-wrap" style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', overflow: 'hidden' }}>
+        <div style={{ ...panelHeader, padding: '10px 14px', borderBottom: '1px solid var(--panel-border)' }}>Sprint Items</div>
         {!sortedItems.length ? (
           <div style={emptyStyle}>{loadingItems ? copy.loadingItems : copy.noItems}</div>
         ) : (
@@ -1255,7 +1263,7 @@ export default function RefinementPage() {
                       <div
                         style={{
                           padding: '12px 14px',
-                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          borderBottom: '1px solid var(--panel-border)',
                           background: isWrittenBack
                             ? 'rgba(34,197,94,0.06)'
                             : checked ? 'rgba(59,130,246,0.06)' : 'transparent',
@@ -1269,8 +1277,8 @@ export default function RefinementPage() {
                           <input type='checkbox' checked={checked} disabled={estimated}
                             onChange={() => toggleItem(item)} onClick={(e) => e.stopPropagation()}
                             style={{ flexShrink: 0, width: 18, height: 18 }} />
-                          <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', fontWeight: 700 }}>{item.id}</span>
-                          <span style={{ fontSize: 10, color: '#64748b', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
+                          <span style={{ fontSize: 12, color: 'var(--ink-50)', fontFamily: 'monospace', fontWeight: 700 }}>{item.id}</span>
+                          <span style={{ fontSize: 10, color: 'var(--ink-42)', background: 'var(--panel)', padding: '2px 6px', borderRadius: 4 }}>
                             {item.work_item_type || 'Task'}
                           </span>
                           <span style={{ ...(estimated ? estimatedPill : unestimatedPill), fontSize: 10, padding: '2px 6px' }}>
@@ -1288,14 +1296,14 @@ export default function RefinementPage() {
                           )}
                           {isWrittenBack && <span style={{ ...writtenBadge, fontSize: 9, padding: '1px 6px' }}>{copy.writtenBack}</span>}
                           {suggestion && (
-                            <span style={{ fontSize: 11, color: '#64748b', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>▼</span>
+                            <span style={{ fontSize: 11, color: 'var(--ink-42)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>▼</span>
                           )}
                         </div>
                         {/* Row 2: Title */}
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4, wordBreak: 'break-word' }}>
                           {itemSourceUrl ? (
                             <a href={itemSourceUrl} target='_blank' rel='noreferrer'
-                              style={{ color: '#93c5fd', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+                              style={{ color: 'var(--ink-78)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
                               {item.title}
                             </a>
                           ) : item.title}
@@ -1303,8 +1311,8 @@ export default function RefinementPage() {
                         {/* Row 3: Meta */}
                         {(item.state || item.assigned_to || item.refined_before) && (
                           <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                            {item.state && <span style={{ fontSize: 11, color: '#64748b' }}>{item.state}</span>}
-                            {item.assigned_to && <span style={{ fontSize: 11, color: '#64748b' }}>{item.assigned_to}</span>}
+                            {item.state && <span style={{ fontSize: 11, color: 'var(--ink-42)' }}>{item.state}</span>}
+                            {item.assigned_to && <span style={{ fontSize: 11, color: 'var(--ink-42)' }}>{item.assigned_to}</span>}
                             {item.refined_before && <span style={{ fontSize: 11, color: '#fde68a' }}>Refined ({item.refinement_count || 1}x)</span>}
                           </div>
                         )}
@@ -1323,7 +1331,7 @@ export default function RefinementPage() {
                                       {copy.suggestedEstimate}
                                     </div>
                                   </div>
-                                  <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                                  <div style={{ width: 1, height: 40, background: 'var(--panel-border)' }} />
                                   <div style={{ textAlign: 'center' }}>
                                     <div style={{
                                       fontSize: 24,
@@ -1340,7 +1348,7 @@ export default function RefinementPage() {
                                       <div style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>{copy.lowConfidence}</div>
                                     )}
                                   </div>
-                                  <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                                  <div style={{ width: 1, height: 40, background: 'var(--panel-border)' }} />
                                   <span style={suggestion.ready_for_planning ? readyPill : pendingPill}>
                                     {suggestion.ready_for_planning ? copy.ready : copy.notReady}
                                   </span>
@@ -1410,7 +1418,7 @@ export default function RefinementPage() {
                                     <div style={{
                                       fontSize: 13, lineHeight: 1.6, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
                                       padding: '10px 12px', borderRadius: 10,
-                                      background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                                      background: 'var(--panel)', border: '1px solid var(--panel-border)',
                                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                                       marginTop: 6,
                                     }}>
@@ -1491,7 +1499,7 @@ export default function RefinementPage() {
                       )}
                     </div>
                     {item.item_url ? (
-                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 15, fontWeight: 700, color: '#93c5fd', lineHeight: 1.4, textDecoration: 'none' }}
+                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-78)', lineHeight: 1.4, textDecoration: 'none' }}
                         onClick={(e) => e.stopPropagation()}>
                         {item.title}
                       </a>
@@ -1540,7 +1548,7 @@ export default function RefinementPage() {
                       )}
                     </div>
                     {item.item_url ? (
-                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ margin: '4px 0 0', fontSize: 18, color: '#93c5fd', textDecoration: 'none', fontWeight: 700, display: 'inline-block' }}>
+                      <a href={item.item_url} target='_blank' rel='noreferrer' style={{ margin: '4px 0 0', fontSize: 18, color: 'var(--ink-78)', textDecoration: 'none', fontWeight: 700, display: 'inline-block' }}>
                         {item.title}
                       </a>
                     ) : (
@@ -1599,7 +1607,7 @@ export default function RefinementPage() {
                       <div style={{
                         fontSize: 13, lineHeight: 1.6, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
                         padding: '10px 12px', borderRadius: 10,
-                        background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'var(--panel)', border: '1px solid var(--panel-border)',
                         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                       }}>
                         {item.comment || '-'}
@@ -1640,7 +1648,7 @@ export default function RefinementPage() {
         }} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
           <div style={{
             width: 'min(560px, 96vw)', maxHeight: '90vh', borderRadius: 18,
-            background: '#111827', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--surface)', border: '1px solid var(--border)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
           }} onClick={(e) => e.stopPropagation()}>
             {/* Header with navigation */}
@@ -1649,25 +1657,25 @@ export default function RefinementPage() {
               const currentIdx = focusedResultId ? allResults.findIndex(r => r.item_id === focusedResultId) : 0;
               const total = allResults.length;
               return (
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {total > 1 && (
                       <>
                         <button type='button' onClick={() => {
                           const prev = currentIdx > 0 ? currentIdx - 1 : total - 1;
                           setFocusedResultId(allResults[prev]?.item_id || '');
-                        }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>←</button>
-                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{currentIdx + 1} / {total}</span>
+                        }} style={{ background: 'none', border: '1px solid var(--panel-border-2)', borderRadius: 8, color: 'var(--ink-50)', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>←</button>
+                        <span style={{ fontSize: 12, color: 'var(--ink-42)', fontWeight: 600 }}>{currentIdx + 1} / {total}</span>
                         <button type='button' onClick={() => {
                           const next = currentIdx < total - 1 ? currentIdx + 1 : 0;
                           setFocusedResultId(allResults[next]?.item_id || '');
-                        }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>→</button>
+                        }} style={{ background: 'none', border: '1px solid var(--panel-border-2)', borderRadius: 8, color: 'var(--ink-50)', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>→</button>
                       </>
                     )}
-                    <span style={{ fontSize: 16, fontWeight: 800, color: '#e2e8f0' }}>{copy.resultsTitle}</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</span>
                   </div>
                   <button type='button' onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}
-                    style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', padding: '6px 14px', fontSize: 12, fontWeight: 600 }}>
+                    style={{ background: 'none', border: '1px solid var(--panel-border-2)', borderRadius: 8, color: 'var(--ink-50)', cursor: 'pointer', padding: '6px 14px', fontSize: 12, fontWeight: 600 }}>
                     ✕
                   </button>
                 </div>
@@ -1689,7 +1697,7 @@ export default function RefinementPage() {
                     <div>
                       <div style={{ fontSize: 12, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{item.item_id}</div>
                       {item.item_url ? (
-                        <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 18, fontWeight: 700, color: '#93c5fd', textDecoration: 'none', display: 'block', marginTop: 4, lineHeight: 1.4 }}>
+                        <a href={item.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-78)', textDecoration: 'none', display: 'block', marginTop: 4, lineHeight: 1.4 }}>
                           {item.title}
                         </a>
                       ) : (
@@ -1713,7 +1721,7 @@ export default function RefinementPage() {
                         {copy.suggestedEstimate}
                       </div>
                     </div>
-                    <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                    <div style={{ width: 1, height: 40, background: 'var(--panel-border)' }} />
                     <div style={{ textAlign: 'center' }}>
                       <div style={{
                         fontSize: 28, fontWeight: 800, lineHeight: 1,
@@ -1725,7 +1733,7 @@ export default function RefinementPage() {
                         {copy.confidence}
                       </div>
                     </div>
-                    <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)' }} />
+                    <div style={{ width: 1, height: 40, background: 'var(--panel-border)' }} />
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-60)', lineHeight: 1 }}>
                         {displaySuggestionEstimate(item.current_story_points)}
@@ -1772,7 +1780,7 @@ export default function RefinementPage() {
                         <div style={{
                           fontSize: 13, lineHeight: 1.6, color: 'var(--ink-75)', whiteSpace: 'pre-wrap',
                           padding: '10px 12px', borderRadius: 10,
-                          background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                          background: 'var(--panel)', border: '1px solid var(--panel-border)',
                           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                         }}>
                           {item.comment || '-'}
@@ -1892,8 +1900,8 @@ export default function RefinementPage() {
               {/* Header with title + points */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>#{confirmWritebackItemId}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginTop: 2, lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-42)', fontFamily: 'monospace' }}>#{confirmWritebackItemId}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', marginTop: 2, lineHeight: 1.3 }}>
                     {confirmRow?.title || ''}
                   </div>
                 </div>
@@ -1902,25 +1910,25 @@ export default function RefinementPage() {
                     <div style={{ fontSize: 22, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
                       {displaySuggestionEstimate(confirmRow.suggested_story_points, { allowZero: true })}
                     </div>
-                    <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', marginTop: 2 }}>puan</div>
+                    <div style={{ fontSize: 9, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 2 }}>puan</div>
                   </div>
                 )}
               </div>
               {/* Comment preview */}
               {confirmRow?.comment && (
-                <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', maxHeight: 120, overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--panel-border)', maxHeight: 120, overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
                   {confirmRow.comment}
                 </div>
               )}
               {/* Provider indicator */}
-              <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 12, color: 'var(--ink-42)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 3, background: provider === 'azure' ? '#38bdf8' : '#a78bfa' }} />
                 {providerLabel}
               </div>
               {/* Buttons */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type='button' onClick={() => setConfirmWritebackItemId('')}
-                  style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   {copy.close}
                 </button>
                 <button type='button'
