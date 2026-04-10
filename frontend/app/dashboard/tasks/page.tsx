@@ -305,7 +305,7 @@ export default function DashboardTasksPage() {
   async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
     setFlowPopupTaskId(null);
     try {
-      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: createPr ?? defaultCreatePr, mode: 'flow', extra_description: extraDesc || undefined, repo_mapping_ids: repoMappingIds || undefined }) });
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: createPr ?? defaultCreatePr, mode: 'flow', flow_id: flowId, extra_description: extraDesc || undefined, repo_mapping_ids: repoMappingIds || undefined }) });
       setMsg(`${t('tasks.assignedFlow')} (${flowName})`); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
   }
