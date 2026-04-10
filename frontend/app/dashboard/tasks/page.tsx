@@ -1152,7 +1152,16 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
 
   useEffect(() => {
     apiFetch<BackendRepoMapping[]>('/repo-mappings')
-      .then((data) => { setBackendMappings(data); setMappingsLoaded(true); })
+      .then((data) => {
+        setBackendMappings(data);
+        setMappingsLoaded(true);
+        // Auto-select the task's existing repo mapping
+        const taskObj = task as unknown as { repo_mapping_id?: number } | undefined;
+        const existingId = taskObj?.repo_mapping_id;
+        if (existingId && data.some((m) => m.id === existingId)) {
+          setSelectedMappingIds([existingId]);
+        }
+      })
       .catch(() => setMappingsLoaded(true));
   }, []);
 
