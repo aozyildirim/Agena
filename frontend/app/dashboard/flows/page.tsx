@@ -1,13 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch, loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, loadPromptCatalog } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type AgentRole = 'lead_developer' | 'pm' | 'qa' | 'manager' | 'developer' | string;
-type NodeType = 'agent' | 'trigger' | 'http' | 'azure_update' | 'azure_devops' | 'github' | 'notify' | 'condition';
+type NodeType = 'agent' | 'trigger' | 'http' | 'azure_update' | 'azure_devops' | 'github' | 'notify' | 'condition' | 'local_apply';
 
 interface FlowNode {
   id: string;
@@ -74,6 +73,10 @@ interface FlowNode {
   azure_pr_title?: string;
   azure_pr_description?: string;
   azure_reviewers?: string;
+  // local_apply node
+  repo_path?: string;
+  branch_prefix?: string;
+  local_create_pr?: boolean;
 }
 
 interface FlowEdge {
@@ -122,6 +125,7 @@ const NODE_TYPE_PRESETS: { type: NodeType; icon: string; color: string }[] = [
   { type: 'github', icon: '🐙', color: '#6e40c9' },
   { type: 'notify', icon: '🔔', color: '#fb923c' },
   { type: 'condition', icon: '🔀', color: '#22c55e' },
+  { type: 'local_apply', icon: '📂', color: '#22c55e' },
 ];
 
 function agentRoleLabel(role: AgentRole, t: ReturnType<typeof useLocale>['t']) {
@@ -144,6 +148,7 @@ function nodeTypeLabel(type: NodeType, t: ReturnType<typeof useLocale>['t']) {
   if (type === 'github') return t('flows.nodeTypeGithub');
   if (type === 'notify') return t('flows.nodeTypeNotify');
   if (type === 'condition') return t('flows.nodeTypeCondition');
+  if (type === 'local_apply') return 'Local Apply';
   return type;
 }
 
@@ -248,6 +253,51 @@ function presetFlows(t: ReturnType<typeof useLocale>['t']): Flow[] {
   ];
 }
 
+const FLOW_TEMPLATES = [
+  {
+    name: 'Quick Fix',
+    description: 'Developer generates code and applies locally',
+    nodes: [
+      { id: 't1', type: 'trigger' as NodeType, role: 'trigger', label: 'Start', icon: '⚡', color: '#f59e0b', action: '', waitForApproval: false, x: 50, y: 120 },
+      { id: 'd1', type: 'agent' as NodeType, role: 'developer', label: 'Developer', icon: '⚡', color: '#0d9488', action: '', waitForApproval: false, execute_task_pipeline: true, x: 300, y: 120 },
+      { id: 'la1', type: 'local_apply' as NodeType, role: 'local_apply', label: 'Apply Code', icon: '📂', color: '#22c55e', action: '', waitForApproval: false, x: 550, y: 120 },
+    ],
+    edges: [{ from: 't1', to: 'd1' }, { from: 'd1', to: 'la1' }],
+  },
+  {
+    name: 'Full Pipeline',
+    description: 'Analyze → Plan → Develop → Review → PR',
+    nodes: [
+      { id: 't1', type: 'trigger' as NodeType, role: 'trigger', label: 'Start', icon: '⚡', color: '#f59e0b', action: '', waitForApproval: false, x: 50, y: 120 },
+      { id: 'a1', type: 'agent' as NodeType, role: 'product_review', label: 'Analyzer', icon: '🔍', color: '#8b5cf6', action: '', waitForApproval: false, x: 250, y: 120 },
+      { id: 'p1', type: 'agent' as NodeType, role: 'planner', label: 'Planner', icon: '📋', color: '#3b82f6', action: '', waitForApproval: false, x: 450, y: 120 },
+      { id: 'd1', type: 'agent' as NodeType, role: 'developer', label: 'Developer', icon: '⚡', color: '#0d9488', action: '', waitForApproval: false, execute_task_pipeline: true, x: 650, y: 120 },
+      { id: 'n1', type: 'notify' as NodeType, role: 'notify', label: 'Notify', icon: '🔔', color: '#f97316', action: '', waitForApproval: false, x: 850, y: 120 },
+    ],
+    edges: [{ from: 't1', to: 'a1' }, { from: 'a1', to: 'p1' }, { from: 'p1', to: 'd1' }, { from: 'd1', to: 'n1' }],
+  },
+  {
+    name: 'Azure Pipeline',
+    description: 'Develop → PR → Update work item to Done',
+    nodes: [
+      { id: 't1', type: 'trigger' as NodeType, role: 'trigger', label: 'Start', icon: '⚡', color: '#f59e0b', action: '', waitForApproval: false, x: 50, y: 120 },
+      { id: 'd1', type: 'agent' as NodeType, role: 'developer', label: 'Developer', icon: '⚡', color: '#0d9488', action: '', waitForApproval: false, execute_task_pipeline: true, create_pr: true, x: 300, y: 120 },
+      { id: 'au1', type: 'azure_update' as NodeType, role: 'azure_update', label: 'Mark Done', icon: '☁️', color: '#3b82f6', action: '', waitForApproval: false, new_state: 'Done', x: 550, y: 120 },
+    ],
+    edges: [{ from: 't1', to: 'd1' }, { from: 'd1', to: 'au1' }],
+  },
+  {
+    name: 'Review Only',
+    description: 'Analyze task and send review notification',
+    nodes: [
+      { id: 't1', type: 'trigger' as NodeType, role: 'trigger', label: 'Start', icon: '⚡', color: '#f59e0b', action: '', waitForApproval: false, x: 50, y: 120 },
+      { id: 'a1', type: 'agent' as NodeType, role: 'reviewer', label: 'Reviewer', icon: '🔎', color: '#ec4899', action: '', waitForApproval: false, x: 300, y: 120 },
+      { id: 'n1', type: 'notify' as NodeType, role: 'notify', label: 'Notify', icon: '🔔', color: '#f97316', action: '', waitForApproval: false, x: 550, y: 120 },
+    ],
+    edges: [{ from: 't1', to: 'a1' }, { from: 'a1', to: 'n1' }],
+  },
+];
+
 const LS_FLOWS = 'agena_flows';
 
 function localizePresetFlow(flow: Flow, t: ReturnType<typeof useLocale>['t']): Flow {
@@ -300,6 +350,7 @@ export default function FlowsPage() {
   const [gateApprovals, setGateApprovals] = useState<Record<string, boolean>>({});
   const [runningDryRun, setRunningDryRun] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<Flow | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   useEffect(() => {
     const defaults = presetFlows(t);
@@ -470,6 +521,21 @@ export default function FlowsPage() {
     setSelectedRun(null);
   }
 
+  function loadTemplate(tpl: typeof FLOW_TEMPLATES[0]) {
+    const f: Flow = {
+      id: Date.now().toString(),
+      name: tpl.name,
+      nodes: tpl.nodes as FlowNode[],
+      edges: tpl.edges,
+      createdAt: new Date().toISOString(),
+    };
+    const next = [...flows, f];
+    void persist(next);
+    snapshotVersion(f, 'Created from template');
+    setActiveFlow(f.id);
+    setShowTemplates(false);
+  }
+
   const current = flows.find((f) => f.id === activeFlow);
 
   return (
@@ -516,10 +582,10 @@ export default function FlowsPage() {
             style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (showRuns ? 'rgba(94,234,212,0.4)' : 'var(--panel-border-3)'), background: showRuns ? 'rgba(94,234,212,0.1)' : 'transparent', color: showRuns ? '#5eead4' : 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.runHistory')}
           </button>
-          <Link href='/dashboard/templates'
-            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}>
+          <button onClick={() => setShowTemplates(true)}
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.templates')}
-          </Link>
+          </button>
           <div style={{ width: 1, height: 16, background: 'var(--panel-border-2)' }} />
           <button onClick={saveManualVersion}
             style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
@@ -570,27 +636,12 @@ export default function FlowsPage() {
       )}
 
       {dryRunOpen && (
-        <div style={{ marginBottom: 12, borderRadius: 14, border: '1px solid rgba(34,197,94,0.2)', background: 'var(--panel)', padding: 12, display: 'grid', gap: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{t('flows.dryRunResult')}</div>
-            <button onClick={() => setDryRunOpen(false)} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer' }}>×</button>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--ink-35)' }}>{dryRunSummary}</div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {dryRunSteps.map((s) => (
-              <div key={s.id} style={{ borderRadius: 9, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: '8px 10px', fontSize: 12, color: 'var(--ink-78)', display: 'flex', justifyContent: 'space-between' }}>
-                <span>{s.label}</span>
-                <span style={{ color: s.status === 'done' ? '#22c55e' : s.status === 'waiting' ? '#f59e0b' : 'var(--ink-35)' }}>
-                  {s.status === 'done'
-                    ? `${s.durationMs}ms`
-                    : s.status === 'waiting'
-                      ? t('flows.stepStatus.waiting')
-                      : t('flows.stepStatus.skipped')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ExecutionTimeline
+          steps={dryRunSteps}
+          summary={dryRunSummary}
+          nodes={current?.nodes ?? []}
+          onClose={() => setDryRunOpen(false)}
+        />
       )}
 
       {deleteCandidate && (
@@ -615,6 +666,40 @@ export default function FlowsPage() {
                 <button onClick={confirmDeleteFlow} className='button button-outline' style={{ minWidth: 140, justifyContent: 'center', borderColor: 'rgba(248,113,113,0.45)', color: '#f87171', background: 'rgba(248,113,113,0.1)' }}>
                   {t('flows.deleteNow')}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Templates modal */}
+      {showTemplates && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(620px, 100%)', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+            <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.9), transparent)' }} />
+            <div style={{ padding: 18, display: 'grid', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>Flow Templates</div>
+                <button onClick={() => setShowTemplates(false)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 13 }}>x</button>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>Start from a predefined template. A new flow will be created.</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+                {FLOW_TEMPLATES.map((tpl) => (
+                  <button key={tpl.name} onClick={() => loadTemplate(tpl)}
+                    style={{ padding: 14, borderRadius: 12, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6, transition: 'border-color 0.15s, background 0.15s' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(13,148,136,0.5)'; (e.currentTarget as HTMLElement).style.background = 'rgba(13,148,136,0.06)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--panel-border-3)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)'; }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{tpl.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-45)', lineHeight: 1.4 }}>{tpl.description}</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+                      {tpl.nodes.map((n) => (
+                        <span key={n.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: n.color + '18', border: '1px solid ' + n.color + '30', color: n.color, fontWeight: 600 }}>
+                          {n.icon} {n.label}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -646,6 +731,99 @@ export default function FlowsPage() {
             />
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── ExecutionTimeline ─────────────────────────────────────────────────────────
+function ExecutionTimeline({ steps, summary, nodes, onClose }: {
+  steps: DryRunStep[];
+  summary: string;
+  nodes: FlowNode[];
+  onClose: () => void;
+}) {
+  const { t } = useLocale();
+  const [expandedStep, setExpandedStep] = useState<string | null>(null);
+
+  const TIMELINE_COLORS: Record<string, string> = {
+    done: '#22c55e', completed: '#22c55e',
+    failed: '#f87171',
+    running: '#38bdf8',
+    waiting: '#f59e0b',
+    skipped: '#6b7280',
+  };
+
+  const totalDuration = steps.reduce((sum, s) => sum + s.durationMs, 0);
+  const completedCount = steps.filter((s) => s.status === 'done').length;
+  const maxDuration = Math.max(...steps.map((s) => s.durationMs), 1);
+
+  function getNodeIcon(stepId: string) {
+    const node = nodes.find((n) => n.id === stepId);
+    return node?.icon ?? '?';
+  }
+
+  return (
+    <div style={{ marginBottom: 12, borderRadius: 14, border: '1px solid rgba(34,197,94,0.2)', background: 'var(--panel)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{t('flows.dryRunResult')}</div>
+        <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>x</button>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{summary}</div>
+
+      {/* Horizontal pipeline */}
+      <div style={{ display: 'flex', gap: 2, alignItems: 'center', overflowX: 'auto', padding: '4px 0' }}>
+        {steps.map((s, i) => {
+          const sc = TIMELINE_COLORS[s.status] ?? '#6b7280';
+          const isExpanded = expandedStep === s.id;
+          return (
+            <React.Fragment key={s.id}>
+              {i > 0 && <div style={{ width: 20, height: 2, background: sc + '40', flexShrink: 0 }} />}
+              <button onClick={() => setExpandedStep(isExpanded ? null : s.id)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 12px', borderRadius: 10, border: '1px solid ' + sc + (isExpanded ? '50' : '25'), background: isExpanded ? sc + '0c' : 'var(--surface)', cursor: 'pointer', minWidth: 80, flexShrink: 0, transition: 'border-color 0.15s, background 0.15s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: sc, flexShrink: 0 }} />
+                  <span style={{ fontSize: 14 }}>{getNodeIcon(s.id)}</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-78)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>{s.label}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: sc }}>
+                  {s.status === 'done' ? `${s.durationMs}ms` : s.status === 'waiting' ? t('flows.stepStatus.waiting') : t('flows.stepStatus.skipped')}
+                </div>
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Expanded step detail */}
+      {expandedStep && (() => {
+        const step = steps.find((s) => s.id === expandedStep);
+        if (!step) return null;
+        const sc = TIMELINE_COLORS[step.status] ?? '#6b7280';
+        const node = nodes.find((n) => n.id === step.id);
+        return (
+          <div style={{ borderRadius: 10, border: '1px solid ' + sc + '30', background: sc + '06', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{step.label}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: sc, padding: '2px 8px', borderRadius: 999, background: sc + '18' }}>{step.status}</span>
+            </div>
+            {node && <div style={{ fontSize: 10, color: 'var(--ink-35)' }}>Type: {node.type} | Role: {node.role}</div>}
+            {step.durationMs > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--panel-border-2)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 2, background: sc, width: `${(step.durationMs / maxDuration) * 100}%`, transition: 'width 0.3s' }} />
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--ink-45)', fontWeight: 600, flexShrink: 0 }}>{step.durationMs}ms</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Summary bar */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '6px 0 0', borderTop: '1px solid var(--panel-border-2)', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: 'var(--ink-45)', fontWeight: 600 }}>Total: {totalDuration}ms</span>
+        <span style={{ fontSize: 10, color: 'var(--ink-45)', fontWeight: 600 }}>{completedCount}/{steps.length} steps completed</span>
       </div>
     </div>
   );
@@ -1385,6 +1563,7 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
             <option value="github">{t('flows.nodeTypeGithub')}</option>
             <option value="notify">{t('flows.nodeTypeNotify')}</option>
             <option value="condition">{t('flows.nodeTypeCondition')}</option>
+            <option value="local_apply">Local Apply</option>
           </select>
         </div>
 
@@ -1805,7 +1984,8 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
             <select value={node.notify_channel ?? 'webhook'} onChange={(e) => onChange({ notify_channel: e.target.value })}
               style={{ ...pInp, cursor: 'pointer' }}>
               <option value="webhook">Webhook</option>
-              <option value="slack" disabled>Slack (coming soon)</option>
+              <option value="slack">Slack Webhook</option>
+              <option value="teams">Teams Webhook</option>
               <option value="email" disabled>Email (coming soon)</option>
             </select>
           </div>
@@ -1886,6 +2066,28 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
           </CollapsibleSection>
         </>)}
 
+        {/* LOCAL APPLY */}
+        {node.type === 'local_apply' && (<>
+          <div>
+            <label style={pLbl}>Repo Path</label>
+            <input value={node.repo_path ?? ''} onChange={(e) => onChange({ repo_path: e.target.value })}
+              placeholder="Auto-detect from task" style={pInp} />
+            <div style={{ fontSize: 9, color: 'var(--ink-25)', marginTop: 3 }}>Leave empty to auto-detect from task context</div>
+          </div>
+          <div>
+            <label style={pLbl}>Branch Prefix</label>
+            <input value={node.branch_prefix ?? 'ai/task-'} onChange={(e) => onChange({ branch_prefix: e.target.value })}
+              placeholder="ai/task-" style={pInp} />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <div onClick={() => onChange({ local_create_pr: !node.local_create_pr })}
+              style={{ width: 36, height: 20, borderRadius: 999, background: node.local_create_pr ? '#22c55e' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: 2, left: node.local_create_pr ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </div>
+            <span style={{ fontSize: 13, color: 'var(--ink-58)' }}>Create PR after apply</span>
+          </label>
+        </>)}
+
       </div>
     </div>
   );
@@ -1956,6 +2158,29 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
         </div>
       </div>
 
+      {/* Summary bar */}
+      {!loading && runs.length > 0 && (() => {
+        const latest = runs[0];
+        const ago = Math.round((Date.now() - new Date(latest.started_at).getTime()) / 60000);
+        const agoText = ago < 1 ? 'just now' : ago < 60 ? `${ago}m ago` : `${Math.round(ago / 60)}h ago`;
+        const totalSteps = latest.steps.length;
+        const totalTokens = latest.steps.reduce((sum, s) => {
+          const out = s.output as Record<string, unknown> | null;
+          return sum + (typeof out?.tokens === 'number' ? (out.tokens as number) : 0);
+        }, 0);
+        const sc = STATUS_COLOR[latest.status] ?? '#fff';
+        return (
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', background: sc + '06', flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: 'var(--ink-58)', lineHeight: 1.6 }}>
+              Last run: <span style={{ fontWeight: 700 }}>{agoText}</span>
+              {' · '}<span style={{ color: sc, fontWeight: 700 }}>{latest.status}</span>
+              {' · '}{totalSteps} steps
+              {totalTokens > 0 && <>{' · '}{totalTokens > 1000 ? `${(totalTokens / 1000).toFixed(1)}K` : totalTokens} tokens</>}
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
         {loading && <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-30)', fontSize: 12 }}>{t('flows.loading')}</div>}
         {!loading && runs.length === 0 && (
@@ -1993,28 +2218,70 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
               </button>
 
               {/* Expanded: step details inline */}
-              {isOpen && (
-                <div style={{ padding: '6px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6, borderLeft: `3px solid ${sc}40`, marginLeft: 12, marginBottom: 4 }}>
-                  {run.steps.map((step) => {
-                    const stepColor = STATUS_COLOR[step.status] ?? '#fff';
-                    return (
-                      <div key={step.id} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${stepColor}25`, background: `${stepColor}06` }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-78)' }}>{step.node_label ?? step.node_id}</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, color: stepColor, padding: '1px 6px', borderRadius: 999, background: `${stepColor}18` }}>{step.status}</span>
-                        </div>
-                        <div style={{ fontSize: 9, color: 'var(--ink-30)' }}>{step.node_type}</div>
-                        {step.error_msg && <div style={{ fontSize: 10, color: '#f87171', marginTop: 4 }}>{step.error_msg}</div>}
-                        {Boolean(step.output) && typeof step.output === 'object' && Boolean((step.output as Record<string, unknown>).output) && (
-                          <div style={{ fontSize: 9, color: 'var(--ink-45)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 60, overflow: 'hidden' }}>
-                            {String((step.output as Record<string, unknown>).output).slice(0, 200)}
+              {isOpen && (() => {
+                const maxStepDur = Math.max(...run.steps.map((s) => {
+                  if (!s.started_at || !s.finished_at) return 0;
+                  return new Date(s.finished_at).getTime() - new Date(s.started_at).getTime();
+                }), 1);
+                // Collect PR links from step outputs
+                const prLinks: string[] = [];
+                run.steps.forEach((s) => {
+                  const out = s.output as Record<string, unknown> | null;
+                  if (out) {
+                    const prUrl = out.pr_url ?? out.new_pr_url ?? out.pull_request_url;
+                    if (typeof prUrl === 'string' && prUrl.startsWith('http')) prLinks.push(prUrl);
+                  }
+                });
+                return (
+                  <div style={{ padding: '6px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6, borderLeft: `3px solid ${sc}40`, marginLeft: 12, marginBottom: 4 }}>
+                    {run.steps.map((step) => {
+                      const stepColor = STATUS_COLOR[step.status] ?? '#fff';
+                      const dur = step.started_at && step.finished_at ? new Date(step.finished_at).getTime() - new Date(step.started_at).getTime() : 0;
+                      const out = step.output as Record<string, unknown> | null;
+                      const tokens = out && typeof out.tokens === 'number' ? out.tokens as number : 0;
+                      return (
+                        <div key={step.id} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${stepColor}25`, background: `${stepColor}06` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-78)' }}>{step.node_label ?? step.node_id}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {dur > 0 && <span style={{ fontSize: 9, color: 'var(--ink-35)', fontWeight: 600 }}>{dur < 1000 ? `${dur}ms` : `${(dur / 1000).toFixed(1)}s`}</span>}
+                              <span style={{ fontSize: 9, fontWeight: 700, color: stepColor, padding: '1px 6px', borderRadius: 999, background: `${stepColor}18` }}>{step.status}</span>
+                            </div>
                           </div>
-                        )}
+                          {/* Duration bar */}
+                          {dur > 0 && (
+                            <div style={{ height: 3, borderRadius: 2, background: 'var(--panel-border-2)', overflow: 'hidden', marginBottom: 4 }}>
+                              <div style={{ height: '100%', borderRadius: 2, background: stepColor, width: `${(dur / maxStepDur) * 100}%` }} />
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 9, color: 'var(--ink-30)' }}>{step.node_type}</span>
+                            {tokens > 0 && <span style={{ fontSize: 9, color: 'var(--ink-30)' }}>{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}K` : tokens} tokens</span>}
+                          </div>
+                          {step.error_msg && <div style={{ fontSize: 10, color: '#f87171', marginTop: 4 }}>{step.error_msg}</div>}
+                          {Boolean(out) && typeof out === 'object' && Boolean(out?.output) && (
+                            <div style={{ fontSize: 9, color: 'var(--ink-45)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 60, overflow: 'hidden' }}>
+                              {String(out?.output).slice(0, 200)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* PR links */}
+                    {prLinks.length > 0 && (
+                      <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#0d9488', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Pull Requests</div>
+                        {prLinks.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'block', fontSize: 10, color: '#0d9488', fontWeight: 600, textDecoration: 'underline', wordBreak: 'break-all' }}>
+                            {url}
+                          </a>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

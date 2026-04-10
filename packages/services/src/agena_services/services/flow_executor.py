@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re as _re_module
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,10 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agena_models.models.agent_log import AgentLog
 from agena_models.models.flow_run import FlowRun, FlowRunStep
 from agena_models.models.task_record import TaskRecord
+from agena_models.schemas.github import GitHubFileChange
 from agena_services.services.azure_pr_service import AzurePRService
 from agena_services.services.github_service import GitHubService
 from agena_services.services.integration_config_service import IntegrationConfigService
 from agena_services.services.llm.provider import LLMProvider
+from agena_services.services.local_repo_service import LocalRepoService
 from agena_agents.agents.crewai_agents import AGENT_TOKEN_LIMITS
 from agena_services.services.orchestration_service import OrchestrationService
 from agena_services.services.prompt_service import PromptService
@@ -64,6 +67,93 @@ async def _resolve_agent_model(
     return default, ''
 
 
+# ── Variable substitution helper ─────────────────────────────────────────────
+
+
+def _substitute_variables(template: str, context: dict[str, Any]) -> str:
+    """Replace {{task.FIELD}} and {{outputs.NODE_ID.FIELD}} placeholders in a template string."""
+    if not template:
+        return template
+    result = template
+    # Replace {{task.FIELD}} placeholders
+    task = context.get('task', {})
+    for k, v in task.items():
+        result = result.replace(f'{{{{task.{k}}}}}', str(v))
+        # Also support bare {{FIELD}} for backward compatibility
+        result = result.replace(f'{{{{{k}}}}}', str(v))
+    # Replace {{outputs.NODE_ID.FIELD}} placeholders
+    for nid, out in context.get('outputs', {}).items():
+        if isinstance(out, dict):
+            for ok, ov in out.items():
+                result = result.replace(f'{{{{outputs.{nid}.{ok}}}}}', str(ov))
+    return result
+
+
+def _extract_generated_code(context: dict[str, Any]) -> str:
+    """Search context outputs for generated code from a previous node."""
+    # Check direct context key first
+    if context.get('generated_code'):
+        return str(context['generated_code'])
+    # Search through node outputs
+    for _nid, out in context.get('outputs', {}).items():
+        if not isinstance(out, dict):
+            continue
+        if out.get('generated_code'):
+            return str(out['generated_code'])
+        if out.get('output') and '```' in str(out['output']):
+            return str(out['output'])
+    return ''
+
+
+def _parse_files_from_generated_code(generated_code: str) -> list[GitHubFileChange]:
+    """Parse file blocks from generated code output (same patterns as OrchestrationService)."""
+    patterns = [
+        # **File: path** + ```code```
+        _re_module.compile(r'\*{0,2}File:\s*(.*?)\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```', _re_module.DOTALL),
+        # ### File: path + ```code```
+        _re_module.compile(r'#+\s*(?:File:?\s*)?`?([^\n`]+)`?\r?\n```[^\n]*\r?\n(.*?)```', _re_module.DOTALL),
+        # `path.ext`: + ```code```
+        _re_module.compile(r'`([^`\n]+\.[a-zA-Z]{1,10})`\s*:?\r?\n```[^\n]*\r?\n(.*?)```', _re_module.DOTALL),
+        # Fallback: file path ending in known extension + next fenced block
+        _re_module.compile(
+            r'(?:^|\n)\s*\*{0,2}([\w/._-]+\.(?:go|py|ts|tsx|js|jsx|java|rs|rb|cs))\s*\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```',
+            _re_module.DOTALL,
+        ),
+        # File: path + raw block until next File: marker
+        _re_module.compile(
+            r'(?:^|\n)\s*\*{0,2}File:\s*([^\n*`]+?)\*{0,2}\s*\r?\n(.*?)(?=(?:\n\s*\*{0,2}File:\s*[^\n]+)|\Z)',
+            _re_module.DOTALL,
+        ),
+    ]
+    matches: list[tuple[str, str]] = []
+    for pat in patterns:
+        matches = pat.findall(generated_code)
+        if matches:
+            break
+
+    files: list[GitHubFileChange] = []
+    for path_raw, content in matches:
+        clean_path = path_raw.strip().strip('`').strip()
+        if not clean_path:
+            continue
+        normalized = clean_path.replace('\\', '/')
+        if normalized.startswith('/'):
+            continue
+        if _re_module.match(r'^[A-Za-z]:/', normalized):
+            continue
+        if '/..' in f'/{normalized}' or normalized.startswith('..'):
+            continue
+
+        body = content.strip()
+        fenced_match = _re_module.match(r'^```[^\n]*\n(.*?)\n```$', body, _re_module.DOTALL)
+        if fenced_match:
+            body = fenced_match.group(1)
+        final_content = body.rstrip() + '\n'
+        files.append(GitHubFileChange(path=clean_path, content=final_content))
+
+    return files
+
+
 # ── Node executor dispatch ────────────────────────────────────────────────────
 
 async def execute_node(
@@ -98,6 +188,9 @@ async def execute_node(
 
     elif node_type == 'condition':
         return _run_condition_node(node, context)
+
+    elif node_type == 'local_apply':
+        return await _run_local_apply_node(node, context, db, organization_id)
 
     else:
         return {'status': 'skipped', 'message': f'Unknown node type: {node_type}'}
@@ -682,59 +775,323 @@ async def _run_http_node(node: dict[str, Any], context: dict[str, Any]) -> dict[
         return {'status': 'error', 'message': str(e)}
 
 
+async def _run_local_apply_node(
+    node: dict[str, Any],
+    context: dict[str, Any],
+    db: AsyncSession,
+    organization_id: int,
+) -> dict[str, Any]:
+    """Apply generated code to a local repository and optionally push."""
+    task = context.get('task', {})
+
+    # 1. Extract generated code from previous node outputs
+    generated_code = _extract_generated_code(context)
+    if not generated_code:
+        return {'status': 'error', 'message': 'No generated_code found in previous node outputs'}
+
+    # 2. Resolve repo_path from node config or task description
+    repo_path: str = node.get('repo_path', '')
+    if not repo_path:
+        # Parse "Local Repo Path: /some/path" from task description
+        desc = str(task.get('description', ''))
+        match = _re_module.search(r'Local Repo Path:\s*(.+)', desc)
+        if match:
+            repo_path = match.group(1).strip()
+    if not repo_path:
+        return {'status': 'error', 'message': 'repo_path not specified in node config or task description'}
+
+    # 3. Parse file blocks from generated code
+    files = _parse_files_from_generated_code(generated_code)
+    if not files:
+        return {
+            'status': 'ok',
+            'files_changed': 0,
+            'branch_name': '',
+            'has_changes': False,
+            'message': 'No file blocks could be parsed from generated code',
+        }
+
+    # 4. Apply changes using LocalRepoService
+    branch_name = node.get('branch', '') or f'ai/flow-task-{task.get("id", "unknown")}'
+    base_branch = node.get('base_branch', 'main')
+    commit_message = node.get('commit_message', f'feat: AI-generated changes for task {task.get("title", "")}')
+    remote_url = node.get('remote_url', '') or None
+    remote_pat = node.get('remote_pat', '') or None
+
+    try:
+        local_svc = LocalRepoService()
+        has_changes, result_branch = await local_svc.apply_changes_and_push(
+            repo_path=repo_path,
+            branch_name=branch_name,
+            base_branch=base_branch,
+            commit_message=commit_message,
+            files=files,
+            remote_url=remote_url,
+            remote_pat=remote_pat,
+        )
+        logger.info('local_apply node: %d files written to %s (branch=%s, has_changes=%s)',
+                     len(files), repo_path, result_branch, has_changes)
+        return {
+            'status': 'ok',
+            'files_changed': len(files),
+            'branch_name': result_branch,
+            'has_changes': has_changes,
+            'repo_path': repo_path,
+            'message': f'{len(files)} file(s) applied to {repo_path}',
+        }
+    except Exception as exc:
+        logger.warning('local_apply node failed: %s', exc)
+        return {'status': 'error', 'message': str(exc)}
+
+
 async def _run_github_node(
     node: dict[str, Any], context: dict[str, Any],
     db: AsyncSession, organization_id: int,
 ) -> dict[str, Any]:
-    """GitHub adımı: pipeline'dan oluşan PR bilgisini doğrular/raporlar."""
+    """GitHub operations: create_branch, create_pr, merge_pr."""
     action = node.get('github_action', 'create_pr')
     task = context.get('task', {})
-    repo = node.get('repo', '')
     outputs = context.get('outputs', {})
+    repo_full = node.get('repo', '')  # format: 'owner/repo'
 
-    for output in outputs.values():
-        if isinstance(output, dict) and output.get('pr_url'):
-            return {
-                'status': 'ok',
-                'action': action,
-                'repo': repo,
-                'pr_url': output.get('pr_url'),
-                'message': f'PR is ready: {output.get("pr_url")}',
-            }
+    # ── create_pr ────────────────────────────────────────────────────────────
+    if action == 'create_pr':
+        # If a previous node already created a PR, pass it through
+        for output in outputs.values():
+            if isinstance(output, dict) and output.get('pr_url'):
+                return {
+                    'status': 'ok',
+                    'action': action,
+                    'repo': repo_full,
+                    'pr_url': output.get('pr_url'),
+                    'message': f'PR is ready: {output.get("pr_url")}',
+                }
 
-    raw_task_id = task.get('id')
-    try:
-        task_id = int(str(raw_task_id))
-    except Exception:
-        task_id = None
+        # Check TaskRecord for existing PR
+        raw_task_id = task.get('id')
+        try:
+            task_id = int(str(raw_task_id))
+        except Exception:
+            task_id = None
 
-    if task_id is not None:
-        row_result = await db.execute(
-            select(TaskRecord).where(
-                TaskRecord.id == task_id,
-                TaskRecord.organization_id == organization_id,
+        if task_id is not None:
+            row_result = await db.execute(
+                select(TaskRecord).where(
+                    TaskRecord.id == task_id,
+                    TaskRecord.organization_id == organization_id,
+                )
             )
-        )
-        row = row_result.scalar_one_or_none()
-        if row and row.pr_url:
+            row = row_result.scalar_one_or_none()
+            if row and row.pr_url:
+                return {
+                    'status': 'ok',
+                    'action': action,
+                    'repo': repo_full,
+                    'pr_url': row.pr_url,
+                    'branch_name': row.branch_name,
+                    'message': f'PR already created: {row.pr_url}',
+                }
+
+        # Try to create a real PR using generated code from previous nodes
+        generated_code = _extract_generated_code(context)
+        if not generated_code:
             return {
                 'status': 'ok',
                 'action': action,
-                'repo': repo,
-                'pr_url': row.pr_url,
-                'branch_name': row.branch_name,
-                'message': f'PR already created: {row.pr_url}',
+                'warning': True,
+                'message': (
+                    'PR URL not found and no generated_code available. '
+                    'Run a developer node with execute_task_pipeline=true '
+                    'and create_pr=true before this step, or ensure a code-generating node runs first.'
+                ),
             }
 
-    return {
-        'status': 'ok',
-        'action': action,
-        'warning': True,
-        'message': (
-            'PR URL not found. Run a developer node with execute_task_pipeline=true '
-            'and create_pr=true before this step.'
-        ),
-    }
+        # Parse owner/repo
+        if '/' not in repo_full:
+            return {'status': 'error', 'message': f'Invalid repo format (expected owner/repo): {repo_full}'}
+        owner, repo_name = repo_full.split('/', 1)
+
+        branch_name = node.get('branch', '') or f'ai/task-{task.get("id", "unknown")}'
+        target_branch = node.get('target_branch', 'main')
+        pr_title = _substitute_variables(
+            node.get('pr_title', '') or f'AI: {task.get("title", "")}', context,
+        )
+        pr_description = _substitute_variables(
+            node.get('pr_description', '') or f'Auto-generated PR for task: {task.get("title", "")}', context,
+        )
+        commit_message = node.get('commit_message', f'feat: AI-generated changes for {task.get("title", "")}')
+
+        files = _parse_files_from_generated_code(generated_code)
+        if not files:
+            return {
+                'status': 'ok',
+                'action': action,
+                'warning': True,
+                'message': 'Generated code found but no file blocks could be parsed.',
+            }
+
+        try:
+            gh_svc = GitHubService()
+            pr_url = await gh_svc.push_files_and_create_pr(
+                owner=owner,
+                repo=repo_name,
+                branch_name=branch_name,
+                target_branch=target_branch,
+                title=pr_title,
+                body=pr_description,
+                files=[{'path': f.path, 'content': f.content} for f in files],
+                commit_message=commit_message,
+                organization_id=organization_id,
+            )
+            logger.info('GitHub create_pr: %s (files=%d)', pr_url, len(files))
+            return {
+                'status': 'ok',
+                'action': action,
+                'repo': repo_full,
+                'pr_url': pr_url,
+                'branch_name': branch_name,
+                'files_count': len(files),
+                'message': f'PR created: {pr_url}',
+            }
+        except Exception as exc:
+            logger.warning('GitHub create_pr failed: %s', exc)
+            return {'status': 'error', 'action': action, 'message': str(exc)}
+
+    # ── merge_pr ─────────────────────────────────────────────────────────────
+    elif action == 'merge_pr':
+        # Find pr_url or pr_number from previous outputs or node config
+        pr_url = node.get('pr_url', '')
+        pr_number: int | None = None
+        if not pr_url:
+            for out in outputs.values():
+                if isinstance(out, dict):
+                    if out.get('pr_url'):
+                        pr_url = str(out['pr_url'])
+                        break
+        # Also check TaskRecord
+        if not pr_url:
+            raw_task_id = task.get('id')
+            try:
+                tid = int(str(raw_task_id))
+            except Exception:
+                tid = None
+            if tid is not None:
+                row_result = await db.execute(
+                    select(TaskRecord).where(
+                        TaskRecord.id == tid,
+                        TaskRecord.organization_id == organization_id,
+                    )
+                )
+                row = row_result.scalar_one_or_none()
+                if row and row.pr_url:
+                    pr_url = row.pr_url
+
+        if not pr_url:
+            return {'status': 'error', 'action': 'merge_pr', 'message': 'No PR URL found to merge'}
+
+        gh_svc = GitHubService()
+        ref = gh_svc.parse_pr_ref(pr_url)
+        if ref is None:
+            return {'status': 'error', 'action': 'merge_pr', 'message': f'Could not parse PR URL: {pr_url}'}
+        owner, repo_name, pr_number = ref
+
+        try:
+            from agena_core.settings import get_settings
+            settings = get_settings()
+            token = (settings.github_token or '').strip()
+            if not token:
+                cfg = await IntegrationConfigService(db).get_config(organization_id, 'github')
+                if cfg and cfg.secret:
+                    token = cfg.secret
+            if not token:
+                return {'status': 'error', 'action': 'merge_pr', 'message': 'No GitHub token available'}
+
+            merge_method = node.get('merge_method', 'squash')  # merge, squash, rebase
+            headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
+            async with httpx.AsyncClient(timeout=30) as client:
+                r = await client.put(
+                    f'https://api.github.com/repos/{owner}/{repo_name}/pulls/{pr_number}/merge',
+                    headers=headers,
+                    json={'merge_method': merge_method},
+                )
+                if r.is_success:
+                    logger.info('GitHub merge_pr: %s (#%d)', pr_url, pr_number)
+                    return {
+                        'status': 'ok',
+                        'action': 'merge_pr',
+                        'pr_url': pr_url,
+                        'pr_number': pr_number,
+                        'message': f'PR #{pr_number} merged successfully',
+                    }
+                else:
+                    return {
+                        'status': 'error',
+                        'action': 'merge_pr',
+                        'pr_url': pr_url,
+                        'http_status': r.status_code,
+                        'message': f'Merge failed: {r.text}',
+                    }
+        except Exception as exc:
+            logger.warning('GitHub merge_pr failed: %s', exc)
+            return {'status': 'error', 'action': 'merge_pr', 'message': str(exc)}
+
+    # ── create_branch ────────────────────────────────────────────────────────
+    elif action == 'create_branch':
+        if '/' not in repo_full:
+            return {'status': 'error', 'message': f'Invalid repo format (expected owner/repo): {repo_full}'}
+        owner, repo_name = repo_full.split('/', 1)
+        branch_name = node.get('branch', '') or f'ai/task-{task.get("id", "unknown")}'
+        source_branch = node.get('source_branch', 'main')
+
+        try:
+            from agena_core.settings import get_settings
+            settings = get_settings()
+            token = (settings.github_token or '').strip()
+            if not token:
+                cfg = await IntegrationConfigService(db).get_config(organization_id, 'github')
+                if cfg and cfg.secret:
+                    token = cfg.secret
+            if not token:
+                return {'status': 'error', 'action': 'create_branch', 'message': 'No GitHub token available'}
+
+            base_url = f'https://api.github.com/repos/{owner}/{repo_name}'
+            headers = {'Authorization': f'token {token}', 'Accept': 'application/vnd.github.v3+json'}
+            async with httpx.AsyncClient(timeout=30) as client:
+                # Get source branch SHA
+                r = await client.get(f'{base_url}/git/ref/heads/{source_branch}', headers=headers)
+                r.raise_for_status()
+                base_sha = r.json()['object']['sha']
+
+                # Create branch
+                r = await client.post(f'{base_url}/git/refs', headers=headers,
+                    json={'ref': f'refs/heads/{branch_name}', 'sha': base_sha})
+                if r.status_code == 422:
+                    # Branch already exists
+                    logger.info('GitHub create_branch: branch %s already exists', branch_name)
+                    return {
+                        'status': 'ok',
+                        'action': 'create_branch',
+                        'repo': repo_full,
+                        'branch_name': branch_name,
+                        'message': f'Branch {branch_name} already exists',
+                    }
+                r.raise_for_status()
+                logger.info('GitHub create_branch: %s on %s', branch_name, repo_full)
+                return {
+                    'status': 'ok',
+                    'action': 'create_branch',
+                    'repo': repo_full,
+                    'branch_name': branch_name,
+                    'sha': base_sha,
+                    'message': f'Branch {branch_name} created from {source_branch}',
+                }
+        except Exception as exc:
+            logger.warning('GitHub create_branch failed: %s', exc)
+            return {'status': 'error', 'action': 'create_branch', 'message': str(exc)}
+
+    # ── Unknown action fallback ──────────────────────────────────────────────
+    else:
+        return {'status': 'error', 'message': f'Unknown github_action: {action}'}
 
 
 async def _resolve_or_create_task_id(
@@ -1228,26 +1585,71 @@ async def _run_azure_devops_node(
 
 
 async def _run_notify_node(node: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
-    """Bildirim gönderir (webhook/slack/email)."""
+    """Send notifications via webhook, Slack, Teams, or email."""
     channel = node.get('channel', 'webhook')
     webhook_url = node.get('webhook_url', '')
-    message_template = node.get('message', 'Flow tamamlandı: {{title}}')
-
+    message_template = node.get('message', 'Flow completed: {{title}}')
     task = context.get('task', {})
-    message = message_template
-    for k, v in task.items():
-        message = message.replace(f'{{{{{k}}}}}', str(v))
+
+    # Apply full variable substitution (task fields + output variables)
+    message = _substitute_variables(message_template, context)
 
     if channel == 'webhook' and webhook_url:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.post(webhook_url, json={'text': message, 'task': task})
-                return {'status': 'ok', 'http_status': r.status_code, 'message': message}
+                return {'status': 'ok', 'channel': 'webhook', 'http_status': r.status_code, 'message': message}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            return {'status': 'error', 'channel': 'webhook', 'message': str(e)}
 
-    # Slack, email vb. — TODO
-    return {'status': 'ok', 'channel': channel, 'message': message, 'note': 'simulated'}
+    elif channel == 'slack' and webhook_url:
+        # Slack incoming webhook with Block Kit formatting
+        payload = {
+            'blocks': [
+                {
+                    'type': 'section',
+                    'text': {
+                        'type': 'mrkdwn',
+                        'text': message,
+                    },
+                },
+            ],
+            'text': message,  # Fallback for notifications
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.post(webhook_url, json=payload)
+                return {'status': 'ok', 'channel': 'slack', 'http_status': r.status_code, 'message': message}
+        except Exception as e:
+            return {'status': 'error', 'channel': 'slack', 'message': str(e)}
+
+    elif channel == 'teams' and webhook_url:
+        # Microsoft Teams incoming webhook (MessageCard format)
+        payload = {
+            '@type': 'MessageCard',
+            '@context': 'http://schema.org/extensions',
+            'summary': 'Flow Notification',
+            'themeColor': '0076D7',
+            'title': f'Flow Notification — {task.get("title", "")}',
+            'text': message,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.post(webhook_url, json=payload)
+                return {'status': 'ok', 'channel': 'teams', 'http_status': r.status_code, 'message': message}
+        except Exception as e:
+            return {'status': 'error', 'channel': 'teams', 'message': str(e)}
+
+    elif channel == 'email':
+        # Email — not yet implemented, return informative stub
+        return {
+            'status': 'ok',
+            'channel': 'email',
+            'message': message,
+            'note': 'Email channel not yet configured. Use webhook, slack, or teams.',
+        }
+
+    return {'status': 'ok', 'channel': channel, 'message': message, 'note': 'Channel not recognized or webhook_url missing'}
 
 
 def _run_condition_node(node: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
