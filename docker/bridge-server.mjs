@@ -85,6 +85,9 @@ const server = createServer(async (req, res) => {
   let result;
   if (url.pathname === '/codex') {
     result = await runCLI(codexBin, 'codex', data);
+  } else if (url.pathname === '/claude/stream') {
+    await runCLIStream(claudeBin, 'claude', data, res);
+    return;
   } else if (url.pathname === '/claude') {
     result = await runCLI(claudeBin, 'claude', data);
   } else if (url.pathname === '/codex/auth') {
@@ -110,6 +113,139 @@ const server = createServer(async (req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(result));
 });
+
+async function runCLIStream(bin, name, data, res) {
+  if (!bin) {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    res.write(`data: ${JSON.stringify({ type: 'error', message: `${name} binary not found` })}\n\n`);
+    res.end();
+    return;
+  }
+  const { repo_path, prompt, model, timeout = 300 } = data;
+  if (repo_path && !existsSync(repo_path)) {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    res.write(`data: ${JSON.stringify({ type: 'error', message: `repo path not found: ${repo_path}` })}\n\n`);
+    res.end();
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  // Use --output-format stream-json for real-time streaming (requires --verbose)
+  const args = ['--print', '--dangerously-skip-permissions', '--verbose', '--output-format', 'stream-json'];
+  if (model) args.push('--model', model);
+  args.push('-p', prompt.slice(0, 10000));
+
+  console.log(`[${name} stream] running in ${repo_path} (model=${model || 'default'}, timeout=${timeout}s)`);
+
+  const proc = spawn(bin, args, {
+    cwd: repo_path,
+    env: { ...process.env, NO_COLOR: '1', NODE_EXTRA_CA_CERTS: '/etc/ssl/certs/ca-certificates.crt' },
+  });
+
+  let fullText = '';
+  let lineBuffer = '';
+
+  proc.stdout.on('data', (chunk) => {
+    const text = chunk.toString();
+    lineBuffer += text;
+    // stream-json outputs one JSON object per line
+    while (lineBuffer.includes('\n')) {
+      const idx = lineBuffer.indexOf('\n');
+      const line = lineBuffer.slice(0, idx).trim();
+      lineBuffer = lineBuffer.slice(idx + 1);
+      if (!line) continue;
+      try {
+        const event = JSON.parse(line);
+        const eventType = event.type;
+        // assistant message with content delta
+        if (eventType === 'content_block_delta') {
+          const delta = event.delta?.text || '';
+          if (delta) {
+            fullText += delta;
+            res.write(`data: ${JSON.stringify({ type: 'text', text: delta })}\n\n`);
+          }
+        } else if (eventType === 'assistant') {
+          // Full assistant message — extract text content
+          const content = event.message?.content || [];
+          for (const block of content) {
+            if (block.type === 'text' && block.text) {
+              fullText += block.text;
+              res.write(`data: ${JSON.stringify({ type: 'text', text: block.text })}\n\n`);
+            } else if (block.type === 'tool_use') {
+              const toolName = block.name || 'unknown';
+              const toolInput = block.input || {};
+              // Send tool usage info for live display
+              let toolSummary = `[Tool: ${toolName}]`;
+              if (toolName === 'Edit' || toolName === 'Write') {
+                toolSummary = `[${toolName}: ${toolInput.file_path || toolInput.path || ''}]`;
+              } else if (toolName === 'Read') {
+                toolSummary = `[Read: ${toolInput.file_path || ''}]`;
+              } else if (toolName === 'Bash') {
+                const cmd = (toolInput.command || '').slice(0, 150);
+                toolSummary = `[Bash: ${cmd}]`;
+              } else if (toolName === 'Grep') {
+                toolSummary = `[Grep: ${toolInput.pattern || ''}]`;
+              }
+              res.write(`data: ${JSON.stringify({ type: 'tool', tool: toolName, summary: toolSummary })}\n\n`);
+            }
+          }
+        } else if (eventType === 'result') {
+          // Final result
+          const resultText = event.result || '';
+          if (resultText && !fullText.includes(resultText.slice(0, 100))) {
+            fullText += resultText;
+          }
+          res.write(`data: ${JSON.stringify({ type: 'result', text: resultText.slice(0, 500) })}\n\n`);
+        } else {
+          // Forward other events (system, tool_result, etc.) as-is for visibility
+          res.write(`data: ${JSON.stringify({ type: 'event', event_type: eventType })}\n\n`);
+        }
+      } catch {
+        // Not JSON — forward as raw line (fallback)
+        if (line) {
+          fullText += line + '\n';
+          res.write(`data: ${JSON.stringify({ type: 'line', text: line })}\n\n`);
+        }
+      }
+    }
+  });
+
+  proc.stderr.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) {
+      res.write(`data: ${JSON.stringify({ type: 'stderr', text })}\n\n`);
+    }
+  });
+
+  const timer = setTimeout(() => {
+    proc.kill();
+    res.write(`data: ${JSON.stringify({ type: 'error', message: `timed out after ${timeout}s` })}\n\n`);
+    res.end();
+  }, timeout * 1000);
+
+  proc.on('close', (code) => {
+    clearTimeout(timer);
+    if (lineBuffer.trim()) {
+      fullText += lineBuffer.trim();
+      res.write(`data: ${JSON.stringify({ type: 'line', text: lineBuffer.trim() })}\n\n`);
+    }
+    res.write(`data: ${JSON.stringify({ type: 'done', code, stdout_length: fullText.length })}\n\n`);
+    res.end();
+  });
+
+  proc.on('error', (e) => {
+    clearTimeout(timer);
+    res.write(`data: ${JSON.stringify({ type: 'error', message: e.message })}\n\n`);
+    res.end();
+  });
+
+  proc.stdin.end();
+}
 
 async function runCLI(bin, name, data) {
   if (!bin) return { status: 'error', message: `${name} binary not found in container` };

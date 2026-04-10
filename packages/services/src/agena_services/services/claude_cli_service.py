@@ -72,11 +72,13 @@ class ClaudeCLIService:
                     while '\n' in line_buffer:
                         line, line_buffer = line_buffer.split('\n', 1)
                         line = line.strip()
-                        if line and log_line_count < 50:
-                            preview = line[:200] + ('...' if len(line) > 200 else '')
-                            if line.startswith('**File:') or line.startswith('```'):
-                                await log_callback(f'CLI: {preview}')
-                                log_line_count += 1
+                        if not line:
+                            continue
+                        if log_line_count >= 200:
+                            continue
+                        preview = line[:300] + ('...' if len(line) > 300 else '')
+                        await log_callback(f'CLI: {preview}')
+                        log_line_count += 1
 
         try:
             await asyncio.wait_for(_stream_stdout(), timeout=self.EXEC_TIMEOUT_SEC)
@@ -97,32 +99,88 @@ class ClaudeCLIService:
         return content
 
     async def _run_bridge(self, repo_path: str, prompt: str, model: str | None, log_callback: LogCallback | None = None) -> str:
+        import json as _json
         import httpx
 
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+
+        # Stream endpoint — real-time logs via SSE (bridge uses --output-format stream-json)
         try:
-            async with httpx.AsyncClient(timeout=self.EXEC_TIMEOUT_SEC + 10) as client:
-                resp = await client.post(
-                    f'{bridge_url}/claude',
+            collected_text: list[str] = []
+            log_line_count = 0
+            async with httpx.AsyncClient(timeout=httpx.Timeout(self.EXEC_TIMEOUT_SEC + 10, connect=10)) as client:
+                async with client.stream(
+                    'POST',
+                    f'{bridge_url}/claude/stream',
                     json={
                         'repo_path': repo_path,
                         'prompt': prompt,
                         'model': model or '',
                         'timeout': self.EXEC_TIMEOUT_SEC,
                     },
-                )
-                data = resp.json()
+                ) as resp:
+                    error_msg = None
+                    async for raw_line in resp.aiter_lines():
+                        if not raw_line.startswith('data: '):
+                            continue
+                        try:
+                            event = _json.loads(raw_line[6:])
+                        except (ValueError, TypeError):
+                            continue
+
+                        etype = event.get('type', '')
+                        if etype == 'text':
+                            # Partial text delta from Claude
+                            text = event.get('text', '')
+                            if text:
+                                collected_text.append(text)
+                        elif etype == 'tool':
+                            # Tool usage event — log it for live display
+                            summary = event.get('summary', '')
+                            if log_callback and summary and log_line_count < 200:
+                                await log_callback(summary)
+                                log_line_count += 1
+                        elif etype == 'line':
+                            # Fallback raw line
+                            text = event.get('text', '')
+                            if text:
+                                collected_text.append(text + '\n')
+                            if log_callback and log_line_count < 200 and text.strip():
+                                preview = text[:300] + ('...' if len(text) > 300 else '')
+                                await log_callback(f'CLI: {preview}')
+                                log_line_count += 1
+                        elif etype == 'result':
+                            text = event.get('text', '')
+                            if log_callback and text:
+                                await log_callback(f'CLI result: {text[:200]}')
+                        elif etype == 'event':
+                            pass  # other lifecycle events
+                        elif etype == 'stderr':
+                            pass
+                        elif etype == 'error':
+                            error_msg = event.get('message', 'unknown error')
+                        elif etype == 'done':
+                            if event.get('code', 0) != 0 and not collected_text:
+                                error_msg = error_msg or 'claude exited with non-zero code'
+
+                    if error_msg and not collected_text:
+                        raise RuntimeError(f'claude bridge error: {error_msg}')
+
+            # Log summary of what was collected
+            if log_callback:
+                total_chars = sum(len(t) for t in collected_text)
+                await log_callback(f'CLI completed: {total_chars} chars output')
+
+            content = ''.join(collected_text).strip()
+            if not content:
+                raise RuntimeError('claude bridge returned empty output')
+            return content
+
         except httpx.ConnectError:
             raise RuntimeError(f'CLI bridge unreachable at {bridge_url} — is the cli-bridge service running?')
         except httpx.TimeoutException:
             raise RuntimeError(f'CLI bridge request timed out after {self.EXEC_TIMEOUT_SEC}s')
-        except (httpx.RequestError, ValueError) as exc:
+        except RuntimeError:
+            raise
+        except (httpx.RequestError, Exception) as exc:
             raise RuntimeError(f'CLI bridge request failed: {exc}')
-
-        if data.get('status') != 'ok':
-            raise RuntimeError(f'claude bridge error: {data.get("message", data.get("stderr", "unknown"))}')
-
-        content = (data.get('stdout') or '').strip()
-        if not content:
-            raise RuntimeError('claude bridge returned empty output')
-        return content
