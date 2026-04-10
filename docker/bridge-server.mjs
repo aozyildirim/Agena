@@ -112,6 +112,10 @@ async function runCLI(bin, name, data) {
   if (!bin) return { status: 'error', message: `${name} binary not found in container` };
 
   const { repo_path, prompt, model, timeout = 300 } = data;
+  // Validate repo path exists before spawning — otherwise Node gives a misleading ENOENT on the binary
+  if (repo_path && !existsSync(repo_path)) {
+    return { status: 'error', message: `repo path not found: ${repo_path}` };
+  }
   // Write prompt to temp file to avoid E2BIG (arg too long)
   mkdirSync('/tmp/cli-bridge', { recursive: true });
   const promptFile = join('/tmp/cli-bridge', `${name}-${Date.now()}.txt`);
