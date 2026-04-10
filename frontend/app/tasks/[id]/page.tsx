@@ -517,7 +517,7 @@ export default function TaskDetailPage() {
     setShowRunConfig(true);
   }
 
-  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string }) {
+  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string; flowId?: string }) {
     if (!taskId) return;
     try {
       setIsRerunBusy(true);
@@ -530,6 +530,7 @@ export default function TaskDetailPage() {
           agent_model: agentOpts?.model || task?.preferred_agent_model || undefined,
           agent_provider: agentOpts?.provider || task?.preferred_agent_provider || undefined,
           extra_description: extraDesc || undefined,
+          flow_id: agentOpts?.flowId || undefined,
         }),
       });
       setSelectedRunIndex(-1);
@@ -1360,7 +1361,7 @@ export default function TaskDetailPage() {
 
 function RunConfigModal({ task, onRun, onClose }: {
   task: TaskDetail | null;
-  onRun: (extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string }) => void;
+  onRun: (extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string; flowId?: string }) => void;
   onClose: () => void;
 }) {
   const { t } = useLocale();
@@ -1387,8 +1388,10 @@ function RunConfigModal({ task, onRun, onClose }: {
   const [selectedMapping, setSelectedMapping] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<{ role: string; label: string; provider: string; model: string; custom_model?: string }[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('');
-  const [runMode, setRunMode] = useState<'agent' | 'mcp'>((task?.last_mode === 'mcp_agent') ? 'mcp' : 'agent');
+  const [runMode, setRunMode] = useState<'agent' | 'mcp' | 'flow'>((task?.last_mode === 'mcp_agent') ? 'mcp' : 'agent');
   const [createPr, setCreatePr] = useState(true);
+  const [flows, setFlows] = useState<{ id: string; name: string; description?: string; nodes?: unknown[] }[]>([]);
+  const [selectedFlow, setSelectedFlow] = useState('');
 
   useEffect(() => {
     loadPrefs().then((prefs) => {
@@ -1407,6 +1410,11 @@ function RunConfigModal({ task, onRun, onClose }: {
         });
         setAgentConfigs(active);
         setSelectedAgent(active[0]?.role || '');
+      }
+      const userFlows = prefs.flows as typeof flows | undefined;
+      if (userFlows?.length) {
+        setFlows(userFlows);
+        setSelectedFlow(userFlows[0]?.id || '');
       }
     }).catch(() => {});
   }, []);
@@ -1430,7 +1438,13 @@ function RunConfigModal({ task, onRun, onClose }: {
     const agent = agentConfigs.find((a) => a.role === selectedAgent);
     onRun(
       parts.length > 0 ? parts.join('\n') : undefined,
-      { provider: runMode === 'mcp' ? (agent?.provider || undefined) : (agent?.provider || undefined), model: agent?.custom_model || agent?.model || undefined, createPr, mode: runMode === 'mcp' ? 'mcp_agent' : undefined },
+      {
+        provider: agent?.provider || undefined,
+        model: agent?.custom_model || agent?.model || undefined,
+        createPr,
+        mode: runMode === 'mcp' ? 'mcp_agent' : runMode === 'flow' ? 'flow' : undefined,
+        flowId: runMode === 'flow' ? selectedFlow || undefined : undefined,
+      },
     );
   }
 
@@ -1502,6 +1516,15 @@ function RunConfigModal({ task, onRun, onClose }: {
                   color: runMode === 'agent' ? '#5eead4' : 'var(--ink-45)' }}>
                 🤖 AI Agent
               </button>
+              {flows.length > 0 && (
+                <button type="button" onClick={() => setRunMode('flow')}
+                  style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    border: runMode === 'flow' ? '1px solid rgba(168,85,247,0.5)' : '1px solid var(--panel-border-2)',
+                    background: runMode === 'flow' ? 'rgba(168,85,247,0.12)' : 'transparent',
+                    color: runMode === 'flow' ? '#c084fc' : 'var(--ink-45)' }}>
+                  🔀 Flow
+                </button>
+              )}
             </div>
           </div>
 
@@ -1528,6 +1551,27 @@ function RunConfigModal({ task, onRun, onClose }: {
               </div>
             )}
           </div>
+
+          {/* Flow selection (only visible in Flow mode) */}
+          {runMode === 'flow' && flows.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Flow</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {flows.map((f) => (
+                  <button key={f.id} onClick={() => setSelectedFlow(f.id)}
+                    style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      border: selectedFlow === f.id ? '1px solid rgba(168,85,247,0.5)' : '1px solid var(--panel-border-2)',
+                      background: selectedFlow === f.id ? 'rgba(168,85,247,0.12)' : 'transparent',
+                      color: selectedFlow === f.id ? '#c084fc' : 'var(--ink-45)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, textAlign: 'left' }}>
+                    <span>{f.name}</span>
+                    {f.description && <span style={{ fontSize: 9, opacity: 0.6 }}>{f.description}</span>}
+                    {f.nodes && <span style={{ fontSize: 9, opacity: 0.4 }}>{(f.nodes as unknown[]).length} nodes</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Create PR toggle */}
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-65)', cursor: 'pointer' }}>
