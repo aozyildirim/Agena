@@ -24,14 +24,14 @@ class ClaudeCLIService:
         log_callback: LogCallback | None = None,
     ) -> str:
         prompt = (
-            'Implement the task in the CURRENT repository and return ONLY markdown file blocks:\n'
-            '**File: relative/path.ext**\n'
-            '```language\n...content...\n```\n\n'
-            'Rules:\n'
-            '- Use repository-relative file paths only.\n'
-            '- Prefer editing existing files.\n'
-            '- Keep changes minimal.\n'
-            '- Do not output explanations, only file blocks.\n\n'
+            'Implement the following task in the CURRENT repository.\n\n'
+            'WORKFLOW:\n'
+            '1. Read the relevant source files to understand the existing code.\n'
+            '2. Use the Edit or Write tools to make changes directly in the repo.\n'
+            '3. Keep changes minimal and focused on the task.\n'
+            '4. After all edits are done, output a summary listing every file you changed.\n\n'
+            'IMPORTANT: Actually edit the files using tools — do NOT just output code blocks.\n'
+            'If a file is large, read it first, then make targeted edits.\n\n'
             f'Task title: {task_title}\n'
             f'Task description:\n{task_description}\n'
         )
