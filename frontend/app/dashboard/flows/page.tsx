@@ -1468,18 +1468,23 @@ function VariablePicker({ targetRef, onInsert }: { targetRef: React.RefObject<HT
 
 // ── Model / Provider options ─────────────────────────────────────────────────
 const MODEL_OPTIONS = [
+  { value: 'sonnet', label: 'Claude Sonnet' },
+  { value: 'opus', label: 'Claude Opus' },
+  { value: 'haiku', label: 'Claude Haiku' },
   { value: 'gpt-4o', label: 'GPT-4o' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'gpt-5', label: 'GPT-5' },
+  { value: 'gpt-4.1', label: 'GPT-4.1' },
+  { value: 'o3', label: 'o3' },
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  { value: 'claude-sonnet', label: 'Claude Sonnet' },
   { value: 'custom', label: 'Custom' },
 ];
 
 const PROVIDER_OPTIONS = [
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'gemini', label: 'Gemini' },
+  { value: 'claude_cli', label: 'Claude CLI' },
+  { value: 'codex_cli', label: 'Codex CLI' },
+  { value: 'openai', label: 'OpenAI API' },
+  { value: 'gemini', label: 'Gemini API' },
   { value: 'custom', label: 'Custom' },
 ];
 
@@ -1643,7 +1648,7 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
           )}
 
           {/* Model & Provider */}
-          <CollapsibleSection title="Model & Provider" defaultOpen={false}>
+          <CollapsibleSection title="Model & Provider" defaultOpen={true}>
             <div>
               <label style={pLbl}>Model</label>
               <select value={node.model ?? ''} onChange={(e) => onChange({ model: e.target.value })}
