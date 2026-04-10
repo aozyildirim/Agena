@@ -33,6 +33,14 @@ from agena_services.services.task_service import TaskService
 router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
 
 
+async def _get_repo_mapping_name(db: AsyncSession, mapping_id: int | None) -> str | None:
+    if not mapping_id:
+        return None
+    from agena_models.models.repo_mapping import RepoMapping
+    row = await db.get(RepoMapping, mapping_id)
+    return row.repo_name if row else None
+
+
 async def _to_task_response(service: TaskService, organization_id: int, task) -> TaskResponse:
     insights = await service.get_task_insights(organization_id, task)
     preferred_agent_model, preferred_agent_provider = service._extract_preferred_agent_selection(task.description)
@@ -94,6 +102,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         sprint_name=getattr(task, 'sprint_name', None),
         sprint_path=getattr(task, 'sprint_path', None),
         repo_mapping_id=getattr(task, 'repo_mapping_id', None),
+        repo_mapping_name=await _get_repo_mapping_name(service.db, getattr(task, 'repo_mapping_id', None)),
         repo_assignments=repo_assignments,
     )
 

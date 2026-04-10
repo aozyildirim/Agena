@@ -61,6 +61,7 @@ class TaskResponse(BaseModel):
     sprint_name: str | None = None
     sprint_path: str | None = None
     repo_mapping_id: int | None = None
+    repo_mapping_name: str | None = None
     repo_assignments: list['RepoAssignmentResponse'] = Field(default_factory=list)
 
 

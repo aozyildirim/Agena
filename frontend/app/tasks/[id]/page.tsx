@@ -1398,15 +1398,15 @@ function RunConfigModal({ task, onRun, onClose }: {
       if (prefs.repo_mappings?.length) {
         const mList = prefs.repo_mappings as typeof mappings;
         setMappings(mList);
-        // Auto-select mapping: first try repo_mapping_id from DB, then parse from description
+        // Auto-select mapping: try repo_mapping_name from API, then parse from description
         const taskAny = task as Record<string, unknown> | null;
-        const dbMappingId = taskAny?.repo_mapping_id;
-        const byId = dbMappingId ? mList.find((m) => String(m.id) === String(dbMappingId)) : null;
+        const dbMappingName = taskAny?.repo_mapping_name as string | undefined;
+        const byDbName = dbMappingName ? mList.find((m) => m.name === dbMappingName) : null;
         const taskDesc = task?.description || '';
         const mappingMatch = taskDesc.match(/Local Repo Mapping:\s*(.+)/i);
-        const matchedName = mappingMatch?.[1]?.trim();
-        const byName = matchedName ? mList.find((m) => m.name === matchedName) : null;
-        const matched = byId || byName;
+        const descName = mappingMatch?.[1]?.trim();
+        const byDescName = descName ? mList.find((m) => m.name === descName) : null;
+        const matched = byDbName || byDescName;
         setSelectedMapping(matched?.id || mList[0]?.id || '');
         if (matched) setRepoMode('mapping');
       }
