@@ -8,8 +8,11 @@ import { promisify } from 'util';
 import { writeFileSync, readFileSync, unlinkSync, mkdirSync, createReadStream, existsSync } from 'fs';
 import { join } from 'path';
 
+import { homedir } from 'os';
+
 const execFileAsync = promisify(execFile);
 const PORT = 9876;
+const HOME = homedir();
 
 function findBin(name) {
   try {
@@ -56,8 +59,8 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/health') {
-    const codexAuth = existsSync('/root/.codex/auth.json') || !!process.env.OPENAI_API_KEY;
-    const claudeAuth = existsSync('/root/.claude/.credentials.json') || existsSync('/root/.claude/credentials.json');
+    const codexAuth = existsSync(`${HOME}/.codex/auth.json`) || !!process.env.OPENAI_API_KEY;
+    const claudeAuth = existsSync(`${HOME}/.claude/.credentials.json`) || existsSync(`${HOME}/.claude/credentials.json`);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
@@ -142,7 +145,7 @@ async function runCLI(bin, name, data) {
     let apiKey = data.api_key || process.env.OPENAI_API_KEY || '';
     if (!apiKey && name === 'codex') {
       try {
-        const auth = JSON.parse(readFileSync('/root/.codex/auth.json', 'utf8'));
+        const auth = JSON.parse(readFileSync(`${HOME}/.codex/auth.json`, 'utf8'));
         apiKey = auth.api_key || auth.OPENAI_API_KEY || '';
       } catch {}
     }
@@ -300,8 +303,8 @@ async function setAuth(cli, data) {
   try {
     if (cli === 'codex') {
       // Codex uses OPENAI_API_KEY env or ~/.codex/auth.json
-      mkdirSync('/root/.codex', { recursive: true });
-      writeFileSync('/root/.codex/auth.json', JSON.stringify({ api_key: api_key.trim() }));
+      mkdirSync(`${HOME}/.codex`, { recursive: true });
+      writeFileSync(`${HOME}/.codex/auth.json`, JSON.stringify({ api_key: api_key.trim() }));
       // Also set env for current process
       process.env.OPENAI_API_KEY = api_key.trim();
       console.log('[codex] API key saved');
@@ -310,8 +313,8 @@ async function setAuth(cli, data) {
 
     if (cli === 'claude') {
       // Claude uses ~/.claude/.credentials.json
-      mkdirSync('/root/.claude', { recursive: true });
-      writeFileSync('/root/.claude/.credentials.json', JSON.stringify({
+      mkdirSync(`${HOME}/.claude`, { recursive: true });
+      writeFileSync(`${HOME}/.claude/.credentials.json`, JSON.stringify({
         claudeAiOauth: { accessToken: api_key.trim(), expiresAt: '2099-01-01T00:00:00.000Z' }
       }));
       console.log('[claude] API key saved');
@@ -327,14 +330,14 @@ async function setAuth(cli, data) {
 async function clearAuth(cli) {
   try {
     if (cli === 'codex') {
-      const authPath = '/root/.codex/auth.json';
+      const authPath = `${HOME}/.codex/auth.json`;
       if (existsSync(authPath)) unlinkSync(authPath);
       delete process.env.OPENAI_API_KEY;
       return { status: 'ok', message: 'Codex session cleared' };
     }
 
     if (cli === 'claude') {
-      const paths = ['/root/.claude/.credentials.json', '/root/.claude/credentials.json'];
+      const paths = [`${HOME}/.claude/.credentials.json`, `${HOME}/.claude/credentials.json`];
       for (const p of paths) {
         if (existsSync(p)) unlinkSync(p);
       }
