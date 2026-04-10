@@ -151,6 +151,12 @@ class ClaudeCLIService:
                                 log_line_count += 1
                         elif etype == 'result':
                             text = event.get('text', '')
+                            if text:
+                                # result contains the final assembled output — use it
+                                # as primary content if we haven't collected much text
+                                if not collected_text or sum(len(t) for t in collected_text) < len(text):
+                                    collected_text.clear()
+                                    collected_text.append(text)
                             if log_callback and text:
                                 await log_callback(f'CLI result: {text[:200]}')
                         elif etype == 'event':
