@@ -747,8 +747,8 @@ export default function DashboardTasksPage() {
               <div>
                 {task.repo_assignments && task.repo_assignments.length > 0 ? (
                   task.repo_assignments.length === 1 ? (
-                    task.repo_assignments[0].pr_url ? (
-                      <a href={task.repo_assignments[0].pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
+                    (task.repo_assignments[0].pr_url || task.pr_url) ? (
+                      <a href={task.repo_assignments[0].pr_url || task.pr_url!} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
                     ) : (
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: `${statusColor(task.repo_assignments[0].status)}18`, color: statusColor(task.repo_assignments[0].status), fontWeight: 600 }}>
                         {statusLabel(task.repo_assignments[0].status, t)}
