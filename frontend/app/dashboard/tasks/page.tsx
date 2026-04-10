@@ -782,12 +782,8 @@ export default function DashboardTasksPage() {
                 ) : (
                   <>
                     <button onClick={() => void onAssignMCP(task.id)}
-                      style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       Run
-                    </button>
-                    <button onClick={() => void onAssignFlow(task.id)}
-                      style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 8, border: '1px solid rgba(124,58,237,0.3)', background: 'transparent', color: '#a78bfa', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      Flow
                     </button>
                   </>
                 )}
@@ -875,12 +871,8 @@ export default function DashboardTasksPage() {
                       ) : (
                         <>
                           <button onClick={() => void onAssignMCP(task.id)}
-                            style={{ padding: '7px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', cursor: 'pointer' }}>
+                            style={{ padding: '7px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer' }}>
                             Run
-                          </button>
-                          <button onClick={() => void onAssignFlow(task.id)}
-                            style={{ padding: '7px 10px', fontSize: 11, fontWeight: 600, borderRadius: 8, border: '1px solid rgba(124,58,237,0.3)', background: 'transparent', color: '#a78bfa', cursor: 'pointer' }}>
-                            Flow
                           </button>
                         </>
                       )}
@@ -973,19 +965,26 @@ export default function DashboardTasksPage() {
           t={t}
         />
       )}
-      {/* MCP Agent Popup — with repo config */}
+      {/* Unified Run Popup — shows all modes: MCP, AI, Flow */}
       {mcpPopupTaskId !== null && (
         <AssignPopup
           taskId={mcpPopupTaskId}
-          mode='mcp_agent'
+          mode='ai'
           tasks={tasks}
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
           onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
-            void doAssignMCP(id, repoMeta, repoMappingIds, agent.model, agent.provider, pr);
+            if (agent.provider === 'claude_cli' || agent.provider === 'codex_cli') {
+              void doAssignMCP(id, repoMeta, repoMappingIds, agent.model, agent.provider, pr);
+            } else {
+              void doAssignAI(id, agent, repoMeta ? `Remote Repo: ${repoMeta}` : undefined, repoMappingIds, pr);
+            }
           }}
-          onAssignFlow={() => {}}
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+            const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+          }}
           onClose={() => setMcpPopupTaskId(null)}
           t={t}
         />
@@ -1294,7 +1293,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
           {mode === 'mcp_agent' && (
             <McpModelSelect taskId={taskId} agents={agents} hasRepo={hasRepo} repoSel={repoSel} mappingIds={mappingIds} createPr={createPr} onAssignAI={onAssignAI} t={t} />
           )}
-          {mode === 'flow' && (
+          {/* Flow section — always show when flows exist, regardless of mode */}
+          {mode === 'ai' && flows.length > 0 && (
             <div style={{ display: 'grid', gap: 6 }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.assignFlow')}</div>
               {flows.length === 0 ? (
