@@ -623,10 +623,18 @@ async def _run_agent_node(
                 await db.commit()
 
         service = OrchestrationService(db)
+        # Pass agent model/provider from node config or resolved defaults
+        _node_provider = node.get('provider', '').strip() or _resolved_provider or None
+        _node_model = model or None
+        # Determine mode: if provider is a CLI, use mcp_agent mode
+        _mode = 'mcp_agent' if _node_provider in ('claude_cli', 'codex_cli') else 'flow'
         result = await service.run_task_record(
             organization_id=organization_id,
             task_id=task_id,
             create_pr=create_pr,
+            mode=_mode,
+            agent_model=_node_model,
+            agent_provider=_node_provider,
         )
         usage = result.usage.model_dump() if hasattr(result.usage, 'model_dump') else {
             'prompt_tokens': int(getattr(result.usage, 'prompt_tokens', 0)),
