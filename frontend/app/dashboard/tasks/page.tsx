@@ -90,6 +90,9 @@ export default function DashboardTasksPage() {
   const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
   const [mcpPopupTaskId, setMcpPopupTaskId] = useState<number | null>(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<TaskItem | null>(null);
+  const [editTask, setEditTask] = useState<TaskItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const [createMappings, setCreateMappings] = useState<BackendRepoMapping[]>([]);
   const [createMappingsLoaded, setCreateMappingsLoaded] = useState(false);
   const [selectedRepoMappingIds, setSelectedRepoMappingIds] = useState<number[]>([]);
@@ -314,6 +317,27 @@ export default function DashboardTasksPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('tasks.removeFailed'));
+    }
+  }
+
+  function openEditTask(task: TaskItem) {
+    setEditTask(task);
+    setEditTitle(task.title);
+    setEditDesc(task.description || '');
+  }
+
+  async function saveEditTask() {
+    if (!editTask) return;
+    try {
+      await apiFetch('/tasks/' + editTask.id, {
+        method: 'PUT',
+        body: JSON.stringify({ title: editTitle, description: editDesc }),
+      });
+      setEditTask(null);
+      setMsg('Task updated');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Update failed');
     }
   }
 
@@ -770,6 +794,10 @@ export default function DashboardTasksPage() {
                 <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30 }}>
                   {t('tasks.details')}
                 </Link>
+                <button onClick={() => openEditTask(task)}
+                  style={{ padding: '6px 6px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(56,189,248,0.2)', background: 'transparent', color: '#38bdf8', cursor: 'pointer', lineHeight: 1 }}>
+                  ✏️
+                </button>
                 {task.status !== 'running' && (
                   <button onClick={() => setDeleteConfirmTask(task)}
                     style={{ padding: '6px 6px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#ef4444', cursor: 'pointer', lineHeight: 1 }}>
@@ -859,6 +887,10 @@ export default function DashboardTasksPage() {
                       <Link href={`/tasks/${task.id}`} style={{ padding: '7px 10px', fontSize: 11, fontWeight: 600, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', textAlign: 'center', textDecoration: 'none' }}>
                         {t('tasks.details')}
                       </Link>
+                      <button onClick={() => openEditTask(task)}
+                        style={{ padding: '7px 6px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(56,189,248,0.2)', background: 'transparent', color: '#38bdf8', cursor: 'pointer', lineHeight: 1 }}>
+                        ✏️
+                      </button>
                       {task.status !== 'running' && (
                         <button onClick={() => setDeleteConfirmTask(task)}
                           style={{ padding: '7px 6px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#ef4444', cursor: 'pointer', lineHeight: 1 }}>
@@ -982,6 +1014,42 @@ export default function DashboardTasksPage() {
                 style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', color: '#fff' }}>
                 {t('tasks.deleteAction')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit task modal */}
+      {editTask && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setEditTask(null)}>
+          <div style={{ width: 'min(520px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ height: 3, background: 'linear-gradient(90deg, #38bdf8, #7c3aed)' }} />
+            <div style={{ padding: '20px 24px', display: 'grid', gap: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>Edit Task #{editTask.id}</h3>
+                <button onClick={() => setEditTask(null)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>×</button>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>Title</label>
+                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>Description</label>
+                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={6}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setEditTask(null)}
+                  style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                  Cancel
+                </button>
+                <button onClick={() => void saveEditTask()}
+                  style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #0d9488, #22c55e)', border: 'none', color: '#fff' }}>
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         </div>
