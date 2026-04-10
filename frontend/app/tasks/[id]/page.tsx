@@ -1396,8 +1396,15 @@ function RunConfigModal({ task, onRun, onClose }: {
   useEffect(() => {
     loadPrefs().then((prefs) => {
       if (prefs.repo_mappings?.length) {
-        setMappings(prefs.repo_mappings as typeof mappings);
-        setSelectedMapping((prefs.repo_mappings as typeof mappings)[0]?.id || '');
+        const mList = prefs.repo_mappings as typeof mappings;
+        setMappings(mList);
+        // Auto-select mapping that matches task's existing repo config
+        const taskDesc = task?.description || '';
+        const mappingMatch = taskDesc.match(/Local Repo Mapping:\s*(.+)/i);
+        const matchedName = mappingMatch?.[1]?.trim();
+        const matched = matchedName ? mList.find((m) => m.name === matchedName) : null;
+        setSelectedMapping(matched?.id || mList[0]?.id || '');
+        if (matched) setRepoMode('mapping');
       }
       let agents = prefs.agents as typeof agentConfigs | undefined;
       if (!agents?.length) {
@@ -1466,9 +1473,7 @@ function RunConfigModal({ task, onRun, onClose }: {
 
           {/* Repo selection – mapping or remote */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
-              Target Repository {hasRepo && <span style={{ fontSize: 9, color: 'var(--ink-25)', fontWeight: 400 }}>(already configured — select to override)</span>}
-            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Target Repository</div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
               {mappings.length > 0 && (
                 <button type="button" onClick={() => setRepoMode('mapping')}
