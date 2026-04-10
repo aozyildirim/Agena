@@ -1497,6 +1497,7 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
 }) {
   const { t } = useLocale();
   const [promptSlugs, setPromptSlugs] = useState<string[]>([]);
+  const [agentConfigs, setAgentConfigs] = useState<{ role: string; label: string; provider: string; model: string; custom_model?: string }[]>([]);
   const [azureProjects, setAzureProjects] = useState<string[]>([]);
   const [azureRepos, setAzureRepos] = useState<string[]>([]);
   const [azureReposLoading, setAzureReposLoading] = useState(false);
@@ -1511,6 +1512,10 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
     loadPromptCatalog().then((catalog) => {
       const slugs = Object.keys(catalog.effective ?? {});
       setPromptSlugs(slugs);
+    }).catch(() => {});
+    loadPrefs().then((p) => {
+      const agents = (p.agents || []) as typeof agentConfigs;
+      setAgentConfigs(agents.filter((a: Record<string, unknown>) => a.enabled !== false));
     }).catch(() => {});
     // Load Azure projects for azure_devops node
     apiFetch<{ name: string }[]>('/tasks/azure/projects')
@@ -1647,8 +1652,47 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
             </>
           )}
 
-          {/* Model & Provider */}
-          <CollapsibleSection title="Model & Provider" defaultOpen={true}>
+          {/* Agent Selection */}
+          {agentConfigs.length > 0 && (
+            <div>
+              <label style={pLbl}>Agent</label>
+              <select
+                value={(() => {
+                  const match = agentConfigs.find((a) =>
+                    (node.provider && a.provider === node.provider && (a.custom_model || a.model) === node.model) ||
+                    (!node.provider && !node.model && a.role === node.role)
+                  );
+                  return match?.role || '';
+                })()}
+                onChange={(e) => {
+                  const agent = agentConfigs.find((a) => a.role === e.target.value);
+                  if (agent) {
+                    onChange({ model: agent.custom_model || agent.model, provider: agent.provider });
+                  } else {
+                    onChange({ model: '', provider: '' });
+                  }
+                }}
+                style={{ ...pInp, cursor: 'pointer' }}>
+                <option value="">Default (from Settings)</option>
+                {agentConfigs.map((a) => (
+                  <option key={a.role} value={a.role}>
+                    {a.label || a.role} — {a.provider}/{a.custom_model || a.model}
+                  </option>
+                ))}
+              </select>
+              {(node.provider || node.model) && (
+                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ink-45)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: 'var(--ink-60)', fontWeight: 600 }}>{node.provider || 'auto'}</span>
+                  <span>/</span>
+                  <span style={{ color: 'var(--ink-60)', fontWeight: 600 }}>{node.model || 'default'}</span>
+                  <button onClick={() => onChange({ model: '', provider: '' })} style={{ border: 'none', background: 'none', color: 'var(--ink-30)', cursor: 'pointer', fontSize: 11, textDecoration: 'underline', padding: 0 }}>reset</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual Model & Provider override */}
+          <CollapsibleSection title="Model & Provider Override" defaultOpen={false}>
             <div>
               <label style={pLbl}>Model</label>
               <select value={node.model ?? ''} onChange={(e) => onChange({ model: e.target.value })}
@@ -1657,13 +1701,6 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
                 {MODEL_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </div>
-            {node.model === 'custom' && (
-              <div>
-                <label style={pLbl}>Custom Model Name</label>
-                <input value={node.model === 'custom' ? (node as FlowNode & { custom_model?: string }).custom_model ?? '' : ''} onChange={(e) => onChange({ model: 'custom', ...({ custom_model: e.target.value } as unknown as Partial<FlowNode>) })}
-                  placeholder="e.g. my-fine-tuned-model" style={pInp} />
-              </div>
-            )}
             <div>
               <label style={pLbl}>Provider</label>
               <select value={node.provider ?? ''} onChange={(e) => onChange({ provider: e.target.value })}
