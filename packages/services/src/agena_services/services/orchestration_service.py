@@ -1395,14 +1395,16 @@ class OrchestrationService:
         if not repo.is_dir():
             return []
         try:
+            # Set safe.directory to avoid "dubious ownership" errors in Docker
+            git_env = {**__import__('os').environ, 'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'safe.directory', 'GIT_CONFIG_VALUE_0': str(repo)}
             # Get list of changed and untracked files
             diff_result = subprocess.run(
                 ['git', 'diff', '--name-only'],
-                cwd=str(repo), capture_output=True, text=True, timeout=15,
+                cwd=str(repo), capture_output=True, text=True, timeout=15, env=git_env,
             )
             untracked_result = subprocess.run(
                 ['git', 'ls-files', '--others', '--exclude-standard'],
-                cwd=str(repo), capture_output=True, text=True, timeout=15,
+                cwd=str(repo), capture_output=True, text=True, timeout=15, env=git_env,
             )
             changed = set(diff_result.stdout.strip().splitlines()) if diff_result.stdout.strip() else set()
             untracked = set(untracked_result.stdout.strip().splitlines()) if untracked_result.stdout.strip() else set()
