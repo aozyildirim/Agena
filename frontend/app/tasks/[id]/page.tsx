@@ -238,6 +238,12 @@ export default function TaskDetailPage() {
   const [activeCodeTab, setActiveCodeTab] = useState(0);
   const [isRerunBusy, setIsRerunBusy] = useState(false);
   const [showRunConfig, setShowRunConfig] = useState(false);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = showRunConfig ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showRunConfig]);
   const [isCancelBusy, setIsCancelBusy] = useState(false);
   const [isDepsBusy, setIsDepsBusy] = useState(false);
   const [selectedDependencyIds, setSelectedDependencyIds] = useState<number[]>([]);
