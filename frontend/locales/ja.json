@@ -147,6 +147,7 @@
   "tasks.status.completed": "完了",
   "tasks.status.failed": "失敗",
   "tasks.status.cancelled": "キャンセル済み",
+  "tasks.status.pending": "保留中",
   "tasks.source.all": "すべてのソース",
   "tasks.source.internal": "内部",
   "tasks.source.azure": "Azure",

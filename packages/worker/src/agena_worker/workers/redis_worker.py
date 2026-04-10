@@ -320,13 +320,24 @@ async def process_queue() -> None:
 async def _run_safe(payload: dict) -> None:
     try:
         await _run_single_task(payload)
-    except Exception:
+    except Exception as exc:
         logger.exception('Worker failed payload=%s', payload)
         org_id = int(payload.get('organization_id', 0) or 0)
         t_id = int(payload.get('task_id', 0) or 0)
         if org_id > 0 and t_id > 0:
+            reason = str(exc)[:500]
+            try:
+                async with SessionLocal() as session:
+                    task = await session.get(TaskRecord, t_id)
+                    if task and task.status != 'completed':
+                        task.status = 'failed'
+                        task.failure_reason = reason
+                        await session.commit()
+            except Exception:
+                logger.exception('Failed to persist failure_reason for task %s', t_id)
             publish_fire_and_forget(org_id, 'task_status', {
                 'task_id': t_id, 'status': 'failed', 'title': '',
+                'failure_reason': reason,
             })
 
 

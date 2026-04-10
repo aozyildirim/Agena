@@ -310,7 +310,6 @@ async def assign_task(
     service = TaskService(db)
     # Append extra config (remote repo, agent info) to description before assign
     if payload.extra_description:
-        from sqlalchemy import select
         from agena_models.models.task_record import TaskRecord
         result = await db.execute(
             select(TaskRecord).where(

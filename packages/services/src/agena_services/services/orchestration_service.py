@@ -98,6 +98,19 @@ class OrchestrationService:
         repo_mapping = await self._resolve_repo_mapping(task, assignment_id=assignment_id)
         routing = self._extract_task_routing(task, repo_mapping)
 
+        # Construct azure_repo_url from integration config when repo mapping is Azure
+        # but no explicit Azure Repo URL exists in task metadata
+        if (routing.effective_source == 'azure'
+                and not routing.azure_repo_url
+                and repo_mapping
+                and repo_mapping.provider == 'azure'):
+            try:
+                az_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'azure')
+                if az_cfg and az_cfg.base_url:
+                    routing.azure_repo_url = f'{az_cfg.base_url.rstrip("/")}/{repo_mapping.owner}/_git/{repo_mapping.repo_name}'
+            except Exception:
+                pass
+
         # Override model/provider if explicitly passed from assignment
         if agent_model:
             routing.preferred_agent_model = agent_model
@@ -216,13 +229,22 @@ class OrchestrationService:
                 async def _cli_log(msg: str) -> None:
                     await task_service.add_log(task.id, organization_id, 'agent', msg)
 
-                final_code = await self.claude_cli_service.generate_file_markdown(
-                    repo_path=routing.local_repo_path,
-                    task_title=task.title,
-                    task_description=effective_description,
-                    model=routing.preferred_agent_model,
-                    log_callback=_cli_log,
-                )
+                try:
+                    final_code = await self.claude_cli_service.generate_file_markdown(
+                        repo_path=routing.local_repo_path,
+                        task_title=task.title,
+                        task_description=effective_description,
+                        model=routing.preferred_agent_model,
+                        log_callback=_cli_log,
+                    )
+                except Exception as claude_exc:
+                    await task_service.add_log(
+                        task.id,
+                        organization_id,
+                        'agent',
+                        f'Claude CLI failed: {str(claude_exc)[:280]}',
+                    )
+                    raise
                 prompt_estimate = self._estimate_tokens(f'{task.title}\n{task.description or ""}')
                 completion_estimate = self._estimate_tokens(final_code)
                 state = {
@@ -853,8 +875,11 @@ class OrchestrationService:
 
             # MCP agent mode: build PR payload directly from file_changes
             # instead of parsing final_code string (which may not have **File:** blocks)
-            mcp_file_changes = state.get('file_changes') if mode == 'mcp_agent' else None
-            if mode == 'mcp_agent' and not mcp_file_changes:
+            # Skip MCP file_changes path when CLI provider was used — CLI produces
+            # markdown file blocks in final_code, not structured file_changes.
+            _used_cli_provider = routing.preferred_agent_provider in ('claude_cli', 'codex_cli')
+            mcp_file_changes = state.get('file_changes') if mode == 'mcp_agent' and not _used_cli_provider else None
+            if mode == 'mcp_agent' and not mcp_file_changes and not _used_cli_provider and not final_code:
                 # MCP agent ran but produced no file changes — log and continue
                 await task_service.add_log(task.id, organization_id, 'agent',
                     'MCP Agent completed analysis but produced no file changes.')

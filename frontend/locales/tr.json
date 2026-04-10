@@ -985,6 +985,7 @@
   "tasks.status.completed": "Tamamlandı",
   "tasks.status.failed": "Başarısız",
   "tasks.status.cancelled": "İptal",
+  "tasks.status.pending": "Beklemede",
   "tasks.source.all": "Tüm Kaynaklar",
   "tasks.source.internal": "İç",
   "tasks.source.azure": "Azure",

@@ -147,6 +147,7 @@
   "tasks.status.completed": "Completato",
   "tasks.status.failed": "Fallito",
   "tasks.status.cancelled": "Annullato",
+  "tasks.status.pending": "In attesa",
   "tasks.source.all": "Tutte le fonti",
   "tasks.source.internal": "Interno",
   "tasks.source.azure": "Azure",

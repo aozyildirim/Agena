@@ -100,17 +100,24 @@ class ClaudeCLIService:
         import httpx
 
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
-        async with httpx.AsyncClient(timeout=self.EXEC_TIMEOUT_SEC + 10) as client:
-            resp = await client.post(
-                f'{bridge_url}/claude',
-                json={
-                    'repo_path': repo_path,
-                    'prompt': prompt,
-                    'model': model or '',
-                    'timeout': self.EXEC_TIMEOUT_SEC,
-                },
-            )
-            data = resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=self.EXEC_TIMEOUT_SEC + 10) as client:
+                resp = await client.post(
+                    f'{bridge_url}/claude',
+                    json={
+                        'repo_path': repo_path,
+                        'prompt': prompt,
+                        'model': model or '',
+                        'timeout': self.EXEC_TIMEOUT_SEC,
+                    },
+                )
+                data = resp.json()
+        except httpx.ConnectError:
+            raise RuntimeError(f'CLI bridge unreachable at {bridge_url} — is the cli-bridge service running?')
+        except httpx.TimeoutException:
+            raise RuntimeError(f'CLI bridge request timed out after {self.EXEC_TIMEOUT_SEC}s')
+        except (httpx.RequestError, ValueError) as exc:
+            raise RuntimeError(f'CLI bridge request failed: {exc}')
 
         if data.get('status') != 'ok':
             raise RuntimeError(f'claude bridge error: {data.get("message", data.get("stderr", "unknown"))}')

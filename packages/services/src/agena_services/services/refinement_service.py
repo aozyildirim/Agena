@@ -448,17 +448,24 @@ class RefinementService:
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
         cli = 'claude' if cli_provider == 'claude_cli' else 'codex'
 
-        async with httpx.AsyncClient(timeout=300) as client:
-            resp = await client.post(
-                f'{bridge_url}/{cli}',
-                json={
-                    'repo_path': '/tmp',
-                    'prompt': prompt,
-                    'model': model or '',
-                    'timeout': 240,
-                },
-            )
-            data = resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=300) as client:
+                resp = await client.post(
+                    f'{bridge_url}/{cli}',
+                    json={
+                        'repo_path': '/tmp',
+                        'prompt': prompt,
+                        'model': model or '',
+                        'timeout': 240,
+                    },
+                )
+                data = resp.json()
+        except httpx.ConnectError:
+            raise RuntimeError(f'CLI bridge unreachable at {bridge_url} — is the cli-bridge service running?')
+        except httpx.TimeoutException:
+            raise RuntimeError(f'CLI bridge request timed out (300s)')
+        except (httpx.RequestError, ValueError) as exc:
+            raise RuntimeError(f'CLI bridge request failed: {exc}')
 
         if data.get('status') != 'ok':
             raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')

@@ -253,9 +253,16 @@ class CodexCLIService:
         if api_base_url:
             payload['api_base_url'] = api_base_url
 
-        async with httpx.AsyncClient(timeout=300) as client:
-            resp = await client.post(f'{bridge_url}/{cli}', json=payload)
-            data = resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=300) as client:
+                resp = await client.post(f'{bridge_url}/{cli}', json=payload)
+                data = resp.json()
+        except httpx.ConnectError:
+            raise RuntimeError(f'CLI bridge unreachable at {bridge_url} — is the cli-bridge service running?')
+        except httpx.TimeoutException:
+            raise RuntimeError(f'CLI bridge request timed out after {self.EXEC_TIMEOUT_SEC}s')
+        except (httpx.RequestError, ValueError) as exc:
+            raise RuntimeError(f'CLI bridge request failed: {exc}')
 
         if data.get('status') != 'ok':
             raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')
