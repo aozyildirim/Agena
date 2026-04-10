@@ -1753,14 +1753,61 @@ async def run_flow(
     skip_nodes: set[str] = set()  # Nodes to skip due to condition branching
     node_map = {n['id']: n for n in ordered}
 
+    # ── Boss Mode integration: set task to running + write agent logs ──
+    task_id: int | None = task.get('id')
+    task_record: TaskRecord | None = None
+    if task_id:
+        task_record = await db.get(TaskRecord, task_id)
+        if task_record:
+            task_record.status = 'running'
+            await db.flush()
+
+    # Role → boss-mode log message mapping (triggers correct animations)
+    _ROLE_START_MSG: dict[str, str] = {
+        'analyzer': 'Step 1: Fetching context & analyzing task requirements',
+        'pm': 'PM analyzing task scope and acceptance criteria',
+        'product_review': 'PM analyzing task scope and acceptance criteria',
+        'planner': 'AI plan: creating implementation plan with file changes',
+        'developer': 'Step 3: Developer generating code implementation',
+        'lead_developer': 'Step 4: Finalize — reviewing and preparing output',
+        'reviewer': 'Code review in progress',
+        'qa': 'QA review: checking implementation quality',
+    }
+    _ROLE_DONE_MSG: dict[str, str] = {
+        'analyzer': 'PM result: analysis complete',
+        'pm': 'PM result: analysis complete',
+        'product_review': 'PM result: analysis complete',
+        'planner': 'AI plan result: implementation plan ready',
+        'developer': 'Developer result: code generation complete',
+        'lead_developer': 'Finalize result: output prepared',
+        'reviewer': 'Review result: review complete',
+        'qa': 'Review result: QA check complete',
+    }
+
+    async def _flow_log(stage: str, message: str) -> None:
+        """Write an AgentLog entry so /agents/live picks it up for boss mode."""
+        if not task_id:
+            return
+        db.add(AgentLog(
+            task_id=task_id,
+            organization_id=organization_id,
+            stage=stage,
+            message=message,
+        ))
+        await db.flush()
+
+    await _flow_log('running', f'Flow started: {flow["name"]}')
+
     for node in ordered:
         node_id = node['id']
+        node_type = node.get('type', 'agent')
+        node_role = node.get('role', '').strip().lower()
 
         # Skip nodes excluded by condition branching
         if node_id in skip_nodes:
             step = FlowRunStep(
                 run_id=flow_run.id, node_id=node_id,
-                node_type=node.get('type', 'agent'), node_label=node.get('label', ''),
+                node_type=node_type, node_label=node.get('label', ''),
                 status='skipped', input_json='{}',
                 started_at=datetime.now(timezone.utc), finished_at=datetime.now(timezone.utc),
             )
@@ -1771,7 +1818,7 @@ async def run_flow(
         step = FlowRunStep(
             run_id=flow_run.id,
             node_id=node_id,
-            node_type=node.get('type', 'agent'),
+            node_type=node_type,
             node_label=node.get('label', ''),
             status='running',
             input_json=json.dumps({'node': node, 'context_keys': list(context.keys())}),
@@ -1780,14 +1827,24 @@ async def run_flow(
         db.add(step)
         await db.flush()
 
+        # Boss mode: log step start with role-appropriate message
+        if node_type == 'agent':
+            start_msg = _ROLE_START_MSG.get(node_role, f'{node.get("label", node_role)} started')
+            await _flow_log('agent', start_msg)
+
         try:
             output = await execute_node(node, context, db, organization_id)
             step.status = 'completed' if output.get('status') != 'error' else 'failed'
             step.output_json = json.dumps(output, ensure_ascii=False, default=str)
             context['outputs'][node_id] = output
 
+            # Boss mode: log step completion
+            if node_type == 'agent':
+                done_msg = _ROLE_DONE_MSG.get(node_role, f'{node.get("label", node_role)} finished')
+                await _flow_log('agent', done_msg)
+
             # Condition node → apply branching
-            if node.get('type') == 'condition':
+            if node_type == 'condition':
                 context['last_condition'] = output.get('result', False)
                 branch = output.get('branch', 'true')
                 true_target = output.get('true_target', '')
@@ -1809,9 +1866,15 @@ async def run_flow(
             step.error_msg = str(e)
             overall_status = 'failed'
             logger.exception('Flow step failed: %s', node_id)
+            await _flow_log('agent', f'{node.get("label", node_role)} failed: {str(e)[:200]}')
 
         step.finished_at = datetime.now(timezone.utc)
         await db.flush()
+
+    # Boss mode: mark flow complete
+    await _flow_log('agent', 'Flow complete')
+    if task_record:
+        task_record.status = 'completed' if overall_status == 'completed' else 'failed'
 
     flow_run.status = overall_status
     flow_run.finished_at = datetime.now(timezone.utc)
