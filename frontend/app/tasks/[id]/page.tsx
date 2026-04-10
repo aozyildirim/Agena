@@ -517,7 +517,7 @@ export default function TaskDetailPage() {
     setShowRunConfig(true);
   }
 
-  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean }) {
+  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string }) {
     if (!taskId) return;
     try {
       setIsRerunBusy(true);
@@ -526,7 +526,7 @@ export default function TaskDetailPage() {
         method: 'POST',
         body: JSON.stringify({
           create_pr: agentOpts?.createPr ?? defaultCreatePr,
-          mode: task?.last_mode || 'ai',
+          mode: agentOpts?.mode || task?.last_mode || 'ai',
           agent_model: agentOpts?.model || task?.preferred_agent_model || undefined,
           agent_provider: agentOpts?.provider || task?.preferred_agent_provider || undefined,
           extra_description: extraDesc || undefined,
@@ -1360,7 +1360,7 @@ export default function TaskDetailPage() {
 
 function RunConfigModal({ task, onRun, onClose }: {
   task: TaskDetail | null;
-  onRun: (extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean }) => void;
+  onRun: (extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string }) => void;
   onClose: () => void;
 }) {
   const { t } = useLocale();
@@ -1387,6 +1387,7 @@ function RunConfigModal({ task, onRun, onClose }: {
   const [selectedMapping, setSelectedMapping] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<{ role: string; label: string; provider: string; model: string; custom_model?: string }[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('');
+  const [runMode, setRunMode] = useState<'agent' | 'mcp'>((task?.last_mode === 'mcp_agent') ? 'mcp' : 'agent');
   const [createPr, setCreatePr] = useState(true);
 
   useEffect(() => {
@@ -1429,13 +1430,13 @@ function RunConfigModal({ task, onRun, onClose }: {
     const agent = agentConfigs.find((a) => a.role === selectedAgent);
     onRun(
       parts.length > 0 ? parts.join('\n') : undefined,
-      { provider: agent?.provider || undefined, model: agent?.custom_model || agent?.model || undefined, createPr },
+      { provider: runMode === 'mcp' ? (agent?.provider || undefined) : (agent?.provider || undefined), model: agent?.custom_model || agent?.model || undefined, createPr, mode: runMode === 'mcp' ? 'mcp_agent' : undefined },
     );
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px 16px', overflowY: 'auto' }}>
-      <div style={{ width: 'min(480px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden', margin: 'auto 0' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto' }}>
+      <div style={{ width: 'min(480px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ height: 3, background: 'linear-gradient(90deg, #0d9488, #7c3aed, #f59e0b)' }} />
         <div style={{ padding: '18px 20px', display: 'grid', gap: 16 }}>
@@ -1481,6 +1482,27 @@ function RunConfigModal({ task, onRun, onClose }: {
                 {mappings.map((m) => <option key={m.id} value={m.id}>{m.name}{m.local_path ? ` — ${m.local_path}` : ''}</option>)}
               </select>
             )}
+          </div>
+
+          {/* Run mode */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Mode</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" onClick={() => setRunMode('mcp')}
+                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  border: runMode === 'mcp' ? '1px solid rgba(8,145,178,0.5)' : '1px solid var(--panel-border-2)',
+                  background: runMode === 'mcp' ? 'rgba(8,145,178,0.12)' : 'transparent',
+                  color: runMode === 'mcp' ? '#06b6d4' : 'var(--ink-45)' }}>
+                ⚡ MCP Agent
+              </button>
+              <button type="button" onClick={() => setRunMode('agent')}
+                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  border: runMode === 'agent' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                  background: runMode === 'agent' ? 'rgba(94,234,212,0.12)' : 'transparent',
+                  color: runMode === 'agent' ? '#5eead4' : 'var(--ink-45)' }}>
+                🤖 AI Agent
+              </button>
+            </div>
           </div>
 
           {/* Agent selection */}
