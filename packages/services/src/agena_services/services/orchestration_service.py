@@ -1363,6 +1363,11 @@ class OrchestrationService:
         branch_name = re.sub(r'[^a-zA-Z0-9/_#.-]', '-', branch_name).strip('-')
 
         parsed_files = self._parse_reviewed_output_to_files(reviewed_code, local_repo_path=local_repo_path)
+        if not parsed_files and local_repo_path:
+            # CLI agents (Claude/Codex) may edit files directly and return a summary
+            # instead of structured file blocks — fall back to git diff
+            logger.info(f'No file blocks parsed from output, falling back to git diff at {local_repo_path}')
+            parsed_files = await self._collect_git_changes(local_repo_path)
         if not parsed_files:
             logger.error(f'No file blocks parsed. Output length: {len(reviewed_code)} chars. First 2000 chars:\n{reviewed_code[:2000]}')
             raise RuntimeError(
@@ -1383,11 +1388,52 @@ class OrchestrationService:
             files=parsed_files,
         )
 
+    async def _collect_git_changes(self, local_repo_path: str) -> list[GitHubFileChange]:
+        """Collect modified/added files from git working tree (unstaged changes)."""
+        import subprocess
+        repo = Path(local_repo_path).expanduser().resolve()
+        if not repo.is_dir():
+            return []
+        try:
+            # Get list of changed and untracked files
+            diff_result = subprocess.run(
+                ['git', 'diff', '--name-only'],
+                cwd=str(repo), capture_output=True, text=True, timeout=15,
+            )
+            untracked_result = subprocess.run(
+                ['git', 'ls-files', '--others', '--exclude-standard'],
+                cwd=str(repo), capture_output=True, text=True, timeout=15,
+            )
+            changed = set(diff_result.stdout.strip().splitlines()) if diff_result.stdout.strip() else set()
+            untracked = set(untracked_result.stdout.strip().splitlines()) if untracked_result.stdout.strip() else set()
+            all_files = changed | untracked
+        except Exception as exc:
+            logger.warning(f'git diff failed at {repo}: {exc}')
+            return []
+
+        files: list[GitHubFileChange] = []
+        for rel in sorted(all_files):
+            rel = rel.strip()
+            if not rel or rel.startswith('.') or '/..' in f'/{rel}':
+                continue
+            full = repo / rel
+            if not full.is_file():
+                continue
+            try:
+                content = full.read_text(errors='replace')
+            except Exception:
+                continue
+            files.append(GitHubFileChange(path=rel, content=content.rstrip() + '\n'))
+        logger.info(f'Collected {len(files)} file(s) from git working tree: {[f.path for f in files]}')
+        return files
+
     def _parse_reviewed_output_to_files(self, reviewed_code: str, local_repo_path: str | None = None) -> list[GitHubFileChange]:
         # Try multiple patterns — with and without fenced code blocks
         patterns = [
             # **File: path** + ```code```
             re.compile(r'\*{0,2}File:\s*(.*?)\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
+            # **`path`** + ```code``` (Claude CLI summary style)
+            re.compile(r'\*{0,2}`([^`\n]+\.[a-zA-Z]{1,10})`\*{0,2}\s*\r?\n```[^\n]*\r?\n(.*?)```', re.DOTALL),
             # File: path + @@...*** End Patch (no fenced code blocks)
             re.compile(r'\*{0,2}File:\s*([^\n*]+?)\*{0,2}\s*\r?\n\s*(@@.*?(?:\*\*\* End Patch|\Z))', re.DOTALL),
             # ### File: path + ```code```
