@@ -1145,6 +1145,7 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   const [selectedMappingIds, setSelectedMappingIds] = useState<number[]>([]);
   const [mappingsLoaded, setMappingsLoaded] = useState(false);
   const [createPr, setCreatePr] = useState(initialCreatePr);
+  const [selected, setSelected] = useState<{ type: 'agent' | 'cli' | 'flow'; agent?: { role: string; model: string; provider: string }; flow?: { id: string; name: string } } | null>(null);
   const task = tasks.find((tk) => tk.id === taskId);
   const taskDesc = ((task as unknown as { description?: string })?.description || '').toLowerCase();
   const hasRepo = taskDesc.includes('local repo path') || taskDesc.includes('remote repo');
@@ -1250,73 +1251,97 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
           </label>
 
           {/* Agent / Flow selection */}
-          {mode === 'ai' && (
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.selectAgent')}</div>
-              {agents.filter((a) => a.enabled).map((agent) => {
-                const canAssign = hasRepo || repoSel || selectedMappingIds.length > 0;
-                return (
-                <button key={agent.role}
-                  onClick={() => onAssignAI(taskId, agent, !hasRepo ? repoSel?.meta : undefined, mappingIds, createPr)}
-                  disabled={!canAssign}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: !canAssign ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: !canAssign ? 0.5 : 1 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', textTransform: 'capitalize' }}>{agent.role}</div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{agent.model || 'default'} {agent.provider ? `· ${agent.provider}` : ''}</div>
-                  </div>
-                  <span style={{ fontSize: 16, color: 'var(--muted)' }}>→</span>
-                </button>
-                );
-              })}
-              {/* CLI quick-run buttons */}
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginTop: 6 }}>Local CLI</div>
-              {[
-                { label: 'Claude CLI', model: 'sonnet', provider: 'claude_cli', color: '#fb923c', icon: '✎' },
-                { label: 'Codex CLI', model: 'gpt-4o', provider: 'codex_cli', color: '#a78bfa', icon: '⌘' },
-              ].map((cli) => {
-                const canAssign = hasRepo || repoSel || selectedMappingIds.length > 0;
-                return (
-                <button key={cli.provider}
-                  onClick={() => onAssignAI(taskId, { role: 'mcp_agent', model: cli.model, provider: cli.provider }, !hasRepo ? repoSel?.meta : undefined, mappingIds, createPr)}
-                  disabled={!canAssign}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: `1px solid ${cli.color}40`, background: `${cli.color}0a`, cursor: !canAssign ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: !canAssign ? 0.5 : 1 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: cli.color }}>{cli.icon} {cli.label}</div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{cli.provider} · {cli.model}</div>
-                  </div>
-                  <span style={{ fontSize: 16, color: cli.color }}>→</span>
-                </button>
-                );
-              })}
-            </div>
-          )}
-          {mode === 'mcp_agent' && (
-            <McpModelSelect taskId={taskId} agents={agents} hasRepo={hasRepo} repoSel={repoSel} mappingIds={mappingIds} createPr={createPr} onAssignAI={onAssignAI} t={t} />
-          )}
-          {/* Flow section — always show when flows exist, regardless of mode */}
-          {mode === 'ai' && flows.length > 0 && (
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.assignFlow')}</div>
-              {flows.length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--muted)', padding: 10 }}>{t('tasks.noSavedFlows')}</div>
-              ) : flows.map((flow) => {
-                const canAssignFlow = hasRepo || repoSel || selectedMappingIds.length > 0;
-                return (
-                <button key={flow.id}
-                  onClick={() => onAssignFlow(taskId, flow.id, flow.name, !hasRepo ? repoSel?.meta : undefined, mappingIds, createPr)}
-                  disabled={!canAssignFlow}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.06)', cursor: !canAssignFlow ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', opacity: !canAssignFlow ? 0.5 : 1 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{flow.name}</div>
-                  </div>
-                  <span style={{ fontSize: 16, color: '#a78bfa' }}>▶</span>
-                </button>
-                );
-              })}
-            </div>
-          )}
+          {/* Agent / CLI / Flow selection — select first, then run */}
+          <div style={{ display: 'grid', gap: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.selectAgent')}</div>
+            {agents.filter((a) => a.enabled).map((agent) => {
+              const isSelected = selected?.type === 'agent' && selected.agent?.role === agent.role;
+              return (
+              <button key={agent.role}
+                onClick={() => setSelected({ type: 'agent', agent })}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10,
+                  border: isSelected ? '1px solid rgba(94,234,212,0.6)' : '1px solid var(--panel-border-3)',
+                  background: isSelected ? 'rgba(94,234,212,0.12)' : 'var(--panel)',
+                  cursor: 'pointer', textAlign: 'left', width: '100%',
+                  opacity: selected && !isSelected ? 0.4 : 1, transition: 'all 0.15s' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#5eead4' : 'var(--ink)', textTransform: 'capitalize' }}>{agent.role}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{agent.model || 'default'} {agent.provider ? `· ${agent.provider}` : ''}</div>
+                </div>
+                {isSelected && <span style={{ fontSize: 14, color: '#5eead4' }}>✓</span>}
+              </button>
+              );
+            })}
+            {/* CLI options */}
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginTop: 6 }}>Local CLI</div>
+            {[
+              { label: 'Claude CLI', model: 'sonnet', provider: 'claude_cli', color: '#fb923c', icon: '✎' },
+              { label: 'Codex CLI', model: 'gpt-4o', provider: 'codex_cli', color: '#a78bfa', icon: '⌘' },
+            ].map((cli) => {
+              const isSelected = selected?.type === 'cli' && selected.agent?.provider === cli.provider;
+              return (
+              <button key={cli.provider}
+                onClick={() => setSelected({ type: 'cli', agent: { role: 'mcp_agent', model: cli.model, provider: cli.provider } })}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10,
+                  border: isSelected ? `1px solid ${cli.color}80` : `1px solid ${cli.color}40`,
+                  background: isSelected ? `${cli.color}1a` : `${cli.color}0a`,
+                  cursor: 'pointer', textAlign: 'left', width: '100%',
+                  opacity: selected && !isSelected ? 0.4 : 1, transition: 'all 0.15s' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: cli.color }}>{cli.icon} {cli.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{cli.provider} · {cli.model}</div>
+                </div>
+                {isSelected && <span style={{ fontSize: 14, color: cli.color }}>✓</span>}
+              </button>
+              );
+            })}
+            {/* Flow options */}
+            {flows.length > 0 && (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginTop: 6 }}>Flows</div>
+                {flows.map((flow) => {
+                  const isSelected = selected?.type === 'flow' && selected.flow?.id === flow.id;
+                  return (
+                  <button key={flow.id}
+                    onClick={() => setSelected({ type: 'flow', flow })}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10,
+                      border: isSelected ? '1px solid rgba(168,85,247,0.6)' : '1px solid rgba(124,58,237,0.3)',
+                      background: isSelected ? 'rgba(168,85,247,0.15)' : 'rgba(124,58,237,0.06)',
+                      cursor: 'pointer', textAlign: 'left', width: '100%',
+                      opacity: selected && !isSelected ? 0.4 : 1, transition: 'all 0.15s' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#c084fc' : 'var(--ink)' }}>{flow.name}</div>
+                    </div>
+                    {isSelected && <span style={{ fontSize: 14, color: '#c084fc' }}>✓</span>}
+                  </button>
+                  );
+                })}
+              </>
+            )}
+          </div>
 
-          <button onClick={onClose} className='button button-outline' style={{ fontSize: 12, justifyContent: 'center' }}>{t('tasks.cancel')}</button>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} className='button button-outline' style={{ flex: 1, fontSize: 12, justifyContent: 'center' }}>{t('tasks.cancel')}</button>
+            <button
+              disabled={!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)}
+              onClick={() => {
+                if (!selected) return;
+                const repoMeta = !hasRepo ? repoSel?.meta : undefined;
+                if (selected.type === 'flow' && selected.flow) {
+                  onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr);
+                } else if (selected.agent) {
+                  onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr);
+                }
+              }}
+              style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
+                background: selected ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'var(--panel)',
+                border: selected ? 'none' : '1px solid var(--panel-border)',
+                color: selected ? '#fff' : 'var(--ink-30)',
+                opacity: (!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)) ? 0.5 : 1 }}>
+              Run Task
+            </button>
+          </div>
         </div>
       </div>
     </div>,
