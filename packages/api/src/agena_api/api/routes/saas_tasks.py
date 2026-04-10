@@ -93,6 +93,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         total_tokens=insights['total_tokens'],
         sprint_name=getattr(task, 'sprint_name', None),
         sprint_path=getattr(task, 'sprint_path', None),
+        repo_mapping_id=getattr(task, 'repo_mapping_id', None),
         repo_assignments=repo_assignments,
     )
 
