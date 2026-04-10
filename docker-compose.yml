@@ -64,8 +64,8 @@ services:
     volumes:
       - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
       - ./docker/bridge-server.mjs:/app/bridge-server.mjs
-      - cli_codex_auth:/root/.codex
-      - cli_claude_auth:/root/.claude
+      - cli_codex_auth:/home/bridge/.codex
+      - cli_claude_auth:/home/bridge/.claude
     restart: unless-stopped
 
   frontend:

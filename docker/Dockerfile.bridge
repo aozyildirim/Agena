@@ -10,8 +10,13 @@ ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 RUN npm install -g @openai/codex@latest || true
 RUN npm install -g @anthropic-ai/claude-code@latest || true
 
+RUN useradd -m -s /bin/bash bridge \
+ && echo '{}' > /home/bridge/.claude.json \
+ && chown bridge:bridge /home/bridge/.claude.json
+
 WORKDIR /app
 COPY docker/bridge-server.mjs /app/bridge-server.mjs
+COPY docker/bridge-entrypoint.sh /app/bridge-entrypoint.sh
 
 EXPOSE 9876
-CMD ["node", "/app/bridge-server.mjs"]
+CMD ["/app/bridge-entrypoint.sh"]
