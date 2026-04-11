@@ -492,21 +492,35 @@ async def assign_task(
             raise HTTPException(status_code=404, detail='Task not found')
 
         from agena_services.services.flow_executor import run_flow
-        flow_run = await run_flow(
-            flow=flow,
-            task={
-                'id': task_row.id,
-                'title': task_row.title,
-                'description': task_row.description or '',
-                'source': task_row.source or 'internal',
-                'state': task_row.status,
-                'acceptance_criteria': task_row.acceptance_criteria,
-            },
-            user_id=tenant.user_id,
-            organization_id=tenant.organization_id,
-            db=db,
-        )
-        return AssignTaskResponse(queued=True, queue_key=f'flow:{flow_run.id}')
+
+        # Run flow in background so the API returns immediately
+        _flow = flow
+        _task_dict = {
+            'id': task_row.id,
+            'title': task_row.title,
+            'description': task_row.description or '',
+            'source': task_row.source or 'internal',
+            'state': task_row.status,
+            'acceptance_criteria': task_row.acceptance_criteria,
+        }
+        _user_id = tenant.user_id
+        _org_id = tenant.organization_id
+
+        # Mark task as running immediately
+        task_row.status = 'running'
+        await db.commit()
+
+        async def _run_flow_bg() -> None:
+            from agena_core.database import SessionLocal
+            async with SessionLocal() as bg_db:
+                try:
+                    await run_flow(flow=_flow, task=_task_dict, user_id=_user_id, organization_id=_org_id, db=bg_db)
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception('Background flow failed')
+
+        asyncio.create_task(_run_flow_bg())
+        return AssignTaskResponse(queued=True, queue_key=f'flow:background')
 
     # Single-repo or legacy flow
     try:
