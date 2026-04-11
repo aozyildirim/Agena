@@ -44,7 +44,7 @@ class AzurePRService:
 
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(pr_api, headers=self._headers(config.secret), json=payload)
-            if resp.status_code == 409:
+            if resp.status_code in (400, 409):
                 # PR already exists for this branch — find and return the existing one
                 existing_url = await self._find_existing_pr(
                     org_url=org_url,
