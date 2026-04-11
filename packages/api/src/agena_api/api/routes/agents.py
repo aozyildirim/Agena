@@ -116,6 +116,15 @@ def _parse_pipeline_state(logs: list) -> tuple[str | None, str]:
             return 'qa', 'reviewing'
         if 'finalize' in msg and 'result' not in msg:
             return 'lead_developer', 'finalizing'
+        # CLI tool usage logs → developer is actively working
+        if msg.startswith('[') and any(t in msg for t in ['read:', 'edit:', 'write:', 'grep:', 'bash:', 'glob:']):
+            return 'developer', 'generating_code'
+        if msg.startswith('cli:') or msg.startswith('cli '):
+            return 'developer', 'generating_code'
+        if 'worktree created' in msg:
+            return 'developer', 'generating_code'
+        if 'claude cli started' in msg:
+            return 'developer', 'generating_code'
 
         # Non-agent stages
         if stage == 'running':
