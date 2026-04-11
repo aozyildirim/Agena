@@ -341,20 +341,32 @@ async def _build_lead_llm_for_task(
     node: dict[str, Any],
 ) -> LLMProvider | None:
     meta = _parse_task_meta_from_description(str(task_row.description or ''))
-    provider = (str(node.get('provider') or '') or meta.get('preferred agent provider') or 'openai').strip().lower()
+    raw_provider = (str(node.get('provider') or '') or meta.get('preferred agent provider') or 'openai').strip().lower()
+    model = (str(node.get('model') or '') or meta.get('preferred agent model') or '').strip() or None
+
+    # CLI providers can't do direct LLM calls — try available API providers
+    provider = raw_provider
+    if provider in ('claude_cli', 'codex_cli'):
+        provider = 'openai'  # will try openai, then gemini fallback below
+
     if provider not in {'openai', 'gemini'}:
         provider = 'openai'
-    model = (str(node.get('model') or '') or meta.get('preferred agent model') or '').strip() or None
 
     cfg = await IntegrationConfigService(db).get_config(organization_id, provider)
     key = (cfg.secret if cfg else '') or ''
     base_url = (cfg.base_url if cfg else '') or ''
 
-    if (not key or key.startswith('your_')) and provider != 'openai':
-        fallback = await IntegrationConfigService(db).get_config(organization_id, 'openai')
-        key = (fallback.secret if fallback else '') or ''
-        base_url = (fallback.base_url if fallback else '') or ''
-        provider = 'openai'
+    # Fallback chain: try openai → gemini → any available provider
+    if not key or key.startswith('your_'):
+        for fallback_provider in ('openai', 'gemini'):
+            if fallback_provider == provider:
+                continue
+            fallback = await IntegrationConfigService(db).get_config(organization_id, fallback_provider)
+            if fallback and fallback.secret and not fallback.secret.startswith('your_'):
+                key = fallback.secret
+                base_url = (fallback.base_url if fallback else '') or ''
+                provider = fallback_provider
+                break
 
     llm = LLMProvider(
         provider=provider,
