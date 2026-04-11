@@ -1686,9 +1686,9 @@ async def _run_notify_node(node: dict[str, Any], context: dict[str, Any]) -> dic
 
 def _run_condition_node(node: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     """Condition node with branching support and extended operators."""
-    field = node.get('condition_field', '')
-    operator = node.get('condition_op', 'eq')
-    value = node.get('condition_value', '')
+    field = node.get('condition_field') or node.get('field') or ''
+    operator = node.get('condition_op') or node.get('operator') or 'eq'
+    value = node.get('condition_value') or node.get('value') or ''
 
     task = context.get('task', {})
     # Resolve field from task, outputs, or context
