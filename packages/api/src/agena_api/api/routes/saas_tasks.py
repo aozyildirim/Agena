@@ -467,7 +467,7 @@ async def assign_task(
                 task_record.repo_mapping_id = mapping.id
                 await db.commit()
 
-    # ── Flow mode: run a visual flow instead of default pipeline ──
+    # ── Flow mode: enqueue to Redis so worker runs it (survives restarts) ──
     if payload.flow_id:
         from agena_models.models.user_preference import UserPreference
         pref_result = await db.execute(
@@ -484,43 +484,29 @@ async def assign_task(
         if not flow:
             raise HTTPException(status_code=404, detail=f'Flow not found: {payload.flow_id}')
 
-        from agena_models.models.task_record import TaskRecord as _TR
-        task_row = (await db.execute(
-            select(_TR).where(_TR.id == task_id, _TR.organization_id == tenant.organization_id)
-        )).scalar_one_or_none()
-        if not task_row:
-            raise HTTPException(status_code=404, detail='Task not found')
+        # Queue flow via same Redis path as regular tasks — worker handles it
+        try:
+            queue_key = await service.assign_task_to_ai(
+                tenant.organization_id,
+                task_id,
+                create_pr=payload.create_pr,
+                mode='flow_run',
+                agent_model=payload.agent_model,
+                agent_provider=payload.agent_provider,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-        from agena_services.services.flow_executor import run_flow
-
-        # Run flow in background so the API returns immediately
-        _flow = flow
-        _task_dict = {
-            'id': task_row.id,
-            'title': task_row.title,
-            'description': task_row.description or '',
-            'source': task_row.source or 'internal',
-            'state': task_row.status,
-            'acceptance_criteria': task_row.acceptance_criteria,
-        }
-        _user_id = tenant.user_id
-        _org_id = tenant.organization_id
-
-        # Mark task as running immediately
-        task_row.status = 'running'
-        await db.commit()
-
-        async def _run_flow_bg() -> None:
-            from agena_core.database import SessionLocal
-            async with SessionLocal() as bg_db:
-                try:
-                    await run_flow(flow=_flow, task=_task_dict, user_id=_user_id, organization_id=_org_id, db=bg_db)
-                except Exception:
-                    import logging
-                    logging.getLogger(__name__).exception('Background flow failed')
-
-        asyncio.create_task(_run_flow_bg())
-        return AssignTaskResponse(queued=True, queue_key=f'flow:background')
+        # Store flow definition in Redis alongside the task payload
+        from agena_services.services.queue_service import QueueService
+        import json as _json
+        qs = QueueService()
+        await qs.client.set(
+            f'flow_def:{task_id}',
+            _json.dumps({'flow': flow, 'user_id': tenant.user_id}),
+            ex=3600,  # 1 hour TTL
+        )
+        return AssignTaskResponse(queued=True, queue_key=queue_key)
 
     # Single-repo or legacy flow
     try:

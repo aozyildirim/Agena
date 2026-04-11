@@ -255,6 +255,37 @@ async def _run_single_task(payload: dict) -> None:
                 await queue_service.enqueue(payload)
                 return
 
+        # ── Flow mode: run visual flow instead of default pipeline ──
+        if run_mode == 'flow_run':
+            import json as _json
+            from agena_services.services.flow_executor import run_flow
+            flow_data = await queue_service.client.get(f'flow_def:{task_id}')
+            if not flow_data:
+                task.status = 'failed'
+                task.failure_reason = 'Flow definition not found in Redis (expired or missing)'
+                await session.commit()
+                await task_service.add_log(task.id, organization_id, 'failed', task.failure_reason)
+                return
+            flow_info = _json.loads(flow_data)
+            flow = flow_info['flow']
+            flow_user_id = flow_info.get('user_id', task.created_by_user_id)
+            await run_flow(
+                flow=flow,
+                task={
+                    'id': task.id,
+                    'title': task.title,
+                    'description': task.description or '',
+                    'source': task.source or 'internal',
+                    'state': task.status,
+                    'acceptance_criteria': task.acceptance_criteria,
+                },
+                user_id=flow_user_id,
+                organization_id=organization_id,
+                db=session,
+            )
+            await queue_service.client.delete(f'flow_def:{task_id}')
+            return
+
         service = OrchestrationService(db_session=session)
         try:
             result = await service.run_task_record(
