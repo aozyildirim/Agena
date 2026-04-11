@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import subprocess
+import uuid
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -14,6 +16,44 @@ LogCallback = Callable[[str], Awaitable[None]]
 class ClaudeCLIService:
     EXEC_TIMEOUT_SEC = 600
 
+    # ── Worktree helpers ─────────────────────────────────────────────────
+    @staticmethod
+    def _create_worktree(repo_path: str, task_id: str = '') -> str | None:
+        """Create a git worktree from main so each task works on a clean copy."""
+        repo = Path(repo_path).expanduser().resolve()
+        if not (repo / '.git').exists():
+            return None
+        wt_name = f'.worktree-agena-{task_id or uuid.uuid4().hex[:8]}'
+        wt_path = repo.parent / wt_name
+        if wt_path.exists():
+            # Reuse existing worktree
+            return str(wt_path)
+        try:
+            # Determine base branch
+            base = subprocess.run(
+                ['git', 'symbolic-ref', 'refs/remotes/origin/HEAD'],
+                cwd=str(repo), capture_output=True, text=True, timeout=10,
+            ).stdout.strip().replace('refs/remotes/origin/', '') or 'main'
+            subprocess.run(
+                ['git', 'worktree', 'add', str(wt_path), base],
+                cwd=str(repo), capture_output=True, text=True, timeout=30,
+                check=True,
+            )
+            return str(wt_path)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _remove_worktree(repo_path: str, wt_path: str) -> None:
+        """Remove a worktree after task completes."""
+        try:
+            subprocess.run(
+                ['git', 'worktree', 'remove', '--force', wt_path],
+                cwd=repo_path, capture_output=True, text=True, timeout=15,
+            )
+        except Exception:
+            pass
+
     async def generate_file_markdown(
         self,
         *,
@@ -22,6 +62,7 @@ class ClaudeCLIService:
         task_description: str,
         model: str | None = None,
         log_callback: LogCallback | None = None,
+        task_id: str = '',
     ) -> str:
         prompt = (
             'Implement the following task in the CURRENT repository.\n\n'
@@ -43,10 +84,32 @@ class ClaudeCLIService:
             f'Task description:\n{task_description}\n'
         )
 
-        claude_bin = shutil.which('claude')
-        if claude_bin:
-            return await self._run_local(claude_bin, repo_path, prompt, model, log_callback)
-        return await self._run_bridge(repo_path, prompt, model, log_callback)
+        # Create worktree so each task works on a clean main copy
+        wt_path = self._create_worktree(repo_path, task_id)
+        effective_path = wt_path or repo_path
+        if wt_path and log_callback:
+            await log_callback(f'Worktree created: {wt_path}')
+
+        # Store worktree info so orchestration_service can find the right path
+        self.last_worktree_path = wt_path
+        self.last_effective_path = effective_path
+
+        try:
+            claude_bin = shutil.which('claude')
+            if claude_bin:
+                return await self._run_local(claude_bin, effective_path, prompt, model, log_callback)
+            return await self._run_bridge(effective_path, prompt, model, log_callback)
+        finally:
+            # Keep worktree alive — orchestration_service collects changes via git diff
+            # then calls cleanup_worktree() after PR creation
+            pass
+
+    def cleanup_worktree(self, repo_path: str) -> None:
+        """Remove the last worktree after changes have been collected."""
+        wt = getattr(self, 'last_worktree_path', None)
+        if wt:
+            self._remove_worktree(repo_path, wt)
+            self.last_worktree_path = None
 
     async def _run_local(self, claude_bin: str, repo_path: str, prompt: str, model: str | None, log_callback: LogCallback | None = None) -> str:
         cmd = [claude_bin, '--print', '--dangerously-skip-permissions']

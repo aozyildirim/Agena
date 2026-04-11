@@ -236,6 +236,7 @@ class OrchestrationService:
                         task_description=effective_description,
                         model=routing.preferred_agent_model,
                         log_callback=_cli_log,
+                        task_id=str(task.id),
                     )
                 except Exception as claude_exc:
                     await task_service.add_log(
@@ -1238,6 +1239,11 @@ class OrchestrationService:
                 ),
             )
             await task_service.add_log(task.id, organization_id, 'completed', 'Task completed successfully')
+
+            # Cleanup worktree if Claude CLI created one
+            if hasattr(self, 'claude_cli_service') and routing.local_repo_path:
+                self.claude_cli_service.cleanup_worktree(routing.local_repo_path)
+
             notified = await notification_service.notify_task_result(
                 organization_id=organization_id,
                 user_id=task.created_by_user_id,
@@ -1366,8 +1372,11 @@ class OrchestrationService:
         if not parsed_files and local_repo_path:
             # CLI agents (Claude/Codex) may edit files directly and return a summary
             # instead of structured file blocks — fall back to git diff
-            logger.info(f'No file blocks parsed from output, falling back to git diff at {local_repo_path}')
-            parsed_files = await self._collect_git_changes(local_repo_path)
+            # Use worktree path if available (Claude CLI creates worktrees per task)
+            _wt_path = getattr(self.claude_cli_service, 'last_effective_path', None) if hasattr(self, 'claude_cli_service') else None
+            _diff_path = _wt_path or local_repo_path
+            logger.info(f'No file blocks parsed from output, falling back to git diff at {_diff_path}')
+            parsed_files = await self._collect_git_changes(_diff_path)
         if not parsed_files:
             logger.error(f'No file blocks parsed. Output length: {len(reviewed_code)} chars. First 2000 chars:\n{reviewed_code[:2000]}')
             raise RuntimeError(
