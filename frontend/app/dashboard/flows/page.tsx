@@ -50,6 +50,7 @@ interface FlowNode {
   model?: string;
   provider?: string;
   prompt_slug?: string;
+  review_language?: string;
   max_tokens?: number;
   temperature?: number;
   // http advanced
@@ -1649,6 +1650,20 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
                 </div>
                 <span style={{ fontSize: 13, color: 'var(--ink-58)' }}>{t('flows.nodeAutoFixPrComments')}</span>
               </label>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>Review Language</label>
+                <select value={node.review_language ?? ''} onChange={(e) => onChange({ review_language: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)', cursor: 'pointer' }}>
+                  <option value="">System Default</option>
+                  <option value="tr">Türkçe</option>
+                  <option value="en">English</option>
+                  <option value="de">Deutsch</option>
+                  <option value="es">Español</option>
+                  <option value="zh">中文</option>
+                  <option value="ja">日本語</option>
+                  <option value="it">Italiano</option>
+                </select>
+              </div>
             </>
           )}
 

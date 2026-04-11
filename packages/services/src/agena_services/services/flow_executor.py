@@ -1305,6 +1305,20 @@ async def _run_lead_pr_review_node(
         tenant_playbook = meta.get('tenant playbook', '')
 
         system_prompt = await PromptService.get(db, 'flow_pr_review_system_prompt')
+
+        # Language override from node config
+        review_lang = (node.get('review_language') or '').strip()
+        _LANG_LABELS = {'tr': 'Türkçe', 'en': 'English', 'de': 'Deutsch', 'es': 'Español', 'zh': '中文', 'ja': '日本語', 'it': 'Italiano'}
+        _LANG_SECTIONS = {
+            'tr': '1) Bulgular\n2) Riskler\n3) Karar (ONAYLA veya DEĞİŞİKLİK İSTE)\n4) Sonraki Adımlar',
+            'en': '1) Findings\n2) Risks\n3) Decision (APPROVE or REQUEST_CHANGES)\n4) Next Actions',
+            'de': '1) Befunde\n2) Risiken\n3) Entscheidung (GENEHMIGEN oder ÄNDERUNGEN ANFORDERN)\n4) Nächste Schritte',
+            'es': '1) Hallazgos\n2) Riesgos\n3) Decisión (APROBAR o SOLICITAR CAMBIOS)\n4) Próximos pasos',
+        }
+        lang_label = _LANG_LABELS.get(review_lang, '')
+        lang_instruction = f'\n\nIMPORTANT: Write your entire review in {lang_label}.' if lang_label else ''
+        sections = _LANG_SECTIONS.get(review_lang, '1) Findings\n2) Risks\n3) Decision (APPROVE or REQUEST_CHANGES)\n4) Next Actions')
+
         user_prompt = (
             f"Task title:\n{task_row.title}\n\n"
             f"Task description:\n{(task_row.description or '')[:5000]}\n\n"
@@ -1313,9 +1327,8 @@ async def _run_lead_pr_review_node(
             f"Tenant playbook:\n{tenant_playbook[:1500]}\n\n"
             f"PR URL:\n{pr_url}\n\n"
             f"Code diff snapshot:\n{code_diff[:12000] if code_diff else '(no code diff log found)'}\n\n"
-            'Return markdown with exactly these sections:\n'
-            '1) Findings\n2) Risks\n3) Decision (APPROVE or REQUEST_CHANGES)\n4) Next Actions\n'
-            'If there is not enough evidence, say so explicitly in Findings.'
+            f'Return markdown with exactly these sections:\n{sections}\n'
+            f'If there is not enough evidence, say so explicitly in the first section.{lang_instruction}'
         )
         try:
             llm = await _build_lead_llm_for_task(db, organization_id, task_row, node)
