@@ -554,6 +554,7 @@ async def assign_task(
             agent_role=payload.agent_role,
             agent_model=payload.agent_model,
             agent_provider=payload.agent_provider,
+            force_queue=getattr(payload, 'force_queue', False),
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

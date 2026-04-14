@@ -267,49 +267,58 @@ export default function DashboardTasksPage() {
     setMcpPopupTaskId(id);
   }
 
+  async function _assignWithConflictRetry(id: number, body: Record<string, unknown>) {
+    try {
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify(body) });
+      router.push(`/tasks/${id}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('REPO_CONFLICT:')) {
+        const conflictInfo = msg.replace('REPO_CONFLICT:', '').trim();
+        if (confirm(`This repo already has a running task:\n${conflictInfo}\n\nQueue this task anyway?`)) {
+          await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ ...body, force_queue: true }) });
+          router.push(`/tasks/${id}`);
+        }
+      } else {
+        setError(msg || t('tasks.assignFailed'));
+      }
+    }
+  }
+
   async function doAssignMCP(id: number, repoMeta?: string, repoMappingIds?: number[], mcpModel?: string, mcpProvider?: string, createPr?: boolean) {
     setMcpPopupTaskId(null);
-    try {
-      await apiFetch('/tasks/' + id + '/assign', {
-        method: 'POST',
-        body: JSON.stringify({
-          create_pr: createPr ?? defaultCreatePr,
-          mode: 'mcp_agent',
-          extra_description: repoMeta || undefined,
-          repo_mapping_ids: repoMappingIds || undefined,
-          agent_model: mcpModel || undefined,
-          agent_provider: mcpProvider || undefined,
-        }),
-      });
-      router.push(`/tasks/${id}`);
-    } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
+    await _assignWithConflictRetry(id, {
+      create_pr: createPr ?? defaultCreatePr,
+      mode: 'mcp_agent',
+      extra_description: repoMeta || undefined,
+      repo_mapping_ids: repoMappingIds || undefined,
+      agent_model: mcpModel || undefined,
+      agent_provider: mcpProvider || undefined,
+    });
   }
 
   async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
     setAiPopupTaskId(null);
-    try {
-      await apiFetch('/tasks/' + id + '/assign', {
-        method: 'POST',
-        body: JSON.stringify({
-          create_pr: createPr ?? defaultCreatePr,
-          mode: 'ai',
-          agent_role: agent.role,
-          agent_model: agent.model,
-          agent_provider: agent.provider,
-          extra_description: extraDesc || undefined,
-          repo_mapping_ids: repoMappingIds || undefined,
-        }),
-      });
-      router.push(`/tasks/${id}`);
-    } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
+    await _assignWithConflictRetry(id, {
+      create_pr: createPr ?? defaultCreatePr,
+      mode: 'ai',
+      agent_role: agent.role,
+      agent_model: agent.model,
+      agent_provider: agent.provider,
+      extra_description: extraDesc || undefined,
+      repo_mapping_ids: repoMappingIds || undefined,
+    });
   }
 
   async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
     setFlowPopupTaskId(null);
-    try {
-      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ create_pr: createPr ?? defaultCreatePr, mode: 'flow', flow_id: flowId, extra_description: extraDesc || undefined, repo_mapping_ids: repoMappingIds || undefined }) });
-      router.push(`/tasks/${id}`);
-    } catch (e) { setError(e instanceof Error ? e.message : t('tasks.assignFailed')); }
+    await _assignWithConflictRetry(id, {
+      create_pr: createPr ?? defaultCreatePr,
+      mode: 'flow',
+      flow_id: flowId,
+      extra_description: extraDesc || undefined,
+      repo_mapping_ids: repoMappingIds || undefined,
+    });
   }
 
   async function onRemoveFromQueue(id: number) {

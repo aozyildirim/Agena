@@ -479,7 +479,7 @@ class TaskService:
         out.sort(key=lambda x: (x['position'], x['created_at']))
         return out
 
-    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_role: str | None = None, agent_model: str | None = None, agent_provider: str | None = None) -> str:
+    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_role: str | None = None, agent_model: str | None = None, agent_provider: str | None = None, force_queue: bool = False) -> str:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -507,8 +507,8 @@ class TaskService:
                 .limit(1)
             )
             conflict_row = conflict.first()
-            if conflict_row is not None:
-                raise ValueError(f'Another active task is already running for this repo: #{conflict_row.id} {conflict_row.title}')
+            if conflict_row is not None and not force_queue:
+                raise ValueError(f'REPO_CONFLICT:#{conflict_row.id} {conflict_row.title}')
 
         # Auto-attach repo mapping if task has no Local Repo Path
         has_local_mapping = 'Local Repo Path:' in (task.description or '')
