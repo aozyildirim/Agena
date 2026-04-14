@@ -275,6 +275,9 @@ export default function DashboardTasksPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('REPO_CONFLICT:')) {
+        setAiPopupTaskId(null);
+        setFlowPopupTaskId(null);
+        setMcpPopupTaskId(null);
         setConflictModal({ id, info: msg.replace('REPO_CONFLICT:', '').trim(), body });
       } else {
         setError(msg || t('tasks.assignFailed'));
@@ -1075,9 +1078,9 @@ export default function DashboardTasksPage() {
       )}
 
       {/* Repo conflict modal */}
-      {conflictModal && (
+      {conflictModal && typeof document !== 'undefined' && createPortal(
         <div onClick={() => setConflictModal(null)} style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10001,
           background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 16, overflowY: 'auto',
@@ -1113,7 +1116,8 @@ export default function DashboardTasksPage() {
               }}>Queue Anyway</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

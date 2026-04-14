@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
 import RemoteRepoSelector, { type RemoteRepoSelection, type RepoDefault } from '@/components/RemoteRepoSelector';
@@ -1388,12 +1389,13 @@ export default function TaskDetailPage() {
       </div>
 
       {/* ── Run Config Popup ── */}
-      {showRunConfig && (
+      {showRunConfig && typeof document !== 'undefined' && createPortal(
         <RunConfigModal
           task={task}
           onRun={(extraDesc, agentOpts) => void rerunTask(extraDesc, agentOpts)}
           onClose={() => setShowRunConfig(false)}
-        />
+        />,
+        document.body,
       )}
 
       {/* conflict modal is handled by showConflictDialog() via imperative DOM */}
@@ -1502,8 +1504,14 @@ function RunConfigModal({ task, onRun, onClose }: {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-      <div style={{ width: 'min(480px, 100%)', maxHeight: 'calc(100vh - 32px)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflowY: 'auto' }}>
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: 'min(480px, 100%)', maxHeight: 'calc(100vh - 32px)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflowY: 'auto' }}
+      >
         {/* Header */}
         <div style={{ height: 3, background: 'linear-gradient(90deg, #0d9488, #7c3aed, #f59e0b)' }} />
         <div style={{ padding: '18px 20px', display: 'grid', gap: 16 }}>
