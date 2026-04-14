@@ -228,16 +228,25 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
 }
 
 function showConflictDialog(info: string, onQueue: () => void) {
-  const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-  const viewH = window.innerHeight;
+  // Save original body overflow and lock scrolling
+  const origOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
   const overlay = document.createElement('div');
-  Object.assign(overlay.style, {
-    position: 'absolute', top: scrollY + 'px', left: '0', width: '100%', height: viewH + 'px',
-    zIndex: '999999', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-  });
+  // Use cssText with all:initial to break free from ANY inherited CSS context
+  overlay.style.cssText = `
+    all: initial;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    z-index: 2147483647 !important;
+    background: rgba(0,0,0,0.6);
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
   overlay.innerHTML = `
-    <div style="width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:#1a1a2e;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);color:#e2e8f0">
+    <div style="all:initial;font-family:inherit;width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:#1a1a2e;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);color:#e2e8f0">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
         <div style="width:36px;height:36px;border-radius:10px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.25);display:flex;align-items:center;justify-content:center;font-size:18px">&#9888;&#65039;</div>
         <div style="font-size:16px;font-weight:700">Repo Busy</div>
@@ -251,10 +260,16 @@ function showConflictDialog(info: string, onQueue: () => void) {
       </div>
     </div>
   `;
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) { document.body.removeChild(overlay); } });
-  overlay.querySelector('#conflict-cancel')!.addEventListener('click', () => { document.body.removeChild(overlay); });
-  overlay.querySelector('#conflict-queue')!.addEventListener('click', () => { document.body.removeChild(overlay); onQueue(); });
+
+  function cleanup() {
+    overlay.remove();
+    document.body.style.overflow = origOverflow;
+  }
+
+  document.documentElement.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(); });
+  overlay.querySelector('#conflict-cancel')!.addEventListener('click', cleanup);
+  overlay.querySelector('#conflict-queue')!.addEventListener('click', () => { cleanup(); onQueue(); });
 }
 
 export default function TaskDetailPage() {
@@ -577,8 +592,8 @@ export default function TaskDetailPage() {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('REPO_CONFLICT:')) {
         setShowRunConfig(false);
-        const info = msg.replace('REPO_CONFLICT:', '').trim();
-        showConflictDialog(info, async () => {
+        const conflictInfo = msg.replace('REPO_CONFLICT:', '').trim();
+        showConflictDialog(conflictInfo, async () => {
           await rerunTask(
             body.extra_description as string | undefined,
             {
