@@ -22,7 +22,7 @@ from agena_services.services.integration_config_service import IntegrationConfig
 from agena_services.services.llm.provider import LLMProvider
 from agena_services.services.local_repo_service import LocalRepoService
 from agena_agents.agents.crewai_agents import AGENT_TOKEN_LIMITS
-from agena_services.services.orchestration_service import OrchestrationService
+from agena_services.services.orchestration_service import OrchestrationService, _is_valid_file_path
 from agena_services.services.prompt_service import PromptService
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,9 @@ def _parse_files_from_generated_code(generated_code: str) -> list[GitHubFileChan
         if _re_module.match(r'^[A-Za-z]:/', normalized):
             continue
         if '/..' in f'/{normalized}' or normalized.startswith('..'):
+            continue
+        if not _is_valid_file_path(normalized):
+            logger.warning('Skipping file with invalid path characters: %r', clean_path)
             continue
 
         body = content.strip()

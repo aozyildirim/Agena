@@ -1,11 +1,16 @@
 import base64
+import logging
+import re
+from urllib.parse import urlparse
 
 import httpx
 
 from agena_services.integrations.github_client import GitHubClient
 from agena_models.schemas.github import CreatePRRequest
-from urllib.parse import urlparse
-import re
+
+logger = logging.getLogger(__name__)
+
+_INVALID_PATH_CHARS_RE = re.compile(r'[\[\]*?<>|"#{};\x00]')
 
 
 class GitHubService:
@@ -66,6 +71,9 @@ class GitHubService:
                 path = f.get('path', '').lstrip('/')
                 content = f.get('content', '')
                 if not path or not content:
+                    continue
+                if _INVALID_PATH_CHARS_RE.search(path):
+                    logger.warning('Skipping file with invalid path in GitHub push: %r', path)
                     continue
                 # Check if file exists to get its sha
                 existing = await client.get(f'{base}/contents/{path}?ref={branch_name}', headers=headers)

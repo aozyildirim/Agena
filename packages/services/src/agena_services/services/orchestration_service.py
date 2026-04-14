@@ -9,6 +9,16 @@ import re
 import unicodedata
 
 logger = logging.getLogger(__name__)
+
+# Invalid characters for file paths parsed from LLM output.
+_INVALID_PATH_CHARS_RE = re.compile(r'[\[\]*?<>|"#{};\x00]')
+
+
+def _is_valid_file_path(path: str) -> bool:
+    """Reject paths with glob wildcards, shell metacharacters, or illegal chars."""
+    return not _INVALID_PATH_CHARS_RE.search(path)
+
+
 import shutil
 import time
 from dataclasses import dataclass
@@ -1473,6 +1483,9 @@ class OrchestrationService:
             if re.match(r'^[A-Za-z]:/', normalized):
                 continue
             if '/..' in f'/{normalized}' or normalized.startswith('..'):
+                continue
+            if not _is_valid_file_path(normalized):
+                logger.warning('Skipping file with invalid path characters: %r', clean_path)
                 continue
 
             body = content.strip()

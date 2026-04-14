@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import re
 from urllib.parse import urlparse
 
@@ -8,6 +9,10 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_services.services.integration_config_service import IntegrationConfigService
+
+logger = logging.getLogger(__name__)
+
+_INVALID_PATH_CHARS_RE = re.compile(r'[\[\]*?<>|"#{};\x00]')
 
 
 class AzurePRService:
@@ -196,6 +201,9 @@ class AzurePRService:
             path = f.get('path', '')
             content = f.get('content', '')
             if not path or not content:
+                continue
+            if _INVALID_PATH_CHARS_RE.search(path):
+                logger.warning('Skipping file with invalid path in Azure push: %r', path)
                 continue
             # Ensure path starts with /
             if not path.startswith('/'):
