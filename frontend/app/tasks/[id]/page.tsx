@@ -196,6 +196,20 @@ function classifyFailure(text: string): { labelKey: string; detailKey: string } 
   return { labelKey: 'taskDetail.failure.execLabel', detailKey: 'taskDetail.failure.execDetail' };
 }
 
+function detectFailureSource(text: string): string | null {
+  const t = text.toLowerCase();
+  if (
+    t.includes('attempt to read property "value" on null')
+    || t.includes("cannot read properties of null")
+    || t.includes("cannot read property 'value' of null")
+  ) {
+    return 'Runtime/App Error';
+  }
+  if (t.includes('timeout') || t.includes('connection') || t.includes('network')) return 'Infrastructure/Network';
+  if (t.includes('401') || t.includes('unauthorized') || t.includes('permission')) return 'Auth/Permission';
+  return null;
+}
+
 function fmtEta(sec?: number | null): string {
   if (sec === null || sec === undefined) return '—';
   if (sec < 60) return `${Math.max(0, Math.round(sec))}s`;
@@ -431,6 +445,7 @@ export default function TaskDetailPage() {
     return (isLatestRun ? task?.failure_reason : null) || failedLog?.message || '';
   }, [task?.failure_reason, activeRunLogs, isLatestRun]);
   const failure = useMemo(() => classifyFailure(latestFailure), [latestFailure]);
+  const failureSource = useMemo(() => detectFailureSource(latestFailure), [latestFailure]);
 
   const createdAt = useMemo(() => activeRunLogs.find((l) => l.stage === 'created' || l.stage === 'queued')?.created_at || task?.created_at || '', [activeRunLogs, task?.created_at]);
   const runningAt = useMemo(() => activeRunLogs.find((l) => l.stage === 'running')?.created_at || '', [activeRunLogs]);
@@ -1361,6 +1376,11 @@ export default function TaskDetailPage() {
             <div style={{ overflowY: 'auto', padding: 10 }}>
               <div style={{ border: `1px solid ${latestFailure ? 'rgba(248,113,113,0.35)' : 'var(--panel-border-2)'}`, borderRadius: 10, padding: '8px 10px', marginBottom: 10, background: latestFailure ? 'rgba(248,113,113,0.08)' : 'var(--panel)' }}>
                 <div style={{ fontSize: 11, color: latestFailure ? '#f87171' : 'var(--ink-58)', fontWeight: 700, textTransform: 'uppercase' }}>{t('taskDetail.failureAnalysis')}: {t(failure.labelKey as never)}</div>
+                {failureSource ? (
+                  <div style={{ fontSize: 11, color: '#fca5a5', marginTop: 4 }}>
+                    Source: {failureSource}
+                  </div>
+                ) : null}
                 <div style={{ fontSize: 12, color: 'var(--ink-78)', marginTop: 4 }}>{t(failure.detailKey as never)}</div>
               </div>
               {logHistory.length === 0 ? (

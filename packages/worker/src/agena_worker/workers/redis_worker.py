@@ -23,6 +23,20 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def _is_transient_failure(message: str) -> bool:
+    lowered = (message or '').lower()
+    transient_markers = (
+        'attempt to read property "value" on null',
+        "cannot read properties of null",
+        "cannot read property 'value' of null",
+        'network error',
+        'connection reset',
+        'temporarily unavailable',
+        'timeout',
+    )
+    return any(marker in lowered for marker in transient_markers)
+
+
 async def _fail_stale_running_tasks() -> None:
     timeout_min = max(1, settings.task_running_timeout_minutes)
     stale_before = datetime.utcnow() - timedelta(minutes=timeout_min)
@@ -403,8 +417,41 @@ async def _run_safe(payload: dict) -> None:
         logger.exception('Worker failed payload=%s', payload)
         org_id = int(payload.get('organization_id', 0) or 0)
         t_id = int(payload.get('task_id', 0) or 0)
+        assignment_id = int(payload.get('assignment_id', 0) or 0)
         if org_id > 0 and t_id > 0:
             reason = str(exc)[:500]
+            auto_retry_attempt = int(payload.get('auto_retry_attempt', 0) or 0)
+            if _is_transient_failure(reason) and auto_retry_attempt < 1:
+                retry_payload = dict(payload)
+                retry_payload['auto_retry_attempt'] = auto_retry_attempt + 1
+                try:
+                    async with SessionLocal() as session:
+                        task_service = TaskService(session)
+                        if assignment_id:
+                            from agena_models.models.task_repo_assignment import TaskRepoAssignment
+                            assignment = await session.get(TaskRepoAssignment, assignment_id)
+                            if assignment and assignment.status != 'completed':
+                                assignment.status = 'queued'
+                                assignment.failure_reason = None
+                        task = await session.get(TaskRecord, t_id)
+                        if task and task.status != 'completed':
+                            task.status = 'queued'
+                            task.failure_reason = None
+                        await session.commit()
+                        await task_service.add_log(
+                            t_id,
+                            org_id,
+                            'queued',
+                            f'Auto-retry scheduled after transient error: {reason[:180]}',
+                        )
+                    await QueueService().enqueue(retry_payload)
+                    publish_fire_and_forget(org_id, 'task_status', {
+                        'task_id': t_id, 'status': 'queued', 'title': '',
+                        'auto_retry': True,
+                    })
+                    return
+                except Exception:
+                    logger.exception('Failed to schedule transient auto-retry for task %s', t_id)
             try:
                 async with SessionLocal() as session:
                     task = await session.get(TaskRecord, t_id)
