@@ -228,48 +228,11 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
 }
 
 function showConflictDialog(info: string, onQueue: () => void) {
-  // Save original body overflow and lock scrolling
-  const origOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-
-  const overlay = document.createElement('div');
-  // Use cssText with all:initial to break free from ANY inherited CSS context
-  overlay.style.cssText = `
-    all: initial;
-    position: fixed !important;
-    top: 0 !important; left: 0 !important;
-    width: 100vw !important; height: 100vh !important;
-    z-index: 2147483647 !important;
-    background: rgba(0,0,0,0.6);
-    display: flex !important; align-items: center !important; justify-content: center !important;
-    padding: 16px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  `;
-  overlay.innerHTML = `
-    <div style="all:initial;font-family:inherit;width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:#1a1a2e;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);color:#e2e8f0">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.25);display:flex;align-items:center;justify-content:center;font-size:18px">&#9888;&#65039;</div>
-        <div style="font-size:16px;font-weight:700">Repo Busy</div>
-      </div>
-      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 8px">This repo already has an active task:</p>
-      <div style="padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:12px;color:#cbd5e1;margin-bottom:16px;word-break:break-word">${info.replace(/</g, '&lt;')}</div>
-      <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 20px">Queue this task to run after the current one finishes?</p>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="conflict-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
-        <button id="conflict-queue" style="padding:8px 20px;border-radius:8px;border:none;background:#0d9488;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Queue Anyway</button>
-      </div>
-    </div>
-  `;
-
-  function cleanup() {
-    overlay.remove();
-    document.body.style.overflow = origOverflow;
-  }
-
-  document.documentElement.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(); });
-  overlay.querySelector('#conflict-cancel')!.addEventListener('click', cleanup);
-  overlay.querySelector('#conflict-queue')!.addEventListener('click', () => { cleanup(); onQueue(); });
+  const shortInfo = info.length > 100 ? info.substring(0, 100) + '...' : info;
+  const queue = window.confirm(
+    `Repo Busy\n\nThis repo already has an active task:\n${shortInfo}\n\nClick OK to queue this task anyway.`
+  );
+  if (queue) onQueue();
 }
 
 export default function TaskDetailPage() {
