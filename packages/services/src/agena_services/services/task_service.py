@@ -486,7 +486,7 @@ class TaskService:
         task = await self.get_task(organization_id, task_id)
         if task is None:
             raise ValueError('Task not found')
-        if task.status == 'running':
+        if task.status == 'running' and not force_queue:
             raise ValueError('Task is already running')
         blockers = await self.get_dependency_blockers(organization_id, task.id)
         if blockers:

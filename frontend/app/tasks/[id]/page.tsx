@@ -553,22 +553,22 @@ export default function TaskDetailPage() {
       await loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('REPO_CONFLICT:')) {
+      if (msg.includes('REPO_CONFLICT:') || msg.includes('already running')) {
         setShowRunConfig(false);
-        const conflictInfo = msg.replace('REPO_CONFLICT:', '').trim();
-        showConflictDialog(conflictInfo, async () => {
-          await rerunTask(
-            body.extra_description as string | undefined,
-            {
-              provider: body.agent_provider as string | undefined,
-              model: body.agent_model as string | undefined,
-              createPr: body.create_pr as boolean | undefined,
-              mode: body.mode as string | undefined,
-              flowId: body.flow_id as string | undefined,
-            },
-            true,
-          );
-        });
+        const info = msg.replace('REPO_CONFLICT:', '').trim();
+        const queue = window.confirm(`Repo busy: ${info}\n\nQueue this task to run after the current one finishes?`);
+        if (queue) {
+          try {
+            await apiFetch('/tasks/' + taskId + '/assign', {
+              method: 'POST',
+              body: JSON.stringify({ ...body, force_queue: true }),
+            });
+            setSelectedRunIndex(-1);
+            await loadData();
+          } catch (e2) {
+            setError(e2 instanceof Error ? e2.message : 'Failed to queue');
+          }
+        }
       } else {
         setError(msg || t('taskDetail.errorRerun'));
       }
@@ -1050,6 +1050,11 @@ export default function TaskDetailPage() {
             </>
           ) : null}
           {error ? <p style={{ color: '#f87171', marginTop: 10, marginBottom: 0 }}>{error}</p> : null}
+          {error && (
+            <div style={{ position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, maxWidth: 500, padding: '10px 16px', borderRadius: 10, background: 'rgba(127,29,29,0.95)', color: '#fecaca', fontSize: 12, fontWeight: 600, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', cursor: 'pointer' }} onClick={() => setError('')}>
+              {error}
+            </div>
+          )}
         </section>
 
         <section style={{ display: 'grid', gap: 12 }}>
