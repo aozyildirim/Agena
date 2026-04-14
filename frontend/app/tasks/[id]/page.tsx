@@ -546,8 +546,10 @@ export default function TaskDetailPage() {
       setSelectedRunIndex(-1);
       await loadData();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log('[AGENA] assign error:', JSON.stringify(msg));
       if (msg.includes('REPO_CONFLICT:')) {
+        setShowRunConfig(false);
         setConflictModal({ info: msg.replace('REPO_CONFLICT:', '').trim(), body });
       } else {
         setError(msg || t('taskDetail.errorRerun'));
@@ -1621,7 +1623,7 @@ function RunConfigModal({ task, onRun, onClose }: {
       {/* Repo conflict modal */}
       {conflictModal && (
         <div onClick={() => setConflictModal(null)} style={{
-          position: 'fixed', inset: 0, zIndex: 100,
+          position: 'fixed', inset: 0, zIndex: 9999,
           background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }}>

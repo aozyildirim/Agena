@@ -1077,7 +1077,7 @@ export default function DashboardTasksPage() {
       {/* Repo conflict modal */}
       {conflictModal && (
         <div onClick={() => setConflictModal(null)} style={{
-          position: 'fixed', inset: 0, zIndex: 100,
+          position: 'fixed', inset: 0, zIndex: 9999,
           background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }}>
