@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'next/navigation';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
@@ -1372,20 +1373,19 @@ export default function TaskDetailPage() {
         />
       )}
 
-      {/* Repo conflict modal */}
-      {conflictModal && (
+      {/* Repo conflict modal — portaled to body */}
+      {conflictModal && createPortal(
         <div onClick={() => setConflictModal(null)} style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999,
           background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16, overflowY: 'auto',
+          padding: 16,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             width: '100%', maxWidth: 440, borderRadius: 16,
             border: '1px solid var(--panel-border)',
             background: 'var(--surface)', padding: 24,
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            margin: 'auto',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>&#9888;</div>
@@ -1425,7 +1425,8 @@ export default function TaskDetailPage() {
               }}>Queue Anyway</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
