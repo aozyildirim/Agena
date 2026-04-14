@@ -272,6 +272,7 @@ export default function HomePage() {
     { key: 'gemini', logo: '/media/gemini-logo.svg', name: t('landing.integrationGemini') },
     { key: 'slack', logo: '/media/slack-logo.svg', name: t('landing.integrationSlack') },
     { key: 'teams', logo: '/media/teams-logo.svg', name: t('landing.integrationTeams') },
+    { key: 'newrelic', logo: '/media/newrelic-logo.svg', name: t('landing.integrationNewrelic') },
   ];
 
   return (
@@ -980,6 +981,55 @@ export default function HomePage() {
                 </div>
               </div>
             </article>
+          </div>
+        </section>
+
+        {/* ── NEW RELIC MONITORING ── */}
+        <section style={{ padding: '60px 0' }}>
+          <div style={{ marginBottom: 28 }}>
+            <div className='section-label'>{t('landing.newrelicLabel')}</div>
+            <h2 style={{ fontSize: 'clamp(24px, 2.5vw, 36px)', fontWeight: 800, color: 'var(--ink-90)', marginBottom: 10 }}>
+              {t('landing.newrelicTitle')}
+            </h2>
+            <p style={{ color: 'var(--ink-45)', fontSize: 14, maxWidth: 780 }}>
+              {t('landing.newrelicSubtitle')}
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+            {[
+              { icon: '📊', title: t('landing.newrelicF1Title'), desc: t('landing.newrelicF1Desc') },
+              { icon: '🔍', title: t('landing.newrelicF2Title'), desc: t('landing.newrelicF2Desc') },
+              { icon: '🔗', title: t('landing.newrelicF3Title'), desc: t('landing.newrelicF3Desc') },
+              { icon: '🔄', title: t('landing.newrelicF4Title'), desc: t('landing.newrelicF4Desc') },
+            ].map((f) => (
+              <div key={f.title} style={{
+                padding: 20, borderRadius: 14,
+                border: '1px solid var(--panel-border-2)',
+                background: 'var(--panel)',
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                <div style={{ fontSize: 24, lineHeight: 1 }}>{f.icon}</div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>{f.title}</h3>
+                <p style={{ fontSize: 13, color: 'var(--ink-50)', lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            marginTop: 24, padding: '20px 24px', borderRadius: 14,
+            border: '1px solid rgba(28,231,131,0.2)',
+            background: 'rgba(28,231,131,0.04)',
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          }}>
+            <div style={{ fontSize: 28 }}>📊</div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1CE783' }}>{t('landing.newrelicFlowTitle')}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-45)', marginTop: 4 }}>{t('landing.newrelicFlowDesc')}</div>
+            </div>
+            <code style={{ fontSize: 11, color: 'var(--ink-50)', background: 'var(--glass)', padding: '6px 12px', borderRadius: 8 }}>
+              Trigger → New Relic → Condition → Developer → PR
+            </code>
           </div>
         </section>
 
