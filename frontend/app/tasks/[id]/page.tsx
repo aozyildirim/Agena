@@ -523,26 +523,35 @@ export default function TaskDetailPage() {
     setShowRunConfig(true);
   }
 
-  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string; flowId?: string }) {
+  const [conflictModal, setConflictModal] = useState<{ info: string; body: Record<string, unknown> } | null>(null);
+
+  async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string; flowId?: string }, forceQueue = false) {
     if (!taskId) return;
+    const body: Record<string, unknown> = {
+      create_pr: agentOpts?.createPr ?? defaultCreatePr,
+      mode: agentOpts?.mode || task?.last_mode || 'ai',
+      agent_model: agentOpts?.model || task?.preferred_agent_model || undefined,
+      agent_provider: agentOpts?.provider || task?.preferred_agent_provider || undefined,
+      extra_description: extraDesc || undefined,
+      flow_id: agentOpts?.flowId || undefined,
+    };
+    if (forceQueue) body.force_queue = true;
     try {
       setIsRerunBusy(true);
       setShowRunConfig(false);
       await apiFetch('/tasks/' + taskId + '/assign', {
         method: 'POST',
-        body: JSON.stringify({
-          create_pr: agentOpts?.createPr ?? defaultCreatePr,
-          mode: agentOpts?.mode || task?.last_mode || 'ai',
-          agent_model: agentOpts?.model || task?.preferred_agent_model || undefined,
-          agent_provider: agentOpts?.provider || task?.preferred_agent_provider || undefined,
-          extra_description: extraDesc || undefined,
-          flow_id: agentOpts?.flowId || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       setSelectedRunIndex(-1);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('taskDetail.errorRerun'));
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('REPO_CONFLICT:')) {
+        setConflictModal({ info: msg.replace('REPO_CONFLICT:', '').trim(), body });
+      } else {
+        setError(msg || t('taskDetail.errorRerun'));
+      }
     } finally {
       setIsRerunBusy(false);
     }
@@ -1608,6 +1617,59 @@ function RunConfigModal({ task, onRun, onClose }: {
           </div>
         </div>
       </div>
+
+      {/* Repo conflict modal */}
+      {conflictModal && (
+        <div onClick={() => setConflictModal(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: '100%', maxWidth: 440, borderRadius: 16,
+            border: '1px solid var(--panel-border)',
+            background: 'var(--surface)', padding: 24,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>&#9888;</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Repo Busy</div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--ink-58)', lineHeight: 1.6, margin: '0 0 8px' }}>
+              This repo already has an active task:
+            </p>
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--glass)', border: '1px solid var(--panel-border)', fontSize: 12, color: 'var(--ink-72)', marginBottom: 16, wordBreak: 'break-word' }}>
+              {conflictModal.info}
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--ink-45)', lineHeight: 1.6, margin: '0 0 20px' }}>
+              Queue this task to run after the current one finishes?
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConflictModal(null)} style={{
+                padding: '8px 20px', borderRadius: 8, border: '1px solid var(--panel-border)',
+                background: 'transparent', color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>Cancel</button>
+              <button onClick={async () => {
+                setConflictModal(null);
+                await rerunTask(
+                  conflictModal.body.extra_description as string | undefined,
+                  {
+                    provider: conflictModal.body.agent_provider as string | undefined,
+                    model: conflictModal.body.agent_model as string | undefined,
+                    createPr: conflictModal.body.create_pr as boolean | undefined,
+                    mode: conflictModal.body.mode as string | undefined,
+                    flowId: conflictModal.body.flow_id as string | undefined,
+                  },
+                  true,
+                );
+              }} style={{
+                padding: '8px 20px', borderRadius: 8, border: 'none',
+                background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>Queue Anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

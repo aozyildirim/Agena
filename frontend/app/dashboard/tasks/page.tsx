@@ -71,6 +71,7 @@ export default function DashboardTasksPage() {
   const [page, setPage] = useState(1);
   const pageSize = 12;
   const [defaultCreatePr, setDefaultCreatePr] = useState(true);
+  const [conflictModal, setConflictModal] = useState<{ id: number; info: string; body: Record<string, unknown> } | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [storyContext, setStoryContext] = useState('');
@@ -274,14 +275,22 @@ export default function DashboardTasksPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       if (msg.includes('REPO_CONFLICT:')) {
-        const conflictInfo = msg.replace('REPO_CONFLICT:', '').trim();
-        if (confirm(`This repo already has a running task:\n${conflictInfo}\n\nQueue this task anyway?`)) {
-          await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ ...body, force_queue: true }) });
-          router.push(`/tasks/${id}`);
-        }
+        setConflictModal({ id, info: msg.replace('REPO_CONFLICT:', '').trim(), body });
       } else {
         setError(msg || t('tasks.assignFailed'));
       }
+    }
+  }
+
+  async function _forceQueueConflict() {
+    if (!conflictModal) return;
+    const { id, body } = conflictModal;
+    setConflictModal(null);
+    try {
+      await apiFetch('/tasks/' + id + '/assign', { method: 'POST', body: JSON.stringify({ ...body, force_queue: true }) });
+      router.push(`/tasks/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('tasks.assignFailed'));
     }
   }
 
@@ -1060,6 +1069,46 @@ export default function DashboardTasksPage() {
                   Save
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Repo conflict modal */}
+      {conflictModal && (
+        <div onClick={() => setConflictModal(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: '100%', maxWidth: 440, borderRadius: 16,
+            border: '1px solid var(--panel-border)',
+            background: 'var(--surface)', padding: 24,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>&#9888;</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Repo Busy</div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--ink-58)', lineHeight: 1.6, margin: '0 0 8px' }}>
+              This repo already has an active task:
+            </p>
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--glass)', border: '1px solid var(--panel-border)', fontSize: 12, color: 'var(--ink-72)', marginBottom: 16, wordBreak: 'break-word' }}>
+              {conflictModal.info}
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--ink-45)', lineHeight: 1.6, margin: '0 0 20px' }}>
+              Queue this task to run after the current one finishes?
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConflictModal(null)} style={{
+                padding: '8px 20px', borderRadius: 8, border: '1px solid var(--panel-border)',
+                background: 'transparent', color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>Cancel</button>
+              <button onClick={() => void _forceQueueConflict()} style={{
+                padding: '8px 20px', borderRadius: 8, border: 'none',
+                background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>Queue Anyway</button>
             </div>
           </div>
         </div>
