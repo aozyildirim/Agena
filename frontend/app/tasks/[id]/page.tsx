@@ -228,9 +228,11 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
 }
 
 function showConflictDialog(info: string, onQueue: () => void) {
+  const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  const viewH = window.innerHeight;
   const overlay = document.createElement('div');
   Object.assign(overlay.style, {
-    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+    position: 'absolute', top: scrollY + 'px', left: '0', width: '100%', height: viewH + 'px',
     zIndex: '999999', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
   });
