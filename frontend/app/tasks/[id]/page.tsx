@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useParams } from 'next/navigation';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
@@ -226,6 +225,34 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
   }
   if (current.length > 0) runs.push(current);
   return runs.length > 0 ? runs : [[]];
+}
+
+function showConflictDialog(info: string, onQueue: () => void) {
+  const overlay = document.createElement('div');
+  Object.assign(overlay.style, {
+    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+    zIndex: '999999', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
+  });
+  overlay.innerHTML = `
+    <div style="width:100%;max-width:440px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:#1a1a2e;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);color:#e2e8f0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.25);display:flex;align-items:center;justify-content:center;font-size:18px">&#9888;&#65039;</div>
+        <div style="font-size:16px;font-weight:700">Repo Busy</div>
+      </div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 8px">This repo already has an active task:</p>
+      <div style="padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:12px;color:#cbd5e1;margin-bottom:16px;word-break:break-word">${info.replace(/</g, '&lt;')}</div>
+      <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 20px">Queue this task to run after the current one finishes?</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="conflict-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
+        <button id="conflict-queue" style="padding:8px 20px;border-radius:8px;border:none;background:#0d9488;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Queue Anyway</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) { document.body.removeChild(overlay); } });
+  overlay.querySelector('#conflict-cancel')!.addEventListener('click', () => { document.body.removeChild(overlay); });
+  overlay.querySelector('#conflict-queue')!.addEventListener('click', () => { document.body.removeChild(overlay); onQueue(); });
 }
 
 export default function TaskDetailPage() {
@@ -524,8 +551,6 @@ export default function TaskDetailPage() {
     setShowRunConfig(true);
   }
 
-  const [conflictModal, setConflictModal] = useState<{ info: string; body: Record<string, unknown> } | null>(null);
-
   async function rerunTask(extraDesc?: string, agentOpts?: { provider?: string; model?: string; createPr?: boolean; mode?: string; flowId?: string }, forceQueue = false) {
     if (!taskId) return;
     const body: Record<string, unknown> = {
@@ -550,8 +575,20 @@ export default function TaskDetailPage() {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('REPO_CONFLICT:')) {
         setShowRunConfig(false);
-        setConflictModal({ info: msg.replace('REPO_CONFLICT:', '').trim(), body });
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        const info = msg.replace('REPO_CONFLICT:', '').trim();
+        showConflictDialog(info, async () => {
+          await rerunTask(
+            body.extra_description as string | undefined,
+            {
+              provider: body.agent_provider as string | undefined,
+              model: body.agent_model as string | undefined,
+              createPr: body.create_pr as boolean | undefined,
+              mode: body.mode as string | undefined,
+              flowId: body.flow_id as string | undefined,
+            },
+            true,
+          );
+        });
       } else {
         setError(msg || t('taskDetail.errorRerun'));
       }
@@ -1374,61 +1411,7 @@ export default function TaskDetailPage() {
         />
       )}
 
-      {/* Repo conflict modal — portaled to body */}
-      {conflictModal && createPortal(
-        <div onClick={() => setConflictModal(null)} style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999,
-          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16,
-        }}>
-          <div onClick={(e) => e.stopPropagation()} style={{
-            width: '100%', maxWidth: 440, borderRadius: 16,
-            border: '1px solid var(--panel-border)',
-            background: 'var(--surface)', padding: 24,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>&#9888;</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Repo Busy</div>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--ink-58)', lineHeight: 1.6, margin: '0 0 8px' }}>
-              This repo already has an active task:
-            </p>
-            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--glass)', border: '1px solid var(--panel-border)', fontSize: 12, color: 'var(--ink-72)', marginBottom: 16, wordBreak: 'break-word' }}>
-              {conflictModal.info}
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--ink-45)', lineHeight: 1.6, margin: '0 0 20px' }}>
-              Queue this task to run after the current one finishes?
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConflictModal(null)} style={{
-                padding: '8px 20px', borderRadius: 8, border: '1px solid var(--panel-border)',
-                background: 'transparent', color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}>Cancel</button>
-              <button onClick={async () => {
-                const body = conflictModal.body;
-                setConflictModal(null);
-                await rerunTask(
-                  body.extra_description as string | undefined,
-                  {
-                    provider: body.agent_provider as string | undefined,
-                    model: body.agent_model as string | undefined,
-                    createPr: body.create_pr as boolean | undefined,
-                    mode: body.mode as string | undefined,
-                    flowId: body.flow_id as string | undefined,
-                  },
-                  true,
-                );
-              }} style={{
-                padding: '8px 20px', borderRadius: 8, border: 'none',
-                background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}>Queue Anyway</button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {/* conflict modal is handled by showConflictDialog() via imperative DOM */}
     </div>
   );
 }
