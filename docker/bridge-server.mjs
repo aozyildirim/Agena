@@ -407,7 +407,7 @@ async function startLogin(cli, deviceAuth = false) {
     let deviceCode = '';
     const args = cli === 'codex'
       ? (deviceAuth ? ['login', '--device-auth'] : ['login'])
-      : ['auth', 'login'];
+      : ['setup-token'];
 
     const spawnLogin = () => {
       let proc;
@@ -444,15 +444,19 @@ async function startLogin(cli, deviceAuth = false) {
     let proc;
 
     function parseOutput(text) {
-      // Strip ANSI escape codes
-      const clean = text.replace(/\x1b\[[0-9;]*m/g, '');
+      // Strip ANSI escape/control sequences
+      const clean = text
+        .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+        .replace(/\x1B\][^\x07]*(\x07|\x1B\\)/g, '');
       output += clean;
       console.log(`[${cli} login] ${clean.trim()}`);
       // Extract OAuth authorize URL reliably.
       const compact = clean.replace(/\s+/g, '');
       const oauthMatch = compact.match(/(https:\/\/[^ ]*oauth\/authorize[^ ]*)/i)
         || compact.match(/(https:\/\/[^ ]*\/cai\/oauth\/authorize[^ ]*)/i);
-      if (oauthMatch) loginUrl = oauthMatch[1];
+      if (oauthMatch) {
+        loginUrl = oauthMatch[1].split('Pastecodehereifprompted')[0];
+      }
       else if (!loginUrl) {
         const httpsMatch = clean.match(/(https:\/\/[^\s]+)/);
         if (httpsMatch) loginUrl = httpsMatch[1];
