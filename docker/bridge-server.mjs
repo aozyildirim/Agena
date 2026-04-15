@@ -273,7 +273,22 @@ async function runCLIStream(bin, name, data, res) {
 }
 
 async function submitLoginCode(cli, data) {
-  const code = String((data || {}).code || '').trim();
+  const raw = String((data || {}).code || '').trim();
+  // Accept common pasted variants:
+  // - "<code>#<state>"
+  // - "...?code=<code>&state=<state>"
+  let code = raw;
+  if (code.includes('#')) code = code.split('#')[0];
+  if (code.includes('code=')) {
+    try {
+      const u = new URL(code);
+      code = (u.searchParams.get('code') || code).trim();
+    } catch {
+      const m = code.match(/[?&]code=([^&#]+)/);
+      if (m) code = decodeURIComponent(m[1]);
+    }
+  }
+  code = code.trim();
   if (!code) return { status: 'error', message: 'code is required' };
   const proc = loginProcesses[cli];
   if ((!proc || proc.killed) && cli === 'claude') {
