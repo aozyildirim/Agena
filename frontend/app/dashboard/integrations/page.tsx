@@ -1310,6 +1310,25 @@ export default function IntegrationsPage() {
                       <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5, padding: '6px 2px' }}>
                         Sign in from the opened browser tab. When complete, this status will update automatically.
                       </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input id='claude-login-code' type='text' placeholder='If Claude gave a code, paste it here' style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
+                        <button className='button button-primary' style={{ padding: '7px 12px', fontSize: 11, flexShrink: 0 }} onClick={() => {
+                          const code = ((document.getElementById('claude-login-code') as HTMLInputElement)?.value || '').trim();
+                          if (!code) { setError('Login code is required'); return; }
+                          fetch('http://localhost:9876/claude/login/code', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code }),
+                          }).then(r => r.json()).then(d => {
+                            if (d.status !== 'ok') { setError(d.message || 'Could not submit code'); return; }
+                            setMsg('Code submitted, completing login...');
+                            setTimeout(() => fetch('http://localhost:9876/health').then(r => r.json()).then(h => {
+                              if (h.claude_auth) { setMsg(t('integrations.claudeLoginSuccess')); setCliBridgeStatus(s => s ? { ...s, claude_auth: true } : s); }
+                              else setMsg(t('integrations.waitFewSeconds'));
+                            }), 3000);
+                          }).catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
+                        }}>{t('integrations.complete')}</button>
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> {t('integrations.or')} <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <input id='claude-key' type='password' placeholder={t('integrations.claudeApiKeyPlaceholder')} style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12 }} />
