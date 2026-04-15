@@ -276,6 +276,33 @@ async function submitLoginCode(cli, data) {
   const code = String((data || {}).code || '').trim();
   if (!code) return { status: 'error', message: 'code is required' };
   const proc = loginProcesses[cli];
+  if ((!proc || proc.killed) && cli === 'claude') {
+    // Fallback: recover from lost in-memory session by running a fresh code-flow login.
+    if (!claudeBin) return { status: 'error', message: 'claude not installed' };
+    const stripAnsi = (s) => (s || '')
+      .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+      .replace(/\x1B\][^\x07]*(\x07|\x1B\\)/g, '');
+    return await new Promise((resolve) => {
+      const p = spawn('script', ['-qec', `${claudeBin} setup-token`, '/dev/null'], {
+        env: { ...process.env, NO_COLOR: '1', BROWSER: 'echo' },
+      });
+      let out = '';
+      p.stdout.on('data', (d) => { out += stripAnsi(String(d)); });
+      p.stderr.on('data', (d) => { out += stripAnsi(String(d)); });
+      const writeTimer = setTimeout(() => { try { p.stdin.write(`${code}\n`); } catch {} }, 1200);
+      const killTimer = setTimeout(() => {
+        try { p.kill('SIGTERM'); } catch {}
+        resolve({ status: 'error', message: 'Login timed out while submitting code' });
+      }, 120000);
+      p.on('close', async () => {
+        clearTimeout(writeTimer);
+        clearTimeout(killTimer);
+        const authed = await detectClaudeAuth();
+        if (authed) resolve({ status: 'ok', message: 'Code submitted. Login completed.' });
+        else resolve({ status: 'error', message: (out || 'Code was not accepted').slice(-400) });
+      });
+    });
+  }
   if (!proc || proc.killed) {
     return { status: 'error', message: 'No active login session. Start login first.' };
   }
