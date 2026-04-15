@@ -101,6 +101,12 @@ export default function DashboardTasksPage() {
   const [selectedRepoMappingIds, setSelectedRepoMappingIds] = useState<number[]>([]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasAnyModalOpen = aiPopupTaskId !== null
+    || flowPopupTaskId !== null
+    || mcpPopupTaskId !== null
+    || deleteConfirmTask !== null
+    || editTask !== null
+    || conflictModal !== null;
 
   const load = useCallback(async () => {
     try {
@@ -199,6 +205,13 @@ export default function DashboardTasksPage() {
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const prev = document.body.style.overflow;
+    if (hasAnyModalOpen) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [hasAnyModalOpen]);
 
   useEffect(() => {
     if (showCreate && !createMappingsLoaded) {
@@ -1013,10 +1026,10 @@ export default function DashboardTasksPage() {
         />
       )}
       {/* Delete confirmation modal */}
-      {deleteConfirmTask && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      {deleteConfirmTask && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}
           onClick={() => setDeleteConfirmTask(null)}>
-          <div style={{ width: 'min(400px, 100%)', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}
+          <div style={{ width: 'min(400px, calc(100vw - 24px))', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.4)', maxHeight: '92vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>🗑</div>
             <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>{t('tasks.deleteConfirm')}</div>
@@ -1038,16 +1051,17 @@ export default function DashboardTasksPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       {/* Edit task modal */}
-      {editTask && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      {editTask && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}
           onClick={() => setEditTask(null)}>
-          <div style={{ width: 'min(520px, 100%)', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden' }}
+          <div style={{ width: 'min(520px, calc(100vw - 24px))', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden', maxHeight: '92vh' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ height: 3, background: 'linear-gradient(90deg, #38bdf8, #7c3aed)' }} />
-            <div style={{ padding: '20px 24px', display: 'grid', gap: 14 }}>
+            <div style={{ padding: '20px 24px', display: 'grid', gap: 14, overflowY: 'auto', maxHeight: 'calc(92vh - 3px)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>Edit Task #{editTask.id}</h3>
                 <button onClick={() => setEditTask(null)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>×</button>
@@ -1074,7 +1088,8 @@ export default function DashboardTasksPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Repo conflict modal */}
@@ -1238,8 +1253,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   const mappingIds = selectedMappingIds.length > 0 ? selectedMappingIds : undefined;
 
   return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px 16px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, width: 'min(480px, 100%)', maxHeight: '85vh', overflowY: 'auto', margin: 'auto 0' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, width: 'min(480px, calc(100vw - 24px))', maxHeight: '92vh', overflowY: 'auto' }}>
         <div style={{ height: 3, background: mode === 'ai' ? 'linear-gradient(90deg, #0d9488, #22c55e)' : mode === 'mcp_agent' ? 'linear-gradient(90deg, #0891b2, #06b6d4)' : 'linear-gradient(90deg, #7c3aed, #a78bfa)' }} />
         <div style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
