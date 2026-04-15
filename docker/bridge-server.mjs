@@ -120,6 +120,8 @@ const server = createServer(async (req, res) => {
     result = await startLogin('codex', true);
   } else if (url.pathname === '/claude/login') {
     result = await startLogin('claude');
+  } else if (url.pathname === '/claude/login/code') {
+    result = await submitLoginCode('claude', data);
   } else {
     res.writeHead(404);
     res.end();
@@ -268,6 +270,21 @@ async function runCLIStream(bin, name, data, res) {
   });
 
   proc.stdin.end();
+}
+
+async function submitLoginCode(cli, data) {
+  const code = String((data || {}).code || '').trim();
+  if (!code) return { status: 'error', message: 'code is required' };
+  const proc = loginProcesses[cli];
+  if (!proc || proc.killed) {
+    return { status: 'error', message: 'No active login session. Start login first.' };
+  }
+  try {
+    proc.stdin.write(`${code}\n`);
+    return { status: 'ok', message: 'Code submitted. Completing login...' };
+  } catch (e) {
+    return { status: 'error', message: e?.message || 'Failed to submit code' };
+  }
 }
 
 async function runCLI(bin, name, data) {
