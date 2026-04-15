@@ -27,6 +27,22 @@ console.log(`CLI Bridge starting on port ${PORT}...`);
 console.log(`  codex: ${codexBin || 'NOT FOUND'}`);
 console.log(`  claude: ${claudeBin || 'NOT FOUND'}`);
 
+async function detectClaudeAuth() {
+  if (!claudeBin) return false;
+  try {
+    const { stdout } = await execFileAsync(claudeBin, ['auth', 'status', '--json'], {
+      env: { ...process.env, NO_COLOR: '1' },
+      timeout: 5000,
+      maxBuffer: 1024 * 1024,
+    });
+    const parsed = JSON.parse((stdout || '{}').trim() || '{}');
+    return !!parsed.loggedIn;
+  } catch {
+    // Fallback for older/newer CLI variants
+    return existsSync(`${HOME}/.claude/.credentials.json`) || existsSync(`${HOME}/.claude/credentials.json`);
+  }
+}
+
 const server = createServer(async (req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,7 +76,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/health') {
     const codexAuth = existsSync(`${HOME}/.codex/auth.json`) || !!process.env.OPENAI_API_KEY;
-    const claudeAuth = existsSync(`${HOME}/.claude/.credentials.json`) || existsSync(`${HOME}/.claude/credentials.json`);
+    const claudeAuth = await detectClaudeAuth();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
@@ -354,7 +370,7 @@ async function startLogin(cli, deviceAuth = false) {
     let deviceCode = '';
     const args = cli === 'codex'
       ? (deviceAuth ? ['login', '--device-auth'] : ['login'])
-      : ['login'];
+      : ['auth', 'login'];
 
     console.log(`[${cli}] starting login: ${bin} ${args.join(' ')}`);
     const proc = spawn(bin, args, {
@@ -473,6 +489,12 @@ async function clearAuth(cli) {
     }
 
     if (cli === 'claude') {
+      // Ask CLI to clean its own auth state first (keychain/files), then remove known local files.
+      if (claudeBin) {
+        try {
+          await execFileAsync(claudeBin, ['auth', 'logout'], { env: { ...process.env, NO_COLOR: '1' }, timeout: 10000 });
+        } catch {}
+      }
       const paths = [`${HOME}/.claude/.credentials.json`, `${HOME}/.claude/credentials.json`];
       for (const p of paths) {
         if (existsSync(p)) unlinkSync(p);

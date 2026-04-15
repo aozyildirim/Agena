@@ -173,6 +173,21 @@ class ClaudeCLIService:
         import httpx
 
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        # Fail fast with a clear message when Claude CLI session is not authenticated.
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=5)) as client:
+                health = await client.get(f'{bridge_url}/health')
+                if health.status_code >= 400:
+                    raise RuntimeError(f'CLI bridge health check failed ({health.status_code})')
+                h = health.json() if health.content else {}
+                if not bool((h or {}).get('claude', False)):
+                    raise RuntimeError('Claude CLI not installed on host bridge')
+                if not bool((h or {}).get('claude_auth', False)):
+                    raise RuntimeError('Claude CLI not authenticated (claude_auth=false)')
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f'CLI bridge health check failed: {exc}')
 
         # Stream endpoint — real-time logs via SSE (bridge uses --output-format stream-json)
         try:
