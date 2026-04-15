@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -41,4 +43,25 @@ const nextConfig = {
 };
 
 let exportedConfig = nextConfig;
+
+const require = createRequire(import.meta.url);
+let withSentryConfig = null;
+try {
+  require.resolve('@sentry/nextjs/package.json');
+  ({ withSentryConfig } = await import('@sentry/nextjs'));
+} catch {
+  // Keep frontend booting even if Sentry dependency is not present yet.
+}
+
+if (withSentryConfig) {
+  exportedConfig = withSentryConfig(nextConfig, {
+    silent: true,
+    disableLogger: true,
+    widenClientFileUpload: true,
+    org: process.env.SENTRY_ORG || undefined,
+    project: process.env.SENTRY_PROJECT || undefined,
+    authToken: process.env.SENTRY_AUTH_TOKEN || undefined,
+  });
+}
+
 export default exportedConfig;

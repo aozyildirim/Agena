@@ -82,7 +82,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
-    command: npm run dev -- -p 3010
+    command: >
+      sh -lc "npm install --no-audit --no-fund && npm run dev -- -p 3010"
     depends_on:
       - backend
     restart: unless-stopped
@@ -96,6 +97,8 @@ services:
       - frontend/.env.example
     ports:
       - '3011:3010'
+    command: >
+      sh -lc "npm install --no-audit --no-fund && npm run dev -- -p 3010"
     depends_on:
       - backend
     restart: unless-stopped
@@ -109,6 +112,8 @@ services:
       - frontend/.env.example
     ports:
       - '3012:3010'
+    command: >
+      sh -lc "npm install --no-audit --no-fund && npm run dev -- -p 3010"
     depends_on:
       - backend
     restart: unless-stopped
