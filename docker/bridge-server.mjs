@@ -443,7 +443,7 @@ async function startLogin(cli, deviceAuth = false) {
     let deviceCode = '';
     const args = cli === 'codex'
       ? (deviceAuth ? ['login', '--device-auth'] : ['login'])
-      : ['setup-token'];
+      : ['auth', 'login'];
 
     const spawnLogin = () => {
       let proc;
