@@ -413,6 +413,7 @@ import { request as httpRequest } from 'http';
 
 // Active login processes and proxies
 const loginProcesses = {};
+const loginState = {};
 const loginProxies = {};
 
 // Track callback port for proxying through bridge
@@ -422,10 +423,18 @@ async function startLogin(cli, deviceAuth = false) {
   const bin = cli === 'codex' ? codexBin : claudeBin;
   if (!bin) return { status: 'error', message: `${cli} not installed` };
 
-  // Kill previous login process
-  if (loginProcesses[cli]) {
-    try { loginProcesses[cli].kill(); } catch {}
-    delete loginProcesses[cli];
+  // Reuse active login process to avoid resetting state/code challenge.
+  const active = loginProcesses[cli];
+  if (active && !active.killed && active.exitCode == null) {
+    const st = loginState[cli] || {};
+    return {
+      status: 'ok',
+      already_started: true,
+      login_url: st.login_url || '',
+      callback_port: activeCallbackPort,
+      device_code: st.device_code || '',
+      message: 'Login already in progress. Continue with the same code/session.',
+    };
   }
 
   return new Promise((resolve) => {
@@ -483,6 +492,7 @@ async function startLogin(cli, deviceAuth = false) {
         || compact.match(/(https:\/\/[^ ]*\/cai\/oauth\/authorize[^ ]*)/i);
       if (oauthMatch) {
         loginUrl = oauthMatch[1].split('Pastecodehereifprompted')[0];
+        loginState[cli] = { ...(loginState[cli] || {}), login_url: loginUrl };
       }
       else if (!loginUrl) {
         const httpsMatch = clean.match(/(https:\/\/[^\s]+)/);
@@ -490,7 +500,10 @@ async function startLogin(cli, deviceAuth = false) {
       }
       // Extract device code (e.g. "XINP-1N30B" — alphanumeric with dash)
       const codeMatch = clean.match(/^\s+([A-Z0-9]{4,5}-[A-Z0-9]{4,5})\s*$/m);
-      if (codeMatch) { deviceCode = codeMatch[1].trim(); }
+      if (codeMatch) {
+        deviceCode = codeMatch[1].trim();
+        loginState[cli] = { ...(loginState[cli] || {}), device_code: deviceCode };
+      }
     }
 
     Promise.resolve(startAfterReset()).then((p) => {
@@ -532,6 +545,7 @@ async function startLogin(cli, deviceAuth = false) {
       proc.on('close', (code) => {
         console.log(`[${cli} login] exited with code ${code}`);
         delete loginProcesses[cli];
+        delete loginState[cli];
         if (!resolved) {
           resolved = true;
           clearInterval(checkUrl);
