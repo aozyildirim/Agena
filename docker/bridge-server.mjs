@@ -462,8 +462,8 @@ async function startLogin(cli, deviceAuth = false) {
 
     const spawnLogin = () => {
       let proc;
-      if (cli === 'claude') {
-        // Claude login code flow requires a TTY; wrap with `script` to provide pseudo-tty in bridge mode.
+      if (cli === 'claude' && args[0] === 'setup-token') {
+        // setup-token flow requires a TTY.
         const cmd = `${bin} ${args.join(' ')}`;
         console.log(`[${cli}] starting login (pty): script -qec "${cmd}" /dev/null`);
         proc = spawn('script', ['-qec', cmd, '/dev/null'], {
