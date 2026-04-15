@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from agena_core.database import SessionLocal
 from agena_core.logging import configure_logging
+from agena_core.observability import init_sentry
 from agena_core.settings import get_settings
 from agena_models.models.task_record import TaskRecord
 import agena_models.models  # noqa: F401 -- register all ORM models
@@ -21,6 +22,7 @@ from agena_services.services.task_service import TaskService
 configure_logging()
 logger = logging.getLogger(__name__)
 settings = get_settings()
+init_sentry('worker')
 
 
 def _lock_retry_delay_seconds(retry_count: int) -> int:
