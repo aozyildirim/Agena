@@ -130,7 +130,37 @@ class SentryClient:
             data = resp.json()
         return data if isinstance(data, dict) else {}
 
+    def _render_frames(self, frames: Any) -> list[str]:
+        if not isinstance(frames, list):
+            return []
+        rendered: list[str] = []
+        for fr in reversed(frames[-18:]):
+            if not isinstance(fr, dict):
+                continue
+            filename = str(fr.get('filename') or '').strip()
+            function = str(fr.get('function') or '').strip()
+            lineno = fr.get('lineno')
+            in_app = bool(fr.get('in_app'))
+            bits = [b for b in [filename, function] if b]
+            head = ' :: '.join(bits) if bits else '(unknown frame)'
+            if lineno:
+                head = f'{head}:{lineno}'
+            if in_app:
+                head = f'{head} [in_app]'
+            rendered.append(head)
+        return rendered
+
     def _extract_exception_summary(self, event_json: dict[str, Any]) -> tuple[str | None, list[str]]:
+        top_exc = event_json.get('exception') or {}
+        top_values = (top_exc.get('values') or []) if isinstance(top_exc, dict) else []
+        if isinstance(top_values, list) and top_values:
+            first = top_values[0] or {}
+            err_type = str(first.get('type') or '').strip()
+            err_value = str(first.get('value') or '').strip()
+            summary = f'{err_type}: {err_value}'.strip(': ').strip() or None
+            frames = ((first.get('stacktrace') or {}).get('frames') or [])
+            return summary, self._render_frames(frames)
+
         entries = event_json.get('entries') or []
         if not isinstance(entries, list):
             return None, []
@@ -145,24 +175,7 @@ class SentryClient:
             err_value = str(first.get('value') or '').strip()
             summary = f'{err_type}: {err_value}'.strip(': ').strip() or None
             frames = ((first.get('stacktrace') or {}).get('frames') or [])
-            if not isinstance(frames, list):
-                return summary, []
-            rendered: list[str] = []
-            for fr in reversed(frames[-18:]):
-                if not isinstance(fr, dict):
-                    continue
-                filename = str(fr.get('filename') or '').strip()
-                function = str(fr.get('function') or '').strip()
-                lineno = fr.get('lineno')
-                in_app = bool(fr.get('in_app'))
-                bits = [b for b in [filename, function] if b]
-                head = ' :: '.join(bits) if bits else '(unknown frame)'
-                if lineno:
-                    head = f'{head}:{lineno}'
-                if in_app:
-                    head = f'{head} [in_app]'
-                rendered.append(head)
-            return summary, rendered
+            return summary, self._render_frames(frames)
         return None, []
 
     def _event_detail_lines(self, event_id: str | None, event_json: dict[str, Any], permalink: str | None) -> list[str]:
@@ -192,12 +205,44 @@ class SentryClient:
             lines.append('Stack Trace (latest frames):')
             lines.extend([f'  - {x}' for x in stack_lines])
 
-        tags = event_json.get('tags') or {}
-        if isinstance(tags, dict):
-            keys = ['environment', 'release', 'runtime', 'server_name', 'browser', 'os']
-            selected = [f'{k}={str(tags.get(k) or "").strip()}' for k in keys if str(tags.get(k) or '').strip()]
-            if selected:
-                lines.append(f'Tags: {", ".join(selected)}')
+        tags_raw = event_json.get('tags') or {}
+        tag_map: dict[str, str] = {}
+        if isinstance(tags_raw, dict):
+            tag_map = {str(k): str(v) for k, v in tags_raw.items()}
+        elif isinstance(tags_raw, list):
+            for tag in tags_raw:
+                if isinstance(tag, (list, tuple)) and len(tag) >= 2:
+                    tag_map[str(tag[0])] = str(tag[1])
+                elif isinstance(tag, dict):
+                    k = str(tag.get('key') or '').strip()
+                    v = str(tag.get('value') or '').strip()
+                    if k and v:
+                        tag_map[k] = v
+        keys = ['environment', 'release', 'runtime', 'server_name', 'browser', 'os', 'transaction']
+        selected = [f'{k}={tag_map[k]}' for k in keys if str(tag_map.get(k) or '').strip()]
+        if selected:
+            lines.append(f'Tags: {", ".join(selected)}')
+
+        contexts = event_json.get('contexts') or {}
+        if isinstance(contexts, dict) and contexts:
+            context_keys = ', '.join(sorted([str(k) for k in contexts.keys()][:8]))
+            if context_keys:
+                lines.append(f'Contexts: {context_keys}')
+
+        breadcrumbs = event_json.get('breadcrumbs') or {}
+        values = breadcrumbs.get('values') if isinstance(breadcrumbs, dict) else None
+        if isinstance(values, list) and values:
+            lines.append('Breadcrumbs (latest):')
+            for b in values[-6:]:
+                if not isinstance(b, dict):
+                    continue
+                ts = str(b.get('timestamp') or '').strip()
+                cat = str(b.get('category') or '').strip()
+                msg = str(b.get('message') or '').strip() or str(b.get('type') or '').strip()
+                lvl = str(b.get('level') or '').strip()
+                text = ' | '.join([x for x in [ts, lvl, cat, msg] if x])[:220]
+                if text:
+                    lines.append(f'  - {text}')
 
         if permalink:
             lines.append(f'Sentry URL: {permalink}')
