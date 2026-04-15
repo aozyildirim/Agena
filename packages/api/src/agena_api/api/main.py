@@ -14,6 +14,7 @@ from agena_api.api.middleware.tenant import TenantMiddleware
 from agena_api.api.routes import admin, agents, analytics, auth, billing, chatops, flows, github, integrations, memory, newrelic, notifications, org, preferences, public, refinement, repo_mappings, saas_tasks, tasks, usage_events, webhooks, ws
 from agena_core.database import engine, SessionLocal
 from agena_core.logging import configure_logging
+from agena_core.observability import init_sentry
 from agena_core.settings import get_settings
 import agena_models.models  # noqa: F401 -- register all ORM models
 from agena_core.db.base import Base
@@ -21,6 +22,7 @@ from agena_core.db.base import Base
 settings = get_settings()
 configure_logging()
 logger = logging.getLogger(__name__)
+init_sentry('api')
 
 app = FastAPI(title=settings.app_name)
 

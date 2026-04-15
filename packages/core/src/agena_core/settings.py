@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = Field(default=True, alias='SMTP_USE_TLS')
     smtp_use_ssl: bool = Field(default=False, alias='SMTP_USE_SSL')
     pr_webhook_secret: str = Field(default='', alias='PR_WEBHOOK_SECRET')
+    sentry_dsn: str = Field(default='', alias='SENTRY_DSN')
+    sentry_environment: str = Field(default='', alias='SENTRY_ENVIRONMENT')
+    sentry_traces_sample_rate: float = Field(default=0.0, alias='SENTRY_TRACES_SAMPLE_RATE')
+    sentry_profiles_sample_rate: float = Field(default=0.0, alias='SENTRY_PROFILES_SAMPLE_RATE')
+    sentry_send_default_pii: bool = Field(default=False, alias='SENTRY_SEND_DEFAULT_PII')
+    sentry_release: str = Field(default='', alias='SENTRY_RELEASE')
     # Telegram & Teams bot credentials are stored per-org in IntegrationConfig (DB).
     # No env vars needed — each org manages their own bot via Dashboard → Integrations.
 
@@ -109,6 +115,14 @@ class Settings(BaseSettings):
     def redis_url(self) -> str:
         auth = f':{self.redis_password}@' if self.redis_password else ''
         return f'redis://{auth}{self.redis_host}:{self.redis_port}/{self.redis_db}'
+
+    @property
+    def sentry_enabled(self) -> bool:
+        return bool((self.sentry_dsn or '').strip())
+
+    @property
+    def effective_sentry_environment(self) -> str:
+        return (self.sentry_environment or '').strip() or self.app_env
 
 
 @lru_cache
