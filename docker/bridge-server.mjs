@@ -273,9 +273,6 @@ async function runCLIStream(bin, name, data, res) {
 }
 
 async function submitLoginCode(cli, data) {
-  if (cli === 'claude') {
-    return { status: 'error', message: 'Claude code entry is not supported in bridge mode. Use Sign in URL flow.' };
-  }
   const code = String((data || {}).code || '').trim();
   if (!code) return { status: 'error', message: 'code is required' };
   const proc = loginProcesses[cli];
@@ -413,10 +410,20 @@ async function startLogin(cli, deviceAuth = false) {
       : ['auth', 'login'];
 
     const spawnLogin = () => {
-      console.log(`[${cli}] starting login: ${bin} ${args.join(' ')}`);
-      const proc = spawn(bin, args, {
-        env: { ...process.env, NO_COLOR: '1', BROWSER: 'echo' },
-      });
+      let proc;
+      if (cli === 'claude') {
+        // Claude login code flow requires a TTY; wrap with `script` to provide pseudo-tty in bridge mode.
+        const cmd = `${bin} ${args.join(' ')}`;
+        console.log(`[${cli}] starting login (pty): script -qec "${cmd}" /dev/null`);
+        proc = spawn('script', ['-qec', cmd, '/dev/null'], {
+          env: { ...process.env, NO_COLOR: '1', BROWSER: 'echo' },
+        });
+      } else {
+        console.log(`[${cli}] starting login: ${bin} ${args.join(' ')}`);
+        proc = spawn(bin, args, {
+          env: { ...process.env, NO_COLOR: '1', BROWSER: 'echo' },
+        });
+      }
       loginProcesses[cli] = proc;
       return proc;
     };
