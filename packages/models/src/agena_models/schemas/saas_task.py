@@ -125,6 +125,7 @@ class NewRelicImportRequest(BaseModel):
 
 
 class SentryImportRequest(BaseModel):
+    project_slug: str | None = None
     query: str = 'is:unresolved'
     limit: int = 50
 

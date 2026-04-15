@@ -348,6 +348,7 @@ async def import_sentry_issues(
         imported, skipped = await service.import_from_sentry(
             tenant.organization_id,
             tenant.user_id,
+            project_slug=request.project_slug,
             query=request.query,
             limit=request.limit,
         )

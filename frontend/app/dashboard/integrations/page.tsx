@@ -91,7 +91,6 @@ export default function IntegrationsPage() {
   const [sentryToken, setSentryToken] = useState('');
   const [sentryTokenPreview, setSentryTokenPreview] = useState('');
   const [sentryOrgSlug, setSentryOrgSlug] = useState('');
-  const [sentryProjectSlug, setSentryProjectSlug] = useState('');
   const [notifyTesting, setNotifyTesting] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -272,7 +271,6 @@ export default function IntegrationsPage() {
     if (sentry) {
       setSentryBaseUrl(sentry.base_url || 'https://sentry.io/api/0');
       setSentryOrgSlug(sentry.extra_config?.organization_slug ?? '');
-      setSentryProjectSlug(sentry.extra_config?.project_slug ?? '');
     }
   }
 
@@ -546,7 +544,6 @@ export default function IntegrationsPage() {
           secret: sentryToken || undefined,
           extra_config: {
             organization_slug: sentryOrgSlug || undefined,
-            project_slug: sentryProjectSlug || undefined,
           },
         }),
       });
@@ -897,9 +894,6 @@ export default function IntegrationsPage() {
           </FieldGroup>
           <FieldGroup label={t('integrations.sentryOrgSlug')}>
             <input value={sentryOrgSlug} onChange={(e) => setSentryOrgSlug(e.target.value)} placeholder={t('integrations.sentryOrgSlugPlaceholder')} />
-          </FieldGroup>
-          <FieldGroup label={t('integrations.sentryProjectSlug')}>
-            <input value={sentryProjectSlug} onChange={(e) => setSentryProjectSlug(e.target.value)} placeholder={t('integrations.sentryProjectSlugPlaceholder')} />
           </FieldGroup>
           <FieldGroup label={t('integrations.sentryApiToken')}>
             <input

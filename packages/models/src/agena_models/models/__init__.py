@@ -27,6 +27,7 @@ from agena_models.models.task_record import TaskRecord
 from agena_models.models.usage_record import UsageRecord
 from agena_models.models.user import User
 from agena_models.models.newrelic_entity_mapping import NewRelicEntityMapping
+from agena_models.models.sentry_project_mapping import SentryProjectMapping
 from agena_models.models.user_preference import UserPreference
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     'GitCommit', 'GitPullRequest', 'GitDeployment',
     'ContactSubmission', 'NewsletterSubscriber',
     'NewRelicEntityMapping',
+    'SentryProjectMapping',
 ]

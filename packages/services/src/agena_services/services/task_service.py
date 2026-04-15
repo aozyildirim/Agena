@@ -340,6 +340,7 @@ class TaskService:
         organization_id: int,
         user_id: int,
         *,
+        project_slug: str | None = None,
         query: str = 'is:unresolved',
         limit: int = 50,
     ) -> tuple[int, int]:
@@ -355,52 +356,87 @@ class TaskService:
 
         extra = config.extra_config or {}
         org_slug = str(extra.get('organization_slug') or '').strip()
-        project_slug = str(extra.get('project_slug') or '').strip()
-        if not org_slug or not project_slug:
-            raise ValueError('Sentry organization slug and project slug are required in integration settings')
+        if not org_slug:
+            raise ValueError('Sentry organization slug is required in integration settings')
 
         sentry_cfg = {
             'api_token': config.secret,
             'base_url': config.base_url or 'https://sentry.io/api/0',
         }
-        issues = await self.sentry_client.list_issues(
-            sentry_cfg,
-            organization_slug=org_slug,
-            project_slug=project_slug,
-            query=query,
-            limit=limit,
-        )
-        external_items = self.sentry_client.issues_to_external_tasks(
-            issues,
-            organization_slug=org_slug,
-            project_slug=project_slug,
-        )
+
+        from agena_models.models.sentry_project_mapping import SentryProjectMapping
+
+        mappings: list[SentryProjectMapping] = []
+        project_slug = (project_slug or '').strip()
+        if project_slug:
+            mapping = (await self.db.execute(
+                select(SentryProjectMapping).where(
+                    SentryProjectMapping.organization_id == organization_id,
+                    SentryProjectMapping.project_slug == project_slug,
+                )
+            )).scalar_one_or_none()
+            if mapping is not None:
+                mappings = [mapping]
+            else:
+                # Allow direct import without mapping, New Relic-like fallback.
+                class _ProjectOnly:
+                    def __init__(self, slug: str) -> None:
+                        self.project_slug = slug
+                        self.repo_mapping_id: int | None = None
+
+                mappings = [_ProjectOnly(project_slug)]  # type: ignore[list-item]
+        else:
+            mappings = list((await self.db.execute(
+                select(SentryProjectMapping).where(
+                    SentryProjectMapping.organization_id == organization_id,
+                    SentryProjectMapping.is_active.is_(True),
+                )
+            )).scalars().all())
+            if not mappings:
+                raise ValueError('No active Sentry project mappings found')
 
         imported = 0
         skipped = 0
-        for item in external_items:
-            try:
-                before = await self.db.execute(
-                    select(TaskRecord.id).where(
-                        TaskRecord.organization_id == organization_id,
-                        TaskRecord.source == 'sentry',
-                        TaskRecord.external_id == item.id,
+
+        for mapping in mappings:
+            issues = await self.sentry_client.list_issues(
+                sentry_cfg,
+                organization_slug=org_slug,
+                project_slug=str(mapping.project_slug),
+                query=query,
+                limit=limit,
+            )
+            external_items = self.sentry_client.issues_to_external_tasks(
+                issues,
+                organization_slug=org_slug,
+                project_slug=str(mapping.project_slug),
+            )
+            for item in external_items:
+                try:
+                    before = await self.db.execute(
+                        select(TaskRecord.id).where(
+                            TaskRecord.organization_id == organization_id,
+                            TaskRecord.source == 'sentry',
+                            TaskRecord.external_id == item.id,
+                        )
                     )
-                )
-                if before.scalar_one_or_none() is not None:
-                    skipped += 1
-                    continue
-                await self.create_task_from_external(
-                    organization_id=organization_id,
-                    user_id=user_id,
-                    source='sentry',
-                    external_id=item.id,
-                    title=item.title,
-                    description=item.description,
-                )
-                imported += 1
-            except PermissionError as pe:
-                raise ValueError(f'Task quota exceeded: {pe}') from pe
+                    if before.scalar_one_or_none() is not None:
+                        skipped += 1
+                        continue
+                    task = await self.create_task_from_external(
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        source='sentry',
+                        external_id=item.id,
+                        title=item.title,
+                        description=item.description,
+                    )
+                    if getattr(mapping, 'repo_mapping_id', None):
+                        task.repo_mapping_id = int(mapping.repo_mapping_id)
+                        await self.db.commit()
+                    imported += 1
+                except PermissionError as pe:
+                    raise ValueError(f'Task quota exceeded: {pe}') from pe
 
         return imported, skipped
 

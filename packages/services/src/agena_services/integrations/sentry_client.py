@@ -24,6 +24,58 @@ class SentryClient:
         token = (cfg.get('api_token') or '').strip()
         return base_url, token
 
+    async def list_projects(
+        self,
+        cfg: dict[str, str],
+        *,
+        organization_slug: str,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        base_url, token = self._resolve(cfg)
+        if not token:
+            logger.warning('Sentry token not set; returning empty projects list.')
+            return []
+
+        url = f'{base_url}/organizations/{organization_slug}/projects/'
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json',
+        }
+        params = {
+            'limit': str(max(1, min(limit, 100))),
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        return data if isinstance(data, list) else []
+
+    async def list_issue_events(
+        self,
+        cfg: dict[str, str],
+        *,
+        organization_slug: str,
+        issue_id: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        base_url, token = self._resolve(cfg)
+        if not token:
+            logger.warning('Sentry token not set; returning empty issue events list.')
+            return []
+        url = f'{base_url}/organizations/{organization_slug}/issues/{issue_id}/events/'
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json',
+        }
+        params = {
+            'limit': str(max(1, min(limit, 50))),
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        return data if isinstance(data, list) else []
+
     async def list_issues(
         self,
         cfg: dict[str, str],
