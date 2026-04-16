@@ -22,6 +22,10 @@ class CodexCLIService:
         api_key: str | None = None,
         api_base_url: str | None = None,
     ) -> str:
+        # Always let Codex CLI pick its own default model —
+        # ChatGPT accounts don't support explicit model selection
+        model = None
+
         codex_bin = shutil.which('codex')
         if not codex_bin:
             # Try CLI bridge on host
