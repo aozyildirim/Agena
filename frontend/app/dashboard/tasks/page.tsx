@@ -749,6 +749,13 @@ export default function DashboardTasksPage() {
                   lineHeight: 1.35,
                   maxHeight: 32,
                 }}>{task.description}</div>
+                {task.source === 'sentry' && (task.is_unhandled || task.substatus || task.fixability_score != null) && (
+                  <div style={{ display: 'flex', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
+                    {task.is_unhandled && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>unhandled</span>}
+                    {task.substatus && task.substatus !== 'new' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: task.substatus === 'regressed' ? 'rgba(249,115,22,0.1)' : task.substatus === 'escalating' ? 'rgba(239,68,68,0.1)' : 'rgba(156,163,175,0.1)', color: task.substatus === 'regressed' ? '#f97316' : task.substatus === 'escalating' ? '#ef4444' : 'var(--ink-40)' }}>{task.substatus}</span>}
+                    {task.fixability_score != null && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>fix {Math.round(task.fixability_score * 100)}%</span>}
+                  </div>
+                )}
               </div>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,

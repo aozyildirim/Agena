@@ -38,6 +38,10 @@ class TaskResponse(BaseModel):
     max_cost_usd: float | None = None
     source: str
     priority: str | None = None
+    fixability_score: float | None = None
+    is_unhandled: bool | None = None
+    substatus: str | None = None
+    first_seen_at: datetime | None = None
     status: str
     pr_url: str | None = None
     branch_name: str | None = None

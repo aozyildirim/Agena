@@ -8,6 +8,10 @@ class ExternalTask(BaseModel):
     source: str
     state: str | None = None
     priority: str | None = None
+    fixability_score: float | None = None
+    is_unhandled: bool | None = None
+    substatus: str | None = None
+    first_seen_at: str | None = None
     assigned_to: str | None = None
     created_date: str | None = None
     activated_date: str | None = None
