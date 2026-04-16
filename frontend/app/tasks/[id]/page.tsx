@@ -242,13 +242,7 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
   return runs.length > 0 ? runs : [[]];
 }
 
-function showConflictDialog(info: string, onQueue: () => void) {
-  const shortInfo = info.length > 100 ? info.substring(0, 100) + '...' : info;
-  const queue = window.confirm(
-    `Repo Busy\n\nThis repo already has an active task:\n${shortInfo}\n\nClick OK to queue this task anyway.`
-  );
-  if (queue) onQueue();
-}
+// Conflict dialog replaced by inline state-based modal (see repoConflict state)
 
 export default function TaskDetailPage() {
   const { t } = useLocale();
@@ -281,6 +275,7 @@ export default function TaskDetailPage() {
   const [logs, setLogs] = useState<TaskLog[]>([]);
   const [runs, setRuns] = useState<RunInfo[]>([]);
   const [error, setError] = useState('');
+  const [repoConflict, setRepoConflict] = useState<{ info: string; body: Record<string, unknown> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [streamState, setStreamState] = useState<'live' | 'reconnecting' | 'offline'>('offline');
 
@@ -572,19 +567,7 @@ export default function TaskDetailPage() {
       if (msg.includes('REPO_CONFLICT:') || msg.includes('already running')) {
         setShowRunConfig(false);
         const info = msg.replace('REPO_CONFLICT:', '').trim();
-        const queue = window.confirm(`Repo busy: ${info}\n\nQueue this task to run after the current one finishes?`);
-        if (queue) {
-          try {
-            await apiFetch('/tasks/' + taskId + '/assign', {
-              method: 'POST',
-              body: JSON.stringify({ ...body, force_queue: true }),
-            });
-            setSelectedRunIndex(-1);
-            await loadData();
-          } catch (e2) {
-            setError(e2 instanceof Error ? e2.message : 'Failed to queue');
-          }
-        }
+        setRepoConflict({ info, body });
       } else {
         setError(msg || t('taskDetail.errorRerun'));
       }
@@ -1418,7 +1401,34 @@ export default function TaskDetailPage() {
         document.body,
       )}
 
-      {/* conflict modal is handled by showConflictDialog() via imperative DOM */}
+      {repoConflict && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }} onClick={() => setRepoConflict(null)}>
+          <div style={{ width: 'min(420px, calc(100% - 40px))', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--panel-border)', padding: 24, boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <span style={{ fontSize: 20 }}>⏳</span>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)' }}>Repo Busy</div>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-60)', lineHeight: 1.5, marginBottom: 16, padding: '10px 12px', borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as const }}>
+              {repoConflict.info}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-50)', marginBottom: 20 }}>
+              Queue this task to run after the current one finishes?
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRepoConflict(null)} style={{ flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>Cancel</button>
+              <button onClick={async () => {
+                const body = repoConflict.body;
+                setRepoConflict(null);
+                try {
+                  await apiFetch('/tasks/' + taskId + '/assign', { method: 'POST', body: JSON.stringify({ ...body, force_queue: true }) });
+                  setSelectedRunIndex(-1);
+                  await loadData();
+                } catch (e2) { setError(e2 instanceof Error ? e2.message : 'Failed to queue'); }
+              }} style={{ flex: 1, padding: '10px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#f59e0b', border: 'none', color: '#000' }}>Queue Task</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
