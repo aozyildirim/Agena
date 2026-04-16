@@ -379,25 +379,26 @@ export default function AgentsPage() {
     setShowNewAgent(true);
   }
 
-  function createNewAgent() {
-    if (!draft.label.trim()) return;
-    const role = toRoleId(draft.role || draft.label);
+  function createNewAgent(src?: AgentConfig) {
+    const d = src || draft;
+    if (!d.label.trim()) return;
+    const role = toRoleId(d.role || d.label);
     if (agents.some((a) => a.role === role)) return;
-    const model = (draft.model || draft.custom_model).trim();
+    const model = (d.model || d.custom_model).trim();
     const next: AgentConfig[] = [
       ...agents,
       {
         role,
-        label: draft.label.trim(),
-        icon: draft.icon.trim() || '🤖',
-        color: draft.color || '#38bdf8',
-        description: draft.description.trim(),
-        provider: draft.provider || 'custom',
+        label: d.label.trim(),
+        icon: d.icon.trim() || '🤖',
+        color: d.color || '#38bdf8',
+        description: d.description.trim(),
+        provider: d.provider || 'custom',
         model,
-        custom_model: draft.custom_model.trim(),
-        system_prompt: draft.system_prompt.trim(),
-        enabled: draft.enabled,
-        palette: draft.palette ?? 0,
+        custom_model: d.custom_model.trim(),
+        system_prompt: d.system_prompt.trim(),
+        enabled: d.enabled,
+        palette: d.palette ?? 0,
       },
     ];
     setAgents(next);
@@ -514,8 +515,7 @@ export default function AgentsPage() {
                 .then(() => { setNotice({ type: 'success', msg: t('agents.updateSuccess') }); setTimeout(() => setNotice(null), 3000); })
                 .catch(() => { setNotice({ type: 'error', msg: t('agents.updateError') }); setTimeout(() => setNotice(null), 3000); });
             } else {
-              setDraft(updated);
-              createNewAgent();
+              createNewAgent(updated);
             }
             setShowNewAgent(false);
             setEditModalAgent(null);
