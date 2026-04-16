@@ -124,7 +124,7 @@ async def _poll_sentry_auto_imports() -> None:
 
         # Find first admin user per org for auto-import (user_id=0 causes FK error)
         from agena_models.models.organization_member import OrganizationMember
-        org_admin_cache: dict[int, int] = {}
+        org_owner_cache: dict[int, int] = {}
 
         for mapping in mappings:
             if mapping.last_import_at:
@@ -133,17 +133,29 @@ async def _poll_sentry_auto_imports() -> None:
                     continue
 
             org_id = mapping.organization_id
-            if org_id not in org_admin_cache:
-                admin_result = await session.execute(
-                    select(OrganizationMember.user_id).where(OrganizationMember.organization_id == org_id).order_by(OrganizationMember.id).limit(1)
+            if org_id not in org_owner_cache:
+                # Use org owner as the import user
+                owner_result = await session.execute(
+                    select(OrganizationMember.user_id).where(
+                        OrganizationMember.organization_id == org_id,
+                        OrganizationMember.role == 'owner',
+                    ).limit(1)
                 )
-                admin_row = admin_result.scalar_one_or_none()
-                org_admin_cache[org_id] = admin_row or 1
+                owner_row = owner_result.scalar_one_or_none()
+                if not owner_row:
+                    # Fallback to first member
+                    first_result = await session.execute(
+                        select(OrganizationMember.user_id).where(
+                            OrganizationMember.organization_id == org_id,
+                        ).order_by(OrganizationMember.id).limit(1)
+                    )
+                    owner_row = first_result.scalar_one_or_none()
+                org_owner_cache[org_id] = owner_row or 1
 
             try:
                 imported, skipped = await task_service.import_from_sentry(
                     org_id,
-                    user_id=org_admin_cache[org_id],
+                    user_id=org_owner_cache[org_id],
                     project_slug=mapping.project_slug,
                     query='is:unresolved',
                     limit=50,
