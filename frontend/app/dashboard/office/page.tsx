@@ -41,11 +41,11 @@ type OfficeAgent = AgentConfig & {
 /* ── Load agents from same source as /dashboard/agents ───────────── */
 
 const DEFAULT_AGENTS: AgentConfig[] = [
-  { role: 'manager', label: 'Manager', icon: '👔', color: '#f59e0b', enabled: true, palette: 0 },
-  { role: 'pm', label: 'Product Manager', icon: '📋', color: '#a78bfa', enabled: true, palette: 1 },
-  { role: 'lead_developer', label: 'Lead Developer', icon: '🧑‍💻', color: '#38bdf8', enabled: true, palette: 2 },
-  { role: 'developer', label: 'Developer', icon: '⚡', color: '#22c55e', enabled: true, palette: 3 },
-  { role: 'qa', label: 'QA Engineer', icon: '🔍', color: '#f472b6', enabled: true, palette: 4 },
+  { role: 'manager', label: 'Manager', icon: '👔', color: '#f59e0b', enabled: true, palette: 0, create_pr: true },
+  { role: 'pm', label: 'Product Manager', icon: '📋', color: '#a78bfa', enabled: true, palette: 1, create_pr: true },
+  { role: 'lead_developer', label: 'Lead Developer', icon: '🧑‍💻', color: '#38bdf8', enabled: true, palette: 2, create_pr: true },
+  { role: 'developer', label: 'Developer', icon: '⚡', color: '#22c55e', enabled: true, palette: 3, create_pr: true },
+  { role: 'qa', label: 'QA Engineer', icon: '🔍', color: '#f472b6', enabled: true, palette: 4, create_pr: true },
 ];
 
 const LS_AGENTS = 'agena_agent_configs';
@@ -57,10 +57,12 @@ function loadAgentConfigs(): AgentConfig[] {
     if (!saved) return DEFAULT_AGENTS;
     const parsed = JSON.parse(saved) as AgentConfig[];
     return parsed.filter((a) => a.enabled !== false).map((a, idx) => {
-      if (a.palette !== undefined) return a;
-      // Merge palette from default if missing
       const def = DEFAULT_AGENTS.find((d) => d.role === a.role);
-      return { ...a, palette: def?.palette ?? (idx % PALETTE_COUNT) };
+      return {
+        ...a,
+        palette: a.palette ?? def?.palette ?? (idx % PALETTE_COUNT),
+        create_pr: a.create_pr ?? def?.create_pr ?? true,
+      };
     });
   } catch {
     return DEFAULT_AGENTS;
