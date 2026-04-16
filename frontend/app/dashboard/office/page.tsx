@@ -478,8 +478,8 @@ function AssignTaskModal({
   const isActive = agent.status === 'active';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }} onClick={onClose}>
-      <div style={{ width: 'min(500px, 100%)', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: 24, maxHeight: '80vh', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: '40px 20px', overflowY: 'auto' }} onClick={onClose}>
+      <div style={{ width: 'min(500px, 100%)', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: 24, overflowX: 'hidden', boxSizing: 'border-box', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={44} />
