@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from agena_core.db.base import Base
@@ -28,6 +28,10 @@ class TaskRecord(Base):
     repo_mapping_id: Mapped[int | None] = mapped_column(ForeignKey('repo_mappings.id', ondelete='SET NULL'), nullable=True, index=True)
     last_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
     priority: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    fixability_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_unhandled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    substatus: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     sprint_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sprint_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

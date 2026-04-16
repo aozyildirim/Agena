@@ -93,6 +93,10 @@ class TaskService:
         sprint_name: str | None = None,
         sprint_path: str | None = None,
         priority: str | None = None,
+        fixability_score: float | None = None,
+        is_unhandled: bool | None = None,
+        substatus: str | None = None,
+        first_seen_at: str | None = None,
     ) -> TaskRecord:
         if self.db is None:
             raise ValueError('DB session required')
@@ -111,6 +115,14 @@ class TaskService:
         if exists:
             return exists
 
+        parsed_first_seen = None
+        if first_seen_at:
+            try:
+                from datetime import datetime as _dt
+                parsed_first_seen = _dt.fromisoformat(first_seen_at.replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                pass
+
         task = TaskRecord(
             organization_id=organization_id,
             created_by_user_id=user_id,
@@ -120,6 +132,10 @@ class TaskService:
             description=description or '',
             status='new',
             priority=priority or None,
+            fixability_score=fixability_score,
+            is_unhandled=is_unhandled,
+            substatus=substatus or None,
+            first_seen_at=parsed_first_seen,
             sprint_name=sprint_name or None,
             sprint_path=sprint_path or None,
         )
@@ -503,6 +519,10 @@ class TaskService:
                         title=item.title,
                         description=item.description,
                         priority=item.priority,
+                        fixability_score=item.fixability_score,
+                        is_unhandled=item.is_unhandled,
+                        substatus=item.substatus,
+                        first_seen_at=item.first_seen_at,
                     )
                     if getattr(mapping, 'repo_mapping_id', None):
                         task.repo_mapping_id = int(mapping.repo_mapping_id)

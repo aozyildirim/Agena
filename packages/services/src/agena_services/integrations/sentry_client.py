@@ -315,7 +315,21 @@ class SentryClient:
         user_count = str(issue.get('userCount') or '0').strip()
         status = str(issue.get('status') or '').strip() or None
         last_seen = str(issue.get('lastSeen') or '').strip()
+        first_seen = str(issue.get('firstSeen') or '').strip() or None
         short_id = str(issue.get('shortId') or '').strip()
+        is_unhandled = bool(issue.get('isUnhandled'))
+        substatus = str(issue.get('substatus') or '').strip() or None
+        platform = str(issue.get('platform') or '').strip()
+        fixability_score: float | None = None
+        raw_score = issue.get('seerFixabilityScore')
+        if raw_score is not None:
+            try:
+                fixability_score = round(float(raw_score), 2)
+            except (ValueError, TypeError):
+                pass
+        metadata = issue.get('metadata') or {}
+        meta_filename = str(metadata.get('filename') or '').strip() if isinstance(metadata, dict) else ''
+        meta_function = str(metadata.get('function') or '').strip() if isinstance(metadata, dict) else ''
 
         # Map Sentry level to priority if Sentry doesn't provide one
         if not priority:
@@ -326,11 +340,23 @@ class SentryClient:
             f'External Source: Sentry #{short_id or issue_id}',
             f'Organization: {organization_slug}',
             f'Project: {project_slug}',
+            f'Platform: {platform}' if platform else None,
             f'Level: {level}',
             f'Priority: {priority}',
             f'Status: {status or "unknown"}',
+            f'Substatus: {substatus}' if substatus else None,
+            f'Unhandled: yes' if is_unhandled else None,
+            f'Fixability Score: {fixability_score}' if fixability_score is not None else None,
             f'Events: {count}',
             f'Affected Users: {user_count}',
+            f'First Seen: {first_seen}' if first_seen else None,
+        ]
+        desc_lines = [l for l in desc_lines if l is not None]
+        if meta_filename or meta_function:
+            desc_lines.append(f'File: {meta_filename}' if meta_filename else '')
+            if meta_function:
+                desc_lines.append(f'Function: {meta_function}')
+            desc_lines = [l for l in desc_lines if l]
         ]
         if culprit:
             desc_lines.append(f'Culprit: {culprit}')
@@ -350,6 +376,10 @@ class SentryClient:
             source='sentry',
             state=status,
             priority=priority,
+            fixability_score=fixability_score,
+            is_unhandled=is_unhandled,
+            substatus=substatus,
+            first_seen_at=first_seen,
             created_date=None,
             web_url=permalink or None,
         )
