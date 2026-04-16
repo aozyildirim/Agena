@@ -819,17 +819,28 @@ export default function DashboardTasksPage() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                {task.source === 'sentry' && (
+                  <button onClick={async () => {
+                    try {
+                      const r = await apiFetch(`/tasks/${task.id}/sentry-resolve`, { method: 'POST' });
+                      const data = await r.json();
+                      setMsg(`Sentry: ${data.status}`);
+                      setTimeout(() => window.location.reload(), 800);
+                    } catch { setError('Sentry resolve failed'); }
+                  }}
+                    style={{ padding: '5px 10px', fontSize: 10, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.08)', color: '#a855f7', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {task.description?.includes('Status: resolved') ? 'Unresolve' : 'Resolve'}
+                  </button>
+                )}
                 {task.status === 'queued' || task.status === 'running' ? (
                   <span style={{ padding: '6px 10px', fontSize: 11, fontWeight: 700, color: statusColor(task.status) }}>
                     {statusLabel(task.status, t)}
                   </span>
                 ) : (
-                  <>
-                    <button onClick={() => void onAssignMCP(task.id)}
-                      style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      Run
-                    </button>
-                  </>
+                  <button onClick={() => void onAssignMCP(task.id)}
+                    style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    Run
+                  </button>
                 )}
                 <Link href={`/tasks/${task.id}`} className='button button-outline' style={{ padding: '6px 8px', fontSize: 11, whiteSpace: 'nowrap', minHeight: 30 }}>
                   {t('tasks.details')}

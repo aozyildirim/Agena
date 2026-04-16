@@ -29,6 +29,7 @@ from agena_models.schemas.saas_task import (
     UsageEventItem,
     TaskResponse,
 )
+from agena_services.services.integration_config_service import IntegrationConfigService
 from agena_services.services.notification_service import NotificationService
 from agena_services.services.task_service import TaskService
 
@@ -654,6 +655,55 @@ async def delete_task(
     await db.delete(task)
     await db.commit()
     return {'status': 'deleted', 'task_id': str(task_id)}
+
+
+@router.post('/{task_id}/sentry-resolve')
+async def sentry_resolve_task(
+    task_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    """Resolve or unresolve the linked Sentry issue for this task."""
+    from agena_models.models.task_record import TaskRecord
+    task = (await db.execute(
+        select(TaskRecord).where(TaskRecord.id == task_id, TaskRecord.organization_id == tenant.organization_id)
+    )).scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+    if task.source != 'sentry' or not task.external_id:
+        raise HTTPException(status_code=400, detail='Task is not linked to a Sentry issue')
+
+    config = await IntegrationConfigService(db).get_config(tenant.organization_id, 'sentry')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Sentry integration not configured')
+
+    extra = config.extra_config or {}
+    org_slug = str(extra.get('organization_slug') or '').strip()
+    if not org_slug:
+        raise HTTPException(status_code=400, detail='Sentry organization slug missing')
+
+    # external_id format: "project_slug:issue_id"
+    parts = task.external_id.split(':', 1)
+    issue_id = parts[1] if len(parts) > 1 else parts[0]
+
+    from agena_services.integrations.sentry_client import SentryClient
+    client = SentryClient()
+    sentry_cfg = {'api_token': config.secret, 'base_url': config.base_url or 'https://sentry.io/api/0'}
+
+    # Toggle: if description says "resolved", unresolve; otherwise resolve
+    new_status = 'resolved'
+    if 'Status: resolved' in (task.description or ''):
+        new_status = 'unresolved'
+
+    await client.update_issue_status(sentry_cfg, organization_slug=org_slug, issue_id=issue_id, status=new_status)
+
+    # Update task description to reflect new status
+    if task.description:
+        import re
+        task.description = re.sub(r'Status: \w+', f'Status: {new_status}', task.description, count=1)
+    await db.commit()
+
+    return {'status': new_status, 'issue_id': issue_id}
 
 
 @router.get('/{task_id}/runs', response_model=list[RunItem])
