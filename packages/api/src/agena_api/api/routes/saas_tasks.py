@@ -615,6 +615,23 @@ async def cancel_task(
         task = await service.cancel_task(tenant.organization_id, task_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    # Kill active CLI stream on bridge so the process stops immediately
+    import os
+    bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://host.docker.internal:9876')
+    try:
+        # Find repo path from task's repo mapping
+        repo_path = None
+        if task.repo_mapping_id:
+            from agena_models.models.repo_mapping import RepoMapping
+            rm = await db.get(RepoMapping, task.repo_mapping_id)
+            if rm and rm.local_path:
+                repo_path = rm.local_path
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(f'{bridge_url}/kill-stream', json={'repo_path': repo_path or ''})
+    except Exception:
+        pass  # best effort — task is already cancelled in DB
+
     return await _to_task_response(service, tenant.organization_id, task)
 
 

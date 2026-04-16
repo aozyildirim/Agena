@@ -27,6 +27,9 @@ console.log(`CLI Bridge starting on port ${PORT}...`);
 console.log(`  codex: ${codexBin || 'NOT FOUND'}`);
 console.log(`  claude: ${claudeBin || 'NOT FOUND'}`);
 
+// Track active stream processes by repo_path for cancellation
+const activeStreams = new Map(); // repo_path → { proc, cli }
+
 // Load saved API key from credentials file on startup (persists across container restarts)
 try {
   const cred = JSON.parse(readFileSync(`${HOME}/.claude/.credentials.json`, 'utf8'));
@@ -117,6 +120,29 @@ const server = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   const data = JSON.parse(body || '{}');
 
+  // Kill active stream by repo_path
+  if (url.pathname === '/kill-stream') {
+    const { repo_path } = JSON.parse(body || '{}');
+    const entry = repo_path ? activeStreams.get(repo_path) : null;
+    if (entry) {
+      try { entry.proc.kill('SIGTERM'); } catch {}
+      activeStreams.delete(repo_path);
+      console.log(`[kill] Killed ${entry.cli} stream for ${repo_path}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'killed', repo_path }));
+    } else {
+      // Kill all active streams if no repo_path match
+      let killed = 0;
+      for (const [rp, e] of activeStreams) {
+        try { e.proc.kill('SIGTERM'); killed++; } catch {}
+        activeStreams.delete(rp);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: killed > 0 ? 'killed_all' : 'none_active', killed }));
+    }
+    return;
+  }
+
   let result;
   if (url.pathname === '/codex/stream') {
     await runCodexStream(codexBin, data, res);
@@ -202,6 +228,7 @@ async function runCLIStream(bin, name, data, res) {
     cwd: repo_path,
     env: cliEnv,
   });
+  activeStreams.set(repo_path, { proc, cli: 'claude' });
 
   let fullText = '';
   let lineBuffer = '';
@@ -286,6 +313,7 @@ async function runCLIStream(bin, name, data, res) {
 
   proc.on('close', (code) => {
     clearTimeout(timer);
+    activeStreams.delete(repo_path);
     if (lineBuffer.trim()) {
       fullText += lineBuffer.trim();
       res.write(`data: ${JSON.stringify({ type: 'line', text: lineBuffer.trim() })}\n\n`);
@@ -336,6 +364,7 @@ async function runCodexStream(bin, data, res) {
     cwd: repo_path,
     env: { ...process.env, NO_COLOR: '1' },
   });
+  activeStreams.set(repo_path, { proc, cli: 'codex' });
 
   let fullText = '';
   let lineBuffer = '';
@@ -441,6 +470,7 @@ async function runCodexStream(bin, data, res) {
     }
     res.write(`data: ${JSON.stringify({ type: 'done', code, stdout_length: fullText.length })}\n\n`);
     res.end();
+    activeStreams.delete(repo_path);
     console.log(`[codex stream] done — ${fullText.length} chars output`);
   });
 
