@@ -1240,6 +1240,25 @@ class OrchestrationService:
                 'task_id': task.id, 'status': 'completed', 'title': task.title,
             })
 
+            # Post comment on Sentry issue when PR is created
+            if task.source == 'sentry' and task.external_id and pr_url:
+                try:
+                    from agena_services.integrations.sentry_client import SentryClient
+                    from agena_services.services.integration_config_service import IntegrationConfigService
+                    sentry_config = await IntegrationConfigService(self.db_session).get_config(organization_id, 'sentry')
+                    if sentry_config and sentry_config.secret:
+                        extra = sentry_config.extra_config or {}
+                        org_slug = str(extra.get('organization_slug') or '').strip()
+                        if org_slug:
+                            parts = task.external_id.split(':', 1)
+                            issue_id = parts[1] if len(parts) > 1 else parts[0]
+                            sentry_cfg = {'api_token': sentry_config.secret, 'base_url': sentry_config.base_url or 'https://sentry.io/api/0'}
+                            comment = f'🤖 **Agena** created a PR to fix this issue:\n\n**[PR #{task.id}: {task.title}]({pr_url})**\n\nBranch: `{branch_name}`'
+                            await SentryClient().add_issue_comment(sentry_cfg, organization_slug=org_slug, issue_id=issue_id, text=comment)
+                            logger.info('Posted Sentry comment on issue %s for task #%s', issue_id, task.id)
+                except Exception as exc:
+                    logger.warning('Failed to post Sentry comment for task #%s: %s', task.id, exc)
+
             await usage_service.increment_tokens(organization_id, int(usage.get('total_tokens', 0)))
             run_finished_at = datetime.utcnow()
             duration_sec = round(time.perf_counter() - run_started_clock, 2)

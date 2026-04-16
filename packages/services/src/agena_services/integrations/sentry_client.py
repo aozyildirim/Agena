@@ -130,6 +130,29 @@ class SentryClient:
             resp.raise_for_status()
             return resp.json() if resp.content else {}
 
+    async def add_issue_comment(
+        self,
+        cfg: dict[str, str],
+        *,
+        organization_slug: str,
+        issue_id: str,
+        text: str,
+    ) -> dict[str, Any]:
+        """Post a comment/note on a Sentry issue."""
+        base_url, token = self._resolve(cfg)
+        if not token:
+            raise ValueError('Sentry token not set')
+        url = f'{base_url}/organizations/{organization_slug}/issues/{issue_id}/comments/'
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, headers=headers, json={'text': text})
+            resp.raise_for_status()
+            return resp.json() if resp.content else {}
+
     async def get_event_json(
         self,
         cfg: dict[str, str],
