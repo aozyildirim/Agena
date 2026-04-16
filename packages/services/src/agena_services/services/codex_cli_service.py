@@ -267,7 +267,21 @@ class CodexCLIService:
             raise RuntimeError(f'CLI bridge request failed: {exc}')
 
         if data.get('status') != 'ok':
-            raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')
+            err_msg = data.get('message', data.get('stderr', 'unknown'))
+            # ChatGPT accounts don't support explicit model selection;
+            # retry without model so Codex CLI picks its own default
+            if self._is_unsupported_model_error(str(err_msg)) and payload.get('model'):
+                payload['model'] = ''
+                try:
+                    async with httpx.AsyncClient(timeout=300) as client2:
+                        resp2 = await client2.post(f'{bridge_url}/{cli}', json=payload)
+                        data = resp2.json()
+                except Exception:
+                    pass
+                if data.get('status') != 'ok':
+                    raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')
+            else:
+                raise RuntimeError(f'{cli} bridge error: {err_msg}')
 
         content = (data.get('stdout') or '').strip()
         if not content:
