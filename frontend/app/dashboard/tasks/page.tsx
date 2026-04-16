@@ -756,6 +756,16 @@ export default function DashboardTasksPage() {
                 background: 'var(--glass)', color: 'var(--ink-50)',
                 textTransform: 'capitalize', width: 'fit-content',
               }}>{sourceLabel(task.source, t)}</span>
+              {task.priority && (() => {
+                const pc: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
+                const c = pc[task.priority] || 'var(--ink-35)';
+                return <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                  background: `${c}15`, border: `1px solid ${c}35`, color: c,
+                  textTransform: 'capitalize', width: 'fit-content',
+                }}>{task.priority}</span>;
+              })()}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,

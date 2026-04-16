@@ -263,6 +263,7 @@ class SentryClient:
         title = str(issue.get('title') or issue.get('shortId') or 'Sentry issue').strip()
         permalink = str(issue.get('permalink') or '').strip()
         level = str(issue.get('level') or 'error').strip()
+        priority = str(issue.get('priority') or '').strip() or None
         culprit = str(issue.get('culprit') or '').strip()
         count = str(issue.get('count') or '0').strip()
         user_count = str(issue.get('userCount') or '0').strip()
@@ -270,11 +271,17 @@ class SentryClient:
         last_seen = str(issue.get('lastSeen') or '').strip()
         short_id = str(issue.get('shortId') or '').strip()
 
+        # Map Sentry level to priority if Sentry doesn't provide one
+        if not priority:
+            level_priority = {'fatal': 'critical', 'error': 'high', 'warning': 'medium', 'info': 'low', 'debug': 'low'}
+            priority = level_priority.get(level, 'medium')
+
         desc_lines = [
             f'External Source: Sentry #{short_id or issue_id}',
             f'Organization: {organization_slug}',
             f'Project: {project_slug}',
             f'Level: {level}',
+            f'Priority: {priority}',
             f'Status: {status or "unknown"}',
             f'Events: {count}',
             f'Affected Users: {user_count}',
@@ -296,6 +303,7 @@ class SentryClient:
             description='\n'.join(desc_lines),
             source='sentry',
             state=status,
+            priority=priority,
             created_date=None,
             web_url=permalink or None,
         )

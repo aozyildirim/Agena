@@ -27,6 +27,7 @@ class TaskRecord(Base):
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     repo_mapping_id: Mapped[int | None] = mapped_column(ForeignKey('repo_mappings.id', ondelete='SET NULL'), nullable=True, index=True)
     last_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    priority: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     sprint_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sprint_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -7,6 +7,7 @@ class ExternalTask(BaseModel):
     description: str = ''
     source: str
     state: str | None = None
+    priority: str | None = None
     assigned_to: str | None = None
     created_date: str | None = None
     activated_date: str | None = None

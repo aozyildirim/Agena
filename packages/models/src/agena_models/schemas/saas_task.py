@@ -37,6 +37,7 @@ class TaskResponse(BaseModel):
     max_tokens: int | None = None
     max_cost_usd: float | None = None
     source: str
+    priority: str | None = None
     status: str
     pr_url: str | None = None
     branch_name: str | None = None

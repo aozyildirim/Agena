@@ -81,6 +81,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         max_tokens=task.max_tokens,
         max_cost_usd=task.max_cost_usd,
         source=task.source,
+        priority=getattr(task, 'priority', None),
         status=task.status,
         pr_url=task.pr_url,
         branch_name=task.branch_name,

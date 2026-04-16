@@ -50,7 +50,13 @@ class AzurePRService:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(pr_api, headers=self._headers(config.secret), json=payload)
             if resp.status_code in (400, 409):
-                # PR already exists for this branch — find and return the existing one
+                error_body = ''
+                try:
+                    error_body = resp.json().get('message', resp.text[:300])
+                except Exception:
+                    error_body = resp.text[:300]
+                logger.warning('Azure PR creation returned %s: %s', resp.status_code, error_body)
+                # PR may already exist for this branch — find and return the existing one
                 existing_url = await self._find_existing_pr(
                     org_url=org_url,
                     project=project,
@@ -60,6 +66,7 @@ class AzurePRService:
                     pat=config.secret,
                 )
                 if existing_url:
+                    logger.info('Found existing PR for %s → %s: %s', source_branch, target_branch, existing_url)
                     return existing_url
                 resp.raise_for_status()  # no existing PR found, propagate original error
             resp.raise_for_status()
@@ -141,26 +148,40 @@ class AzurePRService:
         target_branch: str,
         pat: str,
     ) -> str | None:
-        """Find an active PR for the given source→target branch pair."""
-        search_api = (
-            f'{org_url}/{project}/_apis/git/repositories/{repo_name}/pullrequests'
-            f'?searchCriteria.sourceRefName=refs/heads/{source_branch}'
-            f'&searchCriteria.targetRefName=refs/heads/{target_branch}'
-            f'&searchCriteria.status=active'
-            f'&api-version=7.1-preview.1'
-        )
+        """Find an existing PR (active or abandoned) for the given source→target branch pair."""
+        headers = self._headers(pat)
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(search_api, headers=self._headers(pat))
-            if resp.status_code != 200:
-                return None
-            data = resp.json()
-        prs = data.get('value', []) or []
-        if not prs:
-            return None
-        pr = prs[0]
-        links = pr.get('_links', {}) if isinstance(pr, dict) else {}
-        web = (links.get('web') or {}).get('href') if isinstance(links, dict) else None
-        return web or pr.get('url') or None
+            # Try active first, then all statuses
+            for status in ('active', 'all'):
+                search_api = (
+                    f'{org_url}/{project}/_apis/git/repositories/{repo_name}/pullrequests'
+                    f'?searchCriteria.sourceRefName=refs/heads/{source_branch}'
+                    f'&searchCriteria.targetRefName=refs/heads/{target_branch}'
+                    f'&searchCriteria.status={status}'
+                    f'&api-version=7.1-preview.1'
+                )
+                resp = await client.get(search_api, headers=headers)
+                if resp.status_code != 200:
+                    continue
+                prs = resp.json().get('value', []) or []
+                if not prs:
+                    continue
+                pr = prs[0]
+                pr_status = pr.get('status', '')
+                # Reactivate abandoned PR so new commits are visible
+                if pr_status == 'abandoned':
+                    pr_id = pr.get('pullRequestId')
+                    if pr_id:
+                        reactivate_api = (
+                            f'{org_url}/{project}/_apis/git/repositories/{repo_name}'
+                            f'/pullrequests/{pr_id}?api-version=7.1-preview.1'
+                        )
+                        await client.patch(reactivate_api, headers=headers, json={'status': 'active'})
+                        logger.info('Reactivated abandoned PR #%s', pr_id)
+                links = pr.get('_links', {}) if isinstance(pr, dict) else {}
+                web = (links.get('web') or {}).get('href') if isinstance(links, dict) else None
+                return web or pr.get('url') or None
+        return None
 
     async def push_files_and_create_pr(
         self,

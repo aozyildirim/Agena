@@ -92,6 +92,7 @@ class TaskService:
         description: str,
         sprint_name: str | None = None,
         sprint_path: str | None = None,
+        priority: str | None = None,
     ) -> TaskRecord:
         if self.db is None:
             raise ValueError('DB session required')
@@ -118,6 +119,7 @@ class TaskService:
             title=title,
             description=description or '',
             status='new',
+            priority=priority or None,
             sprint_name=sprint_name or None,
             sprint_path=sprint_path or None,
         )
@@ -500,6 +502,7 @@ class TaskService:
                         external_id=item.id,
                         title=item.title,
                         description=item.description,
+                        priority=item.priority,
                     )
                     if getattr(mapping, 'repo_mapping_id', None):
                         task.repo_mapping_id = int(mapping.repo_mapping_id)
