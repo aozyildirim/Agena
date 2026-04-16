@@ -481,10 +481,10 @@ function AssignTaskModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'safe center', justifyContent: 'center', zIndex: 100, padding: 20, overflowY: 'auto' }} onClick={onClose}>
       <div style={{ width: 'min(480px, calc(100vw - 40px))', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: '20px 22px', margin: 'auto 0', boxSizing: 'border-box', overflow: 'hidden', display: 'grid', gap: 0, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={44} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: agent.color }}>{agent.label}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, overflow: 'hidden' }}>
+          <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={38} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: agent.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.label}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-35)' }}>
               {isActive ? `${agent.currentStage} · ${agent.currentTask?.slice(0, 30)}` : t('office.agentBusy')}
             </div>
@@ -502,7 +502,7 @@ function AssignTaskModal({
         {/* Mode switcher: AI / MCP / Flow */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>Mode</div>
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 4, width: '100%' }}>
             {([
               { key: 'ai' as const, label: 'AI Agent', color: agent.color },
               { key: 'mcp_agent' as const, label: 'Local CLI', color: '#22d3ee' },
@@ -511,7 +511,7 @@ function AssignTaskModal({
               const active = runMode === m.key;
               return (
                 <button key={m.key} onClick={() => setRunMode(m.key)}
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  style={{ flex: 1, minWidth: 0, padding: '7px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                     border: active ? `1px solid ${m.color}80` : '1px solid var(--panel-border-2)',
                     background: active ? `${m.color}18` : 'var(--panel)',
                     color: active ? m.color : 'var(--ink-50)', transition: 'all 0.15s' }}>
@@ -578,14 +578,14 @@ function AssignTaskModal({
         </label>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, width: '100%' }}>
           {([
             { key: 'assign' as const, label: `${t('office.tabAssign')} (${assignable.length})` },
             { key: 'sprint' as const, label: t('office.tabSprint') },
             { key: 'new' as const, label: t('office.tabNew') },
           ]).map((tb) => (
             <button key={tb.key} onClick={() => { setTab(tb.key); if (tb.key === 'sprint' && sprintItems.length === 0) void loadSprintItems(); }}
-              style={{ flex: 1, padding: '8px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', background: tab === tb.key ? `${agent.color}20` : 'var(--panel)', color: tab === tb.key ? agent.color : 'var(--ink-35)' }}>
+              style={{ flex: 1, minWidth: 0, padding: '8px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', background: tab === tb.key ? `${agent.color}20` : 'var(--panel)', color: tab === tb.key ? agent.color : 'var(--ink-35)' }}>
               {tb.label}
             </button>
           ))}
@@ -598,11 +598,11 @@ function AssignTaskModal({
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {assignable.map((task) => (
-                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px', borderRadius: 12, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', opacity: assigning === task.id ? 0.5 : 1 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, color: task.status === 'failed' ? '#f87171' : '#f59e0b' }}>{task.status === 'failed' ? '✕' : '⏳'}</span>
+                  <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', opacity: assigning === task.id ? 0.5 : 1, overflow: 'hidden' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, color: task.status === 'failed' ? '#f87171' : '#f59e0b' }}>{task.status === 'failed' ? '✕' : '⏳'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13, color: 'var(--ink-78)' }}>{task.title}</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink-25)', marginTop: 2 }}>#{task.id} · {task.status}</div>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 12, color: 'var(--ink-78)' }}>{task.title}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 1 }}>#{task.id} · {task.status}</div>
                     </div>
                     {runMode === 'flow' ? (
                       <button onClick={() => handleAssign(task.id, 'flow')} disabled={assigning === task.id || !selFlowId}
