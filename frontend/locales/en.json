@@ -959,6 +959,7 @@
   "tasks.col.run": "Run",
   "tasks.col.queue": "Queue",
   "tasks.col.retry": "Retry",
+  "tasks.col.priority": "Priority",
   "tasks.col.tokens": "Tokens",
   "tasks.col.pr": "PR",
   "tasks.col.actions": "Actions",

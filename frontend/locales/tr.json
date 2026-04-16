@@ -959,6 +959,7 @@
   "tasks.col.run": "Çalışma",
   "tasks.col.queue": "Kuyruk",
   "tasks.col.retry": "Retry",
+  "tasks.col.priority": "Oncelik",
   "tasks.col.tokens": "Token",
   "tasks.col.pr": "PR",
   "tasks.col.actions": "Aksiyonlar",

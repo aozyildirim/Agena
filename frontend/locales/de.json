@@ -89,6 +89,7 @@
   "tasks.col.run": "Lauf",
   "tasks.col.queue": "Warteschlange",
   "tasks.col.retry": "Wiederholung",
+  "tasks.col.priority": "Prioritat",
   "tasks.col.tokens": "Token",
   "tasks.col.pr": "PR",
   "tasks.col.actions": "Aktionen",

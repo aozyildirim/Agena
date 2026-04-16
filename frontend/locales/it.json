@@ -89,6 +89,7 @@
   "tasks.col.run": "Esecuzione",
   "tasks.col.queue": "Coda",
   "tasks.col.retry": "Retry",
+  "tasks.col.priority": "Priorita",
   "tasks.col.tokens": "Token",
   "tasks.col.pr": "PR",
   "tasks.col.actions": "Azioni",

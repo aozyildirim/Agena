@@ -89,6 +89,7 @@
   "tasks.col.run": "运行",
   "tasks.col.queue": "队列",
   "tasks.col.retry": "重试",
+  "tasks.col.priority": "优先级",
   "tasks.col.tokens": "令牌",
   "tasks.col.pr": "PR",
   "tasks.col.actions": "操作",

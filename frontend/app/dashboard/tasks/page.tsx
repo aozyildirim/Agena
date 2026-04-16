@@ -699,7 +699,7 @@ export default function DashboardTasksPage() {
         {!mob && (
           <div style={{ minWidth: 1040 }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--panel-border)', display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10 }}>
-              {[t('tasks.col.task'), t('tasks.col.source'), t('tasks.col.status'), t('tasks.col.run'), t('tasks.col.queue'), t('tasks.col.retry'), t('tasks.col.tokens'), t('tasks.col.pr'), t('tasks.col.actions')].map((h) => (
+              {[t('tasks.col.task'), t('tasks.col.source'), t('tasks.col.status'), t('tasks.col.run'), t('tasks.col.queue'), t('tasks.col.priority' as Parameters<typeof t>[0]) || 'Priority', t('tasks.col.tokens'), t('tasks.col.pr'), t('tasks.col.actions')].map((h) => (
                 <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-25)', textTransform: 'uppercase', letterSpacing: 1 }}>{h}</span>
               ))}
             </div>
@@ -756,16 +756,6 @@ export default function DashboardTasksPage() {
                 background: 'var(--glass)', color: 'var(--ink-50)',
                 textTransform: 'capitalize', width: 'fit-content',
               }}>{sourceLabel(task.source, t)}</span>
-              {task.priority && (() => {
-                const pc: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
-                const c = pc[task.priority] || 'var(--ink-35)';
-                return <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
-                  background: `${c}15`, border: `1px solid ${c}35`, color: c,
-                  textTransform: 'capitalize', width: 'fit-content',
-                }}>{task.priority}</span>;
-              })()}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
@@ -783,7 +773,15 @@ export default function DashboardTasksPage() {
                 <span style={{ fontSize: 12, color: 'var(--ink-65)', fontWeight: 600 }}>{fmtDuration(task.queue_wait_sec)}</span>
               </div>
               <div>
-                <span style={{ fontSize: 12, color: 'var(--ink-65)', fontWeight: 600 }}>{task.retry_count ?? 0}</span>
+                {task.priority ? (() => {
+                  const pc: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
+                  const c = pc[task.priority] || 'var(--ink-35)';
+                  return <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                    background: `${c}15`, color: c, textTransform: 'capitalize',
+                  }}>{task.priority}</span>;
+                })() : <span style={{ fontSize: 11, color: 'var(--ink-20)' }}>—</span>}
               </div>
               <div>
                 <span style={{ fontSize: 12, color: 'var(--ink-65)', fontWeight: 600 }}>

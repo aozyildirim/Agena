@@ -89,6 +89,7 @@
   "tasks.col.run": "実行",
   "tasks.col.queue": "キュー",
   "tasks.col.retry": "再試行",
+  "tasks.col.priority": "優先度",
   "tasks.col.tokens": "Token",
   "tasks.col.pr": "PR",
   "tasks.col.actions": "操作",
