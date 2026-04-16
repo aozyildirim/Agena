@@ -822,8 +822,7 @@ export default function DashboardTasksPage() {
                 {task.source === 'sentry' && (
                   <button onClick={async () => {
                     try {
-                      const r = await apiFetch(`/tasks/${task.id}/sentry-resolve`, { method: 'POST' });
-                      const data = await r.json();
+                      const data = await apiFetch<{ status: string }>(`/tasks/${task.id}/sentry-resolve`, { method: 'POST' });
                       setMsg(`Sentry: ${data.status}`);
                       setTimeout(() => window.location.reload(), 800);
                     } catch { setError('Sentry resolve failed'); }
