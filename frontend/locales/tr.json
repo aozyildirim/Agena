@@ -2032,6 +2032,8 @@
   "nav.group.workspace": "Calisma Alani",
   "nav.group.ai": "AI & Otomasyon",
   "nav.group.analytics": "Analitik",
+  "nav.group.insights": "Metrikler",
+  "nav.integrationsOverview": "Genel Bakis",
   "nav.group.settings": "Ayarlar",
   "agents.promptCustom": "Ozel Prompt (serbest metin)",
   "agents.promptCustomPlaceholder": "Ozel system prompt yazin veya yukaridan Prompt Studio'dan secin...",

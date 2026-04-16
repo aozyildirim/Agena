@@ -2012,6 +2012,8 @@
   "nav.group.workspace": "Arbeitsbereich",
   "nav.group.ai": "KI & Automatisierung",
   "nav.group.analytics": "Analytik",
+  "nav.group.insights": "Einblicke",
+  "nav.integrationsOverview": "Ubersicht",
   "nav.group.settings": "Einstellungen",
   "agents.promptCustom": "Benutzerdefinierter Prompt (Freitext)",
   "agents.promptCustomPlaceholder": "Eigenen System-Prompt schreiben oder oben aus Prompt Studio wahlen...",

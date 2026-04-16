@@ -2012,6 +2012,8 @@
   "nav.group.workspace": "ワークスペース",
   "nav.group.ai": "AI・自動化",
   "nav.group.analytics": "アナリティクス",
+  "nav.group.insights": "インサイト",
+  "nav.integrationsOverview": "概要",
   "nav.group.settings": "設定",
   "agents.promptCustom": "カスタムプロンプト（自由テキスト）",
   "agents.promptCustomPlaceholder": "カスタムシステムプロンプトを入力するか、上のPrompt Studioから選択...",
