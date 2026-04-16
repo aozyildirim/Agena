@@ -34,15 +34,30 @@ packages/
 
 ## Development Environment
 
-All services run via Docker Compose. Never start local dev servers directly.
+Use `start.sh` to launch the full stack. It starts Docker services and the CLI bridge on the host:
 
 ```bash
-docker-compose up --build          # Start all services
+./start.sh                         # Start everything (Docker + host bridge)
+./stop.sh                          # Stop everything
 docker-compose restart <service>   # Restart after code changes
 docker-compose up -d --build <service>  # Rebuild a specific service
 ```
 
-Services: `backend` (FastAPI, :8010), `worker` (Redis consumer), `cli-bridge` (WebSocket, :9876), `frontend_blue` (:3011), `frontend_green` (:3012), `mysql` (:3307), `redis` (:6380), `qdrant` (:6333)
+Services: `backend` (FastAPI, :8010), `worker` (Redis consumer), `frontend_blue` (:3011), `frontend_green` (:3012), `mysql` (:3307), `redis` (:6380), `qdrant` (:6333)
+
+### CLI Bridge (Host-Native)
+
+The CLI bridge runs **on the host** (not in Docker) so it can use the host's Claude/Codex CLI authentication (macOS Keychain). Docker containers reach it via `http://host.docker.internal:9876`.
+
+```bash
+# start.sh handles this automatically. Manual start:
+node docker/bridge-server.mjs &    # Start bridge on host (:9876)
+curl localhost:9876/health          # Check status
+```
+
+- Bridge authenticates via the host's `claude auth login` session — no API key needed
+- `docker-compose up` does NOT start cli-bridge (it uses a Docker profile `bridge-docker`)
+- If you need the Docker bridge instead: `docker-compose --profile bridge-docker up cli-bridge`
 
 Backend code is volume-mounted (`./packages:/app/packages`) — hot-reloads via `pip install -e` on container start. Worker needs manual restart.
 

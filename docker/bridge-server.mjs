@@ -27,8 +27,18 @@ console.log(`CLI Bridge starting on port ${PORT}...`);
 console.log(`  codex: ${codexBin || 'NOT FOUND'}`);
 console.log(`  claude: ${claudeBin || 'NOT FOUND'}`);
 
+// Load saved API key from credentials file on startup (persists across container restarts)
+try {
+  const cred = JSON.parse(readFileSync(`${HOME}/.claude/.credentials.json`, 'utf8'));
+  if (cred.claudeAiOauth?.accessToken && !process.env.ANTHROPIC_API_KEY) {
+    process.env.ANTHROPIC_API_KEY = cred.claudeAiOauth.accessToken;
+    console.log('  claude: loaded API key from credentials file');
+  }
+} catch {}
+
 async function detectClaudeAuth() {
   if (!claudeBin) return false;
+  // 1) CLI OAuth (keychain / native auth)
   try {
     const { stdout } = await execFileAsync(claudeBin, ['auth', 'status', '--json'], {
       env: { ...process.env, NO_COLOR: '1' },
@@ -36,11 +46,20 @@ async function detectClaudeAuth() {
       maxBuffer: 1024 * 1024,
     });
     const parsed = JSON.parse((stdout || '{}').trim() || '{}');
-    return !!parsed.loggedIn;
-  } catch {
-    // Fallback for older/newer CLI variants
-    return existsSync(`${HOME}/.claude/.credentials.json`) || existsSync(`${HOME}/.claude/credentials.json`);
+    if (parsed.loggedIn) return true;
+  } catch {}
+  // 2) Credentials file (written by /claude/auth endpoint)
+  for (const p of [`${HOME}/.claude/.credentials.json`, `${HOME}/.claude/credentials.json`]) {
+    try {
+      if (existsSync(p)) {
+        const cred = JSON.parse(readFileSync(p, 'utf8'));
+        if (cred.claudeAiOauth?.accessToken || cred.apiKey) return true;
+      }
+    } catch {}
   }
+  // 3) Environment variable
+  if (process.env.ANTHROPIC_API_KEY) return true;
+  return false;
 }
 
 const server = createServer(async (req, res) => {
@@ -52,8 +71,8 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
-  // Proxy auth callback to codex/claude login server
-  if (req.method === 'GET' && url.pathname === '/auth/callback' && activeCallbackPort > 0) {
+  // Proxy auth callback to codex/claude login server (handle common OAuth callback paths)
+  if (req.method === 'GET' && (url.pathname === '/auth/callback' || url.pathname === '/oauth/callback' || url.pathname === '/callback') && activeCallbackPort > 0) {
     const proxyUrl = `http://127.0.0.1:${activeCallbackPort}${url.pathname}${url.search}`;
     console.log(`[proxy] Forwarding callback to ${proxyUrl}`);
     try {
@@ -162,9 +181,18 @@ async function runCLIStream(bin, name, data, res) {
 
   const cliEnv = { ...process.env, NO_COLOR: '1', NODE_EXTRA_CA_CERTS: '/etc/ssl/certs/ca-certificates.crt' };
   if (name === 'claude') {
-    // Force Claude CLI to use OAuth session when available; stale API keys in env can cause 401.
-    delete cliEnv.ANTHROPIC_API_KEY;
-    delete cliEnv.CLAUDE_API_KEY;
+    // Prefer OAuth when available; otherwise keep API key for Docker environments without keychain
+    let oauthOk = false;
+    try {
+      const { stdout } = await execFileAsync(claudeBin, ['auth', 'status', '--json'], {
+        env: { ...process.env, NO_COLOR: '1' }, timeout: 3000, maxBuffer: 1024 * 1024,
+      });
+      oauthOk = !!JSON.parse((stdout || '{}').trim() || '{}').loggedIn;
+    } catch {}
+    if (oauthOk) {
+      delete cliEnv.ANTHROPIC_API_KEY;
+      delete cliEnv.CLAUDE_API_KEY;
+    }
   }
 
   const proc = spawn(bin, args, {
@@ -381,6 +409,17 @@ async function runCLI(bin, name, data) {
       } catch {}
     }
 
+    // Check OAuth status before entering the Promise to avoid async-in-sync issues
+    let claudeOauthOk = false;
+    if (name === 'claude') {
+      try {
+        const { stdout: authOut } = await execFileAsync(claudeBin, ['auth', 'status', '--json'], {
+          env: { ...process.env, NO_COLOR: '1' }, timeout: 3000, maxBuffer: 1024 * 1024,
+        });
+        claudeOauthOk = !!JSON.parse((authOut || '{}').trim() || '{}').loggedIn;
+      } catch {}
+    }
+
     const result = await new Promise((resolve, reject) => {
       const cliEnv = {
         ...process.env,
@@ -390,9 +429,11 @@ async function runCLI(bin, name, data) {
         ...(data.api_base_url ? { OPENAI_BASE_URL: data.api_base_url } : {}),
       };
       if (name === 'claude') {
-        // Prefer interactive OAuth session; invalid env API keys produce auth 401.
-        delete cliEnv.ANTHROPIC_API_KEY;
-        delete cliEnv.CLAUDE_API_KEY;
+        // Prefer OAuth when available; otherwise keep API key for Docker environments without keychain
+        if (claudeOauthOk) {
+          delete cliEnv.ANTHROPIC_API_KEY;
+          delete cliEnv.CLAUDE_API_KEY;
+        }
       }
 
       const proc = spawn(bin, args, {
@@ -554,7 +595,21 @@ async function startLogin(cli, deviceAuth = false) {
             activeCallbackPort = parseInt(portMatch[1]);
             console.log(`[login] Callback port: ${activeCallbackPort}`);
           }
-          resolve({ status: 'ok', login_url: loginUrl, callback_port: activeCallbackPort, device_code: deviceCode || '', message: deviceCode ? `Enter code: ${deviceCode}` : `Open this URL to login` });
+          // Rewrite OAuth URL to route callback through bridge port (9876)
+          // so the browser redirect reaches the bridge even inside Docker.
+          // The bridge proxies /auth/callback to the internal CLI port.
+          let resolvedUrl = loginUrl;
+          if (activeCallbackPort > 0 && activeCallbackPort !== PORT) {
+            resolvedUrl = loginUrl
+              .replace(`localhost%3A${activeCallbackPort}`, `localhost%3A${PORT}`)
+              .replace(`localhost:${activeCallbackPort}`, `localhost:${PORT}`)
+              .replace(`127.0.0.1%3A${activeCallbackPort}`, `127.0.0.1%3A${PORT}`)
+              .replace(`127.0.0.1:${activeCallbackPort}`, `127.0.0.1:${PORT}`);
+            if (resolvedUrl !== loginUrl) {
+              console.log(`[login] Rewrote callback port ${activeCallbackPort} → ${PORT} in OAuth URL`);
+            }
+          }
+          resolve({ status: 'ok', login_url: resolvedUrl, callback_port: activeCallbackPort, device_code: deviceCode || '', message: deviceCode ? `Enter code: ${deviceCode}` : `Open this URL to login` });
         }
       }, 500);
 
@@ -610,11 +665,13 @@ async function setAuth(cli, data) {
     }
 
     if (cli === 'claude') {
-      // Claude uses ~/.claude/.credentials.json
+      // Claude uses ~/.claude/.credentials.json + ANTHROPIC_API_KEY env
       mkdirSync(`${HOME}/.claude`, { recursive: true });
+      const key = api_key.trim();
       writeFileSync(`${HOME}/.claude/.credentials.json`, JSON.stringify({
-        claudeAiOauth: { accessToken: api_key.trim(), expiresAt: '2099-01-01T00:00:00.000Z' }
+        claudeAiOauth: { accessToken: key, expiresAt: '2099-01-01T00:00:00.000Z' }
       }));
+      process.env.ANTHROPIC_API_KEY = key;
       console.log('[claude] API key saved');
       return { status: 'ok', message: 'Claude API key saved' };
     }
@@ -645,6 +702,7 @@ async function clearAuth(cli) {
       for (const p of paths) {
         if (existsSync(p)) unlinkSync(p);
       }
+      delete process.env.ANTHROPIC_API_KEY;
       return { status: 'ok', message: 'Claude session cleared' };
     }
 
