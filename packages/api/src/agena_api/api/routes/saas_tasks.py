@@ -577,7 +577,7 @@ async def assign_task(
         await qs.client.set(
             f'flow_def:{task_id}',
             _json.dumps({'flow': flow, 'user_id': tenant.user_id}),
-            ex=3600,  # 1 hour TTL
+            ex=86400,  # 24 hour TTL
         )
         return AssignTaskResponse(queued=True, queue_key=queue_key)
 
