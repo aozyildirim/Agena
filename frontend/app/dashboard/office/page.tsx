@@ -477,7 +477,7 @@ function AssignTaskModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }} onClick={onClose}>
-      <div style={{ width: 'min(500px, 100%)', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: 24, maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ width: 'min(500px, 100%)', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: 24, maxHeight: '80vh', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={44} />
@@ -522,7 +522,7 @@ function AssignTaskModal({
 
         {/* Provider & Model selector (AI / MCP mode) */}
         {runMode !== 'flow' && (
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 12, maxWidth: '100%', overflow: 'hidden' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('office.typeModel')}</div>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
               {PROVIDERS.map((p) => (
