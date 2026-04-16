@@ -67,8 +67,7 @@ services:
       - cli_codex_auth:/home/bridge/.codex
       - cli_claude_auth:/home/bridge/.claude
     restart: "no"
-    profiles:
-      - bridge-docker
+    # profiles: [bridge-docker]  # requires docker-compose >= 1.28
 
   frontend:
     build:
