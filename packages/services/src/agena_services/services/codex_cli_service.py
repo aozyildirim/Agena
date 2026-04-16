@@ -224,6 +224,7 @@ class CodexCLIService:
         model: str | None = None,
         api_key: str | None = None,
         api_base_url: str | None = None,
+        log_callback=None,
     ) -> str:
         """Call CLI bridge HTTP server running on host."""
         import httpx
@@ -255,35 +256,84 @@ class CodexCLIService:
         if api_base_url:
             payload['api_base_url'] = api_base_url
 
+        import json as _json
+
+        # Use streaming endpoint for real-time logs
         try:
-            async with httpx.AsyncClient(timeout=300) as client:
-                resp = await client.post(f'{bridge_url}/{cli}', json=payload)
-                data = resp.json()
+            collected_text: list[str] = []
+            error_msg = None
+            async with httpx.AsyncClient(timeout=httpx.Timeout(self.EXEC_TIMEOUT_SEC + 10, connect=10)) as client:
+                async with client.stream(
+                    'POST',
+                    f'{bridge_url}/codex/stream',
+                    json=payload,
+                ) as resp:
+                    async for raw_line in resp.aiter_lines():
+                        if not raw_line.startswith('data: '):
+                            continue
+                        try:
+                            event = _json.loads(raw_line[6:])
+                        except (ValueError, TypeError):
+                            continue
+                        evt_type = event.get('type', '')
+                        if evt_type == 'text':
+                            collected_text.append(event.get('text', ''))
+                        elif evt_type == 'line':
+                            collected_text.append(event.get('text', '') + '\n')
+                        elif evt_type == 'tool':
+                            if log_callback:
+                                await log_callback(event.get('summary', ''))
+                        elif evt_type == 'stderr':
+                            stderr_text = event.get('text', '')
+                            if log_callback and stderr_text:
+                                await log_callback(f'stderr: {stderr_text[:200]}')
+                        elif evt_type == 'error':
+                            error_msg = event.get('message', 'unknown error')
+                        elif evt_type == 'done':
+                            break
+
+            if error_msg:
+                # Retry with default model if unsupported model error
+                if self._is_unsupported_model_error(str(error_msg)) and payload.get('model'):
+                    payload['model'] = ''
+                    collected_text.clear()
+                    error_msg = None
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(self.EXEC_TIMEOUT_SEC + 10, connect=10)) as client:
+                        async with client.stream('POST', f'{bridge_url}/codex/stream', json=payload) as resp:
+                            async for raw_line in resp.aiter_lines():
+                                if not raw_line.startswith('data: '):
+                                    continue
+                                try:
+                                    event = _json.loads(raw_line[6:])
+                                except (ValueError, TypeError):
+                                    continue
+                                evt_type = event.get('type', '')
+                                if evt_type == 'text':
+                                    collected_text.append(event.get('text', ''))
+                                elif evt_type == 'line':
+                                    collected_text.append(event.get('text', '') + '\n')
+                                elif evt_type == 'tool':
+                                    if log_callback:
+                                        await log_callback(event.get('summary', ''))
+                                elif evt_type == 'error':
+                                    error_msg = event.get('message', 'unknown error')
+                                elif evt_type == 'done':
+                                    break
+                    if error_msg:
+                        raise RuntimeError(f'{cli} bridge error: {error_msg}')
+                else:
+                    raise RuntimeError(f'{cli} bridge error: {error_msg}')
+
+            content = ''.join(collected_text).strip()
+            if not content:
+                raise RuntimeError(f'{cli} bridge returned empty output')
+            return content
+
         except httpx.ConnectError:
             raise RuntimeError(f'CLI bridge unreachable at {bridge_url} — is the cli-bridge service running?')
         except httpx.TimeoutException:
             raise RuntimeError(f'CLI bridge request timed out after {self.EXEC_TIMEOUT_SEC}s')
-        except (httpx.RequestError, ValueError) as exc:
+        except RuntimeError:
+            raise
+        except Exception as exc:
             raise RuntimeError(f'CLI bridge request failed: {exc}')
-
-        if data.get('status') != 'ok':
-            err_msg = data.get('message', data.get('stderr', 'unknown'))
-            # ChatGPT accounts don't support explicit model selection;
-            # retry without model so Codex CLI picks its own default
-            if self._is_unsupported_model_error(str(err_msg)) and payload.get('model'):
-                payload['model'] = ''
-                try:
-                    async with httpx.AsyncClient(timeout=300) as client2:
-                        resp2 = await client2.post(f'{bridge_url}/{cli}', json=payload)
-                        data = resp2.json()
-                except Exception:
-                    pass
-                if data.get('status') != 'ok':
-                    raise RuntimeError(f'{cli} bridge error: {data.get("message", data.get("stderr", "unknown"))}')
-            else:
-                raise RuntimeError(f'{cli} bridge error: {err_msg}')
-
-        content = (data.get('stdout') or '').strip()
-        if not content:
-            raise RuntimeError(f'{cli} bridge returned empty output')
-        return content

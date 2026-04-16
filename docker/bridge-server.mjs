@@ -118,7 +118,10 @@ const server = createServer(async (req, res) => {
   const data = JSON.parse(body || '{}');
 
   let result;
-  if (url.pathname === '/codex') {
+  if (url.pathname === '/codex/stream') {
+    await runCodexStream(codexBin, data, res);
+    return;
+  } else if (url.pathname === '/codex') {
     result = await runCLI(codexBin, 'codex', data);
   } else if (url.pathname === '/claude/stream') {
     await runCLIStream(claudeBin, 'claude', data, res);
@@ -298,6 +301,119 @@ async function runCLIStream(bin, name, data, res) {
   });
 
   proc.stdin.end();
+}
+
+async function runCodexStream(bin, data, res) {
+  if (!bin) {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    res.write(`data: ${JSON.stringify({ type: 'error', message: 'codex binary not found' })}\n\n`);
+    res.end();
+    return;
+  }
+  const { repo_path, prompt, model, timeout = 1200 } = data;
+  if (repo_path && !existsSync(repo_path)) {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    res.write(`data: ${JSON.stringify({ type: 'error', message: `repo path not found: ${repo_path}` })}\n\n`);
+    res.end();
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  // codex exec with --json outputs JSONL events to stdout
+  const args = ['exec', '--skip-git-repo-check', '-C', repo_path, '--full-auto', '--sandbox', 'workspace-write', '--json'];
+  if (model) args.push('-m', model);
+  args.push('-o', `/tmp/cli-bridge/codex-${Date.now()}.out`);
+  args.push('-');  // read prompt from stdin
+
+  console.log(`[codex stream] running in ${repo_path} (model=${model || 'default'}, timeout=${timeout}s)`);
+
+  const proc = spawn(bin, args, {
+    cwd: repo_path,
+    env: { ...process.env, NO_COLOR: '1' },
+  });
+
+  let fullText = '';
+  let lineBuffer = '';
+
+  proc.stdout.on('data', (chunk) => {
+    lineBuffer += chunk.toString();
+    while (lineBuffer.includes('\n')) {
+      const idx = lineBuffer.indexOf('\n');
+      const line = lineBuffer.slice(0, idx).trim();
+      lineBuffer = lineBuffer.slice(idx + 1);
+      if (!line) continue;
+      try {
+        const event = JSON.parse(line);
+        const eventType = event.type || event.event;
+        if (eventType === 'message' && event.role === 'assistant') {
+          const content = event.content || '';
+          if (content) {
+            fullText += content;
+            res.write(`data: ${JSON.stringify({ type: 'text', text: content })}\n\n`);
+          }
+        } else if (eventType === 'function_call' || eventType === 'tool_call') {
+          const name = event.name || event.function?.name || 'tool';
+          const toolArgs = event.arguments || event.function?.arguments || '';
+          let summary = `[Tool: ${name}]`;
+          try {
+            const parsed = JSON.parse(toolArgs);
+            if (parsed.command) summary = `[Bash: ${String(parsed.command).slice(0, 150)}]`;
+            else if (parsed.path) summary = `[${name}: ${parsed.path}]`;
+          } catch {}
+          res.write(`data: ${JSON.stringify({ type: 'tool', tool: name, summary })}\n\n`);
+        } else if (eventType === 'function_call_output' || eventType === 'tool_result') {
+          res.write(`data: ${JSON.stringify({ type: 'event', event_type: 'tool_result' })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: 'event', event_type: eventType || 'unknown' })}\n\n`);
+        }
+      } catch {
+        if (line) {
+          fullText += line + '\n';
+          res.write(`data: ${JSON.stringify({ type: 'line', text: line })}\n\n`);
+        }
+      }
+    }
+  });
+
+  proc.stderr.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) {
+      res.write(`data: ${JSON.stringify({ type: 'stderr', text })}\n\n`);
+    }
+  });
+
+  // Pipe prompt to stdin
+  const promptText = prompt || '';
+  proc.stdin.write(promptText);
+  proc.stdin.end();
+
+  const timer = setTimeout(() => {
+    proc.kill();
+    res.write(`data: ${JSON.stringify({ type: 'error', message: `timed out after ${timeout}s` })}\n\n`);
+    res.end();
+  }, timeout * 1000);
+
+  proc.on('close', (code) => {
+    clearTimeout(timer);
+    if (lineBuffer.trim()) {
+      fullText += lineBuffer.trim();
+      res.write(`data: ${JSON.stringify({ type: 'line', text: lineBuffer.trim() })}\n\n`);
+    }
+    res.write(`data: ${JSON.stringify({ type: 'done', code, stdout_length: fullText.length })}\n\n`);
+    res.end();
+    console.log(`[codex stream] done — ${fullText.length} chars output`);
+  });
+
+  proc.on('error', (e) => {
+    clearTimeout(timer);
+    res.write(`data: ${JSON.stringify({ type: 'error', message: e.message })}\n\n`);
+    res.end();
+  });
 }
 
 async function submitLoginCode(cli, data) {
