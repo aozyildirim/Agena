@@ -160,23 +160,32 @@ class OrchestrationService:
             await task_service.add_log(task.id, organization_id, 'playbook', 'Repo playbook applied to prompt context')
         if tenant_playbook:
             await task_service.add_log(task.id, organization_id, 'playbook', 'Tenant playbook applied to prompt context')
-        effective_description = self._build_effective_description(
-            task.description,
-            routing.execution_prompt,
-            routing.repo_playbook,
-            tenant_playbook,
-            await self._build_repo_context(
-                local_repo_path=routing.local_repo_path,
-                organization_id=organization_id,
-                user_id=task.created_by_user_id,
-                task_title=task.title or '',
-                task_description=task.description or '',
-                remote_repo=routing.remote_repo,
-            ),
-            task.story_context,
-            task.acceptance_criteria,
-            task.edge_cases,
+        # For Sentry/NewRelic tasks: use targeted prompt with file content (skips full repo scan)
+        targeted_prompt = await self._build_targeted_error_prompt(
+            task, organization_id, routing.local_repo_path,
         )
+        if targeted_prompt:
+            await task_service.add_log(task.id, organization_id, 'agent',
+                f'Using targeted {task.source} prompt (file content injected, skipping full repo scan)')
+            effective_description = targeted_prompt
+        else:
+            effective_description = self._build_effective_description(
+                task.description,
+                routing.execution_prompt,
+                routing.repo_playbook,
+                tenant_playbook,
+                await self._build_repo_context(
+                    local_repo_path=routing.local_repo_path,
+                    organization_id=organization_id,
+                    user_id=task.created_by_user_id,
+                    task_title=task.title or '',
+                    task_description=task.description or '',
+                    remote_repo=routing.remote_repo,
+                ),
+                task.story_context,
+                task.acceptance_criteria,
+                task.edge_cases,
+            )
         payload = {
             'id': str(task.id),
             'title': task.title,
@@ -2291,6 +2300,108 @@ class OrchestrationService:
             base_url=selected_base or (self.settings.openai_base_url or 'https://api.openai.com/v1'),
             model=preferred_model,
         )
+
+    async def _build_targeted_error_prompt(
+        self,
+        task,
+        organization_id: int,
+        local_repo_path: str | None,
+    ) -> str | None:
+        """For Sentry/NewRelic tasks, build a targeted prompt with the actual file content.
+
+        Returns the filled prompt or None if not applicable.
+        """
+        if task.source not in ('sentry', 'newrelic'):
+            return None
+        if not local_repo_path:
+            return None
+
+        import re
+        description = task.description or ''
+
+        # Parse file path and line number from description
+        file_path = None
+        line_number = None
+
+        # Sentry: "File: app/Controller/Api/V1/Customer.php" or metadata
+        for pattern in [
+            r'File:\s*(.+?\.\w+)',
+            r'Function:\s*\S+\s+in\s+(.+?\.\w+)',
+            r'Culprit:\s*(.+?\.\w+)',
+            r'([\w/]+\.\w{2,5}):(\d+)',
+        ]:
+            m = re.search(pattern, description)
+            if m:
+                file_path = m.group(1).strip()
+                if m.lastindex and m.lastindex >= 2:
+                    line_number = m.group(2)
+                break
+
+        if not file_path:
+            return None
+
+        # Read file content from local repo
+        from pathlib import Path
+        full_path = Path(local_repo_path).expanduser().resolve() / file_path
+        if not full_path.exists() or not full_path.is_file():
+            logger.info('Targeted prompt: file not found %s', full_path)
+            return None
+
+        try:
+            file_content = full_path.read_text(encoding='utf-8', errors='ignore')
+            # Limit to ~500 lines around the error line for very large files
+            if line_number:
+                lines = file_content.splitlines()
+                ln = int(line_number)
+                start = max(0, ln - 250)
+                end = min(len(lines), ln + 250)
+                file_content = '\n'.join(lines[start:end])
+        except Exception:
+            return None
+
+        # Load prompt template from Prompt Studio
+        prompt_slug = 'sentry_fix' if task.source == 'sentry' else 'newrelic_fix'
+        try:
+            from agena_services.services.prompt_service import PromptService
+            template = await PromptService.get(self.db_session, prompt_slug)
+        except ValueError:
+            logger.info('Targeted prompt slug %s not found, falling back to default', prompt_slug)
+            return None
+
+        # Extract variables from description
+        def _extract(key: str) -> str:
+            m = re.search(rf'{key}:\s*(.+)', description)
+            return m.group(1).strip() if m else ''
+
+        # Fill template
+        filled = template
+        replacements = {
+            '{{error_message}}': task.title or '',
+            '{{file_path}}': file_path,
+            '{{line_number}}': line_number or '',
+            '{{file_content}}': file_content,
+            '{{stack_trace}}': '',
+            '{{level}}': _extract('Level'),
+            '{{culprit}}': _extract('Culprit'),
+            '{{event_count}}': _extract('Events'),
+            '{{user_count}}': _extract('Affected Users'),
+            '{{first_seen}}': _extract('First Seen'),
+            '{{error_class}}': _extract('Exception'),
+            '{{transaction}}': _extract('Transaction'),
+            '{{entity_name}}': _extract('Entity'),
+        }
+
+        # Extract stack trace section
+        st_match = re.search(r'Stack Trace.*?:\n((?:\s+- .+\n?)+)', description)
+        if st_match:
+            replacements['{{stack_trace}}'] = st_match.group(1).strip()
+
+        for key, val in replacements.items():
+            filled = filled.replace(key, val)
+
+        logger.info('Built targeted %s prompt for %s:%s (%d chars file content)',
+                     task.source, file_path, line_number or '?', len(file_content))
+        return filled
 
     def _build_effective_description(
         self,
