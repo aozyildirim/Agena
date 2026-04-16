@@ -479,7 +479,7 @@ function AssignTaskModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'safe center', justifyContent: 'center', zIndex: 100, padding: 20, overflowY: 'auto' }} onClick={onClose}>
-      <div style={{ width: 'min(480px, calc(100vw - 40px))', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: '20px 22px', margin: 'auto 0', boxSizing: 'border-box', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ width: 'min(480px, calc(100vw - 40px))', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: '20px 22px', margin: 'auto 0', boxSizing: 'border-box', overflow: 'hidden', display: 'grid', gap: 0, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={44} />
