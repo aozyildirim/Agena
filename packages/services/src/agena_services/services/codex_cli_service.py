@@ -280,12 +280,24 @@ class CodexCLIService:
                             continue
                         evt_type = event.get('type', '')
                         if evt_type == 'text':
-                            texts.append(event.get('text', ''))
+                            text = event.get('text', '')
+                            texts.append(text)
+                            if log_callback and text.strip():
+                                await log_callback(text[:500])
                         elif evt_type == 'line':
-                            texts.append(event.get('text', '') + '\n')
+                            line = event.get('text', '')
+                            texts.append(line + '\n')
+                            if log_callback and line.strip():
+                                await log_callback(line[:500])
                         elif evt_type == 'tool':
                             if log_callback:
                                 await log_callback(event.get('summary', ''))
+                        elif evt_type == 'event':
+                            et = event.get('event_type', '')
+                            if et == 'tool_result' and log_callback:
+                                preview = event.get('output_preview', '')
+                                code = event.get('exit_code', '')
+                                await log_callback(f'exit={code} {preview[:300]}' if preview else f'exit={code}')
                         elif evt_type == 'stderr':
                             stderr_text = event.get('text', '')
                             if stderr_text:
@@ -294,6 +306,8 @@ class CodexCLIService:
                                     await log_callback(f'stderr: {stderr_text[:200]}')
                         elif evt_type == 'error':
                             err = event.get('message', 'unknown error')
+                            if log_callback:
+                                await log_callback(f'error: {err[:300]}')
                         elif evt_type == 'done':
                             break
             # Check stderr for unsupported model errors even if no explicit error event
