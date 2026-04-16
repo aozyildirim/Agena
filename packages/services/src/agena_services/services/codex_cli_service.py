@@ -85,11 +85,13 @@ class CodexCLIService:
                 )
                 if code != 0:
                     msg = (err.decode('utf-8', errors='ignore') or out.decode('utf-8', errors='ignore')).strip()
-            if code != 0 and self._is_unsupported_model_error(msg) and effective_model != self.FALLBACK_MODEL:
+            if code != 0 and self._is_unsupported_model_error(msg) and effective_model is not None:
+                # ChatGPT accounts don't support explicit model selection;
+                # let Codex CLI pick its own default (e.g. gpt-5.3-codex)
                 out, err, code = await self._run_codex_with_retry(
                     codex_bin=codex_bin,
                     repo=str(repo),
-                    model=self.FALLBACK_MODEL,
+                    model=None,
                     prompt=prompt,
                     output_file=output_file,
                     api_key=effective_api_key,
