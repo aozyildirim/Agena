@@ -2012,6 +2012,8 @@
   "nav.group.workspace": "Espacio de Trabajo",
   "nav.group.ai": "IA y Automatizacion",
   "nav.group.analytics": "Analitica",
+  "nav.group.insights": "Metricas",
+  "nav.integrationsOverview": "General",
   "nav.group.settings": "Configuracion",
   "agents.promptCustom": "Prompt personalizado (texto libre)",
   "agents.promptCustomPlaceholder": "Escriba un prompt personalizado o seleccione de Prompt Studio...",

@@ -30,8 +30,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/office', key: 'nav.office', icon: '🏢' },
       { href: '/dashboard/tasks', key: 'nav.tasks', icon: '✅', permission: 'tasks:read' as const },
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const },
-      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const },
-      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🧪', permission: 'tasks:read' as const },
     ],
   },
   {
@@ -39,16 +37,18 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖' },
-      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '📝' },
       { href: '/dashboard/flows', key: 'nav.flows', icon: '🧠' },
+      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '📝' },
       { href: '/dashboard/templates', key: 'nav.templates', icon: '🧩' },
     ],
   },
   {
-    labelKey: 'nav.group.analytics',
+    labelKey: 'nav.group.insights',
     defaultOpen: false,
     items: [
-      { href: '/dashboard/dora', key: 'nav.dora', icon: '📈', children: [
+      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const },
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🧪', permission: 'tasks:read' as const },
+      { href: '/dashboard/dora', key: 'nav.dora', icon: '📊', children: [
         { href: '/dashboard/dora', key: 'nav.doraOverview', icon: '📊' },
         { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: '📋' },
         { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: '⚡' },
@@ -62,10 +62,12 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.group.settings',
     defaultOpen: false,
     items: [
+      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, children: [
+        { href: '/dashboard/integrations', key: 'nav.integrationsOverview', icon: '🔌', permission: 'integrations:manage' as const },
+        { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: '📊', permission: 'integrations:manage' as const },
+        { href: '/dashboard/integrations/sentry', key: 'nav.sentry', icon: '🚨', permission: 'integrations:manage' as const },
+      ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🔗' },
-      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const },
-      { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: '📊', permission: 'integrations:manage' as const },
-      { href: '/dashboard/integrations/sentry', key: 'nav.sentry', icon: '🚨', permission: 'integrations:manage' as const },
       { href: '/dashboard/webhooks', key: 'nav.webhooks', icon: '🪝', permission: 'integrations:manage' as const },
       { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🛡', permission: 'roles:manage' as const },
@@ -607,8 +609,8 @@ function DashboardInner({ children }: { children: ReactNode }) {
                   {isExpanded && !sidebarCollapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingLeft: 18, marginTop: 2 }}>
                       {item.children.map((child) => {
-                        const childActive = child.href === '/dashboard/dora'
-                          ? pathname === '/dashboard/dora'
+                        const childActive = (child.href === '/dashboard/dora' || child.href === '/dashboard/integrations')
+                          ? pathname === child.href
                           : pathname.startsWith(child.href);
                         return (
                           <Link key={child.key} href={child.href} title={navTooltip(child.key)} style={{
