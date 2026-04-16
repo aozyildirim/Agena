@@ -46,6 +46,8 @@ const DEFAULT_AGENTS: AgentConfig[] = [
   { role: 'lead_developer', label: 'Lead Developer', icon: '🧑‍💻', color: '#38bdf8', enabled: true, palette: 2, create_pr: true },
   { role: 'developer', label: 'Developer', icon: '⚡', color: '#22c55e', enabled: true, palette: 3, create_pr: true },
   { role: 'qa', label: 'QA Engineer', icon: '🔍', color: '#f472b6', enabled: true, palette: 4, create_pr: true },
+  { role: 'sentry_developer', label: 'Sentry Developer', icon: '🚨', color: '#8b5cf6', enabled: true, palette: 5, create_pr: true, provider: 'codex_cli', system_prompt: 'sentry_fix' },
+  { role: 'newrelic_developer', label: 'New Relic Developer', icon: '📡', color: '#00ac69', enabled: true, palette: 6, create_pr: true, provider: 'codex_cli', system_prompt: 'newrelic_fix' },
 ];
 
 const LS_AGENTS = 'agena_agent_configs';
