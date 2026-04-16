@@ -356,21 +356,33 @@ async function runCodexStream(bin, data, res) {
             fullText += content;
             res.write(`data: ${JSON.stringify({ type: 'text', text: content })}\n\n`);
           }
+        } else if (eventType === 'item.started') {
+          const item = event.item || {};
+          if (item.type === 'command_execution') {
+            const cmd = (item.command || '').slice(0, 200);
+            res.write(`data: ${JSON.stringify({ type: 'tool', tool: 'Bash', summary: `[Bash: ${cmd}]` })}\n\n`);
+          } else if (item.type === 'file_edit' || item.type === 'file_write') {
+            const path = item.path || item.file || '';
+            res.write(`data: ${JSON.stringify({ type: 'tool', tool: item.type, summary: `[${item.type}: ${path}]` })}\n\n`);
+          } else if (item.type === 'file_read') {
+            const path = item.path || item.file || '';
+            res.write(`data: ${JSON.stringify({ type: 'tool', tool: 'Read', summary: `[Read: ${path}]` })}\n\n`);
+          }
         } else if (eventType === 'item.completed') {
           const item = event.item || {};
           const text = item.text || '';
-          if (text) {
+          if (text && item.type === 'agent_message') {
             fullText += text;
             res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
           }
-          // Tool call results
-          if (item.type === 'function_call' || item.type === 'tool_call') {
-            const name = item.name || 'tool';
-            res.write(`data: ${JSON.stringify({ type: 'tool', tool: name, summary: `[Tool: ${name}]` })}\n\n`);
-          }
-          if (item.type === 'function_call_output') {
-            const output = (item.output || '').slice(0, 300);
-            if (output) res.write(`data: ${JSON.stringify({ type: 'event', event_type: 'tool_result' })}\n\n`);
+          if (item.type === 'command_execution') {
+            const output = (item.aggregated_output || '').slice(0, 500);
+            const code = item.exit_code;
+            res.write(`data: ${JSON.stringify({ type: 'event', event_type: 'tool_result', exit_code: code, output_preview: output.slice(0, 200) })}\n\n`);
+            if (text) {
+              fullText += text;
+              res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
+            }
           }
         } else if (eventType === 'function_call' || eventType === 'tool_call') {
           const name = event.name || event.function?.name || 'tool';
