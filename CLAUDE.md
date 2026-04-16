@@ -234,6 +234,43 @@ Nodes pass data via `context['outputs'][node_id]`. Use `{{outputs.node_id.field}
 - Corporate SSL cert bundled in `docker/FLOMcAfeeWG.crt` for proxy environments
 - When adding new ORM models, register them in `packages/models/src/agena_models/models/__init__.py`
 
+## Sentry Integration
+
+Auto-imports production errors from Sentry and creates tasks for AI agents to fix. Full feedback loop: error → task → AI fix → PR → merge → Sentry resolved.
+
+### Webhook Setup (PR Merge → Auto-Resolve)
+
+When a PR is merged, Agena auto-resolves the linked Sentry issue. Configure in each repo:
+
+**GitHub:**
+1. Repo → Settings → Webhooks → Add webhook
+2. URL: `https://api.agena.dev/webhooks/pr-merged`
+3. Content type: `application/json`
+4. Secret: `PR_WEBHOOK_SECRET` from `.env` (leave blank if not set)
+5. Events: select **Pull requests** only
+
+**Azure DevOps:**
+1. Project Settings → Service Hooks → Create subscription
+2. Event: **Pull request merged**
+3. URL: `https://api.agena.dev/webhooks/pr-merged`
+4. HTTP headers: `X-Agena-Webhook-Secret: <PR_WEBHOOK_SECRET>` (if set)
+
+### Key Components
+- **`SentryClient`** (`packages/services/.../integrations/sentry_client.py`) — list issues, resolve/unresolve, post comments
+- **`SentryProjectMapping`** model — maps Sentry projects to repo mappings
+- **Import**: `POST /tasks/import/sentry` or auto-import via worker polling
+- **Resolve/Unresolve**: `POST /tasks/{id}/sentry-resolve` (toggles from task list)
+- **PR comment**: Auto-posted on Sentry issue when AI creates a PR
+- **Auto-resolve**: `POST /webhooks/pr-merged` resolves Sentry issue + posts comment on PR merge
+- **Priority**: Derived from Sentry level (fatal→critical, error→high, warning→medium, info→low)
+- **Deduplication**: Unique constraint on `(organization_id, source, external_id)`
+
+### Configuration
+- Integration config stored in `integration_configs` table (provider='sentry')
+- `secret` = Sentry API token (Bearer token)
+- `base_url` = `https://sentry.io/api/0` (default)
+- `extra_config.organization_slug` = Sentry org slug
+
 ## New Relic Integration
 
 Auto-imports production errors from New Relic APM entities and creates tasks for AI agents to fix.
