@@ -118,8 +118,12 @@ class OrchestrationService:
                 az_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'azure')
                 if az_cfg and az_cfg.base_url:
                     routing.azure_repo_url = f'{az_cfg.base_url.rstrip("/")}/{repo_mapping.owner}/_git/{repo_mapping.repo_name}'
-            except Exception:
-                pass
+                    routing.azure_project = repo_mapping.owner
+                    logger.info('Constructed azure_repo_url=%s project=%s', routing.azure_repo_url, routing.azure_project)
+                else:
+                    logger.warning('Azure config missing base_url for org %s', organization_id)
+            except Exception as exc:
+                logger.warning('Failed to construct azure_repo_url: %s', exc)
 
         # Override model/provider if explicitly passed from assignment
         if agent_model:

@@ -62,7 +62,15 @@ class LocalRepoService:
                     await self._run_git(root, ['checkout', '-B', branch_name])
         else:
             remote_target = 'origin'
-            # No PR: stay on current branch, just apply changes
+            # No explicit remote URL — still create branch for PR flow
+            try:
+                await self._run_git(root, ['fetch', remote_target, base_branch])
+            except Exception:
+                pass
+            try:
+                await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+            except Exception:
+                await self._run_git(root, ['checkout', '-B', branch_name])
 
         try:
             # Write files directly to the repo
@@ -70,11 +78,6 @@ class LocalRepoService:
                 target = self._safe_target(root, file_change.path)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(file_change.content, encoding='utf-8')
-
-            if not remote_url:
-                # No PR: files written to disk, no git add/commit
-                await self._run_git(root, ['stash', 'pop'], allow_fail=True)
-                return True, branch_name
 
             await self._run_git(root, ['add', '-A'])
             has_changes = await self._has_staged_changes(root)
@@ -90,11 +93,10 @@ class LocalRepoService:
             )
 
             # Push in PR flow
-            if remote_url:
-                try:
-                    await self._run_git(root, ['push', '-u', '--force-with-lease', remote_target, branch_name])
-                except Exception:
-                    await self._run_git(root, ['push', '-u', remote_target, branch_name], allow_fail=True)
+            try:
+                await self._run_git(root, ['push', '-u', '--force-with-lease', remote_target, branch_name])
+            except Exception:
+                await self._run_git(root, ['push', '-u', remote_target, branch_name], allow_fail=True)
 
             return True, branch_name
         except Exception:
