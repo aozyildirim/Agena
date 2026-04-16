@@ -604,33 +604,14 @@ export default function IntegrationsPage() {
   } as const;
 
   return (
-    <div className='integrations-root' style={{ display: 'grid', gap: 14 }}>
+    <div className='integrations-root' style={{ display: 'grid', gap: 10 }}>
       <div className='int-hero'>
-        <div className='section-label'>{t('integrations.section')}</div>
-        <h1 style={{ fontSize: 24, fontWeight: 900, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>
+        <h1 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
           {t('integrations.title')}
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-30)', marginLeft: 10 }}>
+            {connectedCount}/{totalCount} connected
+          </span>
         </h1>
-        <p style={{ color: 'var(--ink-45)', fontSize: 13, maxWidth: 680, lineHeight: 1.5 }}>
-          {t('integrations.subtitle')}
-        </p>
-        <div className='int-summary'>
-          <div className='summary-pill'>
-            <span>Connected</span>
-            <strong>{connectedCount}/{totalCount}</strong>
-          </div>
-          <div className='summary-pill'>
-            <span>Task Stack</span>
-            <strong>{tabMeta.task.count}</strong>
-          </div>
-          <div className='summary-pill'>
-            <span>AI Stack</span>
-            <strong>{tabMeta.ai.count}</strong>
-          </div>
-          <div className='summary-pill'>
-            <span>Notify Stack</span>
-            <strong>{tabMeta.notifications.count}</strong>
-          </div>
-        </div>
       </div>
 
       {(msg || error) && (
@@ -682,7 +663,7 @@ export default function IntegrationsPage() {
             >
               <span className='int-tab-icon'>{tab.icon}</span>
               <span>{tab.label}</span>
-              <span className='int-tab-count'>{tab.count}</span>
+              {tab.count > 0 && <span className='int-tab-count'>{tab.count}</span>}
             </button>
           );
         })}
@@ -709,7 +690,7 @@ export default function IntegrationsPage() {
               placeholder={openaiConfig?.has_secret ? `${openaiConfig?.secret_preview || openaiKeyPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.openaiKeyPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveOpenAI()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveOpenai')}
           </button>
           {configs.find(c => c.provider === 'openai')?.has_secret && (
@@ -739,7 +720,7 @@ export default function IntegrationsPage() {
               placeholder={geminiConfig?.has_secret ? `${geminiConfig?.secret_preview || geminiKeyPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.geminiKeyPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveGemini()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveGemini()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveGemini')}
           </button>
         </IntegrationCard>}
@@ -767,7 +748,7 @@ export default function IntegrationsPage() {
               placeholder={azureConfig?.has_secret ? `${azureConfig?.secret_preview || azurePatPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.patPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveAzure()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveAzure()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveAzure')}
           </button>
           {configs.find(c => c.provider === 'azure')?.has_secret && (
@@ -800,7 +781,7 @@ export default function IntegrationsPage() {
               placeholder={githubConfig?.has_secret ? `${githubConfig?.secret_preview || githubTokenPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.githubTokenPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveGithub()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveGithub()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveGithub')}
           </button>
           {configs.find(c => c.provider === 'github')?.has_secret && (
@@ -833,7 +814,7 @@ export default function IntegrationsPage() {
               placeholder={jiraConfig?.has_secret ? `${jiraConfig?.secret_preview || jiraTokenPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.apiTokenPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveJira()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveJira()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveJira')}
           </button>
           {configs.find(c => c.provider === 'jira')?.has_secret && (
@@ -869,7 +850,7 @@ export default function IntegrationsPage() {
               placeholder={newrelicConfig?.has_secret ? `${newrelicConfig?.secret_preview || newrelicApiKeyPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.newrelicApiKeyPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveNewrelic()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveNewrelic()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveNewrelic')}
           </button>
           {configs.find(c => c.provider === 'newrelic')?.has_secret && (
@@ -902,7 +883,7 @@ export default function IntegrationsPage() {
               placeholder={sentryConfig?.has_secret ? `${sentryConfig?.secret_preview || sentryTokenPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.sentryApiTokenPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveSentry()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveSentry()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveSentry')}
           </button>
           {configs.find(c => c.provider === 'sentry')?.has_secret && (
@@ -941,7 +922,7 @@ export default function IntegrationsPage() {
               placeholder={halConfig?.has_secret ? `${halConfig?.secret_preview || halPasswordPreview || '****'} (${t('integrations.keepExisting')})` : t('integrations.halPasswordPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveHal()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveHal()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveHal')}
           </button>
           {halConfig?.has_secret && (
@@ -968,7 +949,7 @@ export default function IntegrationsPage() {
               placeholder={t('integrations.playbookPlaceholder')}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void savePlaybook()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void savePlaybook()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {isPlaybookSaving ? t('integrations.saving') : t('integrations.savePlaybook')}
           </button>
           <div style={{ fontSize: 10, color: 'var(--ink-35)', marginTop: 4 }}>
@@ -1008,7 +989,7 @@ export default function IntegrationsPage() {
               placeholder='e.g. a1b2c3d4e5...'
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveSlack()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveSlack()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveSlack')}
           </button>
           <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 8, lineHeight: 1.5 }}>
@@ -1047,7 +1028,7 @@ export default function IntegrationsPage() {
               placeholder={teamsConfig?.has_secret ? `${teamsConfig?.secret_preview || teamsPreview || '****'} (keep existing)` : 'App Secret from Azure'}
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveTeams()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveTeams()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveTeams')}
           </button>
           <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 8, lineHeight: 1.5 }}>
@@ -1078,7 +1059,7 @@ export default function IntegrationsPage() {
               placeholder='e.g. -100123456789'
             />
           </FieldGroup>
-          <button className='button button-primary' onClick={() => void saveTelegram()} style={{ width: '100%', justifyContent: 'center', marginTop: 4, padding: '8px 0', fontSize: 12 }}>
+          <button className='button button-primary' onClick={() => void saveTelegram()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             Save Telegram
           </button>
           {telegramSetupMsg && <div style={{ fontSize: 11, color: '#5eead4', marginTop: 6 }}>{telegramSetupMsg}</div>}
@@ -1440,77 +1421,15 @@ export default function IntegrationsPage() {
         .integrations-root {
           position: relative;
         }
-        .integrations-root::before {
-          content: '';
-          position: absolute;
-          top: -80px;
-          right: -120px;
-          width: 340px;
-          height: 340px;
-          border-radius: 999px;
-          background: radial-gradient(circle at center, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0) 65%);
-          pointer-events: none;
-        }
-        .integrations-root::after {
-          content: '';
-          position: absolute;
-          top: 120px;
-          left: -110px;
-          width: 300px;
-          height: 300px;
-          border-radius: 999px;
-          background: radial-gradient(circle at center, rgba(251, 146, 60, 0.16) 0%, rgba(251, 146, 60, 0) 62%);
-          pointer-events: none;
-        }
         .int-hero {
-          border: 1px solid var(--panel-border);
-          border-radius: 18px;
-          padding: 18px 18px 16px;
-          background:
-            linear-gradient(120deg, rgba(28, 231, 131, 0.06), rgba(96, 165, 250, 0.05)),
-            var(--surface);
-          position: relative;
-          overflow: hidden;
-        }
-        .int-hero::after {
-          content: '';
-          position: absolute;
-          width: 280px;
-          height: 280px;
-          right: -90px;
-          top: -140px;
-          border-radius: 999px;
-          background: radial-gradient(circle at center, rgba(167, 139, 250, 0.25), rgba(167, 139, 250, 0));
-          pointer-events: none;
-        }
-        .int-summary {
-          display: flex;
-          gap: 8px;
-          margin-top: 12px;
-          flex-wrap: wrap;
-        }
-        .summary-pill {
-          border-radius: 999px;
-          border: 1px solid var(--panel-border-2);
-          background: var(--glass);
-          color: var(--ink-55);
-          font-size: 11px;
-          font-weight: 600;
-          padding: 6px 11px;
-          display: inline-flex;
-          gap: 8px;
-          align-items: center;
-        }
-        .summary-pill strong {
-          color: var(--ink);
-          font-size: 12px;
-          letter-spacing: 0.2px;
+          padding: 0;
+          background: transparent;
         }
         .integrations-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 12px;
-          align-items: stretch;
+          gap: 10px;
+          align-items: start;
           position: relative;
           z-index: 1;
         }
@@ -1518,12 +1437,12 @@ export default function IntegrationsPage() {
           .integrations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 768px) {
-          .integrations-grid { grid-template-columns: 1fr; gap: 10px; }
+          .integrations-grid { grid-template-columns: 1fr; gap: 8px; }
         }
         .integrations-grid :global(.int-card:hover) {
           border-color: color-mix(in oklab, var(--border) 82%, white 18%);
-          box-shadow: 0 18px 40px rgba(2, 6, 23, 0.18);
-          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(2, 6, 23, 0.1);
+          transform: translateY(-1px);
         }
         .integrations-grid :global(.int-card) {
           backdrop-filter: blur(8px);
@@ -1531,12 +1450,12 @@ export default function IntegrationsPage() {
         .integrations-grid :global(input),
         .integrations-grid :global(select) {
           width: 100%;
-          padding: 8px 10px;
-          border-radius: 10px;
+          padding: 5px 8px;
+          border-radius: 6px;
           border: 1px solid var(--panel-border-2);
           background: color-mix(in oklab, var(--glass) 78%, white 22%);
           color: var(--ink);
-          font-size: 12px;
+          font-size: 11px;
           transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
           outline: none;
         }
@@ -1548,20 +1467,26 @@ export default function IntegrationsPage() {
         }
         .integrations-grid :global(input::placeholder) {
           color: var(--ink-20);
-          font-size: 11px;
+          font-size: 10px;
         }
         .integrations-grid :global(.button-primary) {
-          min-height: 32px;
-          padding: 6px 10px !important;
+          min-height: 0 !important;
+          padding: 7px 14px !important;
           font-size: 11px !important;
-          border-radius: 10px;
+          border-radius: 8px !important;
           font-weight: 700;
-          letter-spacing: 0.1px;
+          letter-spacing: 0.2px;
+          background: var(--nav-active) !important;
+          box-shadow: none !important;
           transition: opacity 0.15s, transform 0.15s;
         }
+        .integrations-grid :global(.button-primary::before) {
+          display: none !important;
+        }
         .integrations-grid :global(.button-primary:hover) {
-          opacity: 0.92;
+          opacity: 0.88;
           transform: translateY(-0.5px);
+          box-shadow: none !important;
         }
         .integrations-grid :global(.button-outline) {
           min-height: 32px;
@@ -1571,13 +1496,13 @@ export default function IntegrationsPage() {
         }
         .integrations-grid :global(textarea) {
           width: 100%;
-          padding: 9px 10px;
-          border-radius: 10px;
+          padding: 5px 8px;
+          border-radius: 6px;
           border: 1px solid var(--panel-border-2);
           background: color-mix(in oklab, var(--glass) 78%, white 22%);
           color: var(--ink);
-          font-size: 12px;
-          line-height: 1.5;
+          font-size: 11px;
+          line-height: 1.4;
           resize: vertical;
         }
         .connected-dot {
@@ -1595,9 +1520,9 @@ export default function IntegrationsPage() {
         }
         .int-tab-bar {
           display: inline-flex;
-          gap: 8px;
-          padding: 6px;
-          border-radius: 14px;
+          gap: 4px;
+          padding: 3px;
+          border-radius: 10px;
           background: color-mix(in oklab, var(--panel) 90%, white 10%);
           border: 1px solid var(--panel-border-2);
           width: fit-content;
@@ -1607,47 +1532,38 @@ export default function IntegrationsPage() {
           --tab-color: #22d3ee;
           border: 1px solid transparent;
           background: transparent;
-          border-radius: 11px;
-          min-width: 126px;
+          border-radius: 8px;
+          min-width: 0;
           display: inline-flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           color: var(--ink-45);
           cursor: pointer;
-          padding: 8px 12px;
-          transition: all 0.2s ease;
-          font-size: 12px;
+          padding: 5px 10px;
+          transition: all 0.15s ease;
+          font-size: 11px;
           font-weight: 600;
         }
         .int-tab-btn[data-active='1'] {
           border-color: color-mix(in oklab, var(--tab-color) 35%, transparent);
           color: var(--tab-color);
-          background: color-mix(in oklab, var(--tab-color) 12%, transparent);
-          box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tab-color) 22%, transparent);
+          background: color-mix(in oklab, var(--tab-color) 10%, transparent);
         }
         .int-tab-icon {
-          width: 20px;
-          height: 20px;
-          border-radius: 8px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: color-mix(in oklab, var(--tab-color) 16%, transparent);
           font-size: 11px;
           line-height: 1;
           flex-shrink: 0;
         }
         .int-tab-count {
-          margin-left: auto;
-          min-width: 18px;
-          height: 18px;
+          margin-left: 2px;
+          min-width: 15px;
+          height: 15px;
           border-radius: 999px;
-          border: 1px solid color-mix(in oklab, var(--tab-color) 35%, transparent);
-          background: color-mix(in oklab, var(--tab-color) 16%, transparent);
+          background: color-mix(in oklab, var(--tab-color) 18%, transparent);
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 700;
         }
         @media (max-width: 768px) {
@@ -1660,8 +1576,7 @@ export default function IntegrationsPage() {
           }
           .int-tab-bar::-webkit-scrollbar { display: none; }
           .int-tab-bar button { white-space: nowrap; flex-shrink: 0; }
-          .int-tab-btn { min-width: 112px; }
-          .int-hero { padding: 14px; }
+          .int-tab-btn { min-width: 0; }
         }
       `}</style>
     </div>
@@ -1677,80 +1592,64 @@ function IntegrationCard({
   const statusText = connected ? t('integrations.connected') : t('integrations.notConfigured');
   return (
     <div className="int-card" style={{
-      borderRadius: 18,
+      borderRadius: 12,
       border: `1px solid ${connected ? 'color-mix(in oklab, #22c55e 40%, var(--panel-border))' : 'var(--panel-border)'}`,
-      background: `linear-gradient(140deg, color-mix(in oklab, ${color} 10%, transparent), transparent 46%), var(--surface)`,
-      padding: '12px 12px 12px 16px',
+      background: 'var(--surface)',
+      padding: '10px 12px',
       position: 'relative',
       overflow: 'hidden',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s, background 0.2s',
+      transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
     }}>
       <div style={{
         position: 'absolute',
-        top: 10,
-        left: 6,
-        bottom: 10,
-        width: 3,
+        top: 8,
+        left: 4,
+        bottom: 8,
+        width: 2.5,
         borderRadius: 999,
         background: connected ? '#22c55e' : color,
-        opacity: connected ? 0.95 : 0.7,
+        opacity: connected ? 0.9 : 0.5,
       }} />
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '2px 2px 10px 4px',
-        borderBottom: '1px dashed var(--panel-border-2)',
+        gap: 8,
+        padding: '0 0 8px 6px',
+        borderBottom: '1px solid var(--panel-border)',
       }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 10,
-          background: `linear-gradient(150deg, ${color}2f, ${color}14)`,
-          border: `1px solid ${color}4a`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 15, lineHeight: 1, flexShrink: 0,
-        }}>{icon}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 13, letterSpacing: 0.1 }}>{title}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              borderRadius: 999,
-              border: `1px solid ${connected ? 'rgba(34,197,94,0.35)' : 'var(--panel-border-2)'}`,
-              background: connected ? 'rgba(34,197,94,0.1)' : 'var(--panel)',
-              color: connected ? '#22c55e' : 'var(--ink-35)',
-              fontSize: 9,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 0.25,
-              padding: '2px 7px',
-            }}>
-              <span className={connected ? 'connected-dot' : ''} style={{
-                width: 5, height: 5, borderRadius: '50%',
-                background: connected ? '#22c55e' : 'var(--ink-20)', flexShrink: 0,
-              }} />
-              {statusText}
-            </span>
-            {connected && updatedAt && (
-              <span style={{ fontSize: 9, color: 'var(--ink-30)', fontWeight: 600 }}>
-                {new Date(updatedAt).toLocaleDateString()}
-              </span>
-            )}
-          </div>
+        <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12 }}>{title}</div>
         </div>
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          borderRadius: 999,
+          background: connected ? 'rgba(34,197,94,0.1)' : 'transparent',
+          color: connected ? '#22c55e' : 'var(--ink-25)',
+          fontSize: 9,
+          fontWeight: 600,
+          padding: '2px 6px',
+          flexShrink: 0,
+        }}>
+          <span className={connected ? 'connected-dot' : ''} style={{
+            width: 5, height: 5, borderRadius: '50%',
+            background: connected ? '#22c55e' : 'var(--ink-15)', flexShrink: 0,
+          }} />
+          {statusText}
+        </span>
         {onHelp && (
           <button type='button' onClick={onHelp} title={t('integrations.help')}
             style={{
-              width: 22, height: 22, borderRadius: 7,
-              border: `1px solid ${color}52`,
-              background: 'var(--glass)', color: 'var(--ink-35)',
-              fontSize: 11, fontWeight: 800, cursor: 'pointer', flexShrink: 0,
+              width: 18, height: 18, borderRadius: 5,
+              border: '1px solid var(--panel-border-2)',
+              background: 'transparent', color: 'var(--ink-30)',
+              fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.15s',
             }}>
             ?
           </button>
@@ -1758,9 +1657,9 @@ function IntegrationCard({
       </div>
       <div style={{
         display: 'grid',
-        gap: 9,
+        gap: 6,
         flex: 1,
-        padding: '12px 6px 4px 4px',
+        padding: '8px 2px 2px 6px',
       }}>{children}</div>
     </div>
   );
@@ -1770,9 +1669,9 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
   return (
     <div>
       <label style={{
-        fontSize: 10, color: 'var(--ink-45)', fontWeight: 700,
-        letterSpacing: 0.2, textTransform: 'uppercase',
-        display: 'block', marginBottom: 5,
+        fontSize: 9, color: 'var(--ink-35)', fontWeight: 600,
+        letterSpacing: 0.3, textTransform: 'uppercase',
+        display: 'block', marginBottom: 3,
       }}>
         {label}
       </label>

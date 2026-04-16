@@ -14,7 +14,7 @@ LogCallback = Callable[[str], Awaitable[None]]
 
 
 class ClaudeCLIService:
-    EXEC_TIMEOUT_SEC = 600
+    EXEC_TIMEOUT_SEC = 1200
 
     # ── Worktree helpers ─────────────────────────────────────────────────
     @staticmethod
