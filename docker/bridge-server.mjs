@@ -368,6 +368,9 @@ async function runCodexStream(bin, data, res) {
           res.write(`data: ${JSON.stringify({ type: 'tool', tool: name, summary })}\n\n`);
         } else if (eventType === 'function_call_output' || eventType === 'tool_result') {
           res.write(`data: ${JSON.stringify({ type: 'event', event_type: 'tool_result' })}\n\n`);
+        } else if (eventType === 'error' || eventType === 'turn.failed') {
+          const errMsg = event.message || event.error?.message || event.error || 'unknown error';
+          res.write(`data: ${JSON.stringify({ type: 'error', message: String(errMsg).slice(0, 500) })}\n\n`);
         } else {
           res.write(`data: ${JSON.stringify({ type: 'event', event_type: eventType || 'unknown' })}\n\n`);
         }
@@ -383,6 +386,10 @@ async function runCodexStream(bin, data, res) {
   proc.stderr.on('data', (chunk) => {
     const text = chunk.toString().trim();
     if (text) {
+      // Surface unsupported model errors as proper error events
+      if (text.includes('is not supported when using') || text.includes('ERROR:')) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: text.slice(0, 500) })}\n\n`);
+      }
       res.write(`data: ${JSON.stringify({ type: 'stderr', text })}\n\n`);
     }
   });
