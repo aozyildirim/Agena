@@ -1,11 +1,379 @@
 [
   {
+    "hash": "3bcd321",
+    "short": "3bcd321",
+    "message": "Fix sidebar showing disabled-module menus on initial render",
+    "date": "2026-04-17",
+    "author": "root",
+    "type": "fix"
+  },
+  {
+    "hash": "fee132b",
+    "short": "fee132b",
+    "message": "Add alembic migration for modules system",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "ee81261",
+    "short": "ee81261",
+    "message": "Add ? help modal to modules page + permissions module",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "34d2d2a",
+    "short": "34d2d2a",
+    "message": "Add HAL, Playbook, Slack, Teams, Telegram as separate modules",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "f6788a0",
+    "short": "f6788a0",
+    "message": "Hide disabled modules from integrations + fix instant sidebar update",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "51f78e8",
+    "short": "51f78e8",
+    "message": "Add Boss Mode as toggleable module",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "d3b0856",
+    "short": "d3b0856",
+    "message": "Real-time module toggle: sidebar updates instantly without page reload",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "0cf978f",
+    "short": "0cf978f",
+    "message": "Add Modules management page with toggle UI",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "5afb21c",
+    "short": "5afb21c",
+    "message": "Expand module system: 15 granular modules matching user request",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "bb29d7d",
+    "short": "bb29d7d",
+    "message": "Add modular architecture: org-level module toggle system",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "d603c16",
+    "short": "d603c16",
+    "message": "Update README: start.sh, host CLI bridge, Sentry/NR endpoints",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "docs"
+  },
+  {
+    "hash": "929374d",
+    "short": "929374d",
+    "message": "Fix: generate unique external_id for internal tasks",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "c5cc7fb",
+    "short": "c5cc7fb",
+    "message": "Upgrade run_records generated_code/reviewed_code from TEXT to MEDIUMTEXT",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "1b0c886",
+    "short": "1b0c886",
+    "message": "Add SENTRY_FIX_PROMPT and NEWRELIC_FIX_PROMPT to Prompt Studio",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "beb05c3",
+    "short": "beb05c3",
+    "message": "Add Sentry Developer and New Relic Developer default agents",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "841b643",
+    "short": "841b643",
+    "message": "Add targeted Sentry/NewRelic prompts: inject file content, skip repo scan",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "149ee21",
+    "short": "149ee21",
+    "message": "Fix: always create branch and push even without explicit remote_url",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "b194ff9",
+    "short": "b194ff9",
+    "message": "Fix body scroll lock: cover all modals in task detail page",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "b692102",
+    "short": "b692102",
+    "message": "Add stream kill on task cancel: bridge kills CLI process immediately",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "f131ce4",
+    "short": "f131ce4",
+    "message": "Log all Codex stream events to task detail: text, tool results, errors",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "3bafb9c",
+    "short": "3bafb9c",
+    "message": "Wire up Codex CLI live logs to task detail page",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "24c265a",
+    "short": "24c265a",
+    "message": "Fix UnboundLocalError: remove redundant IntegrationConfigService import",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "e2fca72",
+    "short": "e2fca72",
+    "message": "Fix Codex stream: parse item.started for live tool calls",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "403b5cb",
+    "short": "403b5cb",
+    "message": "Fix Sentry auto-import: use org owner as import user",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "4e30d40",
+    "short": "4e30d40",
+    "message": "Fix Sentry auto-import: use real org admin user_id instead of 0",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "5c6f3c9",
+    "short": "5c6f3c9",
+    "message": "Force Codex CLI to always use default model, skip model param entirely",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "cedd678",
+    "short": "cedd678",
+    "message": "Fix Codex stream: parse item.completed events for text and tool output",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "2476e7b",
+    "short": "2476e7b",
+    "message": "Fix Codex stream error detection: surface error/turn.failed as proper error events",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "161f99b",
+    "short": "161f99b",
+    "message": "Fix Codex stream retry: detect unsupported model from stderr",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "882dc8d",
+    "short": "882dc8d",
+    "message": "Move repo conflict modal to createPortal(document.body)",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "docs"
+  },
+  {
+    "hash": "349139e",
+    "short": "349139e",
+    "message": "Replace browser confirm with styled modal for repo conflict dialog",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "357abb4",
+    "short": "357abb4",
+    "message": "Add Codex CLI streaming: real-time logs like Claude CLI",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "1737716",
+    "short": "1737716",
+    "message": "Increase Codex CLI timeout from 180s to 1200s",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b8548d6",
+    "short": "b8548d6",
+    "message": "Add unsupported model retry to Codex bridge path",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "4c72095",
+    "short": "4c72095",
+    "message": "Fix Codex CLI ChatGPT fallback: use None (CLI default) instead of gpt-4o",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "df35869",
+    "short": "df35869",
+    "message": "Fix office modal overflow: minWidth:0 on all flex children, compact cards",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "a1b7629",
+    "short": "a1b7629",
+    "message": "Fix office modal overflow: use grid layout to prevent child overflow",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "e659751",
+    "short": "e659751",
+    "message": "Fix office modal: center when short, scroll backdrop when tall",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "fffc827",
+    "short": "fffc827",
+    "message": "Fix office modal bottom cutoff: scroll on backdrop instead of modal",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "636383f",
+    "short": "636383f",
+    "message": "Default create_pr to true for all agents in office mode",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b7e4e65",
+    "short": "b7e4e65",
+    "message": "Fix office modal horizontal overflow on model/provider selector",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "a350463",
+    "short": "a350463",
+    "message": "Fix: prefill custom model field for codex_cli/claude_cli providers",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "7547284",
+    "short": "7547284",
+    "message": "Fix agent creation: pass updated config directly instead of stale draft",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "c170f15",
+    "short": "c170f15",
+    "message": "Make migration idempotent and fix docker-compose for v1.25 compat",
+    "date": "2026-04-16",
+    "author": "root",
+    "type": "fix"
+  },
+  {
+    "hash": "482ec60",
+    "short": "482ec60",
+    "message": "Sync TaskRecord model with DB: unique constraint + remove stale index",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b66f87c",
+    "short": "b66f87c",
+    "message": "Add alembic migration for priority + sentry enrichment fields",
+    "date": "2026-04-16",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
     "hash": "a232ad2",
     "short": "a232ad2",
     "message": "Fix syntax error in sentry_client.py: stray bracket",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "05e117f",
@@ -21,7 +389,7 @@
     "message": "Add Sentry integration docs to CLAUDE.md",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "8095980",
@@ -29,7 +397,7 @@
     "message": "Auto-resolve Sentry issues when PR is merged",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "88a637b",
@@ -45,7 +413,7 @@
     "message": "Highlight resolved Sentry tasks with purple left border",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "03d227f",
@@ -53,7 +421,7 @@
     "message": "Fix Sentry resolve button: apiFetch returns parsed JSON, not Response",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "41dfef1",
@@ -61,7 +429,7 @@
     "message": "Add Sentry resolve/unresolve from task list",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "62215e9",
@@ -77,7 +445,7 @@
     "message": "Add task priority field, fix Azure PR reuse, deduplicate Sentry imports",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "42e6e54",
@@ -101,7 +469,7 @@
     "message": "Reorganize sidebar nav: cleaner groups, fewer top-level items",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "76b65b5",
@@ -109,7 +477,7 @@
     "message": "Run CLI bridge on host for reliable Claude auth, fix Docker fallback detection",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "84bb5ec",
@@ -133,7 +501,7 @@
     "message": "Fix Claude auth-login session dropping by avoiding PTY wrapper",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "bd5ab50",
@@ -149,7 +517,7 @@
     "message": "Add optional Claude code fallback on integrations sign-in",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "0e25774",
@@ -197,7 +565,7 @@
     "message": "Support Claude code entry flow via PTY login bridge",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e8b9679",
@@ -221,7 +589,7 @@
     "message": "Add Claude callback URL completion UI and localhost/127 callback port detection",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "7639b71",
@@ -229,7 +597,7 @@
     "message": "Fix Claude re-auth flow, popup login trigger, and 401 error handling",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "deb9160",
@@ -237,7 +605,7 @@
     "message": "Fix Claude CLI login/auth detection in bridge and service",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "c7f34f9",
@@ -253,7 +621,7 @@
     "message": "Redesign integrations cards with new panel layout",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "08f13b4",
@@ -261,7 +629,7 @@
     "message": "Fix task modals to stay centered and lock page scroll",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "82d593e",
@@ -293,7 +661,7 @@
     "message": "Polish integrations UI and add Sentry to landing",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4efda36",
@@ -301,7 +669,7 @@
     "message": "Add NewRelic-style Sentry mapping/import flow and auto-polling",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "abd9fe7",
@@ -309,7 +677,7 @@
     "message": "Add Sentry integration and issue import flow",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "600afdb",
@@ -341,7 +709,7 @@
     "message": "Add env-driven Sentry setup for Next.js frontend",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4c07878",
@@ -349,7 +717,7 @@
     "message": "Add env-driven Sentry integration for API and worker",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ec925ac",
@@ -373,7 +741,7 @@
     "message": "Add transient auto-retry and clearer task failure source",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "c5b191b",
@@ -381,7 +749,7 @@
     "message": "Fix task modals layering and force-queue flow assigns",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "16aaf5e",
@@ -428,374 +796,6 @@
     "short": "38eb2b4",
     "message": "scroll to top when conflict modal opens",
     "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "3d084a4",
-    "short": "3d084a4",
-    "message": "render conflict modal via createPortal to document.body",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "0a6b101",
-    "short": "0a6b101",
-    "message": "move conflict modal from RunConfigModal to TaskDetailPage scope",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "19c310b",
-    "short": "19c310b",
-    "message": "conflict modal positioning \u2014 always centered in viewport",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "87d998e",
-    "short": "87d998e",
-    "message": "repo conflict modal z-index and debug logging",
-    "date": "2026-04-14",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "37bd188",
-    "short": "37bd188",
-    "message": "repo conflict modal with queue option",
-    "date": "2026-04-14",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "a3e11c2",
-    "short": "a3e11c2",
-    "message": "repo conflict queue dialog instead of error",
-    "date": "2026-04-14",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "a16bd5f",
-    "short": "a16bd5f",
-    "message": "add New Relic monitoring section to landing page",
-    "date": "2026-04-14",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "807f573",
-    "short": "807f573",
-    "message": "New Relic integration \u2014 auto-import errors, entity-repo mapping, flow node",
-    "date": "2026-04-14",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "a44dbcb",
-    "short": "a44dbcb",
-    "message": "reject malformed file paths (glob chars) before PR creation",
-    "date": "2026-04-14",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "d9cda03",
-    "short": "d9cda03",
-    "message": "flow selection in office page",
-    "date": "2026-04-13",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "e3d6a1e",
-    "short": "e3d6a1e",
-    "message": "flow execution via Redis queue (survives restarts)",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "1ff8688",
-    "short": "1ff8688",
-    "message": "review language dropdown in flow node editor",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "ba18927",
-    "short": "ba18927",
-    "message": "reviewer LLM fallback when provider is claude_cli/codex_cli",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "a7708e5",
-    "short": "a7708e5",
-    "message": "handle Azure 400 as duplicate PR (same as 409)",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "b2204f4",
-    "short": "b2204f4",
-    "message": "condition node accepts both field/condition_field naming",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "590a44b",
-    "short": "590a44b",
-    "message": "detect CLI tool logs as developer active in /agents/live",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "a4fa7a8",
-    "short": "a4fa7a8",
-    "message": "git worktree per task \u2014 clean main copy, no branch pollution",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "fda56da",
-    "short": "fda56da",
-    "message": "run flow in background \u2014 API returns immediately",
-    "date": "2026-04-11",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "b4a71d4",
-    "short": "b4a71d4",
-    "message": "detailed flow step logs \u2014 analyzer spec, planner files, PR url",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "8230a9f",
-    "short": "8230a9f",
-    "message": "inject planner output into task description for developer node",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "ddf6102",
-    "short": "ddf6102",
-    "message": "restrict CLI prompt \u2014 no compile/test/install, edit only",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "1b070ce",
-    "short": "1b070ce",
-    "message": "navigate to task detail after Run Task in list popup",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "52c4c83",
-    "short": "52c4c83",
-    "message": "two-step select-then-run in task list Run popup",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "a329875",
-    "short": "a329875",
-    "message": "show task pr_url when assignment pr_url is missing",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "652ca58",
-    "short": "652ca58",
-    "message": "lock body scroll when RunConfigModal is open",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "2878704",
-    "short": "2878704",
-    "message": "agent dropdown in flow node editor \u2014 select agent, auto-set model/provider",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "94dc9c9",
-    "short": "94dc9c9",
-    "message": "add Claude CLI/Codex CLI to flow node provider options",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "cfa602f",
-    "short": "cfa602f",
-    "message": "send flow_id in doAssignFlow \u2014 was missing, flow never ran",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "b463d19",
-    "short": "b463d19",
-    "message": "unify Run button \u2014 single popup shows agents, CLI, and flows",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "8fc9187",
-    "short": "8fc9187",
-    "message": "auto-select task's repo mapping in AssignPopup on task list",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "07523a3",
-    "short": "07523a3",
-    "message": "match repo mapping by name instead of mismatched ID systems",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "0ddce5f",
-    "short": "0ddce5f",
-    "message": "auto-select repo mapping by repo_mapping_id from DB",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "4fb43aa",
-    "short": "4fb43aa",
-    "message": "add task edit button and modal to task list page",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "78a189b",
-    "short": "78a189b",
-    "message": "move TaskUpdateRequest to schema file, fix BaseModel import error",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "07c9dda",
-    "short": "07c9dda",
-    "message": "auto-select task's existing repo mapping in RunConfigModal",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "9e00ff3",
-    "short": "9e00ff3",
-    "message": "task edit endpoint + sprint fields on task records",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "74917b0",
-    "short": "74917b0",
-    "message": "remove double scroll on RunConfigModal overlay",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "f27ea46",
-    "short": "f27ea46",
-    "message": "hide agent selector in Flow mode, show only flow picker",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "d43495c",
-    "short": "d43495c",
-    "message": "add Flow mode selection to RunConfigModal",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "a9ff7de",
-    "short": "a9ff7de",
-    "message": "flow_id in task assign + custom prompt_slug for all flow nodes",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "dcf667b",
-    "short": "dcf667b",
-    "message": "integrate flow executor with boss mode agent animations",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "41c4881",
-    "short": "41c4881",
-    "message": "pass agent model/provider from flow node to task pipeline",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "0b43abb",
-    "short": "0b43abb",
-    "message": "change CLI prompt to use Edit/Write tools instead of file blocks",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "c7c2fc7",
-    "short": "c7c2fc7",
-    "message": "git diff safe.directory, stream result capture, modal centering",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "dc04129",
-    "short": "dc04129",
-    "message": "real-time CLI streaming via stream-json output format",
-    "date": "2026-04-10",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "20dcf50",
-    "short": "20dcf50",
-    "message": "fallback to git diff when CLI agent output lacks file blocks",
-    "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "fix"
   }
