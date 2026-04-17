@@ -2477,7 +2477,6 @@
   "refinement.promptPreview": "Sistem prompt onizlemesi",
   "refinement.editInStudio": "Prompt Studio'da Duzenle →",
   "refinement.writebackSelected": "Secilenleri Yaz",
-
   "vs.title": "AGENA Karsilastirma",
   "vs.subtitle": "AGENA'nin diger AI kodlama araclariyla karsilastirmasini gorun",
   "vs.indexHero": "Ekibiniz icin dogru AI gelistirme aracini bulun",
@@ -2503,7 +2502,6 @@
   "vs.feature": "Ozellik",
   "vs.breadcrumb.home": "Ana Sayfa",
   "vs.breadcrumb.compare": "Karsilastir",
-
   "vs.cursor.title": "AGENA vs Cursor",
   "vs.cursor.subtitle": "Coklu ajan pipeline vs AI destekli IDE",
   "vs.cursor.hook": "Cursor satir ici duzenlemede basarili. AGENA tum is akisini otomatiklestirir — gorevden PR'a kadar.",
@@ -2527,7 +2525,6 @@
   "vs.cursor.why4": "Kendi sunucunuzda secenegi: Tam kontrol icin Docker Compose ile kendi altyapinizda calistirin.",
   "vs.cursor.metaTitle": "AGENA vs Cursor – AI Kod Uretimi Alternatif Karsilastirmasi",
   "vs.cursor.metaDesc": "AI kod uretimi icin AGENA ve Cursor'u karsilastirin.",
-
   "vs.copilot.title": "AGENA vs GitHub Copilot",
   "vs.copilot.subtitle": "Otonom AI pipeline vs kod tamamlama asistani",
   "vs.copilot.hook": "Copilot satir satir kod onerir. AGENA tum ozellikleri otonom olarak teslim eder — gorevden PR'a.",
@@ -2551,7 +2548,6 @@
   "vs.copilot.why4": "Acik kaynak ve kendi sunucunuzda: AI destekli gelistirme pipeline'iniz uzerinde tam kontrol.",
   "vs.copilot.metaTitle": "AGENA vs GitHub Copilot – AI PR Otomasyon Alternatifi",
   "vs.copilot.metaDesc": "AGENA ve GitHub Copilot'u karsilastirin.",
-
   "vs.devin.title": "AGENA vs Devin",
   "vs.devin.subtitle": "Acik kaynakli coklu ajan platformu vs ozel AI gelistirici",
   "vs.devin.hook": "Devin tek seferde tek gorev uzerinde calisir. AGENA birden fazla ajani repolar arasinda paralel olarak yonetir.",
@@ -2575,7 +2571,6 @@
   "vs.devin.why4": "Acik kaynak: Tam seffaflik, kendi sunucunuzda dagitim ve topluluk odakli gelistirme.",
   "vs.devin.metaTitle": "AGENA vs Devin – AI Gelistirici Ajan Alternatifi",
   "vs.devin.metaDesc": "AGENA ve Devin AI gelistiriciyi karsilastirin.",
-
   "vs.codex.title": "AGENA vs OpenAI Codex",
   "vs.codex.subtitle": "Tam yigin AI platformu vs CLI kodlama ajani",
   "vs.codex.hook": "Codex CLI uzerinden tek gorevlerde harika. AGENA kontrol paneli, takim ozellikleri ve otomatik PR is akislariyla tam bir platform sunar.",
@@ -2598,5 +2593,7 @@
   "vs.codex.why3": "Takim isbirligi: Tum takim icin RBAC, sprint yonetimi ve ChatOps.",
   "vs.codex.why4": "Coklu saglayici LLM: OpenAI, Google Gemini veya diger saglayicilari kullanin.",
   "vs.codex.metaTitle": "AGENA vs OpenAI Codex – AI Kod Uretim Platformu Alternatifi",
-  "vs.codex.metaDesc": "AGENA ve OpenAI Codex CLI'yi karsilastirin."
+  "vs.codex.metaDesc": "AGENA ve OpenAI Codex CLI'yi karsilastirin.",
+  "nav.bitbucket": "Bitbucket",
+  "nav.gitlab": "GitLab"
 }

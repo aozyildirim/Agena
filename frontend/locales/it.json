@@ -2456,7 +2456,6 @@
   "refinement.promptPreview": "Anteprima del prompt di sistema",
   "refinement.editInStudio": "Modifica in Prompt Studio →",
   "refinement.writebackSelected": "Scrivi Selezionati",
-
   "vs.title": "Confronta AGENA",
   "vs.subtitle": "Scopri come AGENA si confronta con altri strumenti di coding IA",
   "vs.indexHero": "Trova lo strumento di sviluppo IA giusto per il tuo team",
@@ -2482,7 +2481,6 @@
   "vs.feature": "Funzionalita",
   "vs.breadcrumb.home": "Home",
   "vs.breadcrumb.compare": "Confronta",
-
   "vs.cursor.title": "AGENA vs Cursor",
   "vs.cursor.subtitle": "Pipeline multi-agente vs IDE con IA",
   "vs.cursor.hook": "Cursor eccelle nell'editing inline. AGENA automatizza l'intero workflow — dal task al PR.",
@@ -2506,7 +2504,6 @@
   "vs.cursor.why4": "Opzione self-hosted: Esegui sulla tua infrastruttura con Docker Compose.",
   "vs.cursor.metaTitle": "AGENA vs Cursor – Confronto Alternative Generazione Codice IA",
   "vs.cursor.metaDesc": "Confronta AGENA e Cursor per la generazione di codice IA.",
-
   "vs.copilot.title": "AGENA vs GitHub Copilot",
   "vs.copilot.subtitle": "Pipeline IA autonoma vs assistente completamento codice",
   "vs.copilot.hook": "Copilot suggerisce codice riga per riga. AGENA consegna funzionalita complete in modo autonomo.",
@@ -2530,7 +2527,6 @@
   "vs.copilot.why4": "Open source e self-hosted: Controllo completo sulla pipeline di sviluppo IA.",
   "vs.copilot.metaTitle": "AGENA vs GitHub Copilot – Alternativa Automazione PR IA",
   "vs.copilot.metaDesc": "Confronta AGENA e GitHub Copilot per l'automazione PR.",
-
   "vs.devin.title": "AGENA vs Devin",
   "vs.devin.subtitle": "Piattaforma multi-agente open source vs sviluppatore IA proprietario",
   "vs.devin.hook": "Devin lavora su un'attivita alla volta. AGENA orchestra piu agenti in parallelo tra repository.",
@@ -2554,7 +2550,6 @@
   "vs.devin.why4": "Open source: Totale trasparenza, deployment self-hosted e sviluppo guidato dalla community.",
   "vs.devin.metaTitle": "AGENA vs Devin – Confronto Alternativa Agente Sviluppatore IA",
   "vs.devin.metaDesc": "Confronta AGENA e Devin sviluppatore IA.",
-
   "vs.codex.title": "AGENA vs OpenAI Codex",
   "vs.codex.subtitle": "Piattaforma IA full-stack vs agente coding CLI",
   "vs.codex.hook": "Codex e ottimo per singole attivita via CLI. AGENA offre una piattaforma completa con dashboard, funzionalita team e workflow PR automatizzati.",
@@ -2577,5 +2572,7 @@
   "vs.codex.why3": "Collaborazione team: RBAC, gestione sprint e ChatOps per tutto il team.",
   "vs.codex.why4": "LLM multi-provider: Usa OpenAI, Google Gemini o altri provider.",
   "vs.codex.metaTitle": "AGENA vs OpenAI Codex – Alternativa Piattaforma Generazione Codice IA",
-  "vs.codex.metaDesc": "Confronta AGENA e OpenAI Codex CLI."
+  "vs.codex.metaDesc": "Confronta AGENA e OpenAI Codex CLI.",
+  "nav.bitbucket": "Bitbucket",
+  "nav.gitlab": "GitLab"
 }
