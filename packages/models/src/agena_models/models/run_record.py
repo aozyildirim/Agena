@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from agena_core.db.base import Base
@@ -14,8 +15,8 @@ class RunRecord(Base):
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), index=True)
     source: Mapped[str] = mapped_column(String(32), index=True)
     spec: Mapped[dict] = mapped_column(JSON)
-    generated_code: Mapped[str] = mapped_column(Text)
-    reviewed_code: Mapped[str] = mapped_column(Text)
+    generated_code: Mapped[str] = mapped_column(MEDIUMTEXT)
+    reviewed_code: Mapped[str] = mapped_column(MEDIUMTEXT)
     usage_prompt_tokens: Mapped[float] = mapped_column(Float, default=0)
     usage_completion_tokens: Mapped[float] = mapped_column(Float, default=0)
     usage_total_tokens: Mapped[float] = mapped_column(Float, default=0)
