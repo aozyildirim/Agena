@@ -280,16 +280,22 @@ GITHUB_REPO=your-repo
 ### 3. Start all services
 
 ```bash
-docker-compose up --build
+./start.sh
 ```
+
+This starts Docker services (backend, worker, frontend, MySQL, Redis, Qdrant) and the **CLI bridge on the host** for Claude/Codex CLI authentication via system keychain.
+
+> **Note:** Use `start.sh` instead of `docker-compose up`. The CLI bridge must run on the host (not in Docker) to access Claude/Codex CLI auth. `./stop.sh` stops everything.
 
 ### 4. Access
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:3011 |
+| Frontend (dev) | http://localhost:3010 |
+| Frontend Blue (prod) | http://localhost:3011 |
 | Backend API | http://localhost:8010 |
 | API Docs (Swagger) | http://localhost:8010/docs |
+| CLI Bridge | http://localhost:9876/health |
 | Qdrant Dashboard | http://localhost:6333/dashboard |
 
 ### 5. Create your first user
@@ -353,18 +359,34 @@ All configuration is via environment variables. See `.env.example` for the full 
 |---|---|---|---|
 | `backend` | ai_agent_api | 8010 | FastAPI + auto-reload |
 | `worker` | ai_agent_worker | — | Redis queue consumer |
-| `cli-bridge` | ai_agent_cli_bridge | 9876 | Claude/Codex CLI bridge |
-| `frontend_blue` | ai_agent_frontend_blue | 3011 | Next.js (blue) |
-| `frontend_green` | ai_agent_frontend_green | 3012 | Next.js (green) |
+| `cli-bridge` | (host process) | 9876 | Claude/Codex CLI bridge (runs on host, not Docker) |
+| `frontend` | ai_agent_frontend | 3010 | Next.js (dev) |
+| `frontend_blue` | ai_agent_frontend_blue | 3011 | Next.js (blue, prod) |
+| `frontend_green` | ai_agent_frontend_green | 3012 | Next.js (green, prod) |
 | `mysql` | ai_agent_mysql | 3307 | MySQL 8.0 |
 | `redis` | ai_agent_redis | 6380 | Redis 7 |
 | `qdrant` | ai_agent_qdrant | 6333 | Qdrant vector DB |
 
+### CLI Bridge
+
+The CLI bridge runs **on the host** (not in Docker) so it can access Claude/Codex CLI authentication (macOS Keychain, browser OAuth). `start.sh` handles this automatically.
+
+```bash
+# Manual start (if not using start.sh):
+node docker/bridge-server.mjs &
+
+# Check status:
+curl http://localhost:9876/health
+# → {"status":"ok","codex":true,"claude":true,"codex_auth":true,"claude_auth":true}
+```
+
+Docker containers reach the bridge via `http://host.docker.internal:9876`.
+
 ### Common Commands
 
 ```bash
-# Start everything
-docker-compose up --build
+# Start everything (recommended)
+./start.sh
 
 # Restart backend after code changes (hot-reload via volume mount)
 docker-compose restart backend
@@ -476,6 +498,10 @@ docker-compose restart backend worker
 | GET | `/tasks/{id}/logs` | Execution logs |
 | POST | `/tasks/import/azure` | Import from Azure DevOps |
 | POST | `/tasks/import/jira` | Import from Jira |
+| POST | `/tasks/import/newrelic` | Import from New Relic |
+| POST | `/tasks/import/sentry` | Import from Sentry |
+| POST | `/tasks/{id}/sentry-resolve` | Resolve/unresolve linked Sentry issue |
+| POST | `/webhooks/pr-merged` | PR merge webhook (auto-resolves Sentry) |
 
 ### Agents & Flows
 | Method | Path | Description |
