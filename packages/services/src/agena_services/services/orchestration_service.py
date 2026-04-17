@@ -2337,37 +2337,6 @@ class OrchestrationService:
                     line_number = m.group(2)
                 break
 
-        # Try to derive file path from transaction name if not found in description
-        if not file_path and local_repo_path:
-            from pathlib import Path as _P
-            txn_match = re.search(r'WebTransaction/Custom/(\S+)', description)
-            if txn_match:
-                txn = txn_match.group(1)  # e.g. "product::list" or "api::bi_ogrenci::studentverificationcoupon"
-                parts = txn.split('::')
-                # Convert to PascalCase path: product → Product, bi_ogrenci → BiOgrenci
-                def to_pascal(s: str) -> str:
-                    return ''.join(w.capitalize() for w in s.replace('-', '_').split('_'))
-                # Try common PHP controller paths
-                candidates = []
-                if len(parts) >= 1:
-                    class_name = to_pascal(parts[0])
-                    candidates.append(f'app/Controller/Cms/{class_name}.php')
-                    candidates.append(f'app/Controller/Admin/{class_name}.php')
-                if len(parts) >= 2:
-                    ns = to_pascal(parts[0])
-                    cls = to_pascal(parts[1])
-                    candidates.append(f'app/Controller/{ns}/{cls}.php')
-                    candidates.append(f'app/Controller/Cms/{ns}/{cls}.php')
-                    candidates.append(f'app/Controller/Api/{ns}/{cls}.php')
-                if len(parts) >= 3:
-                    candidates.append(f'app/Controller/{to_pascal(parts[0])}/{to_pascal(parts[1])}/{to_pascal(parts[2])}.php')
-                repo_root = _P(local_repo_path).expanduser().resolve()
-                for candidate in candidates:
-                    if (repo_root / candidate).is_file():
-                        file_path = candidate
-                        logger.info('Derived file path from transaction: %s → %s', txn, file_path)
-                        break
-
         if not file_path:
             return None
 
