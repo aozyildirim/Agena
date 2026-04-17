@@ -2037,6 +2037,8 @@
   "nav.integrationsOverview": "Overview",
   "nav.group.settings": "Settings",
   "nav.modules": "Modules",
+  "modules.features": "Features",
+  "modules.useCases": "Use Cases",
   "agents.promptCustom": "Custom Prompt (free text)",
   "agents.promptCustomPlaceholder": "Write a custom system prompt or select from Prompt Studio above...",
   "mappings.confirmDeleteTitle": "Delete Mapping",

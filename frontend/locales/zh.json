@@ -2454,7 +2454,6 @@
   "refinement.promptPreview": "系统提示词预览",
   "refinement.editInStudio": "在Prompt Studio中编辑 →",
   "refinement.writebackSelected": "写入所选",
-
   "vs.title": "比较 AGENA",
   "vs.subtitle": "了解 AGENA 与其他 AI 编码工具的对比",
   "vs.indexHero": "为您的团队找到合适的 AI 开发工具",
@@ -2480,7 +2479,6 @@
   "vs.feature": "功能",
   "vs.breadcrumb.home": "首页",
   "vs.breadcrumb.compare": "对比",
-
   "vs.cursor.title": "AGENA vs Cursor",
   "vs.cursor.subtitle": "多智能体管线 vs AI 驱动的 IDE",
   "vs.cursor.hook": "Cursor 擅长内联编辑。AGENA 自动化整个工作流程——从任务到 PR。",
@@ -2504,7 +2502,6 @@
   "vs.cursor.why4": "自托管选项：使用 Docker Compose 在自己的基础设施上运行。",
   "vs.cursor.metaTitle": "AGENA vs Cursor – AI 代码生成替代方案对比",
   "vs.cursor.metaDesc": "比较 AGENA 和 Cursor 的 AI 代码生成能力。",
-
   "vs.copilot.title": "AGENA vs GitHub Copilot",
   "vs.copilot.subtitle": "自主 AI 管线 vs 代码补全助手",
   "vs.copilot.hook": "Copilot 逐行建议代码。AGENA 自主交付完整功能——从任务到 PR。",
@@ -2528,7 +2525,6 @@
   "vs.copilot.why4": "开源且可自托管：完全控制您的 AI 开发管线。",
   "vs.copilot.metaTitle": "AGENA vs GitHub Copilot – AI PR 自动化替代方案",
   "vs.copilot.metaDesc": "比较 AGENA 和 GitHub Copilot 的 PR 自动化能力。",
-
   "vs.devin.title": "AGENA vs Devin",
   "vs.devin.subtitle": "开源多智能体平台 vs 专有 AI 开发者",
   "vs.devin.hook": "Devin 一次处理一个任务。AGENA 在多个仓库间并行编排多个智能体。",
@@ -2552,7 +2548,6 @@
   "vs.devin.why4": "开源：完全透明、自托管部署和社区驱动开发。",
   "vs.devin.metaTitle": "AGENA vs Devin – AI 开发者智能体替代方案对比",
   "vs.devin.metaDesc": "比较 AGENA 和 Devin AI 开发者。",
-
   "vs.codex.title": "AGENA vs OpenAI Codex",
   "vs.codex.subtitle": "全栈 AI 平台 vs CLI 编码智能体",
   "vs.codex.hook": "Codex 通过 CLI 处理单个任务很出色。AGENA 提供完整平台，包括仪表板、团队功能和自动 PR 工作流。",
@@ -2575,5 +2570,7 @@
   "vs.codex.why3": "团队协作：为整个团队提供 RBAC、Sprint 管理和 ChatOps。",
   "vs.codex.why4": "多供应商 LLM：使用 OpenAI、Google Gemini 或其他供应商——无供应商锁定。",
   "vs.codex.metaTitle": "AGENA vs OpenAI Codex – AI 代码生成平台替代方案",
-  "vs.codex.metaDesc": "比较 AGENA 和 OpenAI Codex CLI。"
+  "vs.codex.metaDesc": "比较 AGENA 和 OpenAI Codex CLI。",
+  "modules.features": "功能",
+  "modules.useCases": "使用场景"
 }

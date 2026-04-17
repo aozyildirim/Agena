@@ -2016,6 +2016,8 @@
   "nav.group.insights": "Approfondimenti",
   "nav.integrationsOverview": "Panoramica",
   "nav.group.settings": "Impostazioni",
+  "modules.features": "Funzionalita",
+  "modules.useCases": "Casi di Uso",
   "agents.promptCustom": "Prompt personalizzato (testo libero)",
   "agents.promptCustomPlaceholder": "Scrivi un prompt personalizzato o seleziona da Prompt Studio...",
   "mappings.confirmDeleteTitle": "Elimina Mapping",

@@ -2454,7 +2454,6 @@
   "refinement.promptPreview": "システムプロンプトプレビュー",
   "refinement.editInStudio": "Prompt Studioで編集 →",
   "refinement.writebackSelected": "選択を書き込む",
-
   "vs.title": "AGENA を比較",
   "vs.subtitle": "AGENA が他の AI コーディングツールとどう比較されるかをご覧ください",
   "vs.indexHero": "チームに最適な AI 開発ツールを見つけましょう",
@@ -2480,7 +2479,6 @@
   "vs.feature": "機能",
   "vs.breadcrumb.home": "ホーム",
   "vs.breadcrumb.compare": "比較",
-
   "vs.cursor.title": "AGENA vs Cursor",
   "vs.cursor.subtitle": "マルチエージェントパイプライン vs AI 搭載 IDE",
   "vs.cursor.hook": "Cursor はインライン編集に優れています。AGENA はタスクから PR まで、ワークフロー全体を自動化します。",
@@ -2504,7 +2502,6 @@
   "vs.cursor.why4": "セルフホストオプション：Docker Compose で自社インフラ上で実行可能。",
   "vs.cursor.metaTitle": "AGENA vs Cursor – AI コード生成代替ツール比較",
   "vs.cursor.metaDesc": "AI コード生成で AGENA と Cursor を比較。",
-
   "vs.copilot.title": "AGENA vs GitHub Copilot",
   "vs.copilot.subtitle": "自律型 AI パイプライン vs コード補完アシスタント",
   "vs.copilot.hook": "Copilot は行ごとにコードを提案します。AGENA はタスクから PR まで完全な機能を自律的に提供します。",
@@ -2528,7 +2525,6 @@
   "vs.copilot.why4": "オープンソースでセルフホスト：AI 開発パイプラインを完全にコントロール。",
   "vs.copilot.metaTitle": "AGENA vs GitHub Copilot – AI PR 自動化代替ツール",
   "vs.copilot.metaDesc": "PR 自動化で AGENA と GitHub Copilot を比較。",
-
   "vs.devin.title": "AGENA vs Devin",
   "vs.devin.subtitle": "オープンソースマルチエージェントプラットフォーム vs プロプライエタリ AI 開発者",
   "vs.devin.hook": "Devin は一度に1つのタスクを処理します。AGENA はリポジトリ間で複数のエージェントを並列にオーケストレーションします。",
@@ -2552,7 +2548,6 @@
   "vs.devin.why4": "オープンソース：完全な透明性、セルフホストデプロイ、コミュニティ駆動開発。",
   "vs.devin.metaTitle": "AGENA vs Devin – AI 開発者エージェント代替ツール比較",
   "vs.devin.metaDesc": "AGENA と Devin AI 開発者を比較。",
-
   "vs.codex.title": "AGENA vs OpenAI Codex",
   "vs.codex.subtitle": "フルスタック AI プラットフォーム vs CLI コーディングエージェント",
   "vs.codex.hook": "Codex は CLI での単一タスクに優れています。AGENA はダッシュボード、チーム機能、自動 PR ワークフローを備えた完全なプラットフォームを提供します。",
@@ -2575,5 +2570,7 @@
   "vs.codex.why3": "チームコラボレーション：チーム全体の RBAC、スプリント管理、ChatOps。",
   "vs.codex.why4": "マルチプロバイダー LLM：OpenAI、Google Gemini、その他のプロバイダーを利用可能。",
   "vs.codex.metaTitle": "AGENA vs OpenAI Codex – AI コード生成プラットフォーム代替ツール",
-  "vs.codex.metaDesc": "AGENA と OpenAI Codex CLI を比較。"
+  "vs.codex.metaDesc": "AGENA と OpenAI Codex CLI を比較。",
+  "modules.features": "機能",
+  "modules.useCases": "ユースケース"
 }

@@ -2037,6 +2037,8 @@
   "nav.integrationsOverview": "Genel Bakis",
   "nav.group.settings": "Ayarlar",
   "nav.modules": "Moduller",
+  "modules.features": "Ozellikler",
+  "modules.useCases": "Kullanim Alanlari",
   "agents.promptCustom": "Ozel Prompt (serbest metin)",
   "agents.promptCustomPlaceholder": "Ozel system prompt yazin veya yukaridan Prompt Studio'dan secin...",
   "mappings.confirmDeleteTitle": "Mapping Silinecek",
