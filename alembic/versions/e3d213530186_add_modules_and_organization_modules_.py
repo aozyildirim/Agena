@@ -69,7 +69,10 @@ def upgrade() -> None:
         ('slack', 'Slack', 'Slack notifications and ChatOps commands', '💬', 0, 0, 18),
         ('teams', 'Microsoft Teams', 'Teams bot and notifications', '💜', 0, 0, 19),
         ('telegram', 'Telegram', 'Telegram bot notifications and commands', '✈️', 0, 0, 20),
-        ('notifications', 'Notifications', 'Slack, Teams, Telegram integrations', '🔔', 0, 0, 21)
+        ('notifications', 'Notifications', 'Slack, Teams, Telegram integrations', '🔔', 0, 0, 21),
+        ('gitlab', 'GitLab', 'GitLab integration, MR creation, branch management', '🦊', 0, 0, 22),
+        ('bitbucket', 'Bitbucket', 'Bitbucket integration, PR creation, branch management', '🪣', 0, 0, 23),
+        ('datadog', 'Datadog', 'Import and auto-fix Datadog APM error tracking issues', '🐶', 0, 0, 24)
     """))
 
 
