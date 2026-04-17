@@ -194,9 +194,10 @@ class NewRelicClient:
         else:
             msg_filter = ''
 
-        # Get unique endpoint samples via FACET
+        # Get unique endpoint samples + stack trace via FACET
         nrql = (
-            f"SELECT count(*) AS hits, latest(request.method) AS method, latest(host) AS host "
+            f"SELECT count(*) AS hits, latest(request.method) AS method, latest(host) AS host, "
+            f"latest(error.stack) AS stackTrace "
             f"FROM TransactionError "
             f"WHERE appName = '{app_name}' "
             f"AND error.class = '{error_class}' "
@@ -322,6 +323,20 @@ class NewRelicClient:
                     txn_str = f'`{txn}`' if txn else '-'
                     description += f'| {endpoint_str} | {txn_str} | {hits} |\n'
                 description += '\n'
+
+            # Stack trace (from NRQL error.stack)
+            stack_traces = [s.get('stackTrace') or s.get('error.stack') or '' for s in samples]
+            stack_trace = next((st for st in stack_traces if st), '')
+            if stack_trace:
+                description += '### Stack Trace\n\n```\n' + str(stack_trace)[:2000] + '\n```\n\n'
+                # Try to parse file path from stack trace if not already found
+                if not file_path:
+                    file_path, line_number = _parse_file_location(str(stack_trace))
+                    if file_path:
+                        description += f'- **File (from stack):** `{file_path}`\n'
+                        if line_number:
+                            description += f'- **Line:** {line_number}\n'
+                        description += '\n'
 
             # Action required
             description += '### Task\n\n'
