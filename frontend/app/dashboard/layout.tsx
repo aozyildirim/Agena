@@ -28,7 +28,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     module: 'core',
     items: [
-      { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'core' },
+      { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'boss_mode' },
       { href: '/dashboard/tasks', key: 'nav.tasks', icon: '📋', permission: 'tasks:read' as const, module: 'core' },
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const, module: 'sprints' },
       { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement' },
@@ -104,7 +104,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'sprints', 'refinement', 'flows', 'prompt_studio', 'openai']));
+  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'boss_mode', 'sprints', 'refinement', 'flows', 'prompt_studio', 'openai']));
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
