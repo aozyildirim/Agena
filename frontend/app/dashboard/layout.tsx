@@ -31,7 +31,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'core' },
       { href: '/dashboard/tasks', key: 'nav.tasks', icon: '📋', permission: 'tasks:read' as const, module: 'core' },
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const, module: 'sprints' },
-      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'sprints' },
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement' },
     ],
   },
   {
@@ -48,10 +48,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: 'nav.group.analytics',
     defaultOpen: false,
-    module: 'analytics',
     items: [
-      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const, module: 'analytics' },
-      { href: '/dashboard/dora', key: 'nav.dora', icon: '📊', module: 'analytics', children: [
+      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const, module: 'sprints' },
+      { href: '/dashboard/dora', key: 'nav.dora', icon: '📊', module: 'dora', children: [
         { href: '/dashboard/dora', key: 'nav.doraOverview', icon: '📊' },
         { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: '📋' },
         { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: '⚡' },
@@ -73,7 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
       ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🗺', module: 'core' },
       { href: '/dashboard/webhooks', key: 'nav.webhooks', icon: '🔗', permission: 'integrations:manage' as const, module: 'notifications' },
-      { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'core' },
+      { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints' },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'core' },
     ],
   },
@@ -104,7 +103,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'sprints', 'flows', 'prompt_studio', 'analytics', 'sentry', 'newrelic', 'notifications']));
+  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'sprints', 'refinement', 'flows', 'prompt_studio', 'openai']));
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
