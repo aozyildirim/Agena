@@ -2572,5 +2572,7 @@
   "vs.codex.metaTitle": "AGENA vs OpenAI Codex – KI-Codegenerierung Plattform Alternative",
   "vs.codex.metaDesc": "Vergleichen Sie AGENA und OpenAI Codex CLI.",
   "modules.features": "Funktionen",
-  "modules.useCases": "Anwendungsfalle"
+  "modules.useCases": "Anwendungsfalle",
+  "nav.bitbucket": "Bitbucket",
+  "nav.gitlab": "GitLab"
 }

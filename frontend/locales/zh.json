@@ -2572,5 +2572,7 @@
   "vs.codex.metaTitle": "AGENA vs OpenAI Codex – AI 代码生成平台替代方案",
   "vs.codex.metaDesc": "比较 AGENA 和 OpenAI Codex CLI。",
   "modules.features": "功能",
-  "modules.useCases": "使用场景"
+  "modules.useCases": "使用场景",
+  "nav.bitbucket": "Bitbucket",
+  "nav.gitlab": "GitLab"
 }
