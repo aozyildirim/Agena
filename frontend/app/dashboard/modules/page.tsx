@@ -75,8 +75,18 @@ export default function ModulesPage() {
 
   const enabledCount = modules.filter((m) => m.enabled).length;
 
+  const MODULE_GROUPS: { label: string; slugs: string[] }[] = [
+    { label: 'Core & Workspace', slugs: ['core', 'boss_mode', 'sprints', 'refinement', 'permissions'] },
+    { label: 'AI & Automation', slugs: ['flows', 'prompt_studio', 'playbook'] },
+    { label: 'LLM Providers', slugs: ['openai', 'gemini', 'hal', 'cli_agents'] },
+    { label: 'Source Control', slugs: ['github', 'gitlab', 'bitbucket', 'azure'] },
+    { label: 'Issue Tracking', slugs: ['jira', 'sentry', 'newrelic'] },
+    { label: 'Analytics & Metrics', slugs: ['dora'] },
+    { label: 'Notifications', slugs: ['slack', 'teams', 'telegram', 'notifications'] },
+  ];
+
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 800 }}>
+    <div style={{ display: 'grid', gap: 16 }}>
       <div>
         <h1 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
           Modules
@@ -98,8 +108,15 @@ export default function ModulesPage() {
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-25)' }}>Loading...</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-          {modules.map((m) => (
+        <div style={{ display: 'grid', gap: 16 }}>
+          {MODULE_GROUPS.map((group) => {
+            const groupModules = group.slugs.map((s) => modules.find((m) => m.slug === s)).filter(Boolean) as ModuleItem[];
+            if (!groupModules.length) return null;
+            return (
+              <div key={group.label}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 8 }}>{group.label}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+                  {groupModules.map((m) => (
             <div key={m.slug} style={{
               borderRadius: 12,
               border: `1px solid ${m.enabled ? 'rgba(34,197,94,0.3)' : 'var(--panel-border)'}`,
@@ -140,7 +157,11 @@ export default function ModulesPage() {
                 {m.description}
               </div>
             </div>
-          ))}
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
       {helpModule && (

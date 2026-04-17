@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 type IntegrationConfig = {
-  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'playbook' | 'slack' | 'teams' | 'telegram' | 'hal' | 'newrelic' | 'sentry';
+  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'gitlab' | 'bitbucket' | 'playbook' | 'slack' | 'teams' | 'telegram' | 'hal' | 'newrelic' | 'sentry';
   extra_config?: Record<string, string> | null;
   base_url: string;
   project?: string | null;
@@ -92,6 +92,12 @@ export default function IntegrationsPage() {
   const [sentryToken, setSentryToken] = useState('');
   const [sentryTokenPreview, setSentryTokenPreview] = useState('');
   const [sentryOrgSlug, setSentryOrgSlug] = useState('');
+  const [gitlabBaseUrl, setGitlabBaseUrl] = useState('https://gitlab.com');
+  const [gitlabToken, setGitlabToken] = useState('');
+  const [gitlabTokenPreview, setGitlabTokenPreview] = useState('');
+  const [bitbucketBaseUrl, setBitbucketBaseUrl] = useState('https://api.bitbucket.org/2.0');
+  const [bitbucketToken, setBitbucketToken] = useState('');
+  const [bitbucketTokenPreview, setBitbucketTokenPreview] = useState('');
   const [notifyTesting, setNotifyTesting] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -373,6 +379,42 @@ export default function IntegrationsPage() {
     });
   }
 
+  async function saveGitlab() {
+    Promise.all([
+      apiFetch('/integrations/gitlab', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: gitlabBaseUrl, secret: gitlabToken || undefined }),
+      }),
+      loadIntegrationState(),
+    ]).then(async () => {
+      if (gitlabToken.trim()) {
+        const preview = maskSecretPreview(gitlabToken);
+        setGitlabTokenPreview(preview);
+        saveSecretPreview('gitlab', preview);
+      }
+      setGitlabToken('');
+      setMsg('GitLab config saved');
+    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+  }
+
+  async function saveBitbucket() {
+    Promise.all([
+      apiFetch('/integrations/bitbucket', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: bitbucketBaseUrl, secret: bitbucketToken || undefined }),
+      }),
+      loadIntegrationState(),
+    ]).then(async () => {
+      if (bitbucketToken.trim()) {
+        const preview = maskSecretPreview(bitbucketToken);
+        setBitbucketTokenPreview(preview);
+        saveSecretPreview('bitbucket', preview);
+      }
+      setBitbucketToken('');
+      setMsg('Bitbucket config saved');
+    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+  }
+
   async function saveOpenAI() {
     Promise.all([
       apiFetch('/integrations/openai', {
@@ -599,12 +641,13 @@ export default function IntegrationsPage() {
   // Map providers to modules for filtering
   const providerModule: Record<string, string> = {
     openai: 'openai', gemini: 'gemini', hal: 'hal', playbook: 'playbook',
-    azure: 'azure', github: 'github', jira: 'jira', newrelic: 'newrelic', sentry: 'sentry',
+    azure: 'azure', github: 'github', gitlab: 'gitlab', bitbucket: 'bitbucket',
+    jira: 'jira', newrelic: 'newrelic', sentry: 'sentry',
     slack: 'slack', teams: 'teams', telegram: 'telegram',
   };
   const isProviderEnabled = (p: string) => !providerModule[p] || enabledModules.has(providerModule[p]);
 
-  const taskProviders: IntegrationConfig['provider'][] = (['azure', 'github', 'jira', 'newrelic', 'sentry'] as const).filter(isProviderEnabled);
+  const taskProviders: IntegrationConfig['provider'][] = (['azure', 'github', 'gitlab', 'bitbucket', 'jira', 'newrelic', 'sentry'] as const).filter(isProviderEnabled);
   const aiProviders: IntegrationConfig['provider'][] = (['openai', 'gemini', 'hal', 'playbook'] as const).filter(isProviderEnabled);
   const notificationProviders: IntegrationConfig['provider'][] = (['slack', 'teams', 'telegram'] as const).filter(isProviderEnabled);
   const connectedCount = configs.filter((c) => c.has_secret).length;
@@ -902,6 +945,56 @@ export default function IntegrationsPage() {
           {configs.find(c => c.provider === 'sentry')?.has_secret && (
             <button onClick={() => void deleteIntegration('sentry')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteSentryConnection')}
+            </button>
+          )}
+        </IntegrationCard>}
+
+        {/* GitLab */}
+        {activeTab === 'task' && isProviderEnabled('gitlab') && <IntegrationCard
+          title="GitLab"
+          icon='🦊'
+          color='#fc6d26'
+          connected={configs.find(c => c.provider === 'gitlab')?.has_secret ?? false}
+          updatedAt={configs.find(c => c.provider === 'gitlab')?.updated_at}
+        >
+          <FieldGroup label="Base URL">
+            <input value={gitlabBaseUrl} onChange={(e) => setGitlabBaseUrl(e.target.value)} placeholder="https://gitlab.com" />
+          </FieldGroup>
+          <FieldGroup label="Personal Access Token">
+            <input type='password' value={gitlabToken} onChange={(e) => setGitlabToken(e.target.value)}
+              placeholder={configs.find(c => c.provider === 'gitlab')?.has_secret ? `${gitlabTokenPreview || '****'} (keep existing)` : 'glpat-...'} />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveGitlab()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
+            Save GitLab Config
+          </button>
+          {configs.find(c => c.provider === 'gitlab')?.has_secret && (
+            <button onClick={() => void deleteIntegration('gitlab')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+              Delete GitLab Connection
+            </button>
+          )}
+        </IntegrationCard>}
+
+        {/* Bitbucket */}
+        {activeTab === 'task' && isProviderEnabled('bitbucket') && <IntegrationCard
+          title="Bitbucket"
+          icon='🪣'
+          color='#0052cc'
+          connected={configs.find(c => c.provider === 'bitbucket')?.has_secret ?? false}
+          updatedAt={configs.find(c => c.provider === 'bitbucket')?.updated_at}
+        >
+          <FieldGroup label="Base URL">
+            <input value={bitbucketBaseUrl} onChange={(e) => setBitbucketBaseUrl(e.target.value)} placeholder="https://api.bitbucket.org/2.0" />
+          </FieldGroup>
+          <FieldGroup label="App Password / Token">
+            <input type='password' value={bitbucketToken} onChange={(e) => setBitbucketToken(e.target.value)}
+              placeholder={configs.find(c => c.provider === 'bitbucket')?.has_secret ? `${bitbucketTokenPreview || '****'} (keep existing)` : 'Your app password'} />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveBitbucket()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
+            Save Bitbucket Config
+          </button>
+          {configs.find(c => c.provider === 'bitbucket')?.has_secret && (
+            <button onClick={() => void deleteIntegration('bitbucket')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+              Delete Bitbucket Connection
             </button>
           )}
         </IntegrationCard>}
