@@ -18,6 +18,7 @@ from agena_models.schemas.saas_task import (
     JiraImportRequest,
     NewRelicImportRequest,
     SentryImportRequest,
+    DatadogImportRequest,
     ImportTasksResponse,
     RepoAssignmentResponse,
     TaskListResponse,
@@ -376,6 +377,32 @@ async def import_sentry_issues(
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f'Sentry connection failed: {exc}') from exc
     return ImportTasksResponse(imported=imported, skipped=skipped)
+
+
+@router.post('/import/datadog', response_model=ImportTasksResponse)
+async def import_datadog_issues(
+    request: DatadogImportRequest = Body(default_factory=DatadogImportRequest),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> ImportTasksResponse:
+    service = TaskService(db)
+    try:
+        imported, skipped = await service.import_from_datadog(
+            tenant.organization_id,
+            tenant.user_id,
+            query=request.query,
+            limit=request.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            raise HTTPException(status_code=401, detail='Datadog API key is invalid or expired') from exc
+        raise HTTPException(status_code=502, detail=f'Datadog request failed ({exc.response.status_code})') from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f'Datadog connection failed: {exc}') from exc
+    return ImportTasksResponse(imported=imported, skipped=skipped)
+
 
 
 @router.get('/{task_id}', response_model=TaskResponse)

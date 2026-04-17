@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 type IntegrationConfig = {
-  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'gitlab' | 'bitbucket' | 'playbook' | 'slack' | 'teams' | 'telegram' | 'hal' | 'newrelic' | 'sentry';
+  provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'gitlab' | 'bitbucket' | 'playbook' | 'slack' | 'teams' | 'telegram' | 'hal' | 'newrelic' | 'sentry' | 'datadog';
   extra_config?: Record<string, string> | null;
   base_url: string;
   project?: string | null;
@@ -98,6 +98,10 @@ export default function IntegrationsPage() {
   const [bitbucketBaseUrl, setBitbucketBaseUrl] = useState('https://api.bitbucket.org/2.0');
   const [bitbucketToken, setBitbucketToken] = useState('');
   const [bitbucketTokenPreview, setBitbucketTokenPreview] = useState('');
+  const [datadogBaseUrl, setDatadogBaseUrl] = useState('https://api.datadoghq.com');
+  const [datadogApiKey, setDatadogApiKey] = useState('');
+  const [datadogApiKeyPreview, setDatadogApiKeyPreview] = useState('');
+  const [datadogAppKey, setDatadogAppKey] = useState('');
   const [notifyTesting, setNotifyTesting] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -415,6 +419,24 @@ export default function IntegrationsPage() {
     }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
   }
 
+  async function saveDatadog() {
+    Promise.all([
+      apiFetch('/integrations/datadog', {
+        method: 'PUT',
+        body: JSON.stringify({ base_url: datadogBaseUrl, secret: datadogApiKey || undefined, extra_config: { app_key: datadogAppKey || undefined } }),
+      }),
+      loadIntegrationState(),
+    ]).then(async () => {
+      if (datadogApiKey.trim()) {
+        const preview = maskSecretPreview(datadogApiKey);
+        setDatadogApiKeyPreview(preview);
+        saveSecretPreview('datadog', preview);
+      }
+      setDatadogApiKey('');
+      setMsg('Datadog config saved');
+    }).catch((e) => { setError(e instanceof Error ? e.message : 'Save failed'); });
+  }
+
   async function saveOpenAI() {
     Promise.all([
       apiFetch('/integrations/openai', {
@@ -642,12 +664,12 @@ export default function IntegrationsPage() {
   const providerModule: Record<string, string> = {
     openai: 'openai', gemini: 'gemini', hal: 'hal', playbook: 'playbook',
     azure: 'azure', github: 'github', gitlab: 'gitlab', bitbucket: 'bitbucket',
-    jira: 'jira', newrelic: 'newrelic', sentry: 'sentry',
+    jira: 'jira', newrelic: 'newrelic', sentry: 'sentry', datadog: 'datadog',
     slack: 'slack', teams: 'teams', telegram: 'telegram',
   };
   const isProviderEnabled = (p: string) => !providerModule[p] || enabledModules.has(providerModule[p]);
 
-  const taskProviders: IntegrationConfig['provider'][] = (['azure', 'github', 'gitlab', 'bitbucket', 'jira', 'newrelic', 'sentry'] as const).filter(isProviderEnabled);
+  const taskProviders: IntegrationConfig['provider'][] = (['azure', 'github', 'gitlab', 'bitbucket', 'jira', 'newrelic', 'sentry', 'datadog'] as const).filter(isProviderEnabled);
   const aiProviders: IntegrationConfig['provider'][] = (['openai', 'gemini', 'hal', 'playbook'] as const).filter(isProviderEnabled);
   const notificationProviders: IntegrationConfig['provider'][] = (['slack', 'teams', 'telegram'] as const).filter(isProviderEnabled);
   const connectedCount = configs.filter((c) => c.has_secret).length;
@@ -995,6 +1017,35 @@ export default function IntegrationsPage() {
           {configs.find(c => c.provider === 'bitbucket')?.has_secret && (
             <button onClick={() => void deleteIntegration('bitbucket')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
               Delete Bitbucket Connection
+            </button>
+          )}
+        </IntegrationCard>}
+
+        {/* Datadog */}
+        {activeTab === 'task' && isProviderEnabled('datadog') && <IntegrationCard
+          title="Datadog"
+          icon='🐶'
+          color='#632ca6'
+          connected={configs.find(c => c.provider === 'datadog')?.has_secret ?? false}
+          updatedAt={configs.find(c => c.provider === 'datadog')?.updated_at}
+        >
+          <FieldGroup label="Base URL">
+            <input value={datadogBaseUrl} onChange={(e) => setDatadogBaseUrl(e.target.value)} placeholder="https://api.datadoghq.com" />
+          </FieldGroup>
+          <FieldGroup label="API Key">
+            <input type='password' value={datadogApiKey} onChange={(e) => setDatadogApiKey(e.target.value)}
+              placeholder={configs.find(c => c.provider === 'datadog')?.has_secret ? `${datadogApiKeyPreview || '****'} (keep existing)` : 'Your Datadog API key'} />
+          </FieldGroup>
+          <FieldGroup label="Application Key">
+            <input type='password' value={datadogAppKey} onChange={(e) => setDatadogAppKey(e.target.value)}
+              placeholder="Your Datadog Application key" />
+          </FieldGroup>
+          <button className='button button-primary' onClick={() => void saveDatadog()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
+            Save Datadog Config
+          </button>
+          {configs.find(c => c.provider === 'datadog')?.has_secret && (
+            <button onClick={() => void deleteIntegration('datadog')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+              Delete Datadog Connection
             </button>
           )}
         </IntegrationCard>}

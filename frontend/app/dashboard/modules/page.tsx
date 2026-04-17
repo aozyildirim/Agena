@@ -32,6 +32,7 @@ const MODULE_HELP: Record<string, { features: string[]; useCases: string[] }> = 
   playbook: { features: ['Organization-level coding rules', 'Injected into every AI prompt', 'Style guides & conventions'], useCases: ['Enforcing coding standards across AI-generated code'] },
   sentry: { features: ['Auto-import Sentry errors as tasks', 'Targeted fix prompts with file content', 'Resolve/unresolve from dashboard', 'PR comment on Sentry issue', 'Auto-resolve on PR merge'], useCases: ['Automated production error fixing', 'Sentry → AI → PR → merge → resolved loop'] },
   newrelic: { features: ['Auto-import New Relic APM errors', 'Entity-to-repo mapping', 'Targeted fix prompts', 'Periodic polling'], useCases: ['Automated production error fixing from New Relic'] },
+  datadog: { features: ['Import Datadog Error Tracking issues', 'Stack trace parsing', 'Auto-priority from occurrence count', 'Resolve/unresolve from dashboard'], useCases: ['Automated production error fixing from Datadog APM'] },
   slack: { features: ['Webhook notifications', 'Bot token for ChatOps', 'Task status alerts'], useCases: ['Team notifications in Slack'] },
   teams: { features: ['Bot notifications', 'Teams webhook', 'ChatOps commands'], useCases: ['Team notifications in Microsoft Teams'] },
   telegram: { features: ['Bot notifications', 'ChatOps commands (/fix, /status)', 'Group chat support'], useCases: ['Lightweight mobile notifications'] },
@@ -80,7 +81,7 @@ export default function ModulesPage() {
     { label: 'AI & Automation', slugs: ['flows', 'prompt_studio', 'playbook'] },
     { label: 'LLM Providers', slugs: ['openai', 'gemini', 'hal', 'cli_agents'] },
     { label: 'Source Control', slugs: ['github', 'gitlab', 'bitbucket', 'azure'] },
-    { label: 'Issue Tracking', slugs: ['jira', 'sentry', 'newrelic'] },
+    { label: 'Issue Tracking', slugs: ['jira', 'sentry', 'newrelic', 'datadog'] },
     { label: 'Analytics & Metrics', slugs: ['dora'] },
     { label: 'Notifications', slugs: ['slack', 'teams', 'telegram', 'notifications'] },
   ];

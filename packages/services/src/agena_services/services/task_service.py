@@ -534,6 +534,78 @@ class TaskService:
 
         return imported, skipped
 
+    async def import_from_datadog(
+        self,
+        organization_id: int,
+        user_id: int,
+        *,
+        query: str = 'status:open',
+        limit: int = 50,
+    ) -> tuple[int, int]:
+        if self.db is None:
+            raise ValueError('DB session required')
+
+        config_service = IntegrationConfigService(self.db)
+        config = await config_service.get_config(organization_id, 'datadog')
+        if config is None:
+            raise ValueError('Datadog integration not configured for this organization')
+        if not config.secret:
+            raise ValueError('Datadog API key is missing in integration settings')
+
+        extra = config.extra_config or {}
+        app_key = str(extra.get('app_key') or '').strip()
+        if not app_key:
+            raise ValueError('Datadog Application Key is required in integration settings')
+
+        dd_cfg = {
+            'api_key': config.secret,
+            'app_key': app_key,
+            'base_url': config.base_url or 'https://api.datadoghq.com',
+        }
+
+        from agena_services.integrations.datadog_client import DatadogClient
+        client = DatadogClient()
+
+        imported = 0
+        skipped = 0
+
+        try:
+            issues = await client.list_error_tracking_issues(dd_cfg, query=query, limit=limit)
+        except Exception as exc:
+            raise ValueError(f'Datadog API error: {exc}') from exc
+
+        service_name = str(extra.get('service_name') or '').strip()
+
+        for issue in issues:
+            item = client.issue_to_external_task(issue, service_name=service_name)
+            if item is None:
+                continue
+            try:
+                existing = await self.db.execute(
+                    select(TaskRecord).where(
+                        TaskRecord.organization_id == organization_id,
+                        TaskRecord.source == 'datadog',
+                        TaskRecord.external_id == item.id,
+                    )
+                )
+                if existing.scalar_one_or_none() is not None:
+                    skipped += 1
+                    continue
+                task = await self.create_task_from_external(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    source='datadog',
+                    external_id=item.id,
+                    title=item.title,
+                    description=item.description,
+                    priority=item.priority,
+                )
+                imported += 1
+            except PermissionError as pe:
+                raise ValueError(f'Task quota exceeded: {pe}') from pe
+
+        return imported, skipped
+
     async def list_tasks(self, organization_id: int) -> list[TaskRecord]:
         if self.db is None:
             raise ValueError('DB session required')

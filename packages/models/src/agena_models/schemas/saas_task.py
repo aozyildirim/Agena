@@ -135,6 +135,11 @@ class SentryImportRequest(BaseModel):
     limit: int = 50
 
 
+class DatadogImportRequest(BaseModel):
+    query: str = 'status:open'
+    limit: int = 50
+
+
 class TaskDependencyUpdateRequest(BaseModel):
     depends_on_task_ids: list[int]
 
