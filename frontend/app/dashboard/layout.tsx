@@ -104,7 +104,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'boss_mode', 'sprints', 'refinement', 'flows', 'prompt_studio', 'openai']));
+  const [enabledModules, setEnabledModules] = useState<Set<string> | null>(null);
   const [orgSlug, setOrgSlugState] = useState('');
   const [orgNameDisplay, setOrgNameDisplay] = useState('');
   const [expandedNav, setExpandedNav] = useState<string | null>(null);
@@ -261,11 +261,18 @@ function DashboardInner({ children }: { children: ReactNode }) {
         }).catch(() => {});
       }).catch(() => {});
 
-      // Fetch enabled modules
-      apiFetch<Array<{ slug: string; enabled: boolean }>>('/modules').then((mods) => {
-        if (!active) return;
-        setEnabledModules(new Set(mods.filter((m) => m.enabled).map((m) => m.slug)));
-      }).catch(() => {});
+      // Fetch enabled modules (retry once on failure to avoid leaving sidebar in indeterminate state)
+      const fetchModules = (retries = 1): Promise<void> =>
+        apiFetch<Array<{ slug: string; enabled: boolean }>>('/modules').then((mods) => {
+          if (!active) return;
+          setEnabledModules(new Set(mods.filter((m) => m.enabled).map((m) => m.slug)));
+        }).catch(() => {
+          if (!active) return;
+          if (retries > 0) return new Promise<void>((r) => setTimeout(() => fetchModules(retries - 1).then(r), 1500));
+          // Final fallback: assume core enabled so the user isn't locked out of basic nav
+          setEnabledModules(new Set(['core']));
+        });
+      fetchModules();
 
       // Fetch task counts and compute unseen badges
       apiFetch<Array<{ status: string }>>('/tasks').then((tasks) => {
@@ -574,11 +581,12 @@ function DashboardInner({ children }: { children: ReactNode }) {
             );
           })()}
 
-          {!isPlatformAdmin && NAV_GROUPS.map((group, gi) => {
+          {!isPlatformAdmin && enabledModules !== null && NAV_GROUPS.map((group, gi) => {
+            const modules = enabledModules;
             const visibleItems = group.items
-              .filter((item) => !item.module || enabledModules.has(item.module))
+              .filter((item) => !item.module || modules.has(item.module))
               .filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]))
-              .map((item) => item.children ? { ...item, children: item.children.filter((c) => !c.module || enabledModules.has(c.module)) } : item);
+              .map((item) => item.children ? { ...item, children: item.children.filter((c) => !c.module || modules.has(c.module)) } : item);
             if (!visibleItems.length) return null;
             const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
             const isGroupOpen = collapsedGroups[group.labelKey] !== undefined ? !collapsedGroups[group.labelKey] : (groupHasActive || (group.defaultOpen ?? true));

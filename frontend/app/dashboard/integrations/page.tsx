@@ -44,7 +44,7 @@ export default function IntegrationsPage() {
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<'ai' | 'task' | 'notifications' | 'cli'>('ai');
   const [cliBridgeStatus, setCliBridgeStatus] = useState<{ ok: boolean; codex: boolean; claude: boolean; codex_auth?: boolean; claude_auth?: boolean } | null>(null);
-  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'openai']));
+  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraSecret, setJiraSecret] = useState('');

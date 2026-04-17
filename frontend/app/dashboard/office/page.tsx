@@ -1081,7 +1081,7 @@ export default function OfficePage() {
   const [previewTaskId, setPreviewTaskId] = useState<number | null>(null);
   const [savedFlows, setSavedFlows] = useState<{ id: string; name: string }[]>([]);
   const [flowPickerTaskId, setFlowPickerTaskId] = useState<number | null>(null);
-  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set(['core', 'openai']));
+  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
   const [previewLogs, setPreviewLogs] = useState<Array<{ stage: string; message: string }>>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const officeAgentsRef = useRef<OfficeAgent[]>([]);
