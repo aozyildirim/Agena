@@ -103,6 +103,7 @@ export default function IntegrationsPage() {
   const [datadogApiKeyPreview, setDatadogApiKeyPreview] = useState('');
   const [datadogAppKey, setDatadogAppKey] = useState('');
   const [appdBaseUrl, setAppdBaseUrl] = useState('');
+  const [appdUsername, setAppdUsername] = useState('');
   const [appdToken, setAppdToken] = useState('');
   const [appdTokenPreview, setAppdTokenPreview] = useState('');
   const [appdAppId, setAppdAppId] = useState('');
@@ -445,7 +446,7 @@ export default function IntegrationsPage() {
     Promise.all([
       apiFetch('/integrations/appdynamics', {
         method: 'PUT',
-        body: JSON.stringify({ base_url: appdBaseUrl || undefined, secret: appdToken || undefined, extra_config: { app_id: appdAppId || undefined } }),
+        body: JSON.stringify({ base_url: appdBaseUrl || undefined, username: appdUsername || undefined, secret: appdToken || undefined, extra_config: { app_id: appdAppId || undefined } }),
       }),
       loadIntegrationState(),
     ]).then(async () => {
@@ -1054,9 +1055,12 @@ export default function IntegrationsPage() {
           <FieldGroup label="Controller URL">
             <input value={appdBaseUrl} onChange={(e) => setAppdBaseUrl(e.target.value)} placeholder="https://your-controller.saas.appdynamics.com" />
           </FieldGroup>
-          <FieldGroup label="API Token">
+          <FieldGroup label="Username (Account Name)">
+            <input value={appdUsername} onChange={(e) => setAppdUsername(e.target.value)} placeholder="your-account-name" />
+          </FieldGroup>
+          <FieldGroup label="Access Key">
             <input type='password' value={appdToken} onChange={(e) => setAppdToken(e.target.value)}
-              placeholder={configs.find(c => c.provider === 'appdynamics')?.has_secret ? `${appdTokenPreview || '****'} (keep existing)` : 'Your API token'} />
+              placeholder={configs.find(c => c.provider === 'appdynamics')?.has_secret ? `${appdTokenPreview || '****'} (keep existing)` : 'Access Key from controller'} />
           </FieldGroup>
           <FieldGroup label="Application ID">
             <input value={appdAppId} onChange={(e) => setAppdAppId(e.target.value)} placeholder="Application ID from AppDynamics" />

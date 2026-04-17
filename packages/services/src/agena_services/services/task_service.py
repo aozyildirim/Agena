@@ -633,6 +633,7 @@ class TaskService:
 
         ad_cfg = {
             'api_token': config.secret,
+            'username': config.username or '',
             'base_url': config.base_url or 'https://your-controller.saas.appdynamics.com',
         }
 

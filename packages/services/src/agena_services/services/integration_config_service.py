@@ -7,7 +7,7 @@ from agena_models.models.integration_config import IntegrationConfig
 
 
 class IntegrationConfigService:
-    SUPPORTED_PROVIDERS = {'jira', 'azure', 'openai', 'gemini', 'github', 'playbook', 'slack', 'teams', 'telegram', 'hal', 'newrelic', 'sentry'}
+    SUPPORTED_PROVIDERS = {'jira', 'azure', 'openai', 'gemini', 'github', 'gitlab', 'bitbucket', 'playbook', 'slack', 'teams', 'telegram', 'hal', 'newrelic', 'sentry', 'datadog', 'appdynamics'}
     DEFAULT_BASE_URLS = {
         'openai': 'https://api.openai.com/v1',
         'gemini': 'https://generativelanguage.googleapis.com',

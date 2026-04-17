@@ -18,13 +18,23 @@ class AppDynamicsClient:
     def __init__(self) -> None:
         self.default_base_url = 'https://your-controller.saas.appdynamics.com'
 
-    def _resolve(self, cfg: dict[str, str] | None) -> tuple[str, str]:
+    def _resolve(self, cfg: dict[str, str] | None) -> tuple[str, str, str]:
         cfg = cfg or {}
         base_url = (cfg.get('base_url') or self.default_base_url).strip().rstrip('/')
         token = (cfg.get('api_token') or '').strip()
-        return base_url, token
+        username = (cfg.get('username') or '').strip()
+        return base_url, token, username
 
-    def _headers(self, token: str) -> dict[str, str]:
+    def _headers(self, token: str, username: str = '') -> dict[str, str]:
+        # AppDynamics uses Basic auth with username@account:access_key
+        # or Bearer token for API clients
+        if username:
+            import base64
+            creds = base64.b64encode(f'{username}:{token}'.encode()).decode()
+            return {
+                'Authorization': f'Basic {creds}',
+                'Content-Type': 'application/json',
+            }
         return {
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json',
@@ -35,12 +45,12 @@ class AppDynamicsClient:
         cfg: dict[str, str],
     ) -> list[dict[str, Any]]:
         """List all monitored applications."""
-        base_url, token = self._resolve(cfg)
+        base_url, token, username = self._resolve(cfg)
         if not token:
             return []
         url = f'{base_url}/controller/rest/applications?output=JSON'
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, headers=self._headers(token))
+            resp = await client.get(url, headers=self._headers(token, username))
             resp.raise_for_status()
             return resp.json() if isinstance(resp.json(), list) else []
 
@@ -54,7 +64,7 @@ class AppDynamicsClient:
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Fetch error snapshots for an application."""
-        base_url, token = self._resolve(cfg)
+        base_url, token, username = self._resolve(cfg)
         if not token:
             return []
 
@@ -70,7 +80,7 @@ class AppDynamicsClient:
             f'&maximum-results={limit}'
         )
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, headers=self._headers(token))
+            resp = await client.get(url, headers=self._headers(token, username))
             resp.raise_for_status()
             data = resp.json()
         return data if isinstance(data, list) else []
@@ -84,7 +94,7 @@ class AppDynamicsClient:
         duration_minutes: int = 1440,
     ) -> list[dict[str, Any]]:
         """Fetch health rule violations for an application."""
-        base_url, token = self._resolve(cfg)
+        base_url, token, username = self._resolve(cfg)
         if not token:
             return []
 
@@ -95,7 +105,7 @@ class AppDynamicsClient:
             f'&duration-in-mins={duration_minutes}'
         )
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, headers=self._headers(token))
+            resp = await client.get(url, headers=self._headers(token, username))
             resp.raise_for_status()
             data = resp.json()
         return data if isinstance(data, list) else []
@@ -108,7 +118,7 @@ class AppDynamicsClient:
         request_guid: str,
     ) -> dict[str, Any]:
         """Get detailed error snapshot with stack trace."""
-        base_url, token = self._resolve(cfg)
+        base_url, token, username = self._resolve(cfg)
         if not token:
             return {}
 
@@ -117,7 +127,7 @@ class AppDynamicsClient:
             f'/request-snapshots/{request_guid}?output=JSON'
         )
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, headers=self._headers(token))
+            resp = await client.get(url, headers=self._headers(token, username))
             resp.raise_for_status()
             data = resp.json()
         return data if isinstance(data, dict) else (data[0] if isinstance(data, list) and data else {})
