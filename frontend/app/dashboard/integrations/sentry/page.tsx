@@ -21,6 +21,8 @@ interface SentryIssue {
   user_count: number;
   last_seen: string | null;
   permalink: string | null;
+  imported_task_id?: number | null;
+  imported_work_item_url?: string | null;
 }
 
 interface SentryIssueEvent {
@@ -251,7 +253,7 @@ export default function SentryPage() {
   }
 
   function modalSelectAll() {
-    setModalSelected(new Set(modalIssues.map((i) => i.id)));
+    setModalSelected(new Set(modalIssues.filter((i) => !i.imported_task_id).map((i) => i.id)));
   }
 
   function modalDeselectAll() {
@@ -524,6 +526,7 @@ export default function SentryPage() {
               ) : (
                 modalIssues.map((i) => {
                   const isSelected = modalSelected.has(i.id);
+                  const isImported = Boolean(i.imported_task_id);
                   return (
                     <label
                       key={i.id}
@@ -534,13 +537,15 @@ export default function SentryPage() {
                         padding: '10px 12px', borderRadius: 10, marginBottom: 6,
                         background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
                         border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
-                        cursor: 'pointer',
+                        cursor: isImported ? 'not-allowed' : 'pointer',
+                        opacity: isImported ? 0.55 : 1,
                       }}
                     >
                       <input
                         type='checkbox'
                         checked={isSelected}
-                        onChange={() => toggleModalSelected(i.id)}
+                        onChange={() => !isImported && toggleModalSelected(i.id)}
+                        disabled={isImported}
                         style={{ marginTop: 3 }}
                       />
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
@@ -553,6 +558,26 @@ export default function SentryPage() {
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6, fontSize: 10, color: 'var(--ink-35)', flexWrap: 'wrap' }}>
+                          {isImported && (
+                            <a
+                              href={`/tasks/${i.imported_task_id}`}
+                              onClick={(ev) => ev.stopPropagation()}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}
+                            >
+                              {(t('integrations.common.alreadyImported') || 'Already imported — task #{id}').replace('{id}', String(i.imported_task_id))}
+                            </a>
+                          )}
+                          {isImported && i.imported_work_item_url && (
+                            <a
+                              href={i.imported_work_item_url}
+                              target='_blank'
+                              rel='noreferrer'
+                              onClick={(ev) => ev.stopPropagation()}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(168,85,247,0.18)', color: '#a855f7', textDecoration: 'none' }}
+                            >
+                              {t('integrations.common.viewWorkItem') || 'Open work item'} ↗
+                            </a>
+                          )}
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
                             {(t('integrations.common.countX') || '{n} times').replace('{n}', i.count.toLocaleString())}
                           </span>

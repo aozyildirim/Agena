@@ -2371,6 +2371,8 @@
   "integrations.appdynamics.configRequired": "必需：Controller URL、API Token、Application ID",
   "integrations.common.countX": "{n} 次",
   "integrations.common.lastSeen": "最后出现",
+  "integrations.common.alreadyImported": "已导入 — 任务 #{id}",
+  "integrations.common.viewWorkItem": "打开 work item",
   "integrations.aiTagLabel": "已完成 work item 的 AI 标签",
   "integrations.aiTagEnabled": "给 AI 处理的 work item 打标签",
   "integrations.aiTagLabelJira": "已完成 issue 的 AI 标签",

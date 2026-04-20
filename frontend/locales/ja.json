@@ -2371,6 +2371,8 @@
   "integrations.appdynamics.configRequired": "必須: Controller URL、API トークン、アプリケーション ID",
   "integrations.common.countX": "{n} 回",
   "integrations.common.lastSeen": "最終発生",
+  "integrations.common.alreadyImported": "すでにインポート済み — タスク #{id}",
+  "integrations.common.viewWorkItem": "Work item を開く",
   "integrations.aiTagLabel": "完了した work item への AI タグ",
   "integrations.aiTagEnabled": "AI が処理した work item にタグを付ける",
   "integrations.aiTagLabelJira": "完了した issue への AI ラベル",

@@ -14,6 +14,8 @@ class SentryIssueItem(BaseModel):
     user_count: int = 0
     last_seen: str | None = None
     permalink: str | None = None
+    imported_task_id: int | None = None
+    imported_work_item_url: str | None = None
 
 
 class SentryIssueListResponse(BaseModel):

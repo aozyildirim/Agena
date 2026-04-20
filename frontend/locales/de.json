@@ -2440,6 +2440,8 @@
   "integrations.appdynamics.configRequired": "Erforderlich: Controller-URL, API-Token, Application-ID",
   "integrations.common.countX": "{n} mal",
   "integrations.common.lastSeen": "Zuletzt gesehen",
+  "integrations.common.alreadyImported": "Bereits importiert — Task #{id}",
+  "integrations.common.viewWorkItem": "Work Item öffnen",
   "integrations.aiTagLabel": "KI-Tag auf abgeschlossenen Work Items",
   "integrations.aiTagEnabled": "Von KI bearbeitete Work Items taggen",
   "integrations.aiTagLabelJira": "KI-Label auf abgeschlossenen Issues",

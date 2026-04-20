@@ -9,6 +9,7 @@ from agena_api.api.dependencies import CurrentTenant, get_current_tenant, requir
 from agena_core.database import get_db_session
 from agena_models.models.repo_mapping import RepoMapping
 from agena_models.models.sentry_project_mapping import SentryProjectMapping
+from agena_models.models.task_record import TaskRecord
 from agena_models.schemas.sentry import (
     SentryIssueEventItem,
     SentryIssueEventListResponse,
@@ -134,11 +135,29 @@ async def list_sentry_project_issues(
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f'Sentry connection failed: {exc}') from exc
 
+    project_key = project_slug.strip()
+    external_ids = [f"{project_key}:{i.get('id')}" for i in issues if i.get('id')]
+    imported_map: dict[str, tuple[int, str | None]] = {}
+    if external_ids:
+        rows = (await db.execute(
+            select(TaskRecord.id, TaskRecord.external_id, TaskRecord.external_work_item_id).where(
+                TaskRecord.organization_id == tenant.organization_id,
+                TaskRecord.source == 'sentry',
+                TaskRecord.external_id.in_(external_ids),
+            )
+        )).all()
+        imported_map = {ext_id: (task_id, wi_id) for task_id, ext_id, wi_id in rows}
+
+    from agena_api.api.routes._work_item_url import build_work_item_url_resolver
+    wi_resolver = await build_work_item_url_resolver(db, tenant.organization_id)
+
     parsed: list[SentryIssueItem] = []
     for i in issues:
+        issue_id = str(i.get('id') or '')
+        task_id, wi_id = imported_map.get(f'{project_key}:{issue_id}', (None, None))
         parsed.append(
             SentryIssueItem(
-                id=str(i.get('id') or ''),
+                id=issue_id,
                 short_id=str(i.get('shortId') or '') or None,
                 title=str(i.get('title') or 'Sentry issue'),
                 level=str(i.get('level') or 'error'),
@@ -148,6 +167,8 @@ async def list_sentry_project_issues(
                 user_count=int(i.get('userCount') or 0),
                 last_seen=str(i.get('lastSeen') or '') or None,
                 permalink=str(i.get('permalink') or '') or None,
+                imported_task_id=task_id,
+                imported_work_item_url=wi_resolver(wi_id) if wi_id else None,
             )
         )
 

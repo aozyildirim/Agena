@@ -2463,6 +2463,8 @@
   "integrations.appdynamics.configRequired": "Gerekli: Controller URL, API Token, Application ID",
   "integrations.common.countX": "{n} kez",
   "integrations.common.lastSeen": "Son görülme",
+  "integrations.common.alreadyImported": "Zaten alındı — task #{id}",
+  "integrations.common.viewWorkItem": "İşi aç",
   "integrations.aiTagLabel": "Tamamlanan work item'lara AI tag'i",
   "integrations.aiTagEnabled": "AI tarafından halledilen work item'ları etiketle",
   "integrations.aiTagLabelJira": "Tamamlanan issue'lara AI label'ı",
