@@ -1,5 +1,13 @@
 [
   {
+    "hash": "6b7fa11",
+    "short": "6b7fa11",
+    "message": "Add agent discovery: Link headers, .well-known endpoints, WebMCP, x402, markdown",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "f6e403a",
     "short": "f6e403a",
     "message": "Move active sprint selector from profile page to global header",
@@ -787,14 +795,6 @@
     "hash": "82d593e",
     "short": "82d593e",
     "message": "Improve Sentry event JSON parsing for full task details",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "ebfa843",
-    "short": "ebfa843",
-    "message": "Enrich Sentry imported tasks with full event JSON context",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
     "type": "other"

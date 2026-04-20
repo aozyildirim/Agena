@@ -3,10 +3,11 @@ const API = 'https://api.agena.dev';
 
 export async function GET() {
   const meta = {
-    resource: API,
+    resource: SITE,
     resource_name: 'AGENA API',
     resource_documentation: `${SITE}/api-docs`,
     authorization_servers: [API],
+    api_base_url: API,
     jwks_uri: `${API}/.well-known/jwks.json`,
     bearer_methods_supported: ['header'],
     resource_signing_alg_values_supported: ['RS256', 'HS256'],
@@ -29,7 +30,7 @@ export async function GET() {
   return new Response(JSON.stringify(meta, null, 2), {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      'Cache-Control': 'public, max-age=300, s-maxage=300',
       'Access-Control-Allow-Origin': '*',
     },
   });
