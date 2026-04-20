@@ -11,6 +11,7 @@ from agena_api.api.dependencies import CurrentTenant, get_current_tenant, requir
 from agena_core.database import get_db_session
 from agena_models.models.newrelic_entity_mapping import NewRelicEntityMapping
 from agena_models.models.repo_mapping import RepoMapping
+from agena_models.models.task_record import TaskRecord
 from agena_models.schemas.newrelic import (
     NewRelicEntityMappingCreate,
     NewRelicEntityMappingResponse,
@@ -29,6 +30,9 @@ router = APIRouter(prefix='/newrelic', tags=['newrelic'])
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+from agena_api.api.routes._work_item_url import build_work_item_url_resolver
+
 
 async def _nr_cfg(db: AsyncSession, organization_id: int) -> dict[str, str]:
     svc = IntegrationConfigService(db)
@@ -123,20 +127,34 @@ async def list_entity_errors(
     client = NewRelicClient()
     errors = await client.fetch_errors(cfg, account_id=account_id, app_name=entity_name, since=since, limit=limit)
 
-    return NewRelicErrorListResponse(
-        entity_name=entity_name,
-        entity_guid=guid,
-        errors=[
-            NewRelicErrorGroup(
-                error_class=e['error_class'],
-                error_message=e['error_message'],
-                occurrences=e['occurrences'],
-                last_seen=str(e['last_seen']) if e.get('last_seen') is not None else None,
-                fingerprint=e['fingerprint'],
+    fingerprints = [e.get('fingerprint') for e in errors if e.get('fingerprint')]
+    imported_map: dict[str, tuple[int, str | None]] = {}
+    if fingerprints:
+        rows = (await db.execute(
+            select(TaskRecord.id, TaskRecord.external_id, TaskRecord.external_work_item_id).where(
+                TaskRecord.organization_id == tenant.organization_id,
+                TaskRecord.source == 'newrelic',
+                TaskRecord.external_id.in_(fingerprints),
             )
-            for e in errors
-        ],
-    )
+        )).all()
+        imported_map = {ext_id: (task_id, wi_id) for task_id, ext_id, wi_id in rows}
+
+    wi_url_resolver = await build_work_item_url_resolver(db, tenant.organization_id)
+
+    errors_out: list[NewRelicErrorGroup] = []
+    for e in errors:
+        fp = e['fingerprint']
+        task_id, wi_id = imported_map.get(fp, (None, None))
+        errors_out.append(NewRelicErrorGroup(
+            error_class=e['error_class'],
+            error_message=e['error_message'],
+            occurrences=e['occurrences'],
+            last_seen=str(e['last_seen']) if e.get('last_seen') is not None else None,
+            fingerprint=fp,
+            imported_task_id=task_id,
+            imported_work_item_url=wi_url_resolver(wi_id) if wi_id else None,
+        ))
+    return NewRelicErrorListResponse(entity_name=entity_name, entity_guid=guid, errors=errors_out)
 
 
 @router.get('/entities/{guid}/violations')

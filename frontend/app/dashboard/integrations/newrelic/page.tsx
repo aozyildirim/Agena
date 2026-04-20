@@ -20,6 +20,8 @@ interface NRErrorGroup {
   occurrences: number;
   last_seen: string | null;
   fingerprint: string;
+  imported_task_id?: number | null;
+  imported_work_item_url?: string | null;
 }
 
 interface NRMapping {
@@ -228,7 +230,7 @@ export default function NewRelicPage() {
   }
 
   function modalSelectAll() {
-    setModalSelected(new Set(modalErrors.map((e) => e.fingerprint)));
+    setModalSelected(new Set(modalErrors.filter((e) => !e.imported_task_id).map((e) => e.fingerprint)));
   }
 
   function modalDeselectAll() {
@@ -479,6 +481,7 @@ export default function NewRelicPage() {
               ) : (
                 modalErrors.map((e) => {
                   const isSelected = modalSelected.has(e.fingerprint);
+                  const isImported = Boolean(e.imported_task_id);
                   const title = `${e.error_class}: ${e.error_message}`;
                   return (
                     <label
@@ -490,13 +493,15 @@ export default function NewRelicPage() {
                         padding: '10px 12px', borderRadius: 10, marginBottom: 6,
                         background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
                         border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
-                        cursor: 'pointer',
+                        cursor: isImported ? 'not-allowed' : 'pointer',
+                        opacity: isImported ? 0.55 : 1,
                       }}
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => toggleModalSelected(e.fingerprint)}
+                        onChange={() => !isImported && toggleModalSelected(e.fingerprint)}
+                        disabled={isImported}
                         style={{ marginTop: 3 }}
                       />
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
@@ -504,6 +509,26 @@ export default function NewRelicPage() {
                           {title}
                         </div>
                         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6, fontSize: 10, color: 'var(--ink-35)', flexWrap: 'wrap' }}>
+                          {isImported && (
+                            <a
+                              href={`/tasks/${e.imported_task_id}`}
+                              onClick={(ev) => ev.stopPropagation()}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}
+                            >
+                              {(t('integrations.common.alreadyImported') || 'Already imported — task #{id}').replace('{id}', String(e.imported_task_id))}
+                            </a>
+                          )}
+                          {isImported && e.imported_work_item_url && (
+                            <a
+                              href={e.imported_work_item_url}
+                              target='_blank'
+                              rel='noreferrer'
+                              onClick={(ev) => ev.stopPropagation()}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(168,85,247,0.18)', color: '#a855f7', textDecoration: 'none' }}
+                            >
+                              {t('integrations.common.viewWorkItem') || 'Open work item'} ↗
+                            </a>
+                          )}
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
                             {(t('integrations.common.countX') || '{n} times').replace('{n}', e.occurrences.toLocaleString())}
                           </span>

@@ -2373,6 +2373,8 @@
   "integrations.appdynamics.configRequired": "Richiesto: Controller URL, API Token, Application ID",
   "integrations.common.countX": "{n} volte",
   "integrations.common.lastSeen": "Ultima visualizzazione",
+  "integrations.common.alreadyImported": "Già importato — task #{id}",
+  "integrations.common.viewWorkItem": "Apri work item",
   "integrations.aiTagLabel": "Tag IA su work item completati",
   "integrations.aiTagEnabled": "Etichetta i work item gestiti dall'IA",
   "integrations.aiTagLabelJira": "Etichetta IA su issue completati",

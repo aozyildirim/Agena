@@ -6,6 +6,8 @@ import { useLocale } from '@/lib/i18n';
 
 interface DatadogIssue {
   id: string;
+  imported_task_id?: number | null;
+  imported_work_item_url?: string | null;
   attributes: {
     title?: string;
     type?: string;
@@ -168,10 +170,29 @@ export default function DatadogPage() {
           </div>
           {issues.map((issue) => {
             const a = issue.attributes || {};
+            const isImported = Boolean(issue.imported_task_id);
             return (
-              <div key={issue.id} className='int-table-row' style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 100px', gap: 8, alignItems: 'center', fontSize: 12 }}>
+              <div key={issue.id} className='int-table-row' style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', display: 'grid', gridTemplateColumns: '1fr 100px 80px 80px 100px', gap: 8, alignItems: 'center', fontSize: 12, opacity: isImported ? 0.55 : 1 }}>
                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink-78)', fontWeight: 600 }}>
                   {a.title || issue.id}
+                  {isImported && (
+                    <a
+                      href={`/tasks/${issue.imported_task_id}`}
+                      style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}
+                    >
+                      #{issue.imported_task_id}
+                    </a>
+                  )}
+                  {isImported && issue.imported_work_item_url && (
+                    <a
+                      href={issue.imported_work_item_url}
+                      target='_blank'
+                      rel='noreferrer'
+                      style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(168,85,247,0.18)', color: '#a855f7', textDecoration: 'none' }}
+                    >
+                      WI ↗
+                    </a>
+                  )}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--ink-50)' }}>{a.service || '—'}</div>
                 <div>

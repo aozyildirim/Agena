@@ -19,6 +19,8 @@ class NewRelicErrorGroup(BaseModel):
     occurrences: int
     last_seen: str | None = None
     fingerprint: str
+    imported_task_id: int | None = None
+    imported_work_item_url: str | None = None
 
 
 class NewRelicErrorListResponse(BaseModel):
