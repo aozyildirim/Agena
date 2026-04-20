@@ -141,18 +141,21 @@ class SentryImportRequest(BaseModel):
     limit: int = 50
     issue_ids: list[str] | None = None
     stats_period: str | None = None
+    mirror_target: str | None = None
 
 
 class DatadogImportRequest(BaseModel):
     query: str = 'status:open'
     limit: int = 50
     time_from: str = '-24h'
+    mirror_target: str | None = None
 
 
 class AppDynamicsImportRequest(BaseModel):
     app_name: str | None = None
     limit: int = 50
     duration_minutes: int = 1440
+    mirror_target: str | None = None
 
 
 class TaskDependencyUpdateRequest(BaseModel):

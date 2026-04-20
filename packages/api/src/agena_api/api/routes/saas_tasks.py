@@ -360,7 +360,7 @@ async def import_sentry_issues(
 ) -> ImportTasksResponse:
     service = TaskService(db)
     try:
-        imported, skipped = await service.import_from_sentry(
+        imported, skipped, sentry_manual_urls = await service.import_from_sentry(
             tenant.organization_id,
             tenant.user_id,
             project_slug=request.project_slug,
@@ -368,6 +368,7 @@ async def import_sentry_issues(
             limit=request.limit,
             issue_ids=request.issue_ids,
             stats_period=request.stats_period,
+            mirror_target=request.mirror_target,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -386,7 +387,7 @@ async def import_sentry_issues(
         raise HTTPException(status_code=502, detail=f'Sentry request failed ({exc.response.status_code})') from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f'Sentry connection failed: {exc}') from exc
-    return ImportTasksResponse(imported=imported, skipped=skipped)
+    return ImportTasksResponse(imported=imported, skipped=skipped, manual_azure_urls=sentry_manual_urls)
 
 
 @router.post('/import/datadog', response_model=ImportTasksResponse)
@@ -397,12 +398,13 @@ async def import_datadog_issues(
 ) -> ImportTasksResponse:
     service = TaskService(db)
     try:
-        imported, skipped = await service.import_from_datadog(
+        imported, skipped, dd_manual_urls = await service.import_from_datadog(
             tenant.organization_id,
             tenant.user_id,
             query=request.query,
             limit=request.limit,
             time_from=request.time_from,
+            mirror_target=request.mirror_target,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -412,7 +414,7 @@ async def import_datadog_issues(
         raise HTTPException(status_code=502, detail=f'Datadog request failed ({exc.response.status_code})') from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f'Datadog connection failed: {exc}') from exc
-    return ImportTasksResponse(imported=imported, skipped=skipped)
+    return ImportTasksResponse(imported=imported, skipped=skipped, manual_azure_urls=dd_manual_urls)
 
 
 @router.post('/import/appdynamics', response_model=ImportTasksResponse)
@@ -423,12 +425,13 @@ async def import_appdynamics_errors(
 ) -> ImportTasksResponse:
     service = TaskService(db)
     try:
-        imported, skipped = await service.import_from_appdynamics(
+        imported, skipped, ad_manual_urls = await service.import_from_appdynamics(
             tenant.organization_id,
             tenant.user_id,
             app_name=request.app_name,
             limit=request.limit,
             duration_minutes=request.duration_minutes,
+            mirror_target=request.mirror_target,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -438,7 +441,7 @@ async def import_appdynamics_errors(
         raise HTTPException(status_code=502, detail=f'AppDynamics request failed ({exc.response.status_code})') from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f'AppDynamics connection failed: {exc}') from exc
-    return ImportTasksResponse(imported=imported, skipped=skipped)
+    return ImportTasksResponse(imported=imported, skipped=skipped, manual_azure_urls=ad_manual_urls)
 
 
 

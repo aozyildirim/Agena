@@ -590,7 +590,8 @@ class TaskService:
         limit: int = 50,
         issue_ids: list[str] | None = None,
         stats_period: str | None = None,
-    ) -> tuple[int, int]:
+        mirror_target: str | None = None,
+    ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -644,6 +645,7 @@ class TaskService:
 
         imported = 0
         skipped = 0
+        manual_azure_urls: list[str] = []
 
         id_filter = set(issue_ids) if issue_ids else None
 
@@ -763,11 +765,21 @@ class TaskService:
                     if getattr(mapping, 'repo_mapping_id', None):
                         task.repo_mapping_id = int(mapping.repo_mapping_id)
                         await self.db.commit()
+
+                    fallback_url = await self._maybe_create_azure_mirror_work_item(
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        task=task,
+                        mirror_target=mirror_target,
+                    )
+                    if fallback_url:
+                        manual_azure_urls.append(fallback_url)
+
                     imported += 1
                 except PermissionError as pe:
                     raise ValueError(f'Task quota exceeded: {pe}') from pe
 
-        return imported, skipped
+        return imported, skipped, manual_azure_urls
 
     async def import_from_datadog(
         self,
@@ -777,7 +789,8 @@ class TaskService:
         query: str = 'status:open',
         limit: int = 50,
         time_from: str = '-24h',
-    ) -> tuple[int, int]:
+        mirror_target: str | None = None,
+    ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -804,6 +817,7 @@ class TaskService:
 
         imported = 0
         skipped = 0
+        manual_azure_urls: list[str] = []
 
         try:
             issues = await client.list_error_tracking_issues(dd_cfg, query=query, limit=limit, time_from=time_from)
@@ -836,11 +850,19 @@ class TaskService:
                     description=item.description,
                     priority=item.priority,
                 )
+                fallback_url = await self._maybe_create_azure_mirror_work_item(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    task=task,
+                    mirror_target=mirror_target,
+                )
+                if fallback_url:
+                    manual_azure_urls.append(fallback_url)
                 imported += 1
             except PermissionError as pe:
                 raise ValueError(f'Task quota exceeded: {pe}') from pe
 
-        return imported, skipped
+        return imported, skipped, manual_azure_urls
 
     async def import_from_appdynamics(
         self,
@@ -850,7 +872,8 @@ class TaskService:
         app_name: str | None = None,
         limit: int = 50,
         duration_minutes: int = 1440,
-    ) -> tuple[int, int]:
+        mirror_target: str | None = None,
+    ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -879,6 +902,7 @@ class TaskService:
 
         imported = 0
         skipped = 0
+        manual_azure_urls: list[str] = []
 
         try:
             errors = await client.list_errors(ad_cfg, app_id=app_id, limit=limit, duration_minutes=duration_minutes)
@@ -900,7 +924,7 @@ class TaskService:
                 if existing.scalar_one_or_none() is not None:
                     skipped += 1
                     continue
-                await self.create_task_from_external(
+                task = await self.create_task_from_external(
                     organization_id=organization_id,
                     user_id=user_id,
                     source='appdynamics',
@@ -909,11 +933,19 @@ class TaskService:
                     description=item.description,
                     priority=item.priority,
                 )
+                fallback_url = await self._maybe_create_azure_mirror_work_item(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    task=task,
+                    mirror_target=mirror_target,
+                )
+                if fallback_url:
+                    manual_azure_urls.append(fallback_url)
                 imported += 1
             except PermissionError as pe:
                 raise ValueError(f'Task quota exceeded: {pe}') from pe
 
-        return imported, skipped
+        return imported, skipped, manual_azure_urls
 
     async def list_tasks(self, organization_id: int) -> list[TaskRecord]:
         if self.db is None:

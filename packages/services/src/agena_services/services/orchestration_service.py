@@ -1049,6 +1049,7 @@ class OrchestrationService:
                                 target_branch=pr_payload.base_branch,
                                 title=pr_payload.title,
                                 description=pr_payload.body,
+                                work_item_id=getattr(task, 'external_work_item_id', None),
                             )
                         except Exception as pr_exc:
                             await notification_service.notify_event(
@@ -1099,6 +1100,7 @@ class OrchestrationService:
                         description=pr_payload.body,
                         files=[{'path': f.path, 'content': f.content} for f in pr_payload.files],
                         commit_message=pr_payload.commit_message,
+                        work_item_id=getattr(task, 'external_work_item_id', None),
                     )
                     branch_name = pr_payload.branch_name
                     await task_service.add_log(task.id, organization_id, 'pr', f'Azure PR created: {pr_url}')

@@ -29,6 +29,7 @@ class AzurePRService:
         target_branch: str,
         title: str,
         description: str,
+        work_item_id: str | None = None,
     ) -> str:
         config = await IntegrationConfigService(self.db).get_config(organization_id, 'azure')
         if config is None or not config.secret:
@@ -40,12 +41,18 @@ class AzurePRService:
             raise ValueError('Azure repo URL could not be parsed from mapping')
 
         pr_api = f'{org_url}/{project}/_apis/git/repositories/{repo_name}/pullrequests?api-version=7.1-preview.1'
-        payload = {
+        # Prepend AB#<id> to title so Azure auto-links the work item in the PR UI
+        effective_title = title
+        if work_item_id and str(work_item_id).isdigit() and f'#{work_item_id}' not in title:
+            effective_title = f'AB#{work_item_id} — {title}'
+        payload: dict[str, object] = {
             'sourceRefName': f'refs/heads/{source_branch}',
             'targetRefName': f'refs/heads/{target_branch}',
-            'title': title,
+            'title': effective_title[:400],
             'description': description,
         }
+        if work_item_id and str(work_item_id).isdigit():
+            payload['workItemRefs'] = [{'id': str(work_item_id)}]
 
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(pr_api, headers=self._headers(config.secret), json=payload)
@@ -195,6 +202,7 @@ class AzurePRService:
         description: str,
         files: list[dict],
         commit_message: str,
+        work_item_id: str | None = None,
     ) -> str:
         """Push file changes via Azure Pushes API and create a PR — no local repo needed."""
         config = await IntegrationConfigService(self.db).get_config(organization_id, 'azure')
@@ -280,6 +288,7 @@ class AzurePRService:
             target_branch=target_branch,
             title=title,
             description=description,
+            work_item_id=work_item_id,
         )
 
     def _headers(self, pat: str) -> dict[str, str]:

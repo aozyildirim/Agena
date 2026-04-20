@@ -35,6 +35,7 @@ export default function DatadogPage() {
   const [issuesLoading, setIssuesLoading] = useState(false);
   const [query, setQuery] = useState('status:open');
   const [timeFrom, setTimeFrom] = useState('-30m');
+  const [mirrorTarget, setMirrorTarget] = useState<'auto' | 'azure' | 'jira' | 'both' | 'none'>('auto');
   const [repos, setRepos] = useState<RepoMapping[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
@@ -77,9 +78,12 @@ export default function DatadogPage() {
     setImporting(true);
     setError('');
     try {
-      const result = await apiFetch<{ imported: number; skipped: number }>('/tasks/import/datadog', {
+      const result = await apiFetch<{ imported: number; skipped: number; manual_azure_urls?: string[] }>('/tasks/import/datadog', {
         method: 'POST',
-        body: JSON.stringify({ query, limit: 50, time_from: timeFrom }),
+        body: JSON.stringify({ query, limit: 50, time_from: timeFrom, mirror_target: mirrorTarget }),
+      });
+      (result.manual_azure_urls || []).forEach((url) => {
+        if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
       });
       setImportResult(result);
       setMsg(`Imported ${result.imported} issues, ${result.skipped} skipped`);

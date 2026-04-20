@@ -78,6 +78,7 @@ export default function SentryPage() {
   const [modalSelected, setModalSelected] = useState<Set<string>>(new Set());
   const [modalImporting, setModalImporting] = useState(false);
   const [modalPeriod, setModalPeriod] = useState('24h');
+  const [modalMirror, setModalMirror] = useState<'auto' | 'azure' | 'jira' | 'both' | 'none'>('auto');
 
   useEffect(() => {
     void loadMappings();
@@ -261,13 +262,17 @@ export default function SentryPage() {
     if (!modalMapping || modalSelected.size === 0) return;
     setModalImporting(true);
     try {
-      const res = await apiFetch<{ imported: number; skipped: number }>('/tasks/import/sentry', {
+      const res = await apiFetch<{ imported: number; skipped: number; manual_azure_urls?: string[] }>('/tasks/import/sentry', {
         method: 'POST',
         body: JSON.stringify({
           project_slug: modalMapping.project_slug,
           issue_ids: Array.from(modalSelected),
           stats_period: modalPeriod,
+          mirror_target: modalMirror,
         }),
+      });
+      (res.manual_azure_urls || []).forEach((url) => {
+        if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
       });
       const msgTpl = t('integrations.newrelic.importResult') || '{imported} imported, {skipped} skipped';
       setMsg(msgTpl.replace('{imported}', String(res.imported)).replace('{skipped}', String(res.skipped)));
@@ -577,6 +582,20 @@ export default function SentryPage() {
               <button onClick={modalDeselectAll} disabled={modalSelected.size === 0} style={btnSmall}>
                 {t('integrations.newrelic.deselectAll') || 'Deselect all'}
               </button>
+              <label style={{ fontSize: 11, color: 'var(--ink-50)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {t('integrations.newrelic.mirrorTargetLabel') || 'Open in'}:
+                <select
+                  value={modalMirror}
+                  onChange={(ev) => setModalMirror(ev.target.value as 'auto' | 'azure' | 'jira' | 'both' | 'none')}
+                  style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 11 }}
+                >
+                  <option value='auto'>{t('integrations.newrelic.mirrorAuto') || 'Auto'}</option>
+                  <option value='azure'>{t('integrations.newrelic.mirrorAzure') || 'Azure DevOps'}</option>
+                  <option value='jira'>{t('integrations.newrelic.mirrorJira') || 'Jira'}</option>
+                  <option value='both'>{t('integrations.newrelic.mirrorBoth') || 'Azure + Jira'}</option>
+                  <option value='none'>{t('integrations.newrelic.mirrorNone') || 'None'}</option>
+                </select>
+              </label>
               <div style={{ flex: 1 }} />
               <button onClick={closeRequestModal} style={btnSmall}>{t('integrations.common.cancel')}</button>
               <button
