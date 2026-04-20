@@ -67,6 +67,7 @@ export default function NewRelicPage() {
   const [modalSelected, setModalSelected] = useState<Set<string>>(new Set());
   const [modalImporting, setModalImporting] = useState(false);
   const [modalSince, setModalSince] = useState('30 minutes ago');
+  const [modalMirror, setModalMirror] = useState<'auto' | 'azure' | 'jira' | 'both' | 'none'>('auto');
 
   useEffect(() => {
     void loadMappings();
@@ -166,9 +167,12 @@ export default function NewRelicPage() {
     try {
       const body: Record<string, unknown> = {};
       if (entityGuid) body.entity_guid = entityGuid;
-      const res = await apiFetch<{ imported: number; skipped: number }>('/tasks/import/newrelic', {
+      const res = await apiFetch<{ imported: number; skipped: number; manual_azure_urls?: string[] }>('/tasks/import/newrelic', {
         method: 'POST',
         body: JSON.stringify(body),
+      });
+      (res.manual_azure_urls || []).forEach((url) => {
+        if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
       });
       if (res.imported === 0 && res.skipped > 0) {
         setMsg(`No new errors to import — ${res.skipped} already imported before`);
@@ -235,13 +239,17 @@ export default function NewRelicPage() {
     if (!modalMapping || modalSelected.size === 0) return;
     setModalImporting(true);
     try {
-      const res = await apiFetch<{ imported: number; skipped: number }>('/tasks/import/newrelic', {
+      const res = await apiFetch<{ imported: number; skipped: number; manual_azure_urls?: string[] }>('/tasks/import/newrelic', {
         method: 'POST',
         body: JSON.stringify({
           entity_guid: modalMapping.entity_guid,
           fingerprints: Array.from(modalSelected),
           since: modalSince,
+          mirror_target: modalMirror,
         }),
+      });
+      (res.manual_azure_urls || []).forEach((url) => {
+        if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
       });
       const msgTpl = t('integrations.newrelic.importResult') || '{imported} imported, {skipped} skipped';
       setMsg(msgTpl.replace('{imported}', String(res.imported)).replace('{skipped}', String(res.skipped)));
@@ -414,12 +422,12 @@ export default function NewRelicPage() {
             style={{
               position: 'fixed',
               top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              background: '#0f1115', border: '1px solid var(--panel-border)', borderRadius: 14,
+              background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14,
               width: 'min(760px, calc(100vw - 32px))',
               maxWidth: 'calc(100vw - 32px)',
               height: 'min(80vh, 720px)',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.55)', color: 'var(--ink)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.35)', color: 'var(--ink)',
               boxSizing: 'border-box',
             }}
           >
@@ -480,7 +488,7 @@ export default function NewRelicPage() {
                         alignItems: 'start',
                         width: '100%', boxSizing: 'border-box',
                         padding: '10px 12px', borderRadius: 10, marginBottom: 6,
-                        background: isSelected ? 'rgba(28,231,131,0.10)' : 'rgba(255,255,255,0.03)',
+                        background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
                         border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
                         cursor: 'pointer',
                       }}
@@ -520,6 +528,20 @@ export default function NewRelicPage() {
               <button onClick={modalDeselectAll} disabled={modalSelected.size === 0} style={btnSmall}>
                 {t('integrations.newrelic.deselectAll') || 'Deselect all'}
               </button>
+              <label style={{ fontSize: 11, color: 'var(--ink-50)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {t('integrations.newrelic.mirrorTargetLabel') || 'Open in'}:
+                <select
+                  value={modalMirror}
+                  onChange={(ev) => setModalMirror(ev.target.value as 'auto' | 'azure' | 'jira' | 'both' | 'none')}
+                  style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 11 }}
+                >
+                  <option value='auto'>{t('integrations.newrelic.mirrorAuto') || 'Auto'}</option>
+                  <option value='azure'>{t('integrations.newrelic.mirrorAzure') || 'Azure DevOps'}</option>
+                  <option value='jira'>{t('integrations.newrelic.mirrorJira') || 'Jira'}</option>
+                  <option value='both'>{t('integrations.newrelic.mirrorBoth') || 'Azure + Jira'}</option>
+                  <option value='none'>{t('integrations.newrelic.mirrorNone') || 'None'}</option>
+                </select>
+              </label>
               <div style={{ flex: 1 }} />
               <button onClick={closeRequestModal} style={btnSmall}>{t('integrations.common.cancel')}</button>
               <button

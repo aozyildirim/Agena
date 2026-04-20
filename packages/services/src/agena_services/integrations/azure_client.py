@@ -186,6 +186,97 @@ class AzureDevOpsClient:
             patch_resp = await client.patch(url_patch, headers=patch_headers, json=patch_ops)
             patch_resp.raise_for_status()
 
+    async def get_authenticated_user_upn(self, *, cfg: dict[str, str]) -> str | None:
+        """Return the authenticated user's unique name (UPN/email) from Azure DevOps, or None."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat:
+            return None
+        url = f"{org_url.rstrip('/')}/_apis/connectionData?api-version=7.1-preview.1"
+        async with httpx.AsyncClient(timeout=15) as client:
+            try:
+                resp = await client.get(url, headers=self._headers(pat))
+                if resp.status_code != 200:
+                    return None
+                data = resp.json() or {}
+                auth_user = data.get('authenticatedUser') or {}
+                return (
+                    (auth_user.get('properties') or {}).get('Account', {}).get('$value')
+                    or auth_user.get('providerDisplayName')
+                    or None
+                )
+            except Exception:
+                return None
+
+    async def create_work_item(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        title: str,
+        description: str = '',
+        work_item_type: str = 'Task',
+        iteration_path: str | None = None,
+        area_path: str | None = None,
+        assigned_to: str | None = None,
+        tags: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an Azure DevOps work item and return the full response (including id & url)."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        if not project or not title:
+            raise ValueError('project and title are required')
+
+        patch_ops: list[dict[str, Any]] = [
+            {'op': 'add', 'path': '/fields/System.Title', 'value': title[:255]},
+        ]
+        if description:
+            patch_ops.append({'op': 'add', 'path': '/fields/System.Description', 'value': description})
+        if iteration_path:
+            patch_ops.append({'op': 'add', 'path': '/fields/System.IterationPath', 'value': iteration_path})
+        if area_path:
+            patch_ops.append({'op': 'add', 'path': '/fields/System.AreaPath', 'value': area_path})
+        if assigned_to:
+            patch_ops.append({'op': 'add', 'path': '/fields/System.AssignedTo', 'value': assigned_to})
+        if tags:
+            patch_ops.append({'op': 'add', 'path': '/fields/System.Tags', 'value': tags})
+
+        url = (
+            f"{org_url.rstrip('/')}/{project}/_apis/wit/workitems/"
+            f"${work_item_type}?api-version=7.1-preview.3"
+        )
+        headers = {**self._headers(pat), 'Content-Type': 'application/json-patch+json'}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, headers=headers, json=patch_ops)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def get_current_iteration(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        team: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Return the current iteration (sprint) for the given project/team, or None."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project:
+            return None
+        scope = f"{project}/{team}" if team else project
+        url = (
+            f"{org_url.rstrip('/')}/{scope}/_apis/work/teamsettings/iterations"
+            f"?$timeframe=current&api-version=7.1-preview.1"
+        )
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=self._headers(pat))
+            if resp.status_code != 200:
+                return None
+            items = (resp.json() or {}).get('value', []) or []
+            return items[0] if items else None
+
     @staticmethod
     def _format_comment_html(text: str) -> str:
         """Convert plain-text refinement comment to formatted HTML for Azure DevOps."""

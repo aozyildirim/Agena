@@ -193,6 +193,7 @@ class OrchestrationService:
             'source': routing.effective_source,
             'organization_id': organization_id,
             'created_by_user_id': task.created_by_user_id,
+            'external_work_item_id': getattr(task, 'external_work_item_id', None),
         }
 
         state: dict[str, Any] = {}
@@ -1448,9 +1449,14 @@ class OrchestrationService:
         title = str(task.get('title', '') or '')
         desc = str(task.get('description', '') or '')
 
-        # Extract external ID number only (e.g. "Azure #61717" → "61717")
-        ext_match = re.search(r'(?:Azure|Jira|GitHub)\s*#(\d+)', f'{title} {desc}')
-        ext_id = ext_match.group(1) if ext_match else str(task.get('id', 'task'))
+        # Prefer explicitly-linked Azure work item ID (mirror created on import)
+        linked_wi = str(task.get('external_work_item_id') or '').strip()
+        if linked_wi:
+            ext_id = linked_wi
+        else:
+            # Extract external ID number only (e.g. "Azure #61717" → "61717")
+            ext_match = re.search(r'(?:Azure|Jira|GitHub)\s*#(\d+)', f'{title} {desc}')
+            ext_id = ext_match.group(1) if ext_match else str(task.get('id', 'task'))
 
         # Create slug from title (remove [Azure #xxx] prefix, slugify)
         clean_title = re.sub(r'\[.*?#\d+\]\s*', '', title).strip()

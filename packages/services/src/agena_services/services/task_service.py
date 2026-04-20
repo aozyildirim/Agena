@@ -290,7 +290,8 @@ class TaskService:
         since: str = '24 hours ago',
         min_occurrences: int = 1,
         fingerprints: list[str] | None = None,
-    ) -> tuple[int, int]:
+        mirror_target: str | None = None,
+    ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -326,6 +327,7 @@ class TaskService:
 
         imported = 0
         skipped = 0
+        manual_azure_urls: list[str] = []
 
         fp_filter = set(fingerprints) if fingerprints else None
 
@@ -369,11 +371,214 @@ class TaskService:
                     if mapping.repo_mapping_id:
                         task.repo_mapping_id = mapping.repo_mapping_id
                         await self.db.commit()
+
+                    fallback_url = await self._maybe_create_azure_mirror_work_item(
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        task=task,
+                        mirror_target=mirror_target,
+                    )
+                    if fallback_url:
+                        manual_azure_urls.append(fallback_url)
+
                     imported += 1
                 except PermissionError as pe:
                     raise ValueError(f'Task quota exceeded: {pe}') from pe
 
-        return imported, skipped
+        return imported, skipped, manual_azure_urls
+
+    async def _maybe_create_azure_mirror_work_item(
+        self,
+        *,
+        organization_id: int,
+        user_id: int,
+        task: TaskRecord,
+        mirror_target: str | None = None,
+    ) -> str | None:
+        """Returns a pre-filled Azure create URL when the API call fails with 403
+        (permission denied). Returns None otherwise. Caller should open the URL in
+        a new tab as a fallback."""
+        """Mirror the task as an Azure work item (preferred) or a Jira issue so the
+        branch/PR can reference a real tracker ID. Best-effort; failures are logged.
+
+        mirror_target:
+          - 'none' → skip entirely
+          - 'azure' → only attempt Azure (no Jira fallback)
+          - 'jira' → only attempt Jira (skip Azure)
+          - 'both' → attempt Azure and Jira in parallel; Azure ID wins as external_work_item_id
+          - None/'auto' → Azure first, then Jira fallback
+        """
+        target = (mirror_target or 'auto').strip().lower()
+        if target == 'none':
+            return None
+        if self.db is None:
+            return None
+        import logging as _logging
+        logger = _logging.getLogger(__name__)
+        try:
+            from agena_models.models.user_preference import UserPreference
+
+            pref_row = (await self.db.execute(
+                select(UserPreference).where(UserPreference.user_id == user_id)
+            )).scalar_one_or_none()
+            config_service = IntegrationConfigService(self.db)
+
+            azure_succeeded = False
+
+            # 1) Azure mirror (when target='azure', 'both', or 'auto')
+            azure_cfg = await config_service.get_config(organization_id, 'azure')
+            azure_project = ''
+            if pref_row is not None:
+                azure_project = (getattr(pref_row, 'azure_project', '') or '').strip()
+            if target in ('azure', 'both', 'auto') and azure_cfg and azure_cfg.secret and azure_cfg.base_url and azure_project:
+                try:
+                    from agena_services.integrations.azure_client import AzureDevOpsClient
+                    team = (getattr(pref_row, 'azure_team', '') or '').strip() or None
+                    stored_path = (getattr(pref_row, 'azure_sprint_path', '') or '').strip() or None
+                    az_cfg = {'org_url': azure_cfg.base_url, 'pat': azure_cfg.secret}
+                    client = AzureDevOpsClient()
+                    # Always fetch live current iteration (sprints roll over regularly)
+                    iteration_path: str | None = None
+                    try:
+                        current = await client.get_current_iteration(cfg=az_cfg, project=azure_project, team=team)
+                        if current:
+                            iteration_path = str(current.get('path') or '') or None
+                    except Exception:
+                        iteration_path = None
+                    # Fall back to user's last-selected sprint if Azure didn't return one
+                    if not iteration_path:
+                        iteration_path = stored_path
+                    # Derive area path from iteration path: "Project\Team\Sprint" → "Project\Team"
+                    area_path: str | None = None
+                    if iteration_path and '\\' in iteration_path:
+                        area_path = iteration_path.rsplit('\\', 1)[0]
+                    # Resolve PAT owner UPN for AssignedTo (best-effort)
+                    try:
+                        assigned_to = await client.get_authenticated_user_upn(cfg=az_cfg)
+                    except Exception:
+                        assigned_to = None
+                    wi = await client.create_work_item(
+                        cfg=az_cfg,
+                        project=azure_project,
+                        title=task.title or f'Agena task #{task.id}',
+                        description=(task.description or '')[:30000],
+                        work_item_type='Task',
+                        iteration_path=iteration_path,
+                        area_path=area_path,
+                        assigned_to=assigned_to,
+                    )
+                    wi_id = wi.get('id') if isinstance(wi, dict) else None
+                    if wi_id:
+                        task.external_work_item_id = str(wi_id)
+                        await self.db.commit()
+                        azure_succeeded = True
+                        # For target='azure' or 'auto' stop here; 'both' continues to Jira below
+                        if target != 'both':
+                            return None
+                except Exception as exc:
+                    logger.warning('Azure mirror work item creation failed for task #%s: %s', task.id, exc)
+                    reason = str(exc)
+                    is_forbidden = '403' in reason
+                    fallback_url: str | None = None
+                    if is_forbidden:
+                        try:
+                            fallback_url = self._build_azure_create_url(
+                                org_url=azure_cfg.base_url,
+                                project=azure_project,
+                                task=task,
+                                iteration_path=iteration_path,
+                            )
+                        except Exception:
+                            fallback_url = None
+                    hint = (
+                        'Azure PAT lacks Work Items write scope. Opening pre-filled Azure form — save it, then the ID will be auto-linked.'
+                    ) if is_forbidden else f'Azure work item creation failed: {reason[:200]}'
+                    try:
+                        await self.add_log(task.id, organization_id, 'mirror', hint)
+                    except Exception:
+                        pass
+                    if fallback_url and target != 'both':
+                        return fallback_url
+
+            # 2) Jira mirror (target='jira', 'both', or 'auto' fallback when Azure didn't succeed)
+            jira_cfg = await config_service.get_config(organization_id, 'jira')
+            jira_project = ''
+            if pref_row is not None and pref_row.profile_settings_json:
+                try:
+                    import json as _json
+                    ps = _json.loads(pref_row.profile_settings_json) or {}
+                    jira_project = str(ps.get('jira_project') or '').strip()
+                except Exception:
+                    jira_project = ''
+            jira_allowed = (
+                target == 'jira'
+                or target == 'both'
+                or (target == 'auto' and not azure_succeeded)
+            )
+            if jira_allowed and jira_cfg and jira_cfg.secret and jira_cfg.base_url and jira_project:
+                try:
+                    from agena_services.integrations.jira_client import JiraClient
+                    jr_cfg = {
+                        'base_url': jira_cfg.base_url,
+                        'email': jira_cfg.username or '',
+                        'api_token': jira_cfg.secret,
+                    }
+                    issue = await JiraClient().create_issue(
+                        cfg=jr_cfg,
+                        project_key=jira_project,
+                        summary=task.title or f'Agena task #{task.id}',
+                        description=(task.description or '')[:30000],
+                        issue_type='Bug',
+                        labels=['agena-auto'],
+                    )
+                    issue_key = issue.get('key') if isinstance(issue, dict) else None
+                    if issue_key:
+                        # Keep Azure ID as primary when target='both' and Azure succeeded; log Jira key separately
+                        if azure_succeeded and target == 'both':
+                            await self.add_log(
+                                task.id,
+                                organization_id,
+                                'mirror',
+                                f'Jira mirror created: {issue_key} (Azure remains primary for branch naming)',
+                            )
+                        else:
+                            task.external_work_item_id = str(issue_key)
+                            await self.db.commit()
+                        return None
+                except Exception as exc:
+                    logger.warning('Jira mirror issue creation failed for task #%s: %s', task.id, exc)
+                    try:
+                        await self.add_log(
+                            task.id, organization_id, 'mirror',
+                            f'Jira issue creation failed: {str(exc)[:200]}',
+                        )
+                    except Exception:
+                        pass
+        except Exception as exc:
+            logger.warning('Mirror resolution failed for task #%s: %s', task.id, exc)
+        return None
+
+    @staticmethod
+    def _build_azure_create_url(
+        *,
+        org_url: str,
+        project: str,
+        task: 'TaskRecord',
+        iteration_path: str | None = None,
+    ) -> str:
+        """Build a pre-filled Azure DevOps work item create URL (for fallback when API 403s)."""
+        from urllib.parse import quote, urlencode
+        base = org_url.rstrip('/')
+        proj = quote(project, safe='')
+        params: list[tuple[str, str]] = [
+            ('[System.Title]', task.title or f'Agena task #{task.id}'),
+        ]
+        if task.description:
+            params.append(('[System.Description]', (task.description or '')[:30000]))
+        if iteration_path:
+            params.append(('[System.IterationPath]', iteration_path))
+        params.append(('[Microsoft.VSTS.Scheduling.StoryPoints]', '2'))
+        return f'{base}/{proj}/_workitems/create/Task?{urlencode(params, quote_via=quote)}'
 
     async def import_from_sentry(
         self,

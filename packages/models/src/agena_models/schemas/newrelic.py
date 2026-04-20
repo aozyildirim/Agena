@@ -69,3 +69,4 @@ class NewRelicImportRequest(BaseModel):
     since: str = '24 hours ago'
     min_occurrences: int = 1
     fingerprints: list[str] | None = None
+    mirror_target: str | None = None  # 'azure' | 'jira' | 'none' | None (auto)

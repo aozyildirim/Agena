@@ -44,6 +44,7 @@ type TaskDetail = {
   occurrences?: number | null;
   last_seen_at?: string | null;
   first_seen_at?: string | null;
+  external_work_item_id?: string | null;
   repo_assignments?: {
     id: number;
     repo_mapping_id: number;
@@ -267,6 +268,11 @@ export default function TaskDetailPage() {
   const [clockMs, setClockMs] = useState(() => Date.now());
   const [selectedRunIndex, setSelectedRunIndex] = useState<number>(-1); // -1 = latest
   const [terminalAutoScroll, setTerminalAutoScroll] = useState(true);
+  const [azureOrgUrl, setAzureOrgUrl] = useState('');
+  const [azureProject, setAzureProject] = useState('');
+  const [azureSprintPath, setAzureSprintPath] = useState('');
+  const [linkWorkItemInput, setLinkWorkItemInput] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
 
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [logs, setLogs] = useState<TaskLog[]>([]);
@@ -276,6 +282,37 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true);
   const [streamState, setStreamState] = useState<'live' | 'reconnecting' | 'offline'>('offline');
   const hasAnyModalOpen = showRunConfig || Boolean(repoConflict);
+
+  function buildAzureCreateUrl(): string | null {
+    if (!task || !azureOrgUrl || !azureProject) return null;
+    const base = azureOrgUrl.replace(/\/$/, '');
+    const project = encodeURIComponent(azureProject);
+    const params = new URLSearchParams();
+    params.set('[System.Title]', task.title || '');
+    if (task.description) {
+      params.set('[System.Description]', (task.description || '').slice(0, 30000));
+    }
+    if (azureSprintPath) params.set('[System.IterationPath]', azureSprintPath);
+    params.set('[Microsoft.VSTS.Scheduling.StoryPoints]', '2');
+    return `${base}/${project}/_workitems/create/Task?${params.toString()}`;
+  }
+
+  async function linkWorkItem() {
+    if (!task || !linkWorkItemInput.trim()) return;
+    setLinkBusy(true);
+    try {
+      const updated = await apiFetch<TaskDetail>(`/tasks/${task.id}/link-work-item`, {
+        method: 'POST',
+        body: JSON.stringify({ external_work_item_id: linkWorkItemInput.trim() }),
+      });
+      setTask(updated);
+      setLinkWorkItemInput('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Link failed');
+    } finally {
+      setLinkBusy(false);
+    }
+  }
 
   // Lock body scroll while any task-level modal is open
   useEffect(() => {
@@ -287,12 +324,20 @@ export default function TaskDetailPage() {
 
   async function loadData() {
     try {
-      const [taskData, logsData, runsData, taskList] = await Promise.all([
+      const [taskData, logsData, runsData, taskList, prefs, integrations] = await Promise.all([
         apiFetch<TaskDetail>('/tasks/' + taskId),
         apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs'),
         apiFetch<RunInfo[]>('/tasks/' + taskId + '/runs').catch(() => [] as RunInfo[]),
         apiFetch<DependencyTaskOption[]>('/tasks'),
+        apiFetch<{ azure_project?: string | null; azure_sprint_path?: string | null }>('/preferences').catch(() => null),
+        apiFetch<Array<{ provider: string; base_url: string }>>('/integrations').catch(() => [] as Array<{ provider: string; base_url: string }>),
       ]);
+      if (prefs) {
+        setAzureProject(prefs.azure_project || '');
+        setAzureSprintPath(prefs.azure_sprint_path || '');
+      }
+      const azCfg = (integrations || []).find((c) => c.provider === 'azure');
+      setAzureOrgUrl(azCfg?.base_url || '');
       setTask(taskData);
       setLogs(logsData);
       setRuns(runsData);
@@ -803,12 +848,70 @@ export default function TaskDetailPage() {
                     {t('tasks.firstSeen') || 'First seen'}: {new Date(task.first_seen_at).toLocaleString()}
                   </span>
                 )}
+                {task.external_work_item_id && (
+                  azureOrgUrl && azureProject && /^\d+$/.test(task.external_work_item_id) ? (
+                    <a
+                      href={`${azureOrgUrl.replace(/\/$/, '')}/${encodeURIComponent(azureProject)}/_workitems/edit/${task.external_work_item_id}`}
+                      target='_blank'
+                      rel='noreferrer'
+                      style={{
+                        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                        background: 'rgba(96,165,250,0.12)', color: '#60a5fa', textDecoration: 'none',
+                      }}
+                    >
+                      AB#{task.external_work_item_id} ↗
+                    </a>
+                  ) : (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                      background: 'rgba(96,165,250,0.12)', color: '#60a5fa',
+                    }}>
+                      {/^\d+$/.test(task.external_work_item_id)
+                        ? `AB#${task.external_work_item_id}`
+                        : task.external_work_item_id}
+                    </span>
+                  )
+                )}
                 {(task.preferred_agent_provider || task.preferred_agent_model) ? (
                   <span style={{ color: 'var(--ink-50)', fontSize: 13 }}>
                     {t('agents.provider')}: {task.preferred_agent_provider || '—'} | {t('agents.model')}: {task.preferred_agent_model || '—'}
                   </span>
                 ) : null}
               </div>
+
+              {!task.external_work_item_id && (task.source === 'newrelic' || task.source === 'sentry') && azureOrgUrl && azureProject && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 10px', borderRadius: 8, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
+                  <span style={{ fontSize: 11, color: 'var(--ink-50)', fontWeight: 600 }}>
+                    {t('taskDetail.noWorkItemHint') || 'No linked work item. Create one in Azure or paste an existing ID:'}
+                  </span>
+                  {buildAzureCreateUrl() && (
+                    <a
+                      href={buildAzureCreateUrl()!}
+                      target='_blank'
+                      rel='noreferrer'
+                      style={{
+                        fontSize: 11, padding: '5px 10px', borderRadius: 6,
+                        background: '#60a5fa', color: '#001', textDecoration: 'none', fontWeight: 700,
+                      }}
+                    >
+                      {t('taskDetail.openInAzure') || 'Open in Azure (prefilled)'} ↗
+                    </a>
+                  )}
+                  <input
+                    value={linkWorkItemInput}
+                    onChange={(e) => setLinkWorkItemInput(e.target.value)}
+                    placeholder={t('taskDetail.pasteWorkItemId') || 'Azure ID (e.g. 61717)'}
+                    style={{ padding: '5px 10px', borderRadius: 6, fontSize: 11, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', width: 140 }}
+                  />
+                  <button
+                    onClick={() => void linkWorkItem()}
+                    disabled={linkBusy || !linkWorkItemInput.trim()}
+                    style={{ padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid var(--panel-border)', background: 'var(--glass)', color: 'var(--ink)', cursor: 'pointer' }}
+                  >
+                    {linkBusy ? '...' : (t('taskDetail.linkWorkItem') || 'Link')}
+                  </button>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 <button className='button button-primary' onClick={handleRunClick} disabled={isRerunBusy} style={{ flex: 1 }}>
                   {isRerunBusy ? t('taskDetail.rerunning') : t('taskDetail.rerunTask')}

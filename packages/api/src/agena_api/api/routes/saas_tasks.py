@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,6 +92,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         first_seen_at=getattr(task, 'first_seen_at', None),
         last_seen_at=getattr(task, 'last_seen_at', None),
         occurrences=getattr(task, 'occurrences', None),
+        external_work_item_id=getattr(task, 'external_work_item_id', None),
         status=task.status,
         pr_url=task.pr_url,
         branch_name=task.branch_name,
@@ -320,14 +322,16 @@ async def import_newrelic_errors(
 ) -> ImportTasksResponse:
     service = TaskService(db)
     try:
-        imported, skipped = await service.import_from_newrelic(
+        result = await service.import_from_newrelic(
             tenant.organization_id,
             tenant.user_id,
             entity_guid=request.entity_guid,
             since=request.since,
             min_occurrences=request.min_occurrences,
             fingerprints=request.fingerprints,
+            mirror_target=request.mirror_target,
         )
+        imported, skipped, manual_urls = result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
@@ -345,7 +349,7 @@ async def import_newrelic_errors(
         raise HTTPException(status_code=502, detail=f'New Relic request failed ({exc.response.status_code})') from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f'New Relic connection failed: {exc}') from exc
-    return ImportTasksResponse(imported=imported, skipped=skipped)
+    return ImportTasksResponse(imported=imported, skipped=skipped, manual_azure_urls=manual_urls)
 
 
 @router.post('/import/sentry', response_model=ImportTasksResponse)
@@ -476,6 +480,27 @@ async def update_task(
         task.max_tokens = max(1, payload.max_tokens) if payload.max_tokens > 0 else None
     if payload.max_cost_usd is not None:
         task.max_cost_usd = payload.max_cost_usd if payload.max_cost_usd > 0 else None
+    await db.commit()
+    return await _to_task_response(service, tenant.organization_id, task)
+
+
+class LinkWorkItemRequest(BaseModel):
+    external_work_item_id: str | None = None
+
+
+@router.post('/{task_id}/link-work-item', response_model=TaskResponse)
+async def link_work_item(
+    task_id: int,
+    payload: LinkWorkItemRequest,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> TaskResponse:
+    service = TaskService(db)
+    task = await service.get_task(tenant.organization_id, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+    value = (payload.external_work_item_id or '').strip() or None
+    task.external_work_item_id = value
     await db.commit()
     return await _to_task_response(service, tenant.organization_id, task)
 

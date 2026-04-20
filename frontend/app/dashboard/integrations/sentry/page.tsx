@@ -464,12 +464,12 @@ export default function SentryPage() {
             style={{
               position: 'fixed',
               top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              background: '#0f1115', border: '1px solid var(--panel-border)', borderRadius: 14,
+              background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14,
               width: 'min(760px, calc(100vw - 32px))',
               maxWidth: 'calc(100vw - 32px)',
               height: 'min(80vh, 720px)',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.55)', color: 'var(--ink)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.35)', color: 'var(--ink)',
               boxSizing: 'border-box',
             }}
           >
@@ -527,7 +527,7 @@ export default function SentryPage() {
                         alignItems: 'start',
                         width: '100%', boxSizing: 'border-box',
                         padding: '10px 12px', borderRadius: 10, marginBottom: 6,
-                        background: isSelected ? 'rgba(28,231,131,0.10)' : 'rgba(255,255,255,0.03)',
+                        background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
                         border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
                         cursor: 'pointer',
                       }}

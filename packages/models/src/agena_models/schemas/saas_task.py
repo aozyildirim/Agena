@@ -44,6 +44,7 @@ class TaskResponse(BaseModel):
     first_seen_at: datetime | None = None
     last_seen_at: datetime | None = None
     occurrences: int | None = None
+    external_work_item_id: str | None = None
     status: str
     pr_url: str | None = None
     branch_name: str | None = None
@@ -109,6 +110,7 @@ class TaskLogItem(BaseModel):
 class ImportTasksResponse(BaseModel):
     imported: int
     skipped: int
+    manual_azure_urls: list[str] = Field(default_factory=list)
 
 
 class AzureImportRequest(BaseModel):
@@ -130,6 +132,7 @@ class NewRelicImportRequest(BaseModel):
     since: str = '24 hours ago'
     min_occurrences: int = 1
     fingerprints: list[str] | None = None
+    mirror_target: str | None = None  # 'azure' | 'jira' | 'none' | None (auto)
 
 
 class SentryImportRequest(BaseModel):

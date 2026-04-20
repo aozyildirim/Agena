@@ -37,6 +37,7 @@ class TaskRecord(Base):
     first_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     occurrences: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    external_work_item_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     sprint_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sprint_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

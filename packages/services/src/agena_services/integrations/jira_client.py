@@ -278,6 +278,38 @@ class JiraClient:
                 response = await client.post(comment_url, json=comment_payload, auth=(email, api_token))
                 response.raise_for_status()
 
+    async def create_issue(
+        self,
+        *,
+        cfg: dict[str, str] | None,
+        project_key: str,
+        summary: str,
+        description: str = '',
+        issue_type: str = 'Bug',
+        labels: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a Jira issue and return the response (includes id + key)."""
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(project_key or '').strip()
+        if not base_url or not key or not summary:
+            raise ValueError('Jira base_url, project_key and summary are required')
+
+        fields: dict[str, Any] = {
+            'project': {'key': key},
+            'summary': summary[:255],
+            'issuetype': {'name': issue_type or 'Bug'},
+        }
+        if description:
+            fields['description'] = self._format_comment_adf(description)
+        if labels:
+            fields['labels'] = [str(lbl) for lbl in labels if lbl]
+
+        url = f"{base_url.rstrip('/')}/rest/api/3/issue"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, json={'fields': fields}, auth=(email, api_token))
+            resp.raise_for_status()
+            return resp.json()
+
     async def add_label_to_issue(
         self,
         *,
