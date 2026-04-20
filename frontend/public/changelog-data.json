@@ -1,5 +1,13 @@
 [
   {
+    "hash": "0ffddad",
+    "short": "0ffddad",
+    "message": "x402: emit V2 (CAIP-2 network, payToAddress/assetAddress, x402Version: 2)",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "8f0b048",
     "short": "8f0b048",
     "message": "Fix agent-readiness validator failures (ACP, UCP, x402, OAPR)",
@@ -787,14 +795,6 @@
     "hash": "84977f7",
     "short": "84977f7",
     "message": "Redesign integrations cards with new panel layout",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "08f13b4",
-    "short": "08f13b4",
-    "message": "Fix task modals to stay centered and lock page scroll",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
     "type": "other"
