@@ -1035,7 +1035,9 @@
   "nav.profile": "个人资料",
   "profile.section": "个人资料",
   "profile.title": "账户设置",
-  "profile.subtitle": "更改 Sprint 选择并查看账户信息",
+  "profile.subtitle": "管理账户偏好和通知设置",
+  "profile.activeSprintMoved": "活跃 Sprint 现已移至顶部",
+  "profile.activeSprintMovedDesc": "使用顶部的 Sprint 切换器即可在任何页面切换 Azure 或 Jira 活跃 Sprint。",
   "profile.logout": "退出登录",
   "profile.azureActiveSprint": "Azure 当前 Sprint",
   "profile.jiraActiveSprint": "Jira 当前 Sprint",
@@ -2580,5 +2582,11 @@
   "nav.bitbucket": "Bitbucket",
   "nav.gitlab": "GitLab",
   "nav.datadog": "Datadog",
-  "nav.appdynamics": "AppDynamics"
+  "nav.appdynamics": "AppDynamics",
+  "sprintSwitcher.title": "活跃 Sprint",
+  "sprintSwitcher.noSprint": "未选择 Sprint",
+  "sprintSwitcher.apply": "应用",
+  "sprintSwitcher.openBoard": "Sprint 看板",
+  "sprintSwitcher.tooltip": "切换活跃 Sprint",
+  "sprintSwitcher.jiraNotConnected": "Jira 未连接。请到集成页面连接。"
 }

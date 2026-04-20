@@ -1035,7 +1035,9 @@
   "nav.profile": "Profil",
   "profile.section": "Profil",
   "profile.title": "Kontoeinstellungen",
-  "profile.subtitle": "Sprint-Auswahl ändern und Kontoinformationen ansehen",
+  "profile.subtitle": "Kontoeinstellungen und Benachrichtigungen verwalten",
+  "profile.activeSprintMoved": "Der aktive Sprint befindet sich jetzt oben",
+  "profile.activeSprintMovedDesc": "Nutze den Sprint-Umschalter oben auf jeder Seite, um deinen aktiven Azure- oder Jira-Sprint zu wechseln.",
   "profile.logout": "Abmelden",
   "profile.azureActiveSprint": "Aktiver Azure-Sprint",
   "profile.jiraActiveSprint": "Aktiver Jira-Sprint",
@@ -2580,5 +2582,11 @@
   "nav.bitbucket": "Bitbucket",
   "nav.gitlab": "GitLab",
   "nav.datadog": "Datadog",
-  "nav.appdynamics": "AppDynamics"
+  "nav.appdynamics": "AppDynamics",
+  "sprintSwitcher.title": "Aktiver Sprint",
+  "sprintSwitcher.noSprint": "Kein Sprint ausgewählt",
+  "sprintSwitcher.apply": "Anwenden",
+  "sprintSwitcher.openBoard": "Sprint-Board",
+  "sprintSwitcher.tooltip": "Aktiven Sprint wechseln",
+  "sprintSwitcher.jiraNotConnected": "Jira nicht verbunden. Verbinde es in den Integrationen."
 }

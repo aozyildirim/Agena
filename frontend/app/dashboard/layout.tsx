@@ -8,6 +8,7 @@ import OnboardingModal from '@/components/OnboardingModal';
 import WebPushBridge from '@/components/WebPushBridge';
 import LangToggle from '@/components/LangToggle';
 import GuidedTour from '@/components/GuidedTour';
+import SprintSwitcher from '@/components/SprintSwitcher';
 import { useLocale } from '@/lib/i18n';
 import { RoleContext, canAccess, type Role } from '@/lib/rbac';
 import { WebSocketProvider } from '@/lib/useWebSocket';
@@ -718,6 +719,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
         padding: '0 20px', gap: 8,
         transition: 'left 0.2s ease',
       }}>
+        {/* Active sprint switcher — gated on sprints module */}
+        {!isPlatformAdmin && enabledModules?.has('sprints') && <SprintSwitcher />}
+
         {/* Usage link */}
         <Link href='/dashboard/usage' title={navTooltip('nav.usage')} data-tour={tourAttr('nav.usage')} style={{
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -433,7 +433,9 @@
   "signup.slugAvailable": "Kullanılabilir",
   "profile.section": "Profil",
   "profile.title": "Hesap Ayarları",
-  "profile.subtitle": "Sprint seçimini değiştir, hesap bilgilerini gör",
+  "profile.subtitle": "Hesap tercihlerini ve bildirimlerini yönet",
+  "profile.activeSprintMoved": "Aktif sprint artık üst menüden değiştiriliyor",
+  "profile.activeSprintMovedDesc": "Sağ üstteki sprint seçiciyi kullanarak Azure veya Jira sprint'ini her sayfadan değiştirebilirsin.",
   "profile.logout": "Çıkış Yap",
   "profile.activeSprint": "Aktif Sprint",
   "profile.azureActiveSprint": "Azure Aktif Sprint",
@@ -2601,5 +2603,11 @@
   "nav.bitbucket": "Bitbucket",
   "nav.gitlab": "GitLab",
   "nav.datadog": "Datadog",
-  "nav.appdynamics": "AppDynamics"
+  "nav.appdynamics": "AppDynamics",
+  "sprintSwitcher.title": "Aktif Sprint",
+  "sprintSwitcher.noSprint": "Sprint seçilmedi",
+  "sprintSwitcher.apply": "Uygula",
+  "sprintSwitcher.openBoard": "Sprint Panosu",
+  "sprintSwitcher.tooltip": "Aktif sprint'i değiştir",
+  "sprintSwitcher.jiraNotConnected": "Jira bağlı değil. Entegrasyonlardan bağla."
 }

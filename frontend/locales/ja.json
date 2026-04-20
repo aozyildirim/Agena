@@ -1035,7 +1035,9 @@
   "nav.profile": "プロフィール",
   "profile.section": "プロフィール",
   "profile.title": "アカウント設定",
-  "profile.subtitle": "Sprint の選択変更とアカウント情報の確認",
+  "profile.subtitle": "アカウント設定と通知を管理",
+  "profile.activeSprintMoved": "アクティブスプリントは上部に移動しました",
+  "profile.activeSprintMovedDesc": "ページ上部のスプリント切替を使って、Azure または Jira のアクティブスプリントをどこからでも変更できます。",
   "profile.logout": "サインアウト",
   "profile.azureActiveSprint": "Azure アクティブ Sprint",
   "profile.jiraActiveSprint": "Jira アクティブ Sprint",
@@ -2580,5 +2582,11 @@
   "nav.bitbucket": "Bitbucket",
   "nav.gitlab": "GitLab",
   "nav.datadog": "Datadog",
-  "nav.appdynamics": "AppDynamics"
+  "nav.appdynamics": "AppDynamics",
+  "sprintSwitcher.title": "アクティブスプリント",
+  "sprintSwitcher.noSprint": "スプリント未選択",
+  "sprintSwitcher.apply": "適用",
+  "sprintSwitcher.openBoard": "スプリントボード",
+  "sprintSwitcher.tooltip": "アクティブスプリントを切替",
+  "sprintSwitcher.jiraNotConnected": "Jira が未接続です。連携ページから接続してください。"
 }
