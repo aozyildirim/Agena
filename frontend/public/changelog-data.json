@@ -1,5 +1,61 @@
 [
   {
+    "hash": "5617c8a",
+    "short": "5617c8a",
+    "message": "Add update.sh: smart pull + minimal-action redeploy",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "8d7235a",
+    "short": "8d7235a",
+    "message": "Theme-aware sprint switcher colors — readable in light mode",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "5e386ac",
+    "short": "5e386ac",
+    "message": "Mark already-imported items + link to linked work item in Request modals",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "af8720a",
+    "short": "af8720a",
+    "message": "Extend mirror to Sentry/Datadog/AppDynamics; link Azure work item to PR",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "3f34f07",
+    "short": "3f34f07",
+    "message": "Auto-mirror NR tasks to Azure work item + link ID; fix PR branch to use work item ID",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "6407797",
+    "short": "6407797",
+    "message": "Fix: propagate created_by_user_id into PR payload so branch template reads profile",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "66af078",
+    "short": "66af078",
+    "message": "Add Request modal, mobile + i18n polish, AI tag, host-only CLI bridge",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
     "hash": "b6a40cb",
     "short": "b6a40cb",
     "message": "x402: emit canonical Coinbase v1 body shape (asset as contract address)",
@@ -739,62 +795,6 @@
     "hash": "74ec0b4",
     "short": "74ec0b4",
     "message": "Support Claude code entry flow via PTY login bridge",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "e8b9679",
-    "short": "e8b9679",
-    "message": "Stabilize Claude bridge login flow and restore callback URL completion UI",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "bfb8dd8",
-    "short": "bfb8dd8",
-    "message": "Switch Claude login UI to code-only completion flow",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "2b56b04",
-    "short": "2b56b04",
-    "message": "Add Claude callback URL completion UI and localhost/127 callback port detection",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "7639b71",
-    "short": "7639b71",
-    "message": "Fix Claude re-auth flow, popup login trigger, and 401 error handling",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "deb9160",
-    "short": "deb9160",
-    "message": "Fix Claude CLI login/auth detection in bridge and service",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "c7f34f9",
-    "short": "c7f34f9",
-    "message": "Report CLI auth failures explicitly in task failure reason",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "84977f7",
-    "short": "84977f7",
-    "message": "Redesign integrations cards with new panel layout",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
     "type": "feat"

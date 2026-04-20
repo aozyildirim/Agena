@@ -1,10 +1,9 @@
 #!/bin/bash
 # Start Agena development environment
-# Docker: mysql, redis, qdrant, backend, worker, frontend (dev)
+# Docker: mysql, redis, qdrant, backend, worker, frontend_blue, frontend_green
 # Local:  CLI bridge (codex/claude run natively on host)
 #
 # Ports:
-#   3010  Frontend (dev)
 #   3011  Frontend Blue (prod)
 #   3012  Frontend Green (prod)
 #   8010  Backend API
@@ -30,7 +29,8 @@ check_port() {
 
 echo "=== Checking ports ==="
 CONFLICT=0
-check_port 3010 "Frontend"   || CONFLICT=1
+check_port 3011 "Frontend Blue"  || CONFLICT=1
+check_port 3012 "Frontend Green" || CONFLICT=1
 check_port 8010 "Backend"    || CONFLICT=1
 check_port 9876 "CLI Bridge" || CONFLICT=1
 check_port 3307 "MySQL"      || CONFLICT=1
@@ -47,8 +47,8 @@ echo ""
 
 # ── Docker services ──────────────────────────────────────────────────
 echo "=== Starting Docker services ==="
-# Exclude cli-bridge (runs on host) and blue/green (production only)
-docker-compose up -d --build mysql redis qdrant backend worker frontend 2>&1 | grep -v "obsolete" || true
+# Exclude cli-bridge (runs on host) and dev frontend (port 3010 used by other project)
+docker-compose up -d --build mysql redis qdrant backend worker frontend_blue frontend_green 2>&1 | grep -v "obsolete" || true
 echo ""
 
 echo "=== Waiting for MySQL ==="
@@ -94,7 +94,7 @@ echo "  Health: $HEALTH"
 echo ""
 echo "=== Agena is running ==="
 echo ""
-echo "  Frontend:  http://localhost:3010"
+echo "  Frontend:  http://localhost:3011 (blue) / http://localhost:3012 (green)"
 echo "  API:       http://localhost:8010"
 echo "  API Docs:  http://localhost:8010/docs"
 echo "  Bridge:    http://localhost:9876"
