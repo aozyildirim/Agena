@@ -1,11 +1,163 @@
 [
   {
+    "hash": "f6e403a",
+    "short": "f6e403a",
+    "message": "Move active sprint selector from profile page to global header",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "c3deb25",
+    "short": "c3deb25",
+    "message": "Raise git diff timeout and add git status fallback for large repos",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b098abf",
+    "short": "b098abf",
+    "message": "Fix imported-state hydration to match tasks created via POST /tasks",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "d753772",
+    "short": "d753772",
+    "message": "Hydrate imported work items from DB on Team page load",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "db45c65",
+    "short": "db45c65",
+    "message": "Add work item import and Azure/Jira deep-link to Team page",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "2bccddf",
+    "short": "2bccddf",
+    "message": "Skip Sentry webpack wrap in dev mode",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "d841566",
+    "short": "d841566",
+    "message": "Fix AppDynamics: add username field, register provider, Basic auth",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "5ba2fb3",
+    "short": "5ba2fb3",
+    "message": "Add AppDynamics integration: import errors, dedicated page, full pipeline",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "4f38f54",
+    "short": "4f38f54",
+    "message": "Add GitLab, Bitbucket, Datadog to modules migration seed data",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "ba32b8e",
+    "short": "ba32b8e",
+    "message": "Add Datadog dedicated page with issue browser and import",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "feeb236",
+    "short": "feeb236",
+    "message": "Add Datadog integration: import errors, create tasks, auto-fix",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "9ecb57a",
+    "short": "9ecb57a",
+    "message": "Remove GitLab/Bitbucket from sidebar nav (no dedicated pages)",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "35dcdc4",
+    "short": "35dcdc4",
+    "message": "Add nav.bitbucket and nav.gitlab i18n keys for all 7 languages",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "e64c1f7",
+    "short": "e64c1f7",
+    "message": "Add GitLab and Bitbucket integrations (working PR creation)",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b4c9d63",
+    "short": "b4c9d63",
+    "message": "Remove PHP-specific file derivation, strengthen NR/Sentry prompts",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "43cd2fe",
+    "short": "43cd2fe",
+    "message": "Derive file path from NR transaction name for targeted prompt",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "507ac5f",
+    "short": "507ac5f",
+    "message": "Fetch stack trace from NewRelic NRQL and include in task description",
+    "date": "2026-04-17",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "3dca825",
+    "short": "3dca825",
+    "message": "Run blue/green frontend in production mode (next start)",
+    "date": "2026-04-17",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "3bcd321",
     "short": "3bcd321",
     "message": "Fix sidebar showing disabled-module menus on initial render",
     "date": "2026-04-17",
     "author": "root",
-    "type": "fix"
+    "type": "other"
+  },
+  {
+    "hash": "5cf761f",
+    "short": "5cf761f",
+    "message": "Merge feature/modular-architecture: modules system + migration",
+    "date": "2026-04-17",
+    "author": "root",
+    "type": "other"
   },
   {
     "hash": "fee132b",
@@ -13,7 +165,7 @@
     "message": "Add alembic migration for modules system",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "ee81261",
@@ -21,7 +173,7 @@
     "message": "Add ? help modal to modules page + permissions module",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "34d2d2a",
@@ -29,7 +181,7 @@
     "message": "Add HAL, Playbook, Slack, Teams, Telegram as separate modules",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "f6788a0",
@@ -37,7 +189,7 @@
     "message": "Hide disabled modules from integrations + fix instant sidebar update",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "51f78e8",
@@ -45,7 +197,7 @@
     "message": "Add Boss Mode as toggleable module",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "d3b0856",
@@ -61,7 +213,7 @@
     "message": "Add Modules management page with toggle UI",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "5afb21c",
@@ -77,7 +229,7 @@
     "message": "Add modular architecture: org-level module toggle system",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "d603c16",
@@ -85,7 +237,7 @@
     "message": "Update README: start.sh, host CLI bridge, Sentry/NR endpoints",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "docs"
+    "type": "other"
   },
   {
     "hash": "929374d",
@@ -93,7 +245,7 @@
     "message": "Fix: generate unique external_id for internal tasks",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "c5cc7fb",
@@ -109,7 +261,7 @@
     "message": "Add SENTRY_FIX_PROMPT and NEWRELIC_FIX_PROMPT to Prompt Studio",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "beb05c3",
@@ -117,7 +269,7 @@
     "message": "Add Sentry Developer and New Relic Developer default agents",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "841b643",
@@ -125,7 +277,7 @@
     "message": "Add targeted Sentry/NewRelic prompts: inject file content, skip repo scan",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "149ee21",
@@ -133,7 +285,7 @@
     "message": "Fix: always create branch and push even without explicit remote_url",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "b194ff9",
@@ -141,7 +293,7 @@
     "message": "Fix body scroll lock: cover all modals in task detail page",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "b692102",
@@ -149,7 +301,7 @@
     "message": "Add stream kill on task cancel: bridge kills CLI process immediately",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "f131ce4",
@@ -173,7 +325,7 @@
     "message": "Fix UnboundLocalError: remove redundant IntegrationConfigService import",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "e2fca72",
@@ -181,7 +333,7 @@
     "message": "Fix Codex stream: parse item.started for live tool calls",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "403b5cb",
@@ -189,7 +341,7 @@
     "message": "Fix Sentry auto-import: use org owner as import user",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "4e30d40",
@@ -197,7 +349,7 @@
     "message": "Fix Sentry auto-import: use real org admin user_id instead of 0",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "5c6f3c9",
@@ -213,7 +365,7 @@
     "message": "Fix Codex stream: parse item.completed events for text and tool output",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "2476e7b",
@@ -221,7 +373,7 @@
     "message": "Fix Codex stream error detection: surface error/turn.failed as proper error events",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "161f99b",
@@ -229,7 +381,7 @@
     "message": "Fix Codex stream retry: detect unsupported model from stderr",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "882dc8d",
@@ -237,7 +389,7 @@
     "message": "Move repo conflict modal to createPortal(document.body)",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "docs"
+    "type": "other"
   },
   {
     "hash": "349139e",
@@ -253,7 +405,7 @@
     "message": "Add Codex CLI streaming: real-time logs like Claude CLI",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "1737716",
@@ -269,7 +421,7 @@
     "message": "Add unsupported model retry to Codex bridge path",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "4c72095",
@@ -277,7 +429,7 @@
     "message": "Fix Codex CLI ChatGPT fallback: use None (CLI default) instead of gpt-4o",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "df35869",
@@ -285,7 +437,7 @@
     "message": "Fix office modal overflow: minWidth:0 on all flex children, compact cards",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "a1b7629",
@@ -293,7 +445,7 @@
     "message": "Fix office modal overflow: use grid layout to prevent child overflow",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "e659751",
@@ -301,7 +453,7 @@
     "message": "Fix office modal: center when short, scroll backdrop when tall",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "fffc827",
@@ -309,7 +461,7 @@
     "message": "Fix office modal bottom cutoff: scroll on backdrop instead of modal",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "636383f",
@@ -325,7 +477,7 @@
     "message": "Fix office modal horizontal overflow on model/provider selector",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "a350463",
@@ -333,7 +485,7 @@
     "message": "Fix: prefill custom model field for codex_cli/claude_cli providers",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "7547284",
@@ -341,7 +493,7 @@
     "message": "Fix agent creation: pass updated config directly instead of stale draft",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "c170f15",
@@ -349,7 +501,7 @@
     "message": "Make migration idempotent and fix docker-compose for v1.25 compat",
     "date": "2026-04-16",
     "author": "root",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "482ec60",
@@ -365,7 +517,7 @@
     "message": "Add alembic migration for priority + sentry enrichment fields",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "a232ad2",
@@ -373,7 +525,7 @@
     "message": "Fix syntax error in sentry_client.py: stray bracket",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "05e117f",
@@ -389,7 +541,7 @@
     "message": "Add Sentry integration docs to CLAUDE.md",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "8095980",
@@ -397,7 +549,7 @@
     "message": "Auto-resolve Sentry issues when PR is merged",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "88a637b",
@@ -413,7 +565,7 @@
     "message": "Highlight resolved Sentry tasks with purple left border",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "03d227f",
@@ -421,7 +573,7 @@
     "message": "Fix Sentry resolve button: apiFetch returns parsed JSON, not Response",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "41dfef1",
@@ -429,7 +581,7 @@
     "message": "Add Sentry resolve/unresolve from task list",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "62215e9",
@@ -445,7 +597,7 @@
     "message": "Add task priority field, fix Azure PR reuse, deduplicate Sentry imports",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "42e6e54",
@@ -469,7 +621,7 @@
     "message": "Reorganize sidebar nav: cleaner groups, fewer top-level items",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "refactor"
+    "type": "other"
   },
   {
     "hash": "76b65b5",
@@ -477,7 +629,7 @@
     "message": "Run CLI bridge on host for reliable Claude auth, fix Docker fallback detection",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "84bb5ec",
@@ -501,7 +653,7 @@
     "message": "Fix Claude auth-login session dropping by avoiding PTY wrapper",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "bd5ab50",
@@ -517,7 +669,7 @@
     "message": "Add optional Claude code fallback on integrations sign-in",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "0e25774",
@@ -565,7 +717,7 @@
     "message": "Support Claude code entry flow via PTY login bridge",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "e8b9679",
@@ -589,7 +741,7 @@
     "message": "Add Claude callback URL completion UI and localhost/127 callback port detection",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "7639b71",
@@ -597,7 +749,7 @@
     "message": "Fix Claude re-auth flow, popup login trigger, and 401 error handling",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "deb9160",
@@ -605,7 +757,7 @@
     "message": "Fix Claude CLI login/auth detection in bridge and service",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "c7f34f9",
@@ -621,7 +773,7 @@
     "message": "Redesign integrations cards with new panel layout",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "feat"
+    "type": "other"
   },
   {
     "hash": "08f13b4",
@@ -629,7 +781,7 @@
     "message": "Fix task modals to stay centered and lock page scroll",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "fix"
+    "type": "other"
   },
   {
     "hash": "82d593e",
@@ -646,157 +798,5 @@
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
     "type": "other"
-  },
-  {
-    "hash": "1b1b706",
-    "short": "1b1b706",
-    "message": "Update landing monitoring title to include Sentry",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "9e95139",
-    "short": "9e95139",
-    "message": "Polish integrations UI and add Sentry to landing",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "4efda36",
-    "short": "4efda36",
-    "message": "Add NewRelic-style Sentry mapping/import flow and auto-polling",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "abd9fe7",
-    "short": "abd9fe7",
-    "message": "Add Sentry integration and issue import flow",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "600afdb",
-    "short": "600afdb",
-    "message": "Harden frontend Sentry setup and auto-install deps in compose",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "afd9c0f",
-    "short": "afd9c0f",
-    "message": "Prevent frontend crash when @sentry/nextjs is unavailable",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "dec7457",
-    "short": "dec7457",
-    "message": "Update frontend lockfile for Sentry Next.js dependency",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "6da0393",
-    "short": "6da0393",
-    "message": "Add env-driven Sentry setup for Next.js frontend",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "4c07878",
-    "short": "4c07878",
-    "message": "Add env-driven Sentry integration for API and worker",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "ec925ac",
-    "short": "ec925ac",
-    "message": "Retry CLI generation with strict file-block format when output is unstructured",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "8ea4bd3",
-    "short": "8ea4bd3",
-    "message": "Avoid lock hot-loop; backoff and keep queued on repo lock",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3753249",
-    "short": "3753249",
-    "message": "Add transient auto-retry and clearer task failure source",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "c5b191b",
-    "short": "c5b191b",
-    "message": "Fix task modals layering and force-queue flow assigns",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "16aaf5e",
-    "short": "16aaf5e",
-    "message": "handle \"already running\" + REPO_CONFLICT with confirm queue dialog",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "42f6cd5",
-    "short": "42f6cd5",
-    "message": "use native confirm() for repo conflict dialog",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "2d8588a",
-    "short": "2d8588a",
-    "message": "conflict modal with all:initial CSS reset + documentElement append",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "3e43bf3",
-    "short": "3e43bf3",
-    "message": "use absolute positioning with scrollY for conflict modal",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "ee550b2",
-    "short": "ee550b2",
-    "message": "use imperative DOM modal for repo conflict dialog",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "38eb2b4",
-    "short": "38eb2b4",
-    "message": "scroll to top when conflict modal opens",
-    "date": "2026-04-15",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
   }
 ]

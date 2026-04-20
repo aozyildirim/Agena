@@ -9,6 +9,7 @@ import WebVitals from '@/components/WebVitals';
 import CookieConsent from '@/components/CookieConsent';
 import BackToTop from '@/components/BackToTop';
 import PageTransition from '@/components/PageTransition';
+import WebMCP from '@/components/WebMCP';
 
 const SITE_URL = 'https://agena.dev';
 
@@ -382,6 +383,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GoogleAnalytics />
         <MicrosoftClarity />
         <WebVitals />
+        <WebMCP />
         <Navbar />
         <main>
           <PageTransition>{children}</PageTransition>
