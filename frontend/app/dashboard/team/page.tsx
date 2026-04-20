@@ -162,10 +162,13 @@ export default function TeamPage() {
     let cancelled = false;
     const run = async () => {
       try {
-        const sourceKey = provider === 'jira' ? 'jira' : 'azure';
+        // Import helper stores origin as a title prefix ("[Azure #12345] ...").
+        // Tasks created via direct POST /tasks are source='internal', so filter
+        // on the prefix via q= instead of source= to catch all imported items.
+        const prefix = provider === 'jira' ? '[Jira #' : '[Azure #';
         type SearchRes = { items: Array<{ id: number; title: string }> };
         const res = await apiFetch<SearchRes>(
-          '/tasks/search?source=' + sourceKey + '&page_size=100',
+          '/tasks/search?q=' + encodeURIComponent(prefix) + '&page_size=100',
         );
         if (cancelled) return;
         const map: Record<string, number> = {};
