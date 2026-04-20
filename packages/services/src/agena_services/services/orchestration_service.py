@@ -1518,18 +1518,31 @@ class OrchestrationService:
         try:
             # Set safe.directory to avoid "dubious ownership" errors in Docker
             git_env = {**__import__('os').environ, 'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'safe.directory', 'GIT_CONFIG_VALUE_0': str(repo)}
-            # Get list of changed and untracked files
+            # Get list of changed and untracked files.
+            # Large repos (e.g. FLO webservice) can take >15s on cold cache; 120s is safe.
             diff_result = subprocess.run(
                 ['git', 'diff', '--name-only'],
-                cwd=str(repo), capture_output=True, text=True, timeout=15, env=git_env,
+                cwd=str(repo), capture_output=True, text=True, timeout=120, env=git_env,
             )
             untracked_result = subprocess.run(
                 ['git', 'ls-files', '--others', '--exclude-standard'],
-                cwd=str(repo), capture_output=True, text=True, timeout=15, env=git_env,
+                cwd=str(repo), capture_output=True, text=True, timeout=120, env=git_env,
             )
             changed = set(diff_result.stdout.strip().splitlines()) if diff_result.stdout.strip() else set()
             untracked = set(untracked_result.stdout.strip().splitlines()) if untracked_result.stdout.strip() else set()
             all_files = changed | untracked
+            # Extra safety net: if diff returned empty (e.g. still timing out on cold repo),
+            # fall back to `git status --porcelain` which is cheaper and also picks up modified files.
+            if not all_files:
+                status_result = subprocess.run(
+                    ['git', 'status', '--porcelain'],
+                    cwd=str(repo), capture_output=True, text=True, timeout=60, env=git_env,
+                )
+                for line in status_result.stdout.splitlines():
+                    # porcelain format: "XY path" where X/Y are single status chars
+                    path = line[3:].strip() if len(line) > 3 else ''
+                    if path:
+                        all_files.add(path)
         except Exception as exc:
             logger.warning(f'git diff failed at {repo}: {exc}')
             return []
