@@ -159,6 +159,31 @@ export default function TeamPage() {
   }, [provider]);
 
   useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const sourceKey = provider === 'jira' ? 'jira' : 'azure';
+        type SearchRes = { items: Array<{ id: number; title: string }> };
+        const res = await apiFetch<SearchRes>(
+          '/tasks/search?source=' + sourceKey + '&page_size=100',
+        );
+        if (cancelled) return;
+        const map: Record<string, number> = {};
+        const re = /^\[(Azure|Jira)\s+#([^\]]+)\]/i;
+        for (const t of res.items) {
+          const m = t.title.match(re);
+          if (m) map[m[2].trim()] = t.id;
+        }
+        setImportedIds(map);
+      } catch {
+        // silent — keep whatever state we have
+      }
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, [provider]);
+
+  useEffect(() => {
     const reqId = ++sprintResolveReqRef.current;
     const run = async () => {
       try {
