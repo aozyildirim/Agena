@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
@@ -1149,16 +1150,24 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
     return '';
   })();
 
-  return (
-    <div style={{
-      width: 370, borderRadius: 18,
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
+    >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+      width: 420, maxWidth: 'calc(100vw - 24px)',
+      borderRadius: 18,
       border: '1px solid var(--panel-border-3)',
       background: 'var(--surface)',
       overflow: 'hidden',
       boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       display: 'flex', flexDirection: 'column',
-      height: 'calc(100vh - 80px)',
-      position: 'fixed', top: 72, right: 16, zIndex: 50,
+      height: 'calc(100vh - 32px)',
+      position: 'fixed', top: 16, right: 16, zIndex: 10000,
     }}>
       <div style={{ height: 2, background: 'linear-gradient(90deg, ' + stateInfo.color + ', #7c3aed)' }} />
 
@@ -1370,6 +1379,8 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
         <div style={{ fontSize: 10, color: 'var(--ink-25)', textAlign: 'center' }}>{t('sprints.aiHint')}</div>
       </div>
     </div>
+    </div>,
+    document.body
   );
 }
 
