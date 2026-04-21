@@ -81,6 +81,10 @@ export default function SentryPage() {
   const [modalImporting, setModalImporting] = useState(false);
   const [modalPeriod, setModalPeriod] = useState('24h');
   const [modalMirror, setModalMirror] = useState<'auto' | 'azure' | 'jira' | 'both' | 'none'>('auto');
+  const [modalStoryPoints, setModalStoryPoints] = useState<number>(2);
+  const [modalSprintPath, setModalSprintPath] = useState<string>('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sprintOptions, setSprintOptions] = useState<Array<{ path: string; name: string; is_current?: boolean }>>([]);
 
   useEffect(() => {
     void loadMappings();
@@ -271,6 +275,8 @@ export default function SentryPage() {
           issue_ids: Array.from(modalSelected),
           stats_period: modalPeriod,
           mirror_target: modalMirror,
+          story_points: modalStoryPoints,
+          iteration_path: modalSprintPath || null,
         }),
       });
       (res.manual_azure_urls || []).forEach((url) => {
@@ -278,6 +284,7 @@ export default function SentryPage() {
       });
       const msgTpl = t('integrations.newrelic.importResult') || '{imported} imported, {skipped} skipped';
       setMsg(msgTpl.replace('{imported}', String(res.imported)).replace('{skipped}', String(res.skipped)));
+      setConfirmOpen(false);
       closeRequestModal();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
@@ -624,13 +631,86 @@ export default function SentryPage() {
               <div style={{ flex: 1 }} />
               <button onClick={closeRequestModal} style={btnSmall}>{t('integrations.common.cancel')}</button>
               <button
-                onClick={() => void importModalSelected()}
+                onClick={async () => {
+                  if (modalMirror === 'none') {
+                    void importModalSelected();
+                    return;
+                  }
+                  setConfirmOpen(true);
+                  try {
+                    const prefs = await apiFetch<{ azure_project?: string | null; azure_team?: string | null; azure_sprint_path?: string | null }>('/preferences');
+                    const proj = (prefs?.azure_project || '').trim();
+                    const team = (prefs?.azure_team || '').trim();
+                    if (proj && team) {
+                      const params = new URLSearchParams({ project: proj, team });
+                      const sprints = await apiFetch<Array<{ path: string; name: string; is_current?: boolean }>>(`/tasks/azure/sprints?${params}`);
+                      setSprintOptions(sprints || []);
+                      const current = (sprints || []).find((s) => s.is_current);
+                      if (current && !modalSprintPath) setModalSprintPath(current.path);
+                      else if ((prefs?.azure_sprint_path || '').trim() && !modalSprintPath) setModalSprintPath(String(prefs.azure_sprint_path));
+                    }
+                  } catch { /* ignore */ }
+                }}
                 disabled={modalSelected.size === 0 || modalImporting}
                 style={{ ...btnPrimary, opacity: modalSelected.size === 0 || modalImporting ? 0.5 : 1 }}
               >
                 {modalImporting ? '...' : (t('integrations.newrelic.importSelected') || 'Import selected')}
               </button>
             </div>
+
+            {confirmOpen && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(0,0,0,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 20, borderRadius: 14,
+              }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.35)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+                    {t('integrations.common.confirmImportTitle') || 'Onayla ve oluştur'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-58)', marginBottom: 12 }}>
+                    {(t('integrations.common.confirmImportBody') || '{n} iş Agena’ya alınacak ve {target} üzerinde work item olarak açılacak.')
+                      .replace('{n}', String(modalSelected.size))
+                      .replace('{target}', modalMirror === 'none' ? 'hiçbir yer' : modalMirror)}
+                  </div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-50)', marginBottom: 4 }}>
+                    {t('integrations.common.storyPointsLabel') || 'Story Points'}
+                  </label>
+                  <input
+                    type='number' min={0} step={1}
+                    value={modalStoryPoints}
+                    onChange={(ev) => setModalStoryPoints(parseInt(ev.target.value) || 0)}
+                    style={{ ...inputStyle, marginBottom: 10 }}
+                  />
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-50)', marginBottom: 4 }}>
+                    {t('integrations.common.iterationPathLabel') || 'Sprint (override, boş = aktif)'}
+                  </label>
+                  <select
+                    value={modalSprintPath}
+                    onChange={(ev) => setModalSprintPath(ev.target.value)}
+                    style={{ ...inputStyle, marginBottom: 14 }}
+                  >
+                    <option value=''>{t('integrations.common.currentSprintAuto') || 'Aktif sprint (otomatik)'}</option>
+                    {sprintOptions.map((s) => (
+                      <option key={s.path} value={s.path}>
+                        {s.name}{s.is_current ? ' • ' + (t('integrations.common.currentMark') || 'current') : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setConfirmOpen(false)} style={btnSmall}>{t('integrations.common.cancel')}</button>
+                    <button
+                      onClick={() => void importModalSelected()}
+                      disabled={modalImporting}
+                      style={{ ...btnPrimary, opacity: modalImporting ? 0.5 : 1 }}
+                    >
+                      {modalImporting ? '...' : (t('integrations.common.confirmImportCta') || 'Onayla ve oluştur')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body

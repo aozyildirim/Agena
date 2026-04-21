@@ -38,6 +38,10 @@ export default function DatadogPage() {
   const [query, setQuery] = useState('status:open');
   const [timeFrom, setTimeFrom] = useState('-30m');
   const [mirrorTarget, setMirrorTarget] = useState<'auto' | 'azure' | 'jira' | 'both' | 'none'>('auto');
+  const [storyPoints, setStoryPoints] = useState<number>(2);
+  const [sprintPath, setSprintPath] = useState<string>('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sprintOptions, setSprintOptions] = useState<Array<{ path: string; name: string; is_current?: boolean }>>([]);
   const [repos, setRepos] = useState<RepoMapping[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
@@ -82,12 +86,13 @@ export default function DatadogPage() {
     try {
       const result = await apiFetch<{ imported: number; skipped: number; manual_azure_urls?: string[] }>('/tasks/import/datadog', {
         method: 'POST',
-        body: JSON.stringify({ query, limit: 50, time_from: timeFrom, mirror_target: mirrorTarget }),
+        body: JSON.stringify({ query, limit: 50, time_from: timeFrom, mirror_target: mirrorTarget, story_points: storyPoints, iteration_path: sprintPath || null }),
       });
       (result.manual_azure_urls || []).forEach((url) => {
         if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
       });
       setImportResult(result);
+      setConfirmOpen(false);
       setMsg(`Imported ${result.imported} issues, ${result.skipped} skipped`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
@@ -143,11 +148,82 @@ export default function DatadogPage() {
           style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', background: '#632ca6', color: '#fff', cursor: 'pointer' }}>
           {issuesLoading ? t('integrations.common.loading') : t('integrations.datadog.fetchIssues')}
         </button>
-        <button onClick={importAll} disabled={importing}
+        <button onClick={async () => {
+          if (mirrorTarget === 'none') {
+            void importAll();
+            return;
+          }
+          setConfirmOpen(true);
+          try {
+            const prefs = await apiFetch<{ azure_project?: string | null; azure_team?: string | null; azure_sprint_path?: string | null }>('/preferences');
+            const proj = (prefs?.azure_project || '').trim();
+            const team = (prefs?.azure_team || '').trim();
+            if (proj && team) {
+              const params = new URLSearchParams({ project: proj, team });
+              const sprints = await apiFetch<Array<{ path: string; name: string; is_current?: boolean }>>(`/tasks/azure/sprints?${params}`);
+              setSprintOptions(sprints || []);
+              const current = (sprints || []).find((s) => s.is_current);
+              if (current && !sprintPath) setSprintPath(current.path);
+              else if ((prefs?.azure_sprint_path || '').trim() && !sprintPath) setSprintPath(String(prefs.azure_sprint_path));
+            }
+          } catch { /* ignore */ }
+        }} disabled={importing}
           style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid #632ca6', background: 'transparent', color: '#632ca6', cursor: 'pointer' }}>
           {importing ? t('integrations.datadog.importing') : t('integrations.common.importAll')}
         </button>
       </div>
+
+      {confirmOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.45)' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+              {t('integrations.common.confirmImportTitle') || 'Onayla ve oluştur'}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-58)', marginBottom: 12 }}>
+              {(t('integrations.common.confirmImportBody') || '{n} iş Agena’ya alınacak ve {target} üzerinde work item olarak açılacak.')
+                .replace('{n}', String(issues.length || '?'))
+                .replace('{target}', mirrorTarget === 'none' ? 'hiçbir yer' : mirrorTarget)}
+            </div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-50)', marginBottom: 4 }}>
+              {t('integrations.common.storyPointsLabel') || 'Story Points'}
+            </label>
+            <input type='number' min={0} step={1} value={storyPoints} onChange={(e) => setStoryPoints(parseInt(e.target.value) || 0)}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', outline: 'none', marginBottom: 10 }} />
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-50)', marginBottom: 4 }}>
+              {t('integrations.common.iterationPathLabel') || 'Sprint (override, boş = aktif)'}
+            </label>
+            <select value={sprintPath} onChange={(e) => setSprintPath(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', outline: 'none', marginBottom: 14 }}>
+              <option value=''>{t('integrations.common.currentSprintAuto') || 'Aktif sprint (otomatik)'}</option>
+              {sprintOptions.map((s) => (
+                <option key={s.path} value={s.path}>
+                  {s.name}{s.is_current ? ' • ' + (t('integrations.common.currentMark') || 'current') : ''}
+                </option>
+              ))}
+            </select>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-50)', marginBottom: 4 }}>
+              {t('integrations.newrelic.mirrorTargetLabel') || 'Open in'}
+            </label>
+            <select value={mirrorTarget} onChange={(e) => setMirrorTarget(e.target.value as typeof mirrorTarget)}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', outline: 'none', marginBottom: 14 }}>
+              <option value='auto'>{t('integrations.newrelic.mirrorAuto') || 'Auto'}</option>
+              <option value='azure'>{t('integrations.newrelic.mirrorAzure') || 'Azure DevOps'}</option>
+              <option value='jira'>{t('integrations.newrelic.mirrorJira') || 'Jira'}</option>
+              <option value='both'>{t('integrations.newrelic.mirrorBoth') || 'Azure + Jira'}</option>
+              <option value='none'>{t('integrations.newrelic.mirrorNone') || 'None'}</option>
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmOpen(false)} style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer' }}>
+                {t('integrations.common.cancel')}
+              </button>
+              <button onClick={importAll} disabled={importing}
+                style={{ padding: '6px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', background: '#632ca6', color: '#fff', cursor: 'pointer', opacity: importing ? 0.5 : 1 }}>
+                {importing ? '...' : (t('integrations.common.confirmImportCta') || 'Onayla ve oluştur')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import result */}
       {importResult && (
