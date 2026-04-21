@@ -133,6 +133,8 @@ class NewRelicImportRequest(BaseModel):
     min_occurrences: int = 1
     fingerprints: list[str] | None = None
     mirror_target: str | None = None  # 'azure' | 'jira' | 'none' | None (auto)
+    story_points: int | None = 2
+    iteration_path: str | None = None
 
 
 class SentryImportRequest(BaseModel):
@@ -142,6 +144,8 @@ class SentryImportRequest(BaseModel):
     issue_ids: list[str] | None = None
     stats_period: str | None = None
     mirror_target: str | None = None
+    story_points: int | None = 2
+    iteration_path: str | None = None
 
 
 class DatadogImportRequest(BaseModel):
@@ -149,6 +153,8 @@ class DatadogImportRequest(BaseModel):
     limit: int = 50
     time_from: str = '-24h'
     mirror_target: str | None = None
+    story_points: int | None = 2
+    iteration_path: str | None = None
 
 
 class AppDynamicsImportRequest(BaseModel):

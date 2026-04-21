@@ -330,6 +330,8 @@ async def import_newrelic_errors(
             min_occurrences=request.min_occurrences,
             fingerprints=request.fingerprints,
             mirror_target=request.mirror_target,
+            story_points=request.story_points,
+            iteration_path=request.iteration_path,
         )
         imported, skipped, manual_urls = result
     except ValueError as exc:
@@ -369,6 +371,8 @@ async def import_sentry_issues(
             issue_ids=request.issue_ids,
             stats_period=request.stats_period,
             mirror_target=request.mirror_target,
+            story_points=request.story_points,
+            iteration_path=request.iteration_path,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -405,6 +409,8 @@ async def import_datadog_issues(
             limit=request.limit,
             time_from=request.time_from,
             mirror_target=request.mirror_target,
+            story_points=request.story_points,
+            iteration_path=request.iteration_path,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

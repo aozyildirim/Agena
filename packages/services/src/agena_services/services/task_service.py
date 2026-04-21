@@ -291,6 +291,8 @@ class TaskService:
         min_occurrences: int = 1,
         fingerprints: list[str] | None = None,
         mirror_target: str | None = None,
+        story_points: int | None = 2,
+        iteration_path: str | None = None,
     ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
@@ -377,6 +379,8 @@ class TaskService:
                         user_id=user_id,
                         task=task,
                         mirror_target=mirror_target,
+                        story_points=story_points,
+                        iteration_path_override=iteration_path,
                     )
                     if fallback_url:
                         manual_azure_urls.append(fallback_url)
@@ -394,6 +398,8 @@ class TaskService:
         user_id: int,
         task: TaskRecord,
         mirror_target: str | None = None,
+        story_points: int | None = 2,
+        iteration_path_override: str | None = None,
     ) -> str | None:
         """Returns a pre-filled Azure create URL when the API call fails with 403
         (permission denied). Returns None otherwise. Caller should open the URL in
@@ -437,14 +443,15 @@ class TaskService:
                     stored_path = (getattr(pref_row, 'azure_sprint_path', '') or '').strip() or None
                     az_cfg = {'org_url': azure_cfg.base_url, 'pat': azure_cfg.secret}
                     client = AzureDevOpsClient()
-                    # Always fetch live current iteration (sprints roll over regularly)
-                    iteration_path: str | None = None
-                    try:
-                        current = await client.get_current_iteration(cfg=az_cfg, project=azure_project, team=team)
-                        if current:
-                            iteration_path = str(current.get('path') or '') or None
-                    except Exception:
-                        iteration_path = None
+                    # If caller passed an explicit override (confirmed via UI), use it
+                    iteration_path: str | None = iteration_path_override or None
+                    if not iteration_path:
+                        try:
+                            current = await client.get_current_iteration(cfg=az_cfg, project=azure_project, team=team)
+                            if current:
+                                iteration_path = str(current.get('path') or '') or None
+                        except Exception:
+                            iteration_path = None
                     # Fall back to user's last-selected sprint if Azure didn't return one
                     if not iteration_path:
                         iteration_path = stored_path
@@ -466,6 +473,7 @@ class TaskService:
                         iteration_path=iteration_path,
                         area_path=area_path,
                         assigned_to=assigned_to,
+                        story_points=story_points,
                     )
                     wi_id = wi.get('id') if isinstance(wi, dict) else None
                     if wi_id:
@@ -591,6 +599,8 @@ class TaskService:
         issue_ids: list[str] | None = None,
         stats_period: str | None = None,
         mirror_target: str | None = None,
+        story_points: int | None = 2,
+        iteration_path: str | None = None,
     ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
@@ -771,6 +781,8 @@ class TaskService:
                         user_id=user_id,
                         task=task,
                         mirror_target=mirror_target,
+                        story_points=story_points,
+                        iteration_path_override=iteration_path,
                     )
                     if fallback_url:
                         manual_azure_urls.append(fallback_url)
@@ -790,6 +802,8 @@ class TaskService:
         limit: int = 50,
         time_from: str = '-24h',
         mirror_target: str | None = None,
+        story_points: int | None = 2,
+        iteration_path: str | None = None,
     ) -> tuple[int, int, list[str]]:
         if self.db is None:
             raise ValueError('DB session required')
@@ -855,6 +869,8 @@ class TaskService:
                     user_id=user_id,
                     task=task,
                     mirror_target=mirror_target,
+                    story_points=story_points,
+                    iteration_path_override=iteration_path,
                 )
                 if fallback_url:
                     manual_azure_urls.append(fallback_url)
