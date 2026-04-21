@@ -153,6 +153,8 @@ export default function DatadogPage() {
             void importAll();
             return;
           }
+          setStoryPoints(2);
+          setSprintPath('');
           setConfirmOpen(true);
           try {
             const prefs = await apiFetch<{ azure_project?: string | null; azure_team?: string | null; azure_sprint_path?: string | null }>('/preferences');

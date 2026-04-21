@@ -582,6 +582,8 @@ export default function NewRelicPage() {
                     void importModalSelected();
                     return;
                   }
+                  setModalStoryPoints(2);
+                  setModalSprintPath('');
                   setConfirmOpen(true);
                   try {
                     const prefs = await apiFetch<{ azure_project?: string | null; azure_team?: string | null; azure_sprint_path?: string | null }>('/preferences');
