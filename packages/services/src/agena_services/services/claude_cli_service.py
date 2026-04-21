@@ -98,7 +98,7 @@ class ClaudeCLIService:
             claude_bin = shutil.which('claude')
             if claude_bin:
                 return await self._run_local(claude_bin, effective_path, prompt, model, log_callback)
-            return await self._run_bridge(effective_path, prompt, model, log_callback)
+            return await self._run_bridge(effective_path, prompt, model, log_callback, task_id=task_id)
         finally:
             # Keep worktree alive — orchestration_service collects changes via git diff
             # then calls cleanup_worktree() after PR creation
@@ -168,7 +168,7 @@ class ClaudeCLIService:
             raise RuntimeError('claude returned empty output')
         return content
 
-    async def _run_bridge(self, repo_path: str, prompt: str, model: str | None, log_callback: LogCallback | None = None) -> str:
+    async def _run_bridge(self, repo_path: str, prompt: str, model: str | None, log_callback: LogCallback | None = None, task_id: str = '') -> str:
         import json as _json
         import httpx
 
