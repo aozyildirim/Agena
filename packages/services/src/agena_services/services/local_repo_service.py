@@ -39,7 +39,11 @@ class LocalRepoService:
         original_branch = (await self._run_git(root, ['rev-parse', '--abbrev-ref', 'HEAD'])).strip()
 
         if remote_url:
-            # PR flow: create/checkout feature branch
+            # PR flow: always rebuild the feature branch on top of the freshly
+            # fetched base. If the branch already exists (prior run) we throw
+            # away its history and start clean — force-push below will update
+            # the remote. This avoids carrying broken commits from a previous
+            # failed attempt into the next PR.
             remote_target = self._build_remote_target(remote_url, remote_pat)
             base_fetched = False
             try:
@@ -47,25 +51,11 @@ class LocalRepoService:
                 base_fetched = True
             except Exception:
                 pass
-
-            # If the branch already exists remotely, continue on top of it.
-            branch_exists = False
+            start_ref = 'FETCH_HEAD' if base_fetched else base_branch
             try:
-                await self._run_git(root, ['fetch', remote_target, branch_name])
-                branch_exists = True
+                await self._run_git(root, ['checkout', '-B', branch_name, start_ref], allow_fail=True)
             except Exception:
-                pass
-
-            if branch_exists:
-                await self._run_git(root, ['checkout', '-B', branch_name, 'FETCH_HEAD'], allow_fail=True)
-            else:
-                # Start feature branch from FRESHLY FETCHED base (not stale local copy)
-                start_ref = 'FETCH_HEAD' if base_fetched else base_branch
-                try:
-                    await self._run_git(root, ['fetch', remote_target, base_branch], allow_fail=True)
-                    await self._run_git(root, ['checkout', '-B', branch_name, start_ref], allow_fail=True)
-                except Exception:
-                    await self._run_git(root, ['checkout', '-B', branch_name])
+                await self._run_git(root, ['checkout', '-B', branch_name])
         else:
             remote_target = 'origin'
             base_fetched = False
