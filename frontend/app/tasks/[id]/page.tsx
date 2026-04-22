@@ -273,6 +273,7 @@ export default function TaskDetailPage() {
   const [azureSprintPath, setAzureSprintPath] = useState('');
   const [linkWorkItemInput, setLinkWorkItemInput] = useState('');
   const [linkBusy, setLinkBusy] = useState(false);
+  const [rightTab, setRightTab] = useState<'agent' | 'steps' | 'memory' | 'diff' | 'logs'>('agent');
 
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [logs, setLogs] = useState<TaskLog[]>([]);
@@ -1186,7 +1187,46 @@ export default function TaskDetailPage() {
         </section>
 
         <section style={{ display: 'grid', gap: 12 }}>
-          {/* Terminal-like agent output */}
+          {/* Tab bar — collapses the 5 stacked panels into one visible at a time */}
+          <div style={{
+            display: 'flex', gap: 4, padding: 4,
+            borderRadius: 12, border: '1px solid var(--panel-border-2)',
+            background: 'var(--panel-alt)',
+            overflowX: 'auto',
+          }}>
+            {([
+              { id: 'agent', label: '🤖 ' + (t('taskDetail.liveLogs') || 'Agent') },
+              { id: 'steps', label: '⚙ ' + (t('taskDetail.executionSteps') || 'Steps') },
+              { id: 'memory', label: '🧠 ' + (t('taskDetail.memoryImpact') || 'Memory') },
+              { id: 'diff', label: '📝 ' + (t('taskDetail.codeDiffPreview') || 'Diff') },
+              { id: 'logs', label: '📜 Logs' },
+            ] as const).map((tab) => {
+              const active = rightTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setRightTab(tab.id)}
+                  style={{
+                    flex: 1, minWidth: 0,
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: active ? 'var(--surface)' : 'transparent',
+                    color: active ? 'var(--ink-90)' : 'var(--ink-50)',
+                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {rightTab === 'agent' && (
           <section
             style={{
               borderRadius: 16,
@@ -1301,8 +1341,9 @@ export default function TaskDetailPage() {
               )}
             </div>
           </section>
+          )}
 
-          {/* Execution steps */}
+          {rightTab === 'steps' && (
           <section style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 12 }}>
             <h3 style={{ marginTop: 0, marginBottom: 10, color: 'var(--ink-90)', fontSize: 15 }}>{t('taskDetail.executionSteps')}</h3>
             <div style={{ border: `1px solid ${currentActivity.color}66`, background: `${currentActivity.color}18`, borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
@@ -1363,8 +1404,9 @@ export default function TaskDetailPage() {
               ) : null}
             </div>
           </section>
+          )}
 
-          {/* Memory impact */}
+          {rightTab === 'memory' && (
           <section style={{ borderRadius: 16, border: '1px solid rgba(94,234,212,0.18)', background: 'var(--panel)', padding: 12 }}>
             <h3 style={{ marginTop: 0, marginBottom: 10, color: '#5eead4', fontSize: 15 }}>{t('taskDetail.memoryImpact')}</h3>
             {!memoryImpact ? (
@@ -1411,8 +1453,9 @@ export default function TaskDetailPage() {
               </div>
             )}
           </section>
+          )}
 
-          {/* Code diff/preview */}
+          {rightTab === 'diff' && (
           <section style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 12 }}>
             <h3 style={{ marginTop: 0, marginBottom: 10, color: 'var(--ink-90)', fontSize: 15 }}>{t('taskDetail.codeDiffPreview')}</h3>
             {codeFiles.length === 0 ? (
@@ -1449,8 +1492,9 @@ export default function TaskDetailPage() {
               </div>
             )}
           </section>
+          )}
 
-          {/* Log history */}
+          {rightTab === 'logs' && (
           <section style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', overflow: 'hidden', minHeight: 300, display: 'grid', gridTemplateRows: 'auto 1fr' }}>
             <div style={{ borderBottom: '1px solid var(--panel-border)', padding: '10px 12px 8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1517,6 +1561,7 @@ export default function TaskDetailPage() {
               )}
             </div>
           </section>
+          )}
         </section>
       </div>
 
