@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
+import { renderMarkdown } from '@/lib/markdown';
 import StatusBadge from '@/components/StatusBadge';
 import RemoteRepoSelector, { type RemoteRepoSelection, type RepoDefault } from '@/components/RemoteRepoSelector';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
@@ -828,9 +829,11 @@ export default function TaskDetailPage() {
           <h1 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, lineHeight: 1.35 }}>{task?.title ?? t('taskDetail.task')}</h1>
           {task ? (
             <>
-              <p style={{ marginTop: 0, color: 'var(--ink-78)', fontSize: 13, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {task.description}
-              </p>
+              <div
+                className='task-md'
+                style={{ marginTop: 0, marginBottom: 12, color: 'var(--ink-78)', fontSize: 13, lineHeight: 1.55, wordBreak: 'break-word' }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(task.description || '') }}
+              />
               {/* Primary chips: status, source, linked work item */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                 <StatusBadge status={task.status} />
