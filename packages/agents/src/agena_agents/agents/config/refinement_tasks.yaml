@@ -25,6 +25,8 @@ refine_backlog_item:
 
     Description:
     {description}
+
+    {similar_past_items}
   expected_output: |
     Return a JSON object with these keys:
     - summary: short delivery-oriented summary in {language}

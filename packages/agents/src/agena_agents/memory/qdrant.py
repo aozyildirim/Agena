@@ -83,6 +83,7 @@ class QdrantMemoryStore(MemoryStore):
         output_text: str,
         *,
         organization_id: int | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         if not self.enabled or not self.client:
             return
@@ -92,6 +93,13 @@ class QdrantMemoryStore(MemoryStore):
         payload: dict[str, Any] = {'key': key, 'input': input_text, 'output': output_text}
         if organization_id is not None and organization_id > 0:
             payload['organization_id'] = int(organization_id)
+        if extra:
+            for k, v in extra.items():
+                if k in payload:
+                    continue
+                if v is None:
+                    continue
+                payload[k] = v
 
         point = PointStruct(
             id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f'task-{key}')),
@@ -106,21 +114,26 @@ class QdrantMemoryStore(MemoryStore):
         limit: int = 3,
         *,
         organization_id: int | None = None,
+        extra_filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         if not self.enabled or not self.client:
             return []
         await self.ensure_collection()
         vector = await self._get_or_create_embedding(query)
-        query_filter: Filter | None = None
+        must: list[FieldCondition] = []
         if organization_id is not None and organization_id > 0:
-            query_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key='organization_id',
-                        match=MatchValue(value=int(organization_id)),
-                    )
-                ]
+            must.append(
+                FieldCondition(
+                    key='organization_id',
+                    match=MatchValue(value=int(organization_id)),
+                )
             )
+        if extra_filters:
+            for fk, fv in extra_filters.items():
+                if fv is None:
+                    continue
+                must.append(FieldCondition(key=str(fk), match=MatchValue(value=fv)))
+        query_filter = Filter(must=must) if must else None
         results = await self.client.search(
             collection_name=self.settings.qdrant_collection,
             query_vector=vector,

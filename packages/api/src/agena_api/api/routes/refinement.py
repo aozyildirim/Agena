@@ -13,6 +13,7 @@ from agena_models.schemas.refinement import (
     RefinementWritebackRequest,
     RefinementWritebackResponse,
 )
+from agena_services.services.refinement_history_indexer import RefinementHistoryIndexer
 from agena_services.services.refinement_service import RefinementService
 
 router = APIRouter(prefix='/refinement', tags=['refinement'])
@@ -123,3 +124,52 @@ async def writeback_refinement(
         return await service.writeback(tenant.organization_id, payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class RefinementBackfillRequest(BaseModel):
+    source: str = 'azure'
+    project: str | None = None
+    since_days: int | None = 365
+    max_items: int = 500
+
+
+@router.post('/history/backfill')
+async def backfill_refinement_history(
+    payload: RefinementBackfillRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Index completed work items into Qdrant so refinement can surface
+    similar prior work when estimating story points.
+
+    Runs synchronously — OK for a few hundred items; for larger backlogs
+    consider invoking this multiple times with lower max_items.
+    """
+    indexer = RefinementHistoryIndexer(db)
+    result = await indexer.backfill(
+        tenant.organization_id,
+        source=payload.source,
+        project=payload.project,
+        since_days=payload.since_days,
+        max_items=payload.max_items,
+    )
+    if result.get('error'):
+        raise HTTPException(status_code=400, detail=result['error'])
+    return result
+
+
+@router.get('/history/status')
+async def refinement_history_status(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Expose Qdrant collection stats so the UI can show whether the
+    backfill has populated data."""
+    from agena_agents.memory.qdrant import QdrantMemoryStore
+    _ = tenant  # tenant auth required; stats are global-level (collection-scoped)
+    store = QdrantMemoryStore()
+    try:
+        status = await store.get_status()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f'Qdrant status failed: {exc}') from exc
+    return status

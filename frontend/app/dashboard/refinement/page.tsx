@@ -45,6 +45,16 @@ type RefinementItemsResponse = {
   pointed_count: number;
 };
 
+type SimilarPastItem = {
+  external_id: string;
+  title: string;
+  story_points: number;
+  assigned_to: string;
+  url: string;
+  source: string;
+  score: number;
+};
+
 type RefinementSuggestion = {
   item_id: string;
   title: string;
@@ -61,6 +71,7 @@ type RefinementSuggestion = {
   fallback_applied?: boolean;
   fallback_note?: string;
   error?: string | null;
+  similar_items?: SimilarPastItem[];
 };
 
 type RefinementAnalyzeResponse = {
@@ -466,6 +477,8 @@ export default function RefinementPage() {
   const [commentSignature, setCommentSignature] = useState('AGENA AI');
   const [focusedResultId, setFocusedResultId] = useState('');
   const [analyzedCount, setAnalyzedCount] = useState(0);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{ indexed: number; skipped_no_sp: number; total_seen: number } | null>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [customPromptText, setCustomPromptText] = useState('');
@@ -682,6 +695,33 @@ export default function RefinementPage() {
       fallback_note: item.fallback_note || '',
     })),
   }), []);
+
+  const runBackfill = useCallback(async () => {
+    setBackfillRunning(true);
+    setError('');
+    setRunMessage({ kind: 'success', text: 'Geçmiş işler indexleniyor... (1-2 dk sürebilir)' });
+    try {
+      const body: { source: string; project?: string; since_days: number; max_items: number } = {
+        source: 'azure',
+        since_days: 1095,
+        max_items: 1000,
+      };
+      if (provider === 'azure' && azureProject) body.project = azureProject;
+      const resp = await apiFetch<{ indexed: number; skipped_no_sp: number; total_seen: number }>(
+        '/refinement/history/backfill',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      setBackfillResult(resp);
+      setRunMessage({
+        kind: 'success',
+        text: `Indexleme tamam: ${resp.indexed} iş eklendi, ${resp.skipped_no_sp} SP'siz atlandı (toplam görülen: ${resp.total_seen}).`,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Backfill başarısız');
+    } finally {
+      setBackfillRunning(false);
+    }
+  }, [provider, azureProject]);
 
   const runRefinement = useCallback(async () => {
     if (!selectedIds.length) return;
@@ -1144,6 +1184,18 @@ export default function RefinementPage() {
             <button onClick={() => void runRefinement()} style={secondaryButton} disabled={running || !selectedIds.length}>
               {running ? copy.analyzing : copy.analyze}
             </button>
+            <button
+              onClick={() => void runBackfill()}
+              style={{ ...secondaryButton, background: 'rgba(14,165,233,0.1)', borderColor: 'rgba(14,165,233,0.3)', color: '#7dd3fc' }}
+              disabled={backfillRunning || provider !== 'azure'}
+              title='Kapanmış Azure DevOps işlerini Qdrant belleğe indexler; refinement SP önerisini bu geçmişe göre kurar.'
+            >
+              {backfillRunning
+                ? 'İndexleniyor...'
+                : backfillResult
+                  ? `Geçmiş İndexlendi (${backfillResult.indexed})`
+                  : 'Geçmiş İşleri İndexle'}
+            </button>
             {results && results.results.filter(r => !r.error).length > 0 && (
               <>
               <button
@@ -1425,6 +1477,52 @@ export default function RefinementPage() {
                                       {suggestion.comment || '-'}
                                     </div>
                                   </div>
+
+                                  {/* Similar past items (grounding) */}
+                                  {suggestion.similar_items && suggestion.similar_items.length > 0 && (
+                                    <div style={expandedSection}>
+                                      <div style={expandedSectionLabel}>Benzer Tamamlanmış İşler</div>
+                                      <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+                                        {suggestion.similar_items.map((si) => (
+                                          <div key={si.external_id} style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '8px 10px', borderRadius: 10,
+                                            border: '1px solid var(--panel-border)',
+                                            background: 'var(--panel)',
+                                          }}>
+                                            <span style={{
+                                              fontSize: 12, fontWeight: 800, color: '#5eead4',
+                                              minWidth: 48, textAlign: 'center',
+                                              padding: '4px 8px', borderRadius: 8,
+                                              background: 'rgba(94,234,212,0.1)',
+                                            }}>
+                                              {si.story_points} SP
+                                            </span>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ fontSize: 13, color: 'var(--ink-85)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {si.url ? (
+                                                  <a href={si.url} target='_blank' rel='noreferrer' onClick={(e) => e.stopPropagation()}
+                                                    style={{ color: 'var(--ink-85)', textDecoration: 'none' }}>
+                                                    #{si.external_id} {si.title}
+                                                  </a>
+                                                ) : (
+                                                  <span>#{si.external_id} {si.title}</span>
+                                                )}
+                                              </div>
+                                              {si.assigned_to && (
+                                                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 2 }}>
+                                                  Yapan: {si.assigned_to}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <span style={{ fontSize: 10, color: 'var(--ink-35)', whiteSpace: 'nowrap' }}>
+                                              {Math.round((si.score || 0) * 100)}% benzer
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {/* Ambiguities & Questions side by side */}
                                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>

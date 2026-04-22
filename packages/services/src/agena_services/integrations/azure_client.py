@@ -109,6 +109,67 @@ class AzureDevOpsClient:
             )
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
 
+    async def fetch_completed_work_items(
+        self,
+        cfg: dict[str, str] | None = None,
+        *,
+        since_days: int | None = 365,
+        max_items: int | None = 1000,
+    ) -> list[ExternalTask]:
+        """Fetch completed work items across the project (Done/Closed/Resolved/Removed).
+
+        Used to backfill history for refinement similarity search. Filters by
+        ChangedDate to keep the result bounded; pass since_days=None for everything.
+        """
+        cfg = cfg or {}
+        org_url = cfg.get('org_url') or self.settings.azure_org_url
+        project = cfg.get('project') or self.settings.azure_project
+        pat = cfg.get('pat') or self.settings.azure_pat
+
+        if not org_url or not project:
+            logger.warning('Azure DevOps settings are incomplete; returning empty completed list.')
+            return []
+
+        wiql_url = (
+            f"{org_url.rstrip('/')}/{project}"
+            '/_apis/wit/wiql?api-version=7.1-preview.2'
+        )
+        conditions = [
+            "[System.State] IN ('Done','Closed','Resolved','Completed')",
+        ]
+        if since_days and since_days > 0:
+            conditions.append(f'[System.ChangedDate] >= @Today - {int(since_days)}')
+        where_clause = ' And '.join(conditions)
+        wiql_payload = {
+            'query': (
+                'Select [System.Id], [System.Title], [System.State] '
+                f'From WorkItems Where {where_clause} '
+                'Order By [System.ChangedDate] Desc'
+            )
+        }
+        headers = self._headers(pat)
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            details_payload = await self._fetch_details_from_wiql(
+                client=client,
+                wiql_url=wiql_url,
+                headers=headers,
+                wiql_payload=wiql_payload,
+                org_url=org_url,
+                fields_param=(
+                    'System.Id,System.Title,System.Description,System.State,'
+                    'System.AssignedTo,System.CreatedDate,'
+                    'Microsoft.VSTS.Common.ActivatedDate,Microsoft.VSTS.Common.ClosedDate,'
+                    'System.WorkItemType,System.IterationPath,'
+                    'Microsoft.VSTS.Scheduling.StoryPoints,Microsoft.VSTS.Scheduling.Effort,'
+                    'Microsoft.VSTS.Scheduling.Size,'
+                    'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
+                ),
+            )
+        if max_items and max_items > 0 and len(details_payload) > max_items:
+            details_payload = details_payload[:max_items]
+        return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
+
     async def writeback_refinement(
         self,
         *,

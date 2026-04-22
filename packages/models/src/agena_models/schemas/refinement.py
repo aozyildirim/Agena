@@ -32,6 +32,16 @@ class RefinementAnalyzeRequest(BaseModel):
     max_items: int = 12
 
 
+class SimilarPastItem(BaseModel):
+    external_id: str
+    title: str
+    story_points: int
+    assigned_to: str = ''
+    url: str = ''
+    source: str = ''
+    score: float = 0.0
+
+
 class RefinementSuggestion(BaseModel):
     item_id: str
     title: str
@@ -50,6 +60,7 @@ class RefinementSuggestion(BaseModel):
     model: str | None = None
     provider: str | None = None
     error: str | None = None
+    similar_items: list[SimilarPastItem] = Field(default_factory=list)
 
 
 class RefinementAnalyzeResponse(BaseModel):

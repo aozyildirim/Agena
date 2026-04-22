@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_agents.agents.crewai_agents import CrewAIAgentRunner
+from agena_agents.memory.qdrant import QdrantMemoryStore
 from agena_core.settings import get_settings
 from agena_services.integrations.azure_client import AzureDevOpsClient
 from agena_services.integrations.jira_client import JiraClient
@@ -30,6 +31,7 @@ from agena_models.schemas.refinement import (
     RefinementWritebackRequest,
     RefinementWritebackResponse,
     RefinementWritebackResult,
+    SimilarPastItem,
 )
 from agena_models.schemas.task import ExternalTask
 from agena_services.services.ai_usage_event_service import AIUsageEventService
@@ -63,6 +65,94 @@ class RefinementService:
         self.jira_client = JiraClient()
         self.integration_service = IntegrationConfigService(db)
         self.cost_tracker = CostTracker()
+        self.memory = QdrantMemoryStore()
+
+    async def _fetch_similar_past(
+        self,
+        organization_id: int,
+        item: ExternalTask,
+        *,
+        limit: int = 5,
+        skip_external_id: str | None = None,
+    ) -> list[SimilarPastItem]:
+        """Look up completed work items with final story points whose
+        title+description embed close to the current item. Used to ground
+        the LLM's SP estimate and surface 'kimler yaptı' context."""
+        if not self.memory.enabled:
+            return []
+        query_parts = [str(item.title or '').strip()]
+        desc = str(item.description or '').strip()
+        if desc:
+            query_parts.append(desc[:1500])
+        query = '\n\n'.join(p for p in query_parts if p)
+        if not query:
+            return []
+        try:
+            rows = await self.memory.search_similar(
+                query,
+                limit=max(limit + 1, 6),  # +1 so we can skip self-match
+                organization_id=organization_id,
+                extra_filters={'kind': 'completed_task'},
+            )
+        except Exception as exc:
+            logger.info('Qdrant similar-past lookup failed for item %s: %s', item.id, exc)
+            return []
+        out: list[SimilarPastItem] = []
+        for row in rows:
+            ext_id = str(row.get('external_id') or '')
+            if not ext_id:
+                continue
+            if skip_external_id and ext_id == str(skip_external_id):
+                continue
+            sp = row.get('story_points')
+            try:
+                sp_int = int(sp) if sp is not None else 0
+            except (TypeError, ValueError):
+                sp_int = 0
+            if sp_int <= 0:
+                continue
+            out.append(
+                SimilarPastItem(
+                    external_id=ext_id,
+                    title=str(row.get('title') or '')[:300],
+                    story_points=sp_int,
+                    assigned_to=str(row.get('assigned_to') or ''),
+                    url=str(row.get('url') or ''),
+                    source=str(row.get('source') or ''),
+                    score=float(row.get('_score') or 0.0),
+                )
+            )
+            if len(out) >= limit:
+                break
+        return out
+
+    @staticmethod
+    def _format_similar_past_for_prompt(items: list[SimilarPastItem], is_turkish: bool) -> str:
+        if not items:
+            return ''
+        header = (
+            'Benzer Tamamlanmis Isler (Gecmis SP Referansi):'
+            if is_turkish
+            else 'Similar Completed Items (Historical SP Reference):'
+        )
+        lines = [header]
+        for i, it in enumerate(items, 1):
+            who = it.assigned_to or ('-' if is_turkish else 'unknown')
+            lines.append(
+                f'  {i}. [{it.story_points} SP] {it.title} (yapan: {who})'
+                if is_turkish
+                else f'  {i}. [{it.story_points} SP] {it.title} (assignee: {who})'
+            )
+        trailer = (
+            'Bu benzer islerin SP dagilimina dayanarak puan oner; aciklamanda '
+            'hangi isle benzestigini ve neden bu puani sectigini kisa anlat.'
+            if is_turkish
+            else 'Base your SP suggestion on the distribution of these similar items; '
+                 'briefly mention which one(s) it resembles and why in your rationale.'
+        )
+        lines.append('')
+        lines.append(trailer)
+        return '\n'.join(lines)
 
     async def list_items(
         self,
@@ -158,12 +248,23 @@ class RefinementService:
 
             for item in selected:
                 try:
+                    similar_past = await self._fetch_similar_past(
+                        organization_id,
+                        item,
+                        limit=5,
+                        skip_external_id=item.id,
+                    )
+                    similar_past_prompt = self._format_similar_past_for_prompt(
+                        similar_past,
+                        is_turkish=self._is_turkish(request.language),
+                    )
                     prompt_vars = self._build_prompt_vars(
                         provider=request.provider,
                         sprint_name=items_response.sprint_name,
                         language=request.language,
                         point_scale=point_scale,
                         item=item,
+                        similar_past_block=similar_past_prompt,
                     )
 
                     if use_cli:
@@ -214,6 +315,7 @@ class RefinementService:
                             model=model,
                             provider=agent_provider,
                             language=request.language,
+                            similar_items=similar_past,
                         )
                     )
                 except Exception as exc:
@@ -612,6 +714,7 @@ class RefinementService:
         language: str,
         point_scale: str,
         item: ExternalTask,
+        similar_past_block: str = '',
     ) -> dict[str, Any]:
         return {
             'provider': provider,
@@ -626,6 +729,7 @@ class RefinementService:
             'current_effort': self._display_number(item.effort),
             'assigned_to': item.assigned_to or '',
             'description': self._normalize_description(item.description),
+            'similar_past_items': similar_past_block,
         }
 
     @staticmethod
@@ -656,6 +760,7 @@ class RefinementService:
         model: str,
         provider: str,
         language: str,
+        similar_items: list[SimilarPastItem] | None = None,
     ) -> RefinementSuggestion:
         point = self._safe_int(payload.get('suggested_story_points', 0))
         confidence = max(0, min(100, self._safe_int(payload.get('confidence', 0))))
@@ -764,6 +869,7 @@ class RefinementService:
             fallback_note=fallback_note,
             model=model,
             provider=provider,
+            similar_items=similar_items or [],
         )
 
     def _is_turkish(self, language: str) -> bool:

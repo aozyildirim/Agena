@@ -228,8 +228,11 @@ REFINEMENT_DESCRIPTION_PROMPT = (
     'Provider: {provider}\n\n'
     'Description:\n{description}\n'
     '--- END ---\n\n'
+    '{similar_past_items}\n\n'
     'Based on the title "{title}" and available details, estimate the effort using scale: {point_scale}.\n'
     'If the description is sparse, infer complexity from the title and work item type.\n'
+    'When Similar Completed Items are provided, anchor your estimate to their SP distribution and '
+    'mention in the rationale which one(s) this resembles and who previously worked on them.\n'
     'Provide a specific, unique analysis for THIS item — do not give generic responses.'
 )
 
