@@ -134,12 +134,22 @@ class AzureDevOpsClient:
             f"{org_url.rstrip('/')}/{project}"
             '/_apis/wit/wiql?api-version=7.1-preview.2'
         )
+        # Filter to terminal states only. We also require StoryPoints > 0
+        # because the indexer skips unestimated items anyway, AND because
+        # Azure WIQL has a hard 20k-row cap per query — this filter cuts the
+        # result set to just items worth grounding future estimates on.
+        state_clauses = [
+            "[System.State] = 'Done'",
+            "[System.State] = 'Closed'",
+            "[System.State] = 'Resolved'",
+        ]
         conditions = [
-            "[System.State] IN ('Done','Closed','Resolved','Completed')",
+            f"({' OR '.join(state_clauses)})",
+            '[Microsoft.VSTS.Scheduling.StoryPoints] > 0',
         ]
         if since_days and since_days > 0:
-            conditions.append(f'[System.ChangedDate] >= @Today - {int(since_days)}')
-        where_clause = ' And '.join(conditions)
+            conditions.append(f'[System.ChangedDate] >= @Today-{int(since_days)}')
+        where_clause = ' AND '.join(conditions)
         wiql_payload = {
             'query': (
                 'Select [System.Id], [System.Title], [System.State] '
@@ -150,22 +160,37 @@ class AzureDevOpsClient:
         headers = self._headers(pat)
 
         async with httpx.AsyncClient(timeout=60) as client:
-            details_payload = await self._fetch_details_from_wiql(
-                client=client,
-                wiql_url=wiql_url,
-                headers=headers,
-                wiql_payload=wiql_payload,
-                org_url=org_url,
-                fields_param=(
-                    'System.Id,System.Title,System.Description,System.State,'
-                    'System.AssignedTo,System.CreatedDate,'
-                    'Microsoft.VSTS.Common.ActivatedDate,Microsoft.VSTS.Common.ClosedDate,'
-                    'System.WorkItemType,System.IterationPath,'
-                    'Microsoft.VSTS.Scheduling.StoryPoints,Microsoft.VSTS.Scheduling.Effort,'
-                    'Microsoft.VSTS.Scheduling.Size,'
-                    'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
-                ),
-            )
+            try:
+                details_payload = await self._fetch_details_from_wiql(
+                    client=client,
+                    wiql_url=wiql_url,
+                    headers=headers,
+                    wiql_payload=wiql_payload,
+                    org_url=org_url,
+                    fields_param=(
+                        'System.Id,System.Title,System.Description,System.State,'
+                        'System.AssignedTo,System.CreatedDate,'
+                        'Microsoft.VSTS.Common.ActivatedDate,Microsoft.VSTS.Common.ClosedDate,'
+                        'System.WorkItemType,System.IterationPath,'
+                        'Microsoft.VSTS.Scheduling.StoryPoints,Microsoft.VSTS.Scheduling.Effort,'
+                        'Microsoft.VSTS.Scheduling.Size,'
+                        'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
+                    ),
+                )
+            except httpx.HTTPStatusError as exc:
+                body = ''
+                try:
+                    body = exc.response.text[:500]
+                except Exception:
+                    pass
+                logger.error(
+                    'Azure WIQL request failed %s: body=%r query=%r',
+                    exc.response.status_code, body, wiql_payload['query'],
+                )
+                # Re-raise with a clearer message so the UI surfaces the actual
+                # Azure-side error (e.g. invalid field/state for the project).
+                detail = body or str(exc)
+                raise RuntimeError(f'Azure WIQL {exc.response.status_code}: {detail}') from exc
         if max_items and max_items > 0 and len(details_payload) > max_items:
             details_payload = details_payload[:max_items]
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]

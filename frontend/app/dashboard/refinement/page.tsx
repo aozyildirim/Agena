@@ -723,8 +723,8 @@ export default function RefinementPage() {
     try {
       const body: { source: string; project?: string; since_days: number; max_items: number } = {
         source: 'azure',
-        since_days: 1095,
-        max_items: 1000,
+        since_days: 730, // 2 years — enough history for SP grounding, stays under Azure's 20k WIQL cap
+        max_items: 1500,
       };
       if (provider === 'azure' && azureProject) body.project = azureProject;
       await apiFetch<{ status: string }>(
