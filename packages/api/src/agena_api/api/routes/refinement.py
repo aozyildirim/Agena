@@ -13,7 +13,10 @@ from agena_models.schemas.refinement import (
     RefinementWritebackRequest,
     RefinementWritebackResponse,
 )
-from agena_services.services.refinement_history_indexer import RefinementHistoryIndexer
+from agena_services.services.refinement_history_indexer import (
+    RefinementHistoryIndexer,
+    get_backfill_job,
+)
 from agena_services.services.refinement_service import RefinementService
 
 router = APIRouter(prefix='/refinement', tags=['refinement'])
@@ -137,25 +140,41 @@ class RefinementBackfillRequest(BaseModel):
 async def backfill_refinement_history(
     payload: RefinementBackfillRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db_session),
 ) -> dict:
-    """Index completed work items into Qdrant so refinement can surface
-    similar prior work when estimating story points.
+    """Kick off a background backfill of completed work items into Qdrant.
 
-    Runs synchronously — OK for a few hundred items; for larger backlogs
-    consider invoking this multiple times with lower max_items.
+    Returns immediately — the actual work (WIQL + embedding hundreds of items)
+    can take minutes and would time out the HTTP request if run synchronously.
+    Poll GET /refinement/history/backfill-status for progress.
     """
-    indexer = RefinementHistoryIndexer(db)
-    result = await indexer.backfill(
-        tenant.organization_id,
-        source=payload.source,
-        project=payload.project,
-        since_days=payload.since_days,
-        max_items=payload.max_items,
-    )
-    if result.get('error'):
-        raise HTTPException(status_code=400, detail=result['error'])
-    return result
+    import asyncio
+    from agena_core.database import SessionLocal
+
+    async def _runner() -> None:
+        # Use a fresh session bound to the background task's event loop
+        async with SessionLocal() as session:
+            await RefinementHistoryIndexer.run_backfill_job(
+                session,
+                tenant.organization_id,
+                source=payload.source,
+                project=payload.project,
+                since_days=payload.since_days,
+                max_items=payload.max_items,
+            )
+
+    asyncio.create_task(_runner())
+    return {'status': 'started', 'organization_id': tenant.organization_id}
+
+
+@router.get('/history/backfill-status')
+async def backfill_refinement_status(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+) -> dict:
+    """Return the current/last backfill job state for this org."""
+    job = get_backfill_job(tenant.organization_id)
+    if job is None:
+        return {'status': 'idle'}
+    return {'status': job.get('status', 'idle'), **{k: v for k, v in job.items() if k != 'status'}}
 
 
 @router.get('/history/status')
@@ -167,6 +186,7 @@ async def refinement_history_status(
     backfill has populated data."""
     from agena_agents.memory.qdrant import QdrantMemoryStore
     _ = tenant  # tenant auth required; stats are global-level (collection-scoped)
+    _ = db
     store = QdrantMemoryStore()
     try:
         status = await store.get_status()

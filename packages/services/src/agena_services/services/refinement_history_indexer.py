@@ -10,7 +10,8 @@ filters by kind='completed_task' and organization_id.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from datetime import datetime
+from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,21 @@ from agena_services.integrations.azure_client import AzureDevOpsClient
 from agena_services.services.integration_config_service import IntegrationConfigService
 
 logger = logging.getLogger(__name__)
+
+# In-memory job tracker keyed by organization_id. Survives for the lifetime
+# of the backend process; fine for a one-shot manual backfill. Multi-worker
+# prod would need Redis; we accept that limitation for now.
+_BACKFILL_JOBS: dict[int, dict[str, Any]] = {}
+
+
+def get_backfill_job(organization_id: int) -> dict[str, Any] | None:
+    """Return current/last backfill job state for an org, or None if never run."""
+    return _BACKFILL_JOBS.get(int(organization_id))
+
+
+def _mark_job(organization_id: int, **patch: Any) -> None:
+    job = _BACKFILL_JOBS.setdefault(int(organization_id), {})
+    job.update(patch)
 
 
 class RefinementHistoryIndexer:
@@ -37,57 +53,62 @@ class RefinementHistoryIndexer:
         project: str | None = None,
         since_days: int | None = 365,
         max_items: int = 500,
+        progress_cb: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
+        def _emit(**patch: Any) -> None:
+            if progress_cb:
+                try:
+                    progress_cb(patch)
+                except Exception:
+                    pass
+
         if not self.memory.enabled:
-            return {
-                'indexed': 0,
-                'skipped_no_sp': 0,
-                'total_seen': 0,
-                'error': 'Qdrant memory is disabled (QDRANT_ENABLED=false).',
-            }
+            err = {'error': 'Qdrant memory is disabled (QDRANT_ENABLED=false).'}
+            _emit(**err, status='failed')
+            return {'indexed': 0, 'skipped_no_sp': 0, 'total_seen': 0, **err}
 
         src = (source or 'azure').strip().lower()
         if src != 'azure':
-            return {
-                'indexed': 0,
-                'skipped_no_sp': 0,
-                'total_seen': 0,
-                'error': f'Source {src!r} is not supported yet.',
-            }
+            err = {'error': f'Source {src!r} is not supported yet.'}
+            _emit(**err, status='failed')
+            return {'indexed': 0, 'skipped_no_sp': 0, 'total_seen': 0, **err}
 
         config = await self.integration_service.get_config(organization_id, 'azure')
         if config is None or not config.secret:
-            return {
-                'indexed': 0,
-                'skipped_no_sp': 0,
-                'total_seen': 0,
-                'error': 'Azure integration is not configured.',
-            }
+            err = {'error': 'Azure entegrasyonu ayarlı değil. Önce Azure DevOps integration\'ı bağla.'}
+            _emit(**err, status='failed')
+            return {'indexed': 0, 'skipped_no_sp': 0, 'total_seen': 0, **err}
 
         resolved_project = (project or config.project or '').strip()
         if not resolved_project:
-            return {
-                'indexed': 0,
-                'skipped_no_sp': 0,
-                'total_seen': 0,
-                'error': 'Azure project is not set.',
-            }
+            err = {'error': 'Azure project seçilmedi. Tercihlere proje ekle ya da istek gövdesinde belirt.'}
+            _emit(**err, status='failed')
+            return {'indexed': 0, 'skipped_no_sp': 0, 'total_seen': 0, **err}
 
-        items = await self.azure_client.fetch_completed_work_items(
-            {
-                'org_url': config.base_url,
-                'project': resolved_project,
-                'pat': config.secret,
-            },
-            since_days=since_days,
-            max_items=max_items,
-        )
+        _emit(status='fetching', phase='azure_wiql', message=f'Azure DevOps\'tan tamamlanmış işler çekiliyor ({resolved_project})...')
+        try:
+            items = await self.azure_client.fetch_completed_work_items(
+                {
+                    'org_url': config.base_url,
+                    'project': resolved_project,
+                    'pat': config.secret,
+                },
+                since_days=since_days,
+                max_items=max_items,
+            )
+        except Exception as exc:
+            msg = f'Azure sorgulanamadı: {exc}'
+            _emit(status='failed', error=msg)
+            return {'indexed': 0, 'skipped_no_sp': 0, 'total_seen': 0, 'error': msg}
 
         total_seen = len(items)
         indexed = 0
         skipped_no_sp = 0
 
-        for item in items:
+        _emit(status='indexing', phase='embedding', total=total_seen, indexed=0, skipped_no_sp=0,
+              message=f'{total_seen} iş tarandı; SP\'si olanlar Qdrant\'a yazılıyor...')
+
+        for idx, item in enumerate(items):
             sp = self._pick_story_points(item)
             if sp is None or sp <= 0:
                 skipped_no_sp += 1
@@ -100,8 +121,11 @@ class RefinementHistoryIndexer:
                     'Failed to index Azure item %s for org %s: %s',
                     item.id, organization_id, exc,
                 )
+            # Emit progress every 10 items to avoid chatty updates
+            if (idx + 1) % 10 == 0:
+                _emit(indexed=indexed, skipped_no_sp=skipped_no_sp, processed=idx + 1)
 
-        return {
+        result = {
             'indexed': indexed,
             'skipped_no_sp': skipped_no_sp,
             'total_seen': total_seen,
@@ -110,6 +134,49 @@ class RefinementHistoryIndexer:
             'since_days': since_days,
             'max_items': max_items,
         }
+        _emit(status='completed', **result, message=f'Bitti: {indexed} iş indexlendi, {skipped_no_sp} SP yok diye atlandı.')
+        return result
+
+    @classmethod
+    async def run_backfill_job(
+        cls,
+        db: AsyncSession,
+        organization_id: int,
+        *,
+        source: str = 'azure',
+        project: str | None = None,
+        since_days: int | None = 365,
+        max_items: int = 500,
+    ) -> None:
+        """Entry point used by the async background task: records progress into
+        the module-level _BACKFILL_JOBS dict so the status endpoint can surface it."""
+        _BACKFILL_JOBS[int(organization_id)] = {
+            'status': 'queued',
+            'started_at': datetime.utcnow().isoformat(),
+            'indexed': 0,
+            'skipped_no_sp': 0,
+            'total': 0,
+            'message': 'Hazırlanıyor...',
+        }
+
+        def _cb(patch: dict[str, Any]) -> None:
+            _mark_job(organization_id, **patch)
+
+        indexer = cls(db)
+        try:
+            await indexer.backfill(
+                organization_id,
+                source=source,
+                project=project,
+                since_days=since_days,
+                max_items=max_items,
+                progress_cb=_cb,
+            )
+        except Exception as exc:
+            _mark_job(organization_id, status='failed', error=str(exc)[:400])
+            logger.exception('Backfill job failed for org %s', organization_id)
+        finally:
+            _mark_job(organization_id, finished_at=datetime.utcnow().isoformat())
 
     async def _index_one(
         self,

@@ -477,8 +477,15 @@ export default function RefinementPage() {
   const [commentSignature, setCommentSignature] = useState('AGENA AI');
   const [focusedResultId, setFocusedResultId] = useState('');
   const [analyzedCount, setAnalyzedCount] = useState(0);
-  const [backfillRunning, setBackfillRunning] = useState(false);
-  const [backfillResult, setBackfillResult] = useState<{ indexed: number; skipped_no_sp: number; total_seen: number } | null>(null);
+  const [backfillJob, setBackfillJob] = useState<{
+    status: 'idle' | 'queued' | 'fetching' | 'indexing' | 'completed' | 'failed';
+    message?: string;
+    indexed?: number;
+    skipped_no_sp?: number;
+    total?: number;
+    processed?: number;
+    error?: string;
+  } | null>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [customPromptText, setCustomPromptText] = useState('');
@@ -493,6 +500,20 @@ export default function RefinementPage() {
     () => jiraSprints.find((item) => item.id === jiraSprint),
     [jiraSprints, jiraSprint],
   );
+
+  // Restore last backfill job state on mount so the user sees it after refresh
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await apiFetch<{ status: string; indexed?: number; total?: number; processed?: number; skipped_no_sp?: number; message?: string; error?: string }>('/refinement/history/backfill-status');
+        if (data.status && data.status !== 'idle') {
+          setBackfillJob(data as typeof backfillJob);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -697,9 +718,8 @@ export default function RefinementPage() {
   }), []);
 
   const runBackfill = useCallback(async () => {
-    setBackfillRunning(true);
     setError('');
-    setRunMessage({ kind: 'success', text: 'Geçmiş işler indexleniyor... (1-2 dk sürebilir)' });
+    setBackfillJob({ status: 'queued', message: 'Arka plan işi başlatılıyor...' });
     try {
       const body: { source: string; project?: string; since_days: number; max_items: number } = {
         source: 'azure',
@@ -707,21 +727,29 @@ export default function RefinementPage() {
         max_items: 1000,
       };
       if (provider === 'azure' && azureProject) body.project = azureProject;
-      const resp = await apiFetch<{ indexed: number; skipped_no_sp: number; total_seen: number }>(
+      await apiFetch<{ status: string }>(
         '/refinement/history/backfill',
         { method: 'POST', body: JSON.stringify(body) },
       );
-      setBackfillResult(resp);
-      setRunMessage({
-        kind: 'success',
-        text: `Indexleme tamam: ${resp.indexed} iş eklendi, ${resp.skipped_no_sp} SP'siz atlandı (toplam görülen: ${resp.total_seen}).`,
-      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Backfill başarısız');
-    } finally {
-      setBackfillRunning(false);
+      setBackfillJob({ status: 'failed', error: err instanceof Error ? err.message : 'Backfill başlatılamadı' });
     }
   }, [provider, azureProject]);
+
+  // Poll backfill status while a job is active
+  useEffect(() => {
+    if (!backfillJob) return;
+    if (backfillJob.status === 'completed' || backfillJob.status === 'failed' || backfillJob.status === 'idle') return;
+    const iv = setInterval(async () => {
+      try {
+        const data = await apiFetch<typeof backfillJob & { status: string }>('/refinement/history/backfill-status');
+        setBackfillJob(data as typeof backfillJob);
+      } catch {
+        // ignore transient polling errors
+      }
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [backfillJob]);
 
   const runRefinement = useCallback(async () => {
     if (!selectedIds.length) return;
@@ -1184,18 +1212,32 @@ export default function RefinementPage() {
             <button onClick={() => void runRefinement()} style={secondaryButton} disabled={running || !selectedIds.length}>
               {running ? copy.analyzing : copy.analyze}
             </button>
-            <button
-              onClick={() => void runBackfill()}
-              style={{ ...secondaryButton, background: 'rgba(14,165,233,0.1)', borderColor: 'rgba(14,165,233,0.3)', color: '#7dd3fc' }}
-              disabled={backfillRunning || provider !== 'azure'}
-              title='Kapanmış Azure DevOps işlerini Qdrant belleğe indexler; refinement SP önerisini bu geçmişe göre kurar.'
-            >
-              {backfillRunning
-                ? 'İndexleniyor...'
-                : backfillResult
-                  ? `Geçmiş İndexlendi (${backfillResult.indexed})`
-                  : 'Geçmiş İşleri İndexle'}
-            </button>
+            {(() => {
+              const jobActive = backfillJob && (backfillJob.status === 'queued' || backfillJob.status === 'fetching' || backfillJob.status === 'indexing');
+              const jobDone = backfillJob && backfillJob.status === 'completed';
+              const jobFailed = backfillJob && backfillJob.status === 'failed';
+              return (
+                <button
+                  onClick={() => void runBackfill()}
+                  style={{
+                    ...secondaryButton,
+                    background: jobFailed ? 'rgba(239,68,68,0.1)' : jobDone ? 'rgba(34,197,94,0.1)' : 'rgba(14,165,233,0.1)',
+                    borderColor: jobFailed ? 'rgba(239,68,68,0.3)' : jobDone ? 'rgba(34,197,94,0.3)' : 'rgba(14,165,233,0.3)',
+                    color: jobFailed ? '#fca5a5' : jobDone ? '#86efac' : '#7dd3fc',
+                  }}
+                  disabled={!!jobActive || provider !== 'azure'}
+                  title='Kapanmış Azure DevOps işlerini Qdrant belleğe indexler; refinement SP önerisini bu geçmişe göre kurar.'
+                >
+                  {jobActive
+                    ? `İndexleniyor${backfillJob?.total ? ` (${backfillJob.processed || 0}/${backfillJob.total})` : '...'}`
+                    : jobDone
+                      ? `Geçmiş İndexlendi (${backfillJob.indexed ?? 0})`
+                      : jobFailed
+                        ? 'Tekrar Dene'
+                        : 'Geçmiş İşleri İndexle'}
+                </button>
+              );
+            })()}
             {results && results.results.filter(r => !r.error).length > 0 && (
               <>
               <button
@@ -1247,6 +1289,46 @@ export default function RefinementPage() {
             )}
             <span style={{ fontSize: 12, color: 'var(--ink-35)' }}>{copy.selectionHint}</span>
           </div>
+
+          {backfillJob && backfillJob.status !== 'idle' && (
+            <div style={{
+              borderRadius: 12,
+              padding: '10px 14px',
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              border: `1px solid ${backfillJob.status === 'failed' ? 'rgba(239,68,68,0.35)' : backfillJob.status === 'completed' ? 'rgba(34,197,94,0.35)' : 'rgba(14,165,233,0.35)'}`,
+              background: backfillJob.status === 'failed' ? 'rgba(239,68,68,0.06)' : backfillJob.status === 'completed' ? 'rgba(34,197,94,0.06)' : 'rgba(14,165,233,0.06)',
+              color: 'var(--ink-80)',
+            }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: 999,
+                background: backfillJob.status === 'failed' ? '#f87171' : backfillJob.status === 'completed' ? '#22c55e' : '#38bdf8',
+                flexShrink: 0,
+                animation: (backfillJob.status === 'fetching' || backfillJob.status === 'indexing' || backfillJob.status === 'queued') ? 'pulse-brand 1.4s ease-in-out infinite' : 'none',
+              }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                  {backfillJob.status === 'queued' && 'Sıraya alındı'}
+                  {backfillJob.status === 'fetching' && 'Azure DevOps taranıyor'}
+                  {backfillJob.status === 'indexing' && `Qdrant\'a yazılıyor${backfillJob.total ? ` — ${backfillJob.processed || 0}/${backfillJob.total}` : ''}`}
+                  {backfillJob.status === 'completed' && `Tamamlandı — ${backfillJob.indexed ?? 0} iş indexlendi, ${backfillJob.skipped_no_sp ?? 0} SP\'siz atlandı`}
+                  {backfillJob.status === 'failed' && `Başarısız: ${backfillJob.error || 'bilinmeyen hata'}`}
+                </div>
+                {backfillJob.message && backfillJob.status !== 'completed' && backfillJob.status !== 'failed' && (
+                  <div style={{ fontSize: 11, color: 'var(--ink-45)' }}>{backfillJob.message}</div>
+                )}
+              </div>
+              {backfillJob.status !== 'completed' && backfillJob.status !== 'failed' && (
+                <button
+                  onClick={() => setBackfillJob(null)}
+                  style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
+                  title='Bu mesajı kapat (iş arka planda devam eder)'
+                >×</button>
+              )}
+            </div>
+          )}
 
           {error && (
             <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
