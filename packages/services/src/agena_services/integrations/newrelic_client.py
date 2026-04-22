@@ -426,7 +426,7 @@ class NewRelicClient:
 
             # Links
             if nr_errors_url:
-                description += f'**Errors Inbox:** {nr_errors_url}\n'
+                description += f'**Errors Inbox:** [New Relic Link]({nr_errors_url})\n'
 
             tasks.append(ExternalTask(
                 id=fp,
