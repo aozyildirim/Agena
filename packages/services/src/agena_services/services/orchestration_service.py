@@ -1673,6 +1673,28 @@ class OrchestrationService:
                     if merged:
                         final_content = merged
 
+            # Safety: refuse to overwrite an existing file with a suspiciously tiny body.
+            # Codex/CLI sometimes returns just a single method or snippet inside a file
+            # block, which would otherwise blow away the entire file content.
+            if local_repo_path and not is_patch:
+                try:
+                    from pathlib import Path as _P
+                    full = (_P(local_repo_path) / clean_path).expanduser().resolve()
+                    root = _P(local_repo_path).expanduser().resolve()
+                    if full.exists() and full.is_file() and str(full).startswith(str(root)):
+                        existing = full.read_text(encoding='utf-8', errors='ignore')
+                        ex_lines = existing.count('\n') + 1
+                        new_lines = final_content.count('\n') + 1
+                        # Threshold: existing is substantial and new is <40% of it
+                        if ex_lines >= 30 and new_lines < max(10, ex_lines * 0.4):
+                            logger.warning(
+                                'Refusing to apply tiny replacement for %s: existing=%d lines, new=%d lines — likely a partial fragment',
+                                clean_path, ex_lines, new_lines,
+                            )
+                            continue
+                except Exception:
+                    pass
+
             files.append(GitHubFileChange(path=clean_path, content=final_content))
         return files
 
