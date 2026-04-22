@@ -174,6 +174,50 @@ class NewRelicClient:
             })
         return result
 
+    async def fetch_error_group_links(
+        self,
+        cfg: dict[str, str],
+        *,
+        entity_guid: str,
+        hours_back: int = 24,
+    ) -> dict[tuple[str, str], dict[str, str]]:
+        """Use NerdGraph errorsInbox.errorGroups to fetch per-group deep-link
+        URLs. Returns a mapping of (error_class, error_message) → {id, url}.
+
+        NRQL alone only gives us FACET buckets — it doesn't expose the opaque
+        group hash NR uses in the UI. errorsInbox does.
+        """
+        if not entity_guid:
+            return {}
+        import time as _t
+        end_ms = int(_t.time() * 1000)
+        start_ms = end_ms - hours_back * 60 * 60 * 1000
+        gql = (
+            '{ actor { entity(guid: "%s") { '
+            '... on ApmApplicationEntity { '
+            'errorsInbox { errorGroups('
+            'timeWindow: { startTime: %d, endTime: %d }'
+            ') { results { id name message url } } } } } } }'
+        ) % (entity_guid, start_ms, end_ms)
+        try:
+            data = await self._query(cfg, gql)
+            results = (
+                ((data.get('actor') or {}).get('entity') or {})
+                .get('errorsInbox', {})
+                .get('errorGroups', {})
+                .get('results', [])
+            ) or []
+        except Exception:
+            return {}
+        mapping: dict[tuple[str, str], dict[str, str]] = {}
+        for g in results:
+            key = (str(g.get('name') or ''), str(g.get('message') or ''))
+            mapping[key] = {
+                'id': str(g.get('id') or ''),
+                'url': str(g.get('url') or ''),
+            }
+        return mapping
+
     async def fetch_error_details(
         self,
         cfg: dict[str, str],
@@ -215,11 +259,34 @@ class NewRelicClient:
         app_name: str,
         since: str = '24 hours ago',
         limit: int = 100,
+        entity_guid: str = '',
     ) -> list[dict[str, Any]]:
         """Fetch error groups + sample details for each group."""
         errors = await self.fetch_errors(
             cfg, account_id=account_id, app_name=app_name, since=since, limit=limit,
         )
+
+        # Enrich each row with NR's real deep-link URL via errorsInbox graph
+        hours_back = 24
+        if isinstance(since, str):
+            import re as _re
+            m = _re.search(r'(\d+)\s*(hour|day|minute)', since)
+            if m:
+                n = int(m.group(1)); unit = m.group(2)
+                hours_back = n * 24 if unit == 'day' else (max(1, n // 60) if unit == 'minute' else n)
+        group_links: dict[tuple[str, str], dict[str, str]] = {}
+        if entity_guid:
+            group_links = await self.fetch_error_group_links(
+                cfg, entity_guid=entity_guid, hours_back=hours_back,
+            )
+        for err in errors:
+            key = (err.get('error_class') or '', err.get('error_message') or '')
+            info = group_links.get(key) or {}
+            if info.get('url'):
+                err['group_url'] = info['url']
+            if info.get('id'):
+                err['group_id'] = info['id']
+
         for err in errors:
             try:
                 details = await self.fetch_error_details(
@@ -281,19 +348,18 @@ class NewRelicClient:
                 short_msg = error_message[:120] + ('...' if len(error_message) > 120 else '')
                 title += f': {short_msg}'
 
-            # Build NR errors inbox URL. We link to the entity-level inbox
-            # because NR's UI deep-link for a specific error group requires
-            # an opaque internal group hash that isn't available via our
-            # NRQL query. User still lands on the correct app's inbox and
-            # can use NR's built-in search for the class/message if needed.
-            nr_errors_url = ''
-            if entity_guid and account_id:
-                nr_errors_url = (
-                    f'https://one.eu.newrelic.com/nr1-core/errors-inbox/entity-inbox/'
-                    f'{entity_guid}?account={account_id}'
-                )
-            elif account_id:
-                nr_errors_url = f'https://one.eu.newrelic.com/nr1-core?account={account_id}'
+            # Prefer NR's own deep-link (errorsInbox graph gives us a URL
+            # that points directly at the error group). Fall back to the
+            # entity-level inbox if not available.
+            nr_errors_url = str(err.get('group_url') or '').strip()
+            if not nr_errors_url:
+                if entity_guid and account_id:
+                    nr_errors_url = (
+                        f'https://one.eu.newrelic.com/nr1-core/errors-inbox/entity-inbox/'
+                        f'{entity_guid}?account={account_id}'
+                    )
+                elif account_id:
+                    nr_errors_url = f'https://one.eu.newrelic.com/nr1-core?account={account_id}'
 
             # Build rich description
             description = f'## New Relic Error — `{error_class}`\n\n'

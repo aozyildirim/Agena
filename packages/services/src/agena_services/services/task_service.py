@@ -339,6 +339,7 @@ class TaskService:
                 account_id=mapping.account_id,
                 app_name=mapping.entity_name,
                 since=since,
+                entity_guid=mapping.entity_guid,
             )
             filtered = [e for e in errors if e.get('occurrences', 0) >= min_occurrences]
             if fp_filter is not None:
