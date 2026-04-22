@@ -186,6 +186,34 @@ class AzureDevOpsClient:
             patch_resp = await client.patch(url_patch, headers=patch_headers, json=patch_ops)
             patch_resp.raise_for_status()
 
+    async def fetch_work_item_comments(
+        self, *, cfg: dict[str, str], project: str, work_item_id: str,
+    ) -> list[dict[str, Any]]:
+        """Return the comments on a work item, newest-first."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not work_item_id:
+            return []
+        url = (
+            f"{org_url.rstrip('/')}/{project}/_apis/wit/workItems/{work_item_id}/comments"
+            f"?api-version=7.1-preview.4&$top=200&order=desc"
+        )
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=self._headers(pat))
+            if resp.status_code != 200:
+                return []
+            items = (resp.json() or {}).get('comments', []) or []
+            result: list[dict[str, Any]] = []
+            for c in items:
+                user = c.get('createdBy') or {}
+                result.append({
+                    'id': c.get('id'),
+                    'text': c.get('text') or '',
+                    'created_by': user.get('displayName') or user.get('uniqueName') or '',
+                    'created_at': c.get('createdDate') or '',
+                })
+            return result
+
     async def get_authenticated_user_upn(self, *, cfg: dict[str, str]) -> str | None:
         """Return the authenticated user's unique name (UPN/email) from Azure DevOps, or None."""
         org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()

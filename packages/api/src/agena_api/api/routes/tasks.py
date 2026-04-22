@@ -383,6 +383,26 @@ async def list_member_workitems(
     return result
 
 
+@router.get('/azure/workitems/{work_item_id}/comments')
+async def list_azure_workitem_comments(
+    work_item_id: str,
+    project: str = Query(...),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[dict[str, Any]]:
+    service = IntegrationConfigService(db)
+    config = await service.get_config(tenant.organization_id, 'azure')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Azure integration not configured')
+    from agena_services.integrations.azure_client import AzureDevOpsClient
+    client = AzureDevOpsClient()
+    cfg = {'org_url': config.base_url, 'pat': config.secret}
+    try:
+        return await client.fetch_work_item_comments(cfg=cfg, project=project, work_item_id=work_item_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f'Azure comments fetch failed: {exc}') from exc
+
+
 @router.get('/azure/repos')
 async def list_azure_repos(
     project: str = Query(...),

@@ -1124,6 +1124,9 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   const toActiveDuration = item.activated_date ? elapsed(item.created_date, item.activated_date) : null;
   const plainDescription = toPlainText(item.description);
   const sanitizedDescriptionHtml = useMemo(() => sanitizeWorkItemDescriptionHtml(item.description), [item.description]);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState<Array<{ id: number; text: string; created_by: string; created_at: string }> | null>(null);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const [selLocalRepoMappingId, setSelLocalRepoMappingId] = useState(repoMappings[0]?.id ?? '');
   const [repoSource, setRepoSource] = useState<'mapping' | 'remote'>(repoMappings.length ? 'mapping' : 'remote');
@@ -1234,6 +1237,59 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
               plainDescription || t('sprints.noDescriptionFound')
             )}
           </div>
+        </div>
+
+        {/* ── Comments ── */}
+        <div>
+          <button
+            onClick={async () => {
+              const next = !commentsOpen;
+              setCommentsOpen(next);
+              if (next && comments === null) {
+                setCommentsLoading(true);
+                try {
+                  const params = new URLSearchParams({ project: project || '' });
+                  const data = await apiFetch<typeof comments>(`/tasks/azure/workitems/${item.id}/comments?${params}`);
+                  setComments(data || []);
+                } catch {
+                  setComments([]);
+                } finally {
+                  setCommentsLoading(false);
+                }
+              }
+            }}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)',
+              background: 'var(--panel-alt)', color: 'var(--ink-78)', cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase',
+            }}
+          >
+            <span>💬 {t('sprints.comments') || 'Yorumlar'}{comments ? ` (${comments.length})` : ''}</span>
+            <span style={{ fontSize: 10, color: 'var(--ink-35)' }}>{commentsOpen ? '▴' : '▾'}</span>
+          </button>
+          {commentsOpen && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+              {commentsLoading ? (
+                <div style={{ padding: 12, fontSize: 11, color: 'var(--ink-35)', textAlign: 'center' }}>{t('sprints.commentsLoading') || 'Yükleniyor...'}</div>
+              ) : (comments && comments.length === 0) ? (
+                <div style={{ padding: 12, fontSize: 11, color: 'var(--ink-35)', textAlign: 'center' }}>{t('sprints.commentsEmpty') || 'Yorum yok'}</div>
+              ) : (
+                (comments || []).map((c) => (
+                  <div key={c.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--ink-35)', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600, color: 'var(--ink-50)' }}>{c.created_by || '—'}</span>
+                      <span>{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
+                    </div>
+                    <div
+                      style={{ fontSize: 12, color: 'var(--ink-78)', lineHeight: 1.5, overflowWrap: 'anywhere' }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeWorkItemDescriptionHtml(c.text) }}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── AI Ayarları ── */}
