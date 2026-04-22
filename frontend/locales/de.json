@@ -1613,7 +1613,7 @@
   "taskDetail.stopping": "Wird gestoppt...",
   "taskDetail.stopTask": "Aufgabe stoppen",
   "taskDetail.downloadLogs": "Logs herunterladen",
-  "taskDetail.openPullRequest": "Pull Request öffnen",
+  "taskDetail.openPullRequest": "Pull Request anzeigen",
   "taskDetail.copyBranch": "Branch-Namen kopieren",
   "taskDetail.executionSteps": "Ausführungsschritte",
   "taskDetail.updated": "Aktualisiert",

@@ -1081,7 +1081,7 @@
   "taskDetail.stopping": "Durduruluyor...",
   "taskDetail.stopTask": "Görevi Durdur",
   "taskDetail.downloadLogs": "Logları İndir",
-  "taskDetail.openPullRequest": "Pull Request Aç",
+  "taskDetail.openPullRequest": "PR'ı Görüntüle",
   "taskDetail.copyBranch": "Branch Adını Kopyala",
   "taskDetail.executionSteps": "Çalışma Adımları",
   "taskDetail.updated": "Güncellendi",

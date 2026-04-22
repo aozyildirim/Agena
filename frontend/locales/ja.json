@@ -1613,7 +1613,7 @@
   "taskDetail.stopping": "Durduruluyor...",
   "taskDetail.stopTask": "タスクi Durdur",
   "taskDetail.downloadLogs": "ログをダウンロード",
-  "taskDetail.openPullRequest": "Pull Request 開く",
+  "taskDetail.openPullRequest": "Pull Request を表示",
   "taskDetail.copyBranch": "ブランチ名をコピー",
   "taskDetail.executionSteps": "実行ステップ",
   "taskDetail.updated": "日cellendi",

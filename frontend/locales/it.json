@@ -1604,7 +1604,7 @@
   "taskDetail.stopping": "Arresto in corso...",
   "taskDetail.stopTask": "Ferma Task",
   "taskDetail.downloadLogs": "Scarica Log",
-  "taskDetail.openPullRequest": "Apri Pull Request",
+  "taskDetail.openPullRequest": "Visualizza Pull Request",
   "taskDetail.copyBranch": "Copia Nome Branch",
   "taskDetail.executionSteps": "Step Esecuzione",
   "taskDetail.updated": "Aggiornato",

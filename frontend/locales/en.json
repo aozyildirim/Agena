@@ -1081,7 +1081,7 @@
   "taskDetail.stopping": "Stopping...",
   "taskDetail.stopTask": "Stop Task",
   "taskDetail.downloadLogs": "Download Logs",
-  "taskDetail.openPullRequest": "Open Pull Request",
+  "taskDetail.openPullRequest": "View Pull Request",
   "taskDetail.copyBranch": "Copy Branch Name",
   "taskDetail.executionSteps": "Execution Steps",
   "taskDetail.updated": "Updated",

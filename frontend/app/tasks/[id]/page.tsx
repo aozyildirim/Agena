@@ -324,7 +324,9 @@ export default function TaskDetailPage() {
     return () => { document.body.style.overflow = prev; };
   }, [hasAnyModalOpen]);
 
-  async function loadData() {
+  const depsInitializedRef = useRef(false);
+
+  async function loadData(isInitial = false) {
     try {
       const [taskData, logsData, runsData, taskList, prefs, integrations] = await Promise.all([
         apiFetch<TaskDetail>('/tasks/' + taskId),
@@ -347,7 +349,12 @@ export default function TaskDetailPage() {
       setDependencyCandidates(taskList.filter((item) => item.id !== currentTaskId));
       const d = await apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies');
       setDepsData(d);
-      setSelectedDependencyIds(d.depends_on_task_ids || []);
+      // Only seed the checkbox selection from the server on first load;
+      // otherwise the 5s poll keeps resetting the user's in-progress edits.
+      if (isInitial || !depsInitializedRef.current) {
+        setSelectedDependencyIds(d.depends_on_task_ids || []);
+        depsInitializedRef.current = true;
+      }
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('taskDetail.errorLoad'));
@@ -358,8 +365,9 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     if (!taskId) return;
-    void loadData();
-    const interval = setInterval(() => void loadData(), 5000);
+    depsInitializedRef.current = false;
+    void loadData(true);
+    const interval = setInterval(() => void loadData(false), 5000);
     return () => clearInterval(interval);
   }, [taskId]);
 
@@ -1021,23 +1029,9 @@ export default function TaskDetailPage() {
                   </div>
                 </div>
               ) : null}
-              {(task.lock_scope || task.blocked_by_task_id || (task.queue_position !== null && task.queue_position !== undefined)) ? (
-                <div style={{ border: '1px solid rgba(94,234,212,0.25)', borderRadius: 10, background: 'rgba(94,234,212,0.06)', padding: '9px 10px', marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', marginBottom: 5 }}>{t('taskDetail.queueInsight')}</div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-78)', lineHeight: 1.45 }}>
-                    {task.queue_position !== null && task.queue_position !== undefined ? `${t('taskDetail.position')}: #${task.queue_position} | ` : ''}
-                    ETA: {fmtEta(task.estimated_start_sec)}
-                  </div>
-                  {task.blocked_by_task_id ? (
-                    <div style={{ fontSize: 12, color: 'var(--ink-72)', marginTop: 4 }}>
-                      {t('taskDetail.blockedBy')} #{task.blocked_by_task_id}{task.blocked_by_task_title ? ` — ${task.blocked_by_task_title}` : ''}
-                    </div>
-                  ) : null}
-                  {task.lock_scope ? (
-                    <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4, wordBreak: 'break-all' }}>
-                      {t('taskDetail.lockScope')}: {task.lock_scope}
-                    </div>
-                  ) : null}
+              {task.blocked_by_task_id ? (
+                <div style={{ fontSize: 12, color: 'var(--ink-72)', marginBottom: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)' }}>
+                  {t('taskDetail.blockedBy')} #{task.blocked_by_task_id}{task.blocked_by_task_title ? ` — ${task.blocked_by_task_title}` : ''}
                 </div>
               ) : null}
               <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 10, padding: '9px 10px', marginBottom: 12, background: 'var(--panel)' }}>

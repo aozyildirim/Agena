@@ -1801,7 +1801,7 @@
   "taskDetail.stopping": "停止中...",
   "taskDetail.stopTask": "停止任务",
   "taskDetail.downloadLogs": "下载日志",
-  "taskDetail.openPullRequest": "打开 PR",
+  "taskDetail.openPullRequest": "查看 PR",
   "taskDetail.copyBranch": "复制分支",
   "taskDetail.executionSteps": "执行步骤",
   "taskDetail.updated": "已更新",
