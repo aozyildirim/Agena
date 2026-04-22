@@ -31,7 +31,8 @@ class LocalRepoService:
         if not git_dir.exists():
             raise ValueError(f'Not a git repository: {repo_path}')
 
-        # Stash any uncommitted changes first
+        # Stash any uncommitted changes (preserves user's WIP) so the agent
+        # sees a clean working tree.
         await self._run_git(root, ['stash', '--include-untracked'], allow_fail=True)
 
         # Save current branch to restore later
@@ -40,8 +41,10 @@ class LocalRepoService:
         if remote_url:
             # PR flow: create/checkout feature branch
             remote_target = self._build_remote_target(remote_url, remote_pat)
+            base_fetched = False
             try:
                 await self._run_git(root, ['fetch', remote_target, base_branch])
+                base_fetched = True
             except Exception:
                 pass
 
@@ -56,19 +59,24 @@ class LocalRepoService:
             if branch_exists:
                 await self._run_git(root, ['checkout', '-B', branch_name, 'FETCH_HEAD'], allow_fail=True)
             else:
+                # Start feature branch from FRESHLY FETCHED base (not stale local copy)
+                start_ref = 'FETCH_HEAD' if base_fetched else base_branch
                 try:
-                    await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+                    await self._run_git(root, ['fetch', remote_target, base_branch], allow_fail=True)
+                    await self._run_git(root, ['checkout', '-B', branch_name, start_ref], allow_fail=True)
                 except Exception:
                     await self._run_git(root, ['checkout', '-B', branch_name])
         else:
             remote_target = 'origin'
-            # No explicit remote URL — still create branch for PR flow
+            base_fetched = False
             try:
                 await self._run_git(root, ['fetch', remote_target, base_branch])
+                base_fetched = True
             except Exception:
                 pass
+            start_ref = 'FETCH_HEAD' if base_fetched else base_branch
             try:
-                await self._run_git(root, ['checkout', '-B', branch_name, base_branch], allow_fail=True)
+                await self._run_git(root, ['checkout', '-B', branch_name, start_ref], allow_fail=True)
             except Exception:
                 await self._run_git(root, ['checkout', '-B', branch_name])
 
