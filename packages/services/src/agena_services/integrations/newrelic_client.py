@@ -281,10 +281,28 @@ class NewRelicClient:
                 short_msg = error_message[:120] + ('...' if len(error_message) > 120 else '')
                 title += f': {short_msg}'
 
-            # Build NR errors inbox URL (direct link to error group)
+            # Build NR errors inbox URL — narrow to this specific error group
+            # via error.class + error.message filters so the link opens the
+            # matching row, not the generic entity inbox.
             nr_errors_url = ''
             if entity_guid and account_id:
-                nr_errors_url = f'https://one.eu.newrelic.com/nr1-core/errors-inbox/entity-inbox/{entity_guid}?account={account_id}'
+                from urllib.parse import quote as _q
+                filter_expr_parts: list[str] = []
+                if error_class:
+                    esc_class = error_class.replace("'", "\\'")
+                    filter_expr_parts.append(f"error.class = '{esc_class}'")
+                if error_message:
+                    # NR UI truncates message matching; keep first 120 chars to
+                    # keep the URL short and still precise for most errors.
+                    em = error_message[:120].replace("'", "\\'")
+                    filter_expr_parts.append(f"error.message = '{em}'")
+                filter_q = ''
+                if filter_expr_parts:
+                    filter_q = '&filters=' + _q(' AND '.join(filter_expr_parts), safe='')
+                nr_errors_url = (
+                    f'https://one.eu.newrelic.com/nr1-core/errors-inbox/entity-inbox/'
+                    f'{entity_guid}?account={account_id}{filter_q}'
+                )
             elif account_id:
                 nr_errors_url = f'https://one.eu.newrelic.com/nr1-core?account={account_id}'
 
