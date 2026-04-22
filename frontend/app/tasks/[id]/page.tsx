@@ -830,54 +830,55 @@ export default function TaskDetailPage() {
               <p style={{ marginTop: 0, color: 'var(--ink-78)', fontSize: 13, lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                 {task.description}
               </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+              {/* Primary chips: status, source, linked work item */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                 <StatusBadge status={task.status} />
-                <span style={{ color: 'var(--ink-50)', fontSize: 13, textTransform: 'capitalize' }}>{t('taskDetail.source')}: {task.source}</span>
-                {(task.source === 'newrelic' || task.source === 'sentry') && task.occurrences != null && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
-                    {task.occurrences.toLocaleString()}× {t('tasks.occurrences') || 'times'}
-                  </span>
-                )}
-                {(task.source === 'newrelic' || task.source === 'sentry') && task.last_seen_at && (
-                  <span style={{ fontSize: 11, color: 'var(--ink-45)' }}>
-                    {t('tasks.lastSeen') || 'Last seen'}: {new Date(task.last_seen_at).toLocaleString()}
-                  </span>
-                )}
-                {(task.source === 'newrelic' || task.source === 'sentry') && task.first_seen_at && (
-                  <span style={{ fontSize: 11, color: 'var(--ink-35)' }}>
-                    {t('tasks.firstSeen') || 'First seen'}: {new Date(task.first_seen_at).toLocaleString()}
-                  </span>
-                )}
+                <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'var(--glass)', color: 'var(--ink-58)', textTransform: 'capitalize' }}>
+                  {task.source}
+                </span>
                 {task.external_work_item_id && (
                   azureOrgUrl && azureProject && /^\d+$/.test(task.external_work_item_id) ? (
                     <a
                       href={`${azureOrgUrl.replace(/\/$/, '')}/${encodeURIComponent(azureProject)}/_workitems/edit/${task.external_work_item_id}`}
                       target='_blank'
                       rel='noreferrer'
-                      style={{
-                        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
-                        background: 'rgba(96,165,250,0.12)', color: '#60a5fa', textDecoration: 'none',
-                      }}
+                      style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(96,165,250,0.12)', color: '#60a5fa', textDecoration: 'none' }}
                     >
                       AB#{task.external_work_item_id} ↗
                     </a>
                   ) : (
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
-                      background: 'rgba(96,165,250,0.12)', color: '#60a5fa',
-                    }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
                       {/^\d+$/.test(task.external_work_item_id)
                         ? `AB#${task.external_work_item_id}`
                         : task.external_work_item_id}
                     </span>
                   )
                 )}
-                {(task.preferred_agent_provider || task.preferred_agent_model) ? (
-                  <span style={{ color: 'var(--ink-50)', fontSize: 13 }}>
-                    {t('agents.provider')}: {task.preferred_agent_provider || '—'} | {t('agents.model')}: {task.preferred_agent_model || '—'}
+                {(task.source === 'newrelic' || task.source === 'sentry') && task.occurrences != null && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                    {task.occurrences.toLocaleString()}×
                   </span>
-                ) : null}
+                )}
               </div>
+
+              {/* Secondary meta line: times + provider (muted) */}
+              {(task.last_seen_at || task.first_seen_at || task.preferred_agent_provider || task.preferred_agent_model) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12, fontSize: 11, color: 'var(--ink-35)' }}>
+                  {task.last_seen_at && (
+                    <span title={new Date(task.last_seen_at).toLocaleString()}>
+                      {t('tasks.lastSeen') || 'Last seen'}: {new Date(task.last_seen_at).toLocaleString()}
+                    </span>
+                  )}
+                  {task.first_seen_at && (
+                    <span title={new Date(task.first_seen_at).toLocaleString()}>
+                      · {t('tasks.firstSeen') || 'First seen'}: {new Date(task.first_seen_at).toLocaleString()}
+                    </span>
+                  )}
+                  {(task.preferred_agent_provider || task.preferred_agent_model) && (
+                    <span>· {task.preferred_agent_provider || '—'}/{task.preferred_agent_model || '—'}</span>
+                  )}
+                </div>
+              )}
 
               {!task.external_work_item_id && (task.source === 'newrelic' || task.source === 'sentry') && azureOrgUrl && azureProject && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 10px', borderRadius: 8, background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
@@ -925,26 +926,30 @@ export default function TaskDetailPage() {
                   {isCancelBusy ? t('taskDetail.stopping') : t('taskDetail.stopTask')}
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                <button className='button button-outline' onClick={downloadLogs} style={{ fontSize: 11, padding: '5px 10px' }}>{t('taskDetail.downloadLogs')}</button>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, fontSize: 11 }}>
+                <button onClick={downloadLogs} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
+                  ⬇ {t('taskDetail.downloadLogs')}
+                </button>
                 {task.repo_assignments && task.repo_assignments.length > 0 ? (
                   task.repo_assignments.filter((ra) => ra.pr_url).map((ra) => (
-                    <a key={ra.id} href={ra.pr_url!} target='_blank' rel='noreferrer' className='button button-outline' style={{ fontSize: 11, padding: '5px 10px' }}>
-                      {t('taskDetail.openPullRequest')} — {ra.repo_display_name.split('/').pop()}
+                    <a key={ra.id} href={ra.pr_url!} target='_blank' rel='noreferrer' style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(94,234,212,0.25)', background: 'rgba(94,234,212,0.08)', color: '#5eead4', textDecoration: 'none', fontWeight: 600 }}>
+                      ↗ {t('taskDetail.openPullRequest')}
                     </a>
                   ))
                 ) : task.pr_url ? (
-                  <a href={task.pr_url} target='_blank' rel='noreferrer' className='button button-outline' style={{ fontSize: 11, padding: '5px 10px' }}>{t('taskDetail.openPullRequest')}</a>
+                  <a href={task.pr_url} target='_blank' rel='noreferrer' style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(94,234,212,0.25)', background: 'rgba(94,234,212,0.08)', color: '#5eead4', textDecoration: 'none', fontWeight: 600 }}>
+                    ↗ {t('taskDetail.openPullRequest')}
+                  </a>
                 ) : null}
                 {task.repo_assignments && task.repo_assignments.length > 0 ? (
                   task.repo_assignments.filter((ra) => ra.branch_name).map((ra) => (
-                    <button key={ra.id} className='button button-outline' onClick={() => navigator.clipboard.writeText(ra.branch_name || '')} style={{ fontSize: 11, padding: '5px 10px' }}>
-                      {t('taskDetail.copyBranch')} — {ra.repo_display_name.split('/').pop()}
+                    <button key={ra.id} onClick={() => navigator.clipboard.writeText(ra.branch_name || '')} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
+                      ⎘ {t('taskDetail.copyBranch')}
                     </button>
                   ))
                 ) : task.branch_name ? (
-                  <button className='button button-outline' onClick={() => navigator.clipboard.writeText(task.branch_name || '')} style={{ fontSize: 11, padding: '5px 10px' }}>
-                    {t('taskDetail.copyBranch')}
+                  <button onClick={() => navigator.clipboard.writeText(task.branch_name || '')} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
+                    ⎘ {t('taskDetail.copyBranch')}
                   </button>
                 ) : null}
               </div>
