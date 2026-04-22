@@ -821,7 +821,7 @@ export default function TaskDetailPage() {
         ))}
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px minmax(860px, 1fr)', gap: 14, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '440px minmax(780px, 1fr)', gap: 14, alignItems: 'start' }}>
         <section
           className='card'
           style={{ position: isMobile ? 'static' : 'sticky', top: 92, maxHeight: isMobile ? 'none' : 'calc(100vh - 120px)', overflowY: 'auto', borderRadius: 16 }}
@@ -917,19 +917,6 @@ export default function TaskDetailPage() {
                   </button>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                <button className='button button-primary' onClick={handleRunClick} disabled={isRerunBusy} style={{ flex: 1 }}>
-                  {isRerunBusy ? t('taskDetail.rerunning') : t('taskDetail.rerunTask')}
-                </button>
-                <button
-                  className='button button-outline'
-                  onClick={() => void cancelTask()}
-                  disabled={isCancelBusy || !(task.status === 'queued' || task.status === 'running')}
-                  style={{ flex: 1 }}
-                >
-                  {isCancelBusy ? t('taskDetail.stopping') : t('taskDetail.stopTask')}
-                </button>
-              </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, fontSize: 11 }}>
                 <button onClick={downloadLogs} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
                   ⬇ {t('taskDetail.downloadLogs')}
