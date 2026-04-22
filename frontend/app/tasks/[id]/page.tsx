@@ -726,100 +726,130 @@ export default function TaskDetailPage() {
         </div>
       </section>
 
-      {/* Run selector tabs */}
+      {/* Run selector tabs — flat, no outer wrapper */}
       {logRuns.length > 1 && (
         <section
           style={{
-            borderRadius: 16,
-            border: '1px solid var(--panel-border-2)',
-            background: 'var(--panel)',
-            padding: '10px 12px',
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
             marginBottom: 12,
+            paddingBottom: 2,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-50)', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Runs ({logRuns.length})
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-            {logRuns.map((runLogs, idx) => {
-              const isActive = idx === activeRunIndex;
-              const hasCompleted = runLogs.some((l) => l.stage === 'completed');
-              const hasFailed = runLogs.some((l) => l.stage === 'failed');
-              const isRunning = idx === logRuns.length - 1 && task?.status === 'running';
-              const statusColor = hasCompleted ? '#22c55e' : hasFailed ? '#f87171' : isRunning ? '#38bdf8' : '#a3a3a3';
-              const runRecord = runs[idx];
-              const runTime = runLogs[0]?.created_at ? new Date(runLogs[0].created_at).toLocaleTimeString() : '';
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedRunIndex(idx === logRuns.length - 1 ? -1 : idx)}
+          {logRuns.map((runLogs, idx) => {
+            const isActive = idx === activeRunIndex;
+            const hasCompleted = runLogs.some((l) => l.stage === 'completed');
+            const hasFailed = runLogs.some((l) => l.stage === 'failed');
+            const isRunning = idx === logRuns.length - 1 && task?.status === 'running';
+            const statusColor = hasCompleted ? '#22c55e' : hasFailed ? '#f87171' : isRunning ? '#38bdf8' : '#94a3b8';
+            const runRecord = runs[idx];
+            const runTime = runLogs[0]?.created_at
+              ? new Date(runLogs[0].created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : '';
+            const metric = runRecord?.usage_total_tokens
+              ? `${Math.round(runRecord.usage_total_tokens).toLocaleString()} tok`
+              : `${runLogs.length} logs`;
+            return (
+              <button
+                key={idx}
+                onClick={() => setSelectedRunIndex(idx === logRuns.length - 1 ? -1 : idx)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: isActive ? `1.5px solid ${statusColor}` : '1px solid var(--panel-border-2)',
+                  background: isActive ? `${statusColor}14` : 'var(--panel)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >
+                <span
                   style={{
-                    padding: '8px 14px',
-                    borderRadius: 10,
-                    border: isActive ? `1px solid ${statusColor}88` : '1px solid var(--panel-border-3)',
-                    background: isActive ? `${statusColor}18` : 'var(--panel-alt)',
-                    color: isActive ? statusColor : 'var(--ink-65)',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    gap: 3,
-                    minWidth: 120,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 999,
+                    background: statusColor,
+                    boxShadow: isRunning ? `0 0 0 3px ${statusColor}33` : 'none',
+                    flexShrink: 0,
                   }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: 999, background: statusColor, flexShrink: 0 }} />
-                    Run #{idx + 1}
-                    {isRunning && <span style={{ fontSize: 10, opacity: 0.7 }}>(live)</span>}
-                  </div>
-                  <div style={{ fontSize: 10, opacity: 0.6, fontWeight: 400 }}>
-                    {runTime}
-                    {runRecord ? ` | ${Math.round(runRecord.usage_total_tokens)} tok` : ` | ${runLogs.length} logs`}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                />
+                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? statusColor : 'var(--ink-85)' }}>
+                  Run #{idx + 1}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--ink-45)', fontWeight: 500 }}>
+                  {runTime} · {metric}
+                </span>
+              </button>
+            );
+          })}
         </section>
       )}
 
-      {/* Top stats strip */}
-      <section
-        style={{
-          borderRadius: 16,
-          border: '1px solid var(--panel-border-2)',
-          background: 'var(--panel)',
-          padding: '10px 12px',
-          marginBottom: 12,
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(10, minmax(0,1fr))',
-          gap: 8,
-        }}
-      >
-        {[
-          [t('taskDetail.status'), task?.status ?? '—'],
-          [t('taskDetail.source'), task?.source ?? '—'],
-          [t('taskDetail.duration'), fmtEta(task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null))],
-          [t('taskDetail.queueWait'), fmtEta(task?.queue_wait_sec ?? queueWaitSec)],
-          [t('taskDetail.retries'), String(task?.retry_count ?? 0)],
-          [t('taskDetail.queuePos'), task?.queue_position !== null && task?.queue_position !== undefined ? `#${task.queue_position}` : '—'],
-          [t('taskDetail.eta'), fmtEta(task?.estimated_start_sec)],
-          [t('taskDetail.tokens'), task?.total_tokens !== null && task?.total_tokens !== undefined ? String(task.total_tokens) : metrics?.totalTokens || '—'],
-          [t('taskDetail.lastStage'), latestLog?.stage ?? '—'],
-          [t('taskDetail.lastUpdate'), latestLog ? new Date(latestLog.created_at).toLocaleTimeString() : '—'],
-          [t('taskDetail.logs'), String(activeRunLogs.length)],
-        ].map(([k, v]) => (
-          <div key={k} style={{ border: '1px solid var(--panel-border)', borderRadius: 10, padding: '8px 10px' }}>
-            <div style={{ fontSize: 10, color: 'var(--ink-35)', textTransform: 'uppercase' }}>{k}</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-90)', fontWeight: 700, textTransform: k === t('taskDetail.source') ? 'capitalize' : 'none' }}>{v}</div>
-          </div>
-        ))}
-      </section>
+      {/* Top stats strip — status-aware, shows only meaningful values */}
+      {(() => {
+        const items: { label: string; value: string }[] = [];
+        const durationSec = task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null);
+        if (durationSec != null) items.push({ label: t('taskDetail.duration'), value: fmtEta(durationSec) });
+
+        const qw = task?.queue_wait_sec ?? queueWaitSec;
+        if (qw != null) items.push({ label: t('taskDetail.queueWait'), value: fmtEta(qw) });
+
+        if (task?.status === 'queued') {
+          if (task?.queue_position != null) items.push({ label: t('taskDetail.queuePos'), value: `#${task.queue_position}` });
+          if (task?.estimated_start_sec != null) items.push({ label: t('taskDetail.eta'), value: fmtEta(task.estimated_start_sec) });
+        }
+
+        if (task?.status === 'running' && latestLog?.stage) {
+          items.push({ label: t('taskDetail.lastStage'), value: latestLog.stage });
+        }
+
+        if (task?.retry_count && task.retry_count > 0) {
+          items.push({ label: t('taskDetail.retries'), value: String(task.retry_count) });
+        }
+
+        const tokens = task?.total_tokens ?? (metrics?.totalTokens ? Number(metrics.totalTokens) : null);
+        if (tokens != null && Number(tokens) > 0) {
+          items.push({ label: t('taskDetail.tokens'), value: Number(tokens).toLocaleString() });
+        }
+
+        if (latestLog) {
+          items.push({ label: t('taskDetail.lastUpdate'), value: new Date(latestLog.created_at).toLocaleTimeString() });
+        }
+
+        if (items.length === 0) return null;
+
+        return (
+          <section
+            style={{
+              borderRadius: 14,
+              border: '1px solid var(--panel-border-2)',
+              background: 'var(--panel)',
+              padding: '10px 14px',
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: isMobile ? 10 : 18,
+              flexWrap: 'wrap',
+            }}
+          >
+            {items.map((it, i) => (
+              <div key={it.label} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-50)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                  {it.label}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{it.value}</span>
+                {i < items.length - 1 && !isMobile && (
+                  <span aria-hidden style={{ marginLeft: 12, color: 'var(--ink-22)' }}>·</span>
+                )}
+              </div>
+            ))}
+          </section>
+        );
+      })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '440px minmax(780px, 1fr)', gap: 14, alignItems: 'start' }}>
         <section
