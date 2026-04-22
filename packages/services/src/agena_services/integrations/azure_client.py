@@ -115,11 +115,15 @@ class AzureDevOpsClient:
         *,
         since_days: int | None = 365,
         max_items: int | None = 1000,
+        team: str | None = None,
     ) -> list[ExternalTask]:
         """Fetch completed work items across the project (Done/Closed/Resolved/Removed).
 
         Used to backfill history for refinement similarity search. Filters by
         ChangedDate to keep the result bounded; pass since_days=None for everything.
+        When `team` is set, scopes to that team's area path so we don't pull in
+        other teams' backlog (which also happens to dodge Azure's 20k WIQL cap
+        for large projects).
         """
         cfg = cfg or {}
         org_url = cfg.get('org_url') or self.settings.azure_org_url
@@ -173,11 +177,17 @@ class AzureDevOpsClient:
                 date_filter = f'[System.ChangedDate] >= @Today-{older_offset}'
                 if newer_offset > 0:
                     date_filter += f' AND [System.ChangedDate] < @Today-{newer_offset}'
-                where_clause = (
-                    f"({' OR '.join(state_clauses)})"
-                    ' AND [Microsoft.VSTS.Scheduling.StoryPoints] > 0'
-                    f' AND {date_filter}'
-                )
+                parts = [
+                    f"({' OR '.join(state_clauses)})",
+                    '[Microsoft.VSTS.Scheduling.StoryPoints] > 0',
+                    date_filter,
+                ]
+                if team:
+                    # Area path convention: <Project>\<Team>. WIQL single-quotes
+                    # need backslashes escaped.
+                    area_root = f"{project}\\{team}".replace("'", "''")
+                    parts.append(f"[System.AreaPath] UNDER '{area_root}'")
+                where_clause = ' AND '.join(parts)
                 wiql_payload = {
                     'query': (
                         'Select [System.Id], [System.Title], [System.State] '

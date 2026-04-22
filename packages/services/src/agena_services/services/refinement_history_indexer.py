@@ -51,6 +51,7 @@ class RefinementHistoryIndexer:
         *,
         source: str = 'azure',
         project: str | None = None,
+        team: str | None = None,
         since_days: int | None = 365,
         max_items: int = 500,
         progress_cb: Callable[[dict[str, Any]], None] | None = None,
@@ -85,7 +86,8 @@ class RefinementHistoryIndexer:
             _emit(**err, status='failed')
             return {'indexed': 0, 'skipped_no_sp': 0, 'total_seen': 0, **err}
 
-        _emit(status='fetching', phase='azure_wiql', message=f'Azure DevOps\'tan tamamlanmış işler çekiliyor ({resolved_project})...')
+        scope_msg = f'{resolved_project}' + (f' › {team}' if team else '')
+        _emit(status='fetching', phase='azure_wiql', message=f'Azure DevOps\'tan tamamlanmış işler çekiliyor ({scope_msg})...')
         try:
             items = await self.azure_client.fetch_completed_work_items(
                 {
@@ -95,6 +97,7 @@ class RefinementHistoryIndexer:
                 },
                 since_days=since_days,
                 max_items=max_items,
+                team=team,
             )
         except Exception as exc:
             msg = f'Azure sorgulanamadı: {exc}'
@@ -145,6 +148,7 @@ class RefinementHistoryIndexer:
         *,
         source: str = 'azure',
         project: str | None = None,
+        team: str | None = None,
         since_days: int | None = 365,
         max_items: int = 500,
     ) -> None:
@@ -168,6 +172,7 @@ class RefinementHistoryIndexer:
                 organization_id,
                 source=source,
                 project=project,
+                team=team,
                 since_days=since_days,
                 max_items=max_items,
                 progress_cb=_cb,

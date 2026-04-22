@@ -719,14 +719,27 @@ export default function RefinementPage() {
 
   const runBackfill = useCallback(async () => {
     setError('');
+    if (provider !== 'azure') {
+      setBackfillJob({ status: 'failed', error: 'Şu an sadece Azure DevOps destekleniyor.' });
+      return;
+    }
+    if (!azureProject) {
+      setBackfillJob({ status: 'failed', error: 'Önce yukarıdan bir Azure proje seç.' });
+      return;
+    }
+    if (!azureTeam) {
+      setBackfillJob({ status: 'failed', error: 'Önce yukarıdan bir takım seç — yoksa sorgu projedeki tüm ekiplerin işlerini çeker ve Azure 20k limitine takılır.' });
+      return;
+    }
     setBackfillJob({ status: 'queued', message: 'Arka plan işi başlatılıyor...' });
     try {
-      const body: { source: string; project?: string; since_days: number; max_items: number } = {
+      const body = {
         source: 'azure',
-        since_days: 730, // 2 years — enough history for SP grounding, stays under Azure's 20k WIQL cap
+        project: azureProject,
+        team: azureTeam,
+        since_days: 730,
         max_items: 1500,
       };
-      if (provider === 'azure' && azureProject) body.project = azureProject;
       await apiFetch<{ status: string }>(
         '/refinement/history/backfill',
         { method: 'POST', body: JSON.stringify(body) },
@@ -734,7 +747,7 @@ export default function RefinementPage() {
     } catch (err) {
       setBackfillJob({ status: 'failed', error: err instanceof Error ? err.message : 'Backfill başlatılamadı' });
     }
-  }, [provider, azureProject]);
+  }, [provider, azureProject, azureTeam]);
 
   // Poll backfill status while a job is active
   useEffect(() => {
@@ -1225,8 +1238,13 @@ export default function RefinementPage() {
                     borderColor: jobFailed ? 'rgba(239,68,68,0.3)' : jobDone ? 'rgba(34,197,94,0.3)' : 'rgba(14,165,233,0.3)',
                     color: jobFailed ? '#fca5a5' : jobDone ? '#86efac' : '#7dd3fc',
                   }}
-                  disabled={!!jobActive || provider !== 'azure'}
-                  title='Kapanmış Azure DevOps işlerini Qdrant belleğe indexler; refinement SP önerisini bu geçmişe göre kurar.'
+                  disabled={!!jobActive || provider !== 'azure' || !azureProject || !azureTeam}
+                  title={
+                    provider !== 'azure' ? 'Sadece Azure DevOps desteklenir'
+                    : !azureProject ? 'Önce yukarıdan proje seç'
+                    : !azureTeam ? 'Önce yukarıdan takım seç (projedeki tüm işler 20k limitini aşar)'
+                    : 'Seçili proje+takım için kapanmış işleri Qdrant\'a indexler; refinement SP önerisini bu geçmişe göre kurar.'
+                  }
                 >
                   {jobActive
                     ? `İndexleniyor${backfillJob?.total ? ` (${backfillJob.processed || 0}/${backfillJob.total})` : '...'}`

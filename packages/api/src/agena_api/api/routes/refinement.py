@@ -132,6 +132,7 @@ async def writeback_refinement(
 class RefinementBackfillRequest(BaseModel):
     source: str = 'azure'
     project: str | None = None
+    team: str | None = None
     since_days: int | None = 365
     max_items: int = 500
 
@@ -158,6 +159,7 @@ async def backfill_refinement_history(
                 tenant.organization_id,
                 source=payload.source,
                 project=payload.project,
+                team=payload.team,
                 since_days=payload.since_days,
                 max_items=payload.max_items,
             )
