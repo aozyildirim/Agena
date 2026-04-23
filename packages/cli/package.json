@@ -1,6 +1,6 @@
 {
   "name": "@agena/cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Official command-line tool for AGENA — enroll your machine as a Runtime, run the CLI bridge, and manage agents.",
   "bin": {
     "agena": "./bin/agena.js"
