@@ -17,6 +17,7 @@ class ExternalTask(BaseModel):
     assigned_to: str | None = None
     created_date: str | None = None
     activated_date: str | None = None
+    closed_date: str | None = None
     story_points: float | None = None
     effort: float | None = None
     work_item_type: str | None = None

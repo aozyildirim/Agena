@@ -239,6 +239,11 @@ class RefinementHistoryIndexer:
         if len(input_text) > 6000:
             input_text = input_text[:6000]
 
+        # Sprint label: prefer the explicit name, else derive from the path tail
+        sprint_name = (item.sprint_name or '').strip()
+        if not sprint_name and item.sprint_path:
+            tail = item.sprint_path.replace('/', '\\').rstrip('\\').split('\\')[-1]
+            sprint_name = tail
         payload = {
             'kind': 'completed_task',
             'source': (item.source or 'azure'),
@@ -249,7 +254,10 @@ class RefinementHistoryIndexer:
             'url': item.web_url or '',
             'state': item.state or '',
             'work_item_type': item.work_item_type or '',
-            'completed_at': '',  # Azure ClosedDate not surfaced in ExternalTask; left blank.
+            'sprint_name': sprint_name,
+            'sprint_path': item.sprint_path or '',
+            'completed_at': (item.closed_date or '').strip() or (item.activated_date or ''),
+            'created_at': (item.created_date or '').strip(),
         }
         key = f'completed:{payload["source"]}:{payload["external_id"]}'
         await self.memory.upsert_memory(

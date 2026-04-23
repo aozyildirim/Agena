@@ -230,6 +230,10 @@ async def refinement_history_preview(
             'url': r.get('url') or '',
             'work_item_type': r.get('work_item_type') or '',
             'source': r.get('source') or '',
+            'sprint_name': r.get('sprint_name') or '',
+            'sprint_path': r.get('sprint_path') or '',
+            'completed_at': r.get('completed_at') or '',
+            'created_at': r.get('created_at') or '',
         }
         for r in rows[:200]
     ]
@@ -241,6 +245,95 @@ async def refinement_history_preview(
         'top_assignees': [{'name': n, 'count': c} for n, c in assignee_counter.most_common(10)],
         'work_item_types': [{'type': t, 'count': c} for t, c in type_counter.most_common(10)],
         'samples': samples,
+    }
+
+
+@router.get('/history/items')
+async def refinement_history_items(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=500),
+    sp: int | None = Query(default=None),
+    assignee: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    sort: str = Query(default='recent'),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+) -> dict:
+    """Paginated, filterable list of everything we've indexed. Filters and
+    sort run in-memory over the full scroll (capped at 10k) because the
+    dataset per-team is small enough that a single scroll is cheaper than
+    maintaining server-side filter indexes.
+    """
+    from agena_agents.memory.qdrant import QdrantMemoryStore
+
+    store = QdrantMemoryStore()
+    if not store.enabled:
+        return {'items': [], 'total': 0, 'page': page, 'page_size': page_size, 'total_pages': 0}
+
+    try:
+        rows = await store.scroll_by_filters(
+            organization_id=tenant.organization_id,
+            extra_filters={'kind': 'completed_task'},
+            limit=10000,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f'Qdrant scroll failed: {exc}') from exc
+
+    # Filter
+    filtered = []
+    q_lc = (q or '').strip().lower()
+    for r in rows:
+        if sp is not None:
+            try:
+                if int(r.get('story_points') or 0) != int(sp):
+                    continue
+            except (TypeError, ValueError):
+                continue
+        if assignee and str(r.get('assigned_to') or '') != assignee:
+            continue
+        if q_lc:
+            hay = (
+                f"{r.get('title') or ''} {r.get('external_id') or ''} "
+                f"{r.get('assigned_to') or ''} {r.get('sprint_name') or ''}"
+            ).lower()
+            if q_lc not in hay:
+                continue
+        filtered.append(r)
+
+    # Sort
+    if sort == 'sp_desc':
+        filtered.sort(key=lambda r: int(r.get('story_points') or 0), reverse=True)
+    elif sort == 'sp_asc':
+        filtered.sort(key=lambda r: int(r.get('story_points') or 0))
+    elif sort == 'assignee':
+        filtered.sort(key=lambda r: str(r.get('assigned_to') or '').lower())
+    else:  # recent
+        filtered.sort(key=lambda r: (r.get('completed_at') or r.get('created_at') or ''), reverse=True)
+
+    total = len(filtered)
+    start = (page - 1) * page_size
+    page_slice = filtered[start:start + page_size]
+    return {
+        'items': [
+            {
+                'external_id': r.get('external_id'),
+                'title': r.get('title'),
+                'story_points': r.get('story_points'),
+                'assigned_to': r.get('assigned_to') or '',
+                'url': r.get('url') or '',
+                'work_item_type': r.get('work_item_type') or '',
+                'source': r.get('source') or '',
+                'sprint_name': r.get('sprint_name') or '',
+                'sprint_path': r.get('sprint_path') or '',
+                'completed_at': r.get('completed_at') or '',
+                'created_at': r.get('created_at') or '',
+                'state': r.get('state') or '',
+            }
+            for r in page_slice
+        ],
+        'total': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': max(1, (total + page_size - 1) // page_size) if total else 0,
     }
 
 
