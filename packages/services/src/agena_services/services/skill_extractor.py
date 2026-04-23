@@ -130,48 +130,72 @@ class SkillExtractor:
             '- confidence (integer 0-100)'
         )
 
-        # Resolve LLM for this org — reuse the same provider the refinement
-        # service would have picked so behaviour stays consistent.
-        provider_row = (await self.db.execute(
+        # Resolve an LLM/CLI in priority order: OpenAI > Gemini > Claude
+        # CLI > Codex CLI. The first one with usable credentials wins.
+        provider_used = ''
+        structured: _ExtractedSkill | None = None
+        oa_row = (await self.db.execute(
             select(IntegrationConfig).where(
                 IntegrationConfig.organization_id == organization_id,
                 IntegrationConfig.provider == 'openai',
             ).limit(1)
         )).scalar_one_or_none()
-        if provider_row is None or not provider_row.secret:
+        if oa_row and oa_row.secret:
+            try:
+                llm = LLMProvider(
+                    provider='openai',
+                    api_key=oa_row.secret,
+                    base_url=oa_row.base_url or None,
+                )
+                runner = CrewAIAgentRunner(llm)
+                _c, _u, _m, s = await runner.run_configured_task(
+                    role='Skill Librarian',
+                    goal='Distil a completed software engineering task into a reusable skill.',
+                    backstory='You help a team of AI agents reuse past solutions instead of rediscovering them.',
+                    system_prompt=_EXTRACTION_SYSTEM,
+                    user_prompt=user_prompt,
+                    expected_output=expected_output,
+                    complexity_hint='normal',
+                    max_output_tokens=1500,
+                    structured_output=_ExtractedSkill,
+                    reasoning=False,
+                    skip_cache=True,
+                )
+                if isinstance(s, _ExtractedSkill):
+                    structured = s
+                    provider_used = 'openai'
+            except Exception as exc:
+                logger.info('OpenAI skill extraction failed for task %s: %s', task_id, exc)
+
+        if structured is None:
+            # CLI bridge fallback — claude, then codex. The bridge parses
+            # the JSON-returning model output for us; we ask for plain JSON.
+            cli_payload = (
+                _EXTRACTION_SYSTEM
+                + '\n\n--- TASK DETAILS ---\n'
+                + user_prompt
+                + '\n\n--- EXPECTED OUTPUT ---\n'
+                + expected_output
+                + '\n\nReturn JSON only, no commentary.'
+            )
+            for cli in ('claude', 'codex'):
+                try:
+                    content = await self._run_cli(cli, cli_payload)
+                    parsed = self._parse_json(content)
+                    if parsed:
+                        structured = _ExtractedSkill(**parsed)
+                        provider_used = f'{cli}_cli'
+                        break
+                except Exception as exc:
+                    logger.info('%s CLI skill extraction failed for task %s: %s', cli, task_id, exc)
+
+        if structured is None:
             logger.info(
-                'Skill extraction skipped for task %s: no OpenAI config.',
-                task_id,
+                'Skill extraction skipped for task %s: no usable LLM/CLI.', task_id,
             )
             return None
-        llm = LLMProvider(
-            provider='openai',
-            api_key=provider_row.secret,
-            base_url=provider_row.base_url or None,
-        )
 
-        runner = CrewAIAgentRunner(llm)
-        try:
-            _content, _usage, _model, structured = await runner.run_configured_task(
-                role='Skill Librarian',
-                goal='Distil a completed software engineering task into a reusable skill.',
-                backstory='You help a team of AI agents reuse past solutions instead of rediscovering them.',
-                system_prompt=_EXTRACTION_SYSTEM,
-                user_prompt=user_prompt,
-                expected_output=expected_output,
-                complexity_hint='normal',
-                max_output_tokens=1500,
-                structured_output=_ExtractedSkill,
-                reasoning=False,
-                skip_cache=True,
-            )
-        except Exception as exc:
-            logger.info('Skill extraction LLM call failed for task %s: %s', task_id, exc)
-            return None
-
-        payload: _ExtractedSkill | None = structured if isinstance(structured, _ExtractedSkill) else None
-        if payload is None:
-            return None
+        payload = structured
         if (payload.confidence or 0) < 50:
             logger.info(
                 'Skill extraction for task %s skipped (confidence=%s, too unique).',
@@ -193,10 +217,46 @@ class SkillExtractor:
         )
         skill = await service.create(organization_id, create, user_id=None)
         logger.info(
-            'Skill extracted from task %s: skill_id=%s name=%r confidence=%s',
-            task_id, skill.id, skill.name, payload.confidence,
+            'Skill extracted from task %s via %s: skill_id=%s name=%r confidence=%s',
+            task_id, provider_used, skill.id, skill.name, payload.confidence,
         )
         return skill
+
+    @staticmethod
+    async def _run_cli(cli: str, prompt: str) -> str:
+        """Call the host-side CLI bridge (claude / codex). Same pattern
+        RefinementService uses. Returns the raw CLI stdout."""
+        import os
+        import httpx as _httpx
+        bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://host.docker.internal:9876')
+        endpoint = 'claude' if cli == 'claude' else 'codex'
+        async with _httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(f'{bridge_url}/{endpoint}', json={'prompt': prompt, 'model': 'sonnet'})
+            resp.raise_for_status()
+            data = resp.json()
+            return str(data.get('output') or data.get('text') or '')
+
+    @staticmethod
+    def _parse_json(text: str) -> dict | None:
+        """Extract the first JSON object from CLI output. CLIs sometimes
+        wrap the JSON in code fences or narration."""
+        import json as _json
+        import re as _re
+        if not text:
+            return None
+        # Try a fenced block first
+        m = _re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, _re.DOTALL)
+        candidate = m.group(1) if m else None
+        if not candidate:
+            # Fall back to the first balanced object
+            m = _re.search(r'\{.*\}', text, _re.DOTALL)
+            candidate = m.group(0) if m else None
+        if not candidate:
+            return None
+        try:
+            return _json.loads(candidate)
+        except _json.JSONDecodeError:
+            return None
 
 
 async def run_skill_extraction_job(*, organization_id: int, task_id: int) -> None:
