@@ -15,7 +15,7 @@ export function loginCommand(): Command {
     .option('--tenant-slug <slug>', 'Tenant slug (organization)', (v) => v, '')
     .option('--jwt <token>', 'Paste JWT directly (skips browser step)', (v) => v, '')
     .action(async (opts) => {
-      const current = loadConfig();
+      const current = await loadConfig();
       const backendUrl = opts.backendUrl || current.backend_url || await prompt(`Backend URL [${current.backend_url || 'https://api.agena.dev'}]: `) || current.backend_url || 'https://api.agena.dev';
       const tenantSlug = opts.tenantSlug || current.tenant_slug || await prompt(`Tenant slug [${current.tenant_slug || 'test-org'}]: `) || current.tenant_slug || 'test-org';
 
@@ -35,11 +35,19 @@ export function loginCommand(): Command {
         process.exit(1);
       }
 
-      const saved = saveConfig({
-        backend_url: backendUrl,
-        tenant_slug: tenantSlug,
-        jwt,
-      });
+      let saved;
+      try {
+        saved = await saveConfig({
+          backend_url: backendUrl,
+          tenant_slug: tenantSlug,
+          jwt,
+        });
+      } catch (err) {
+        console.error(`\n  ${err instanceof Error ? err.message : err}`);
+        process.exit(1);
+      }
+      // Re-read so jwt_source + keychain-backed jwt are populated.
+      saved = await loadConfig();
 
       // Smoke-test the creds by calling something cheap.
       try {
@@ -47,7 +55,7 @@ export function loginCommand(): Command {
         console.log(`\n  ✅ Logged in`);
         console.log(`     backend: ${saved.backend_url}`);
         console.log(`     tenant:  ${saved.tenant_slug}`);
-        console.log(`     jwt:     ${maskJwt(saved.jwt)}`);
+        console.log(`     jwt:     ${maskJwt(saved.jwt)}  (stored in ${saved.jwt_source})`);
         console.log(`\n  Next: run \`agena daemon start\` to enroll this machine as a Runtime.\n`);
       } catch (err) {
         console.error(`\n  ⚠  Saved config but authentication check failed: ${err instanceof Error ? err.message : err}`);

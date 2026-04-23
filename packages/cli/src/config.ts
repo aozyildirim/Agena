@@ -1,10 +1,12 @@
-// Persistent config lives at ~/.agena/config.json. This is the single
-// source of truth for backend URL, tenant slug, and JWT. Daemon runtime
-// tokens live in a separate file (~/.agena/runtime.json) so this one
-// can be shared across bridge restarts without leaking auth.
+// Persistent config lives at ~/.agena/config.json for the non-sensitive
+// bits (backend URL, tenant slug, runtime name). The JWT itself goes
+// into the OS keychain (macOS Keychain / Windows Credential Manager /
+// libsecret) so it's never on disk as plain text. Daemon runtime tokens
+// live in a separate file (~/.agena/runtime.json).
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { readJwt, writeJwt, deleteJwt, keychainAvailable } from './keychain';
 
 export interface AgenaConfig {
   backend_url: string;
@@ -12,6 +14,8 @@ export interface AgenaConfig {
   jwt?: string;
   runtime_name?: string;
   updated_at?: string;
+  /** True when jwt was read from the OS keychain rather than the config file. */
+  jwt_source?: 'keychain' | 'config' | 'missing';
 }
 
 const CONFIG_DIR = path.join(os.homedir(), '.agena');
@@ -29,7 +33,7 @@ export function ensureConfigDir(): void {
   }
 }
 
-export function loadConfig(): AgenaConfig {
+function readConfigFile(): AgenaConfig {
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
     const parsed = JSON.parse(raw);
@@ -39,14 +43,53 @@ export function loadConfig(): AgenaConfig {
   }
 }
 
-export function saveConfig(patch: Partial<AgenaConfig>): AgenaConfig {
+/** Sync variant used when we don't want to await the keychain. Returns
+ *  whatever's in the config file; JWT will be unset if the keychain is
+ *  where it lives. Prefer `loadConfig()` in command handlers. */
+export function loadConfigSync(): AgenaConfig {
+  return readConfigFile();
+}
+
+export async function loadConfig(): Promise<AgenaConfig> {
+  const base = readConfigFile();
+  // If the JWT is already in the config file (legacy / fallback), keep
+  // using it but mark the source so the UI can nudge the user to rotate.
+  if (base.jwt) {
+    return { ...base, jwt_source: 'config' };
+  }
+  // Otherwise try the keychain.
+  if (keychainAvailable() && base.backend_url) {
+    const jwt = await readJwt(base.backend_url);
+    if (jwt) return { ...base, jwt, jwt_source: 'keychain' };
+  }
+  return { ...base, jwt_source: 'missing' };
+}
+
+export async function saveConfig(patch: Partial<AgenaConfig>): Promise<AgenaConfig> {
   ensureConfigDir();
-  const current = loadConfig();
+  const current = readConfigFile();
+  const { jwt: jwtFromPatch, ...rest } = patch;
   const next: AgenaConfig = {
     ...current,
-    ...patch,
+    ...rest,
     updated_at: new Date().toISOString(),
   };
+  // Never persist JWT in the config file. Keychain if available;
+  // refuse to save otherwise to avoid quietly leaking to disk.
+  if (jwtFromPatch !== undefined) {
+    delete (next as AgenaConfig).jwt;
+    if (jwtFromPatch === '') {
+      if (current.backend_url) await deleteJwt(current.backend_url);
+    } else {
+      const stored = await writeJwt(next.backend_url, jwtFromPatch);
+      if (!stored) {
+        throw new Error(
+          'keytar is not available on this system — install it with `npm install -g keytar`, '
+          + 'or set AGENA_JWT in the shell environment instead of running `agena login`.'
+        );
+      }
+    }
+  }
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(next, null, 2), { mode: 0o600 });
   return next;
 }

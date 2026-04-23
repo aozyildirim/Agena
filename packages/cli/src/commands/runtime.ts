@@ -33,7 +33,7 @@ export function runtimeCommand(): Command {
     .command('list')
     .description('List all runtimes in this tenant')
     .action(async () => {
-      const cfg = loadConfig();
+      const cfg = await loadConfig();
       const gate = requireAuthed(cfg);
       if (!gate.ok) { console.error(`  ${gate.reason}`); process.exit(1); }
       const rows = await api<RuntimeRow[]>(cfg, '/runtimes');
@@ -56,7 +56,7 @@ export function runtimeCommand(): Command {
     .description('Detail view for one runtime')
     .argument('<id>', 'Runtime ID (see `agena runtime list`)')
     .action(async (id) => {
-      const cfg = loadConfig();
+      const cfg = await loadConfig();
       const gate = requireAuthed(cfg);
       if (!gate.ok) { console.error(`  ${gate.reason}`); process.exit(1); }
       const r = await api<RuntimeRow & { host: string | null; daemon_version: string | null }>(cfg, `/runtimes/${id}`);

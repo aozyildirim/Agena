@@ -26,7 +26,7 @@ export function daemonCommand(): Command {
     .option('--port <port>', 'Port the bridge listens on', '9876')
     .option('--foreground', 'Run in the foreground instead of detaching')
     .action(async (opts) => {
-      const cfg = loadConfig();
+      const cfg = await loadConfig();
       const gate = requireAuthed(cfg);
       if (!gate.ok) {
         console.error(`  ${gate.reason}`);
