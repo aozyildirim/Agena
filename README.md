@@ -290,20 +290,59 @@ pip install -e packages/agents   # includes CrewAI + LangGraph
 
 ## CLI
 
-`@agenaai/cli` wraps the host bridge so you don't have to juggle env vars
-manually:
+`@agenaai/cli` drives the whole platform from the terminal — auth,
+tasks, skills, refinement, runtimes, and the host bridge daemon:
 
 ```bash
-npm install -g @agenaai/cli
+# Homebrew (macOS / Linux) — recommended
+brew install aozyildirim/tap/agena
 
-agena login               # saves backend URL + tenant + JWT to ~/.agena/config.json
-agena daemon start        # launches bridge-server.mjs, auto-enrolls as a Runtime
-agena runtime list        # status table of every runtime on your tenant
+# npm (any platform)
+npm install -g @agenaai/cli
 ```
 
+```bash
+# Auth + tenant
+agena setup                    # device-code OAuth → saves config → starts daemon
+agena login                    # login only
+agena whoami                   # current user + tenant + JWT source
+agena org list / org switch <slug>
+
+# Local CLI bridge (Claude / Codex)
+agena daemon start|stop|status|logs
+agena runtime list|status <id>
+
+# Tasks
+agena task list [-s running|queued|...]
+agena task show <id>
+agena task logs <id>
+agena task create -t "Fix login bug" --assign
+
+# Team skill catalog
+agena skill list [-q <query>] [-t <pattern_type>]
+agena skill show <id>
+agena skill search "nullable pointer panic"    # vector search
+agena skill delete <id> -y
+
+# Sprint refinement (Qdrant-grounded SP estimates)
+agena refinement backfill -p MyProject -t MyTeam --days 730
+agena refinement backfill-status
+agena refinement history [--sp 5] [-q auth]
+agena refinement analyze -p MyProject -t MyTeam --sprint-path '...'
+```
+
+- **Device-code OAuth** — no JWT copy-paste; browser opens, you
+  confirm a 6-digit code.
+- **Keychain credential storage** — JWT held in macOS Keychain /
+  libsecret / Windows Credential Manager when available.
+- **Bundled bridge** — `agena daemon start` ships with its own copy
+  of `bridge-server.mjs`, so `npm install -g @agenaai/cli` is
+  self-contained.
+- **Homebrew tap** — `aozyildirim/tap/agena` auto-updates via
+  GoReleaser on every CLI release.
+
 See [`packages/cli/README.md`](packages/cli/README.md) for the full
-command list. A Go rewrite with Homebrew tap + browser OAuth is the
-next dedicated release.
+command reference.
 
 ---
 

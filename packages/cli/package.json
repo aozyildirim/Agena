@@ -1,16 +1,18 @@
 {
   "name": "@agenaai/cli",
-  "version": "1.1.4",
-  "description": "Official command-line tool for AGENA — enroll your machine as a Runtime, run the CLI bridge, and manage agents.",
+  "version": "1.2.0",
+  "description": "Official command-line tool for AGENA — enroll your machine as a Runtime, run the CLI bridge, and manage tasks, skills, and sprint refinement from the terminal.",
   "_bin_note": "The brew-installed Go binary (aozyildirim/tap/agena) owns /opt/homebrew/bin/agena. When both are present, only the Go binary shadows agena command; this Node package intentionally ships WITHOUT a 'bin' field so `npm install -g` doesn't fight for the same path. The file bin/agena.js still ships (see files[]) so the Go shim can exec it directly from node_modules.",
   "main": "dist/index.js",
   "files": [
     "bin",
+    "bridge",
     "dist"
   ],
   "scripts": {
     "build": "tsc",
     "dev": "ts-node --esm src/index.ts",
+    "prepack": "mkdir -p bridge && cp ../../docker/bridge-server.mjs bridge/bridge-server.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

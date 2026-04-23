@@ -112,7 +112,7 @@ export function loginCommand(): Command {
         const dashboard = backendUrl.replace(/\/api$/, '').replace(':8010', ':3010');
         console.log('\n  Open your dashboard to grab the JWT:');
         console.log(`    ${dashboard}/dashboard`);
-        console.log('  In DevTools console run: localStorage.getItem("auth_token")');
+        console.log('  In DevTools console run: localStorage.getItem("agena_token")');
         console.log('  Copy the token, paste below.\n');
         tryOpen(`${dashboard}/dashboard`);
         jwt = await prompt('Paste JWT: ');

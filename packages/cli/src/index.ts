@@ -4,6 +4,11 @@ import { loginCommand } from './commands/login';
 import { daemonCommand } from './commands/daemon';
 import { runtimeCommand } from './commands/runtime';
 import { setupCommand } from './commands/setup';
+import { whoamiCommand } from './commands/whoami';
+import { orgCommand } from './commands/org';
+import { taskCommand } from './commands/task';
+import { skillCommand } from './commands/skill';
+import { refinementCommand } from './commands/refinement';
 
 // Import package.json for the version. Keep the require here dynamic so
 // a simple `node dist/index.js` doesn't bundle it at build time.
@@ -18,8 +23,13 @@ program
 
 program.addCommand(loginCommand());
 program.addCommand(setupCommand());
+program.addCommand(whoamiCommand());
+program.addCommand(orgCommand());
 program.addCommand(daemonCommand());
 program.addCommand(runtimeCommand());
+program.addCommand(taskCommand());
+program.addCommand(skillCommand());
+program.addCommand(refinementCommand());
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err instanceof Error ? err.message : err);

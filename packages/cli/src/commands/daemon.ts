@@ -142,16 +142,20 @@ function runningPid(): number | null {
 }
 
 function defaultBridgePath(): string {
-  // When installed via npm from a local checkout (npm install ../Agena),
-  // the bridge lives next to the package. Otherwise users must pass
-  // --bridge explicitly.
+  // Search order, most-specific to least-specific:
+  //   1. Bundled copy inside this npm package (bridge/ sibling of dist/).
+  //      Covers `npm install -g @agenaai/cli` — the common user path.
+  //   2. Monorepo dev checkout (packages/cli/dist/ → ../../docker/...).
+  //   3. Explicit placement in ~/.agena/bridge-server.mjs.
+  //   4. Working directory checkout (legacy local-dev fallback).
   const candidates = [
+    path.resolve(__dirname, '../bridge/bridge-server.mjs'),
     path.resolve(__dirname, '../../../../docker/bridge-server.mjs'),
-    path.resolve(process.cwd(), 'docker/bridge-server.mjs'),
     path.resolve(os.homedir(), '.agena/bridge-server.mjs'),
+    path.resolve(process.cwd(), 'docker/bridge-server.mjs'),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
-  return candidates[1];
+  return candidates[0];
 }
