@@ -905,6 +905,131 @@ async function clearAuth(cli) {
   }
 }
 
+// -----------------------------------------------------------------------
+// Agena runtime registration (opt-in via env vars).
+//
+// On startup, if AGENA_JWT + AGENA_TENANT_SLUG are set, the bridge
+// enrolls itself as a Runtime on the backend and starts heartbeating
+// every 30s. The returned runtime_token is persisted to
+// ~/.agena/runtime.json so restarts are idempotent.
+// -----------------------------------------------------------------------
+const AGENA_BACKEND_URL = process.env.AGENA_BACKEND_URL || 'http://localhost:8010';
+const AGENA_JWT = process.env.AGENA_JWT || '';
+const AGENA_TENANT_SLUG = process.env.AGENA_TENANT_SLUG || '';
+const AGENA_RUNTIME_NAME = process.env.AGENA_RUNTIME_NAME
+  || `${process.env.USER || 'user'}'s ${process.platform === 'darwin' ? 'mac' : process.platform}`;
+const AGENA_CONFIG_DIR = join(HOME, '.agena');
+const AGENA_RUNTIME_FILE = join(AGENA_CONFIG_DIR, 'runtime.json');
+
+function loadPersistedRuntime() {
+  try {
+    return JSON.parse(readFileSync(AGENA_RUNTIME_FILE, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function persistRuntime(obj) {
+  try {
+    if (!existsSync(AGENA_CONFIG_DIR)) mkdirSync(AGENA_CONFIG_DIR, { recursive: true });
+    writeFileSync(AGENA_RUNTIME_FILE, JSON.stringify(obj, null, 2));
+  } catch (err) {
+    console.warn('  agena: could not persist runtime config:', err.message);
+  }
+}
+
+function availableClisNow() {
+  return [
+    claudeBin ? 'claude' : null,
+    codexBin ? 'codex' : null,
+  ].filter(Boolean);
+}
+
+async function agenaRegister() {
+  if (!AGENA_JWT || !AGENA_TENANT_SLUG) {
+    console.log('  agena: skipping auto-register (set AGENA_JWT + AGENA_TENANT_SLUG to enable)');
+    return null;
+  }
+  try {
+    const body = {
+      name: AGENA_RUNTIME_NAME,
+      kind: 'local',
+      available_clis: availableClisNow(),
+      daemon_version: 'bridge-0.1',
+      host: `${process.platform}@localhost`,
+      description: 'Host CLI bridge (auto-registered)',
+    };
+    const resp = await fetch(`${AGENA_BACKEND_URL}/runtimes/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AGENA_JWT}`,
+        'X-Tenant-Slug': AGENA_TENANT_SLUG,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.warn(`  agena: register failed ${resp.status}: ${text.slice(0, 200)}`);
+      return null;
+    }
+    const data = await resp.json();
+    persistRuntime({
+      runtime_id: data.runtime_id,
+      name: data.name,
+      token: data.auth_token,
+      tenant_slug: AGENA_TENANT_SLUG,
+      backend_url: AGENA_BACKEND_URL,
+      registered_at: new Date().toISOString(),
+    });
+    console.log(`  agena: registered as runtime #${data.runtime_id} (${data.name})`);
+    return data;
+  } catch (err) {
+    console.warn('  agena: register crashed:', err.message);
+    return null;
+  }
+}
+
+async function agenaHeartbeat(runtimeId, token) {
+  try {
+    const resp = await fetch(`${AGENA_BACKEND_URL}/runtimes/${runtimeId}/heartbeat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Runtime-Token': token,
+      },
+      body: JSON.stringify({
+        available_clis: availableClisNow(),
+        daemon_version: 'bridge-0.1',
+        host: `${process.platform}@localhost`,
+      }),
+    });
+    if (!resp.ok) {
+      console.warn(`  agena: heartbeat failed ${resp.status}`);
+    }
+  } catch (err) {
+    console.warn('  agena: heartbeat crashed:', err.message);
+  }
+}
+
+async function bootAgenaAutoRegister() {
+  // Prefer a freshly-registered record; fall back to persisted one.
+  let runtime = await agenaRegister();
+  if (!runtime) {
+    const saved = loadPersistedRuntime();
+    if (saved && saved.runtime_id && saved.token) {
+      runtime = { runtime_id: saved.runtime_id, auth_token: saved.token };
+      console.log(`  agena: using persisted runtime #${saved.runtime_id}`);
+    }
+  }
+  if (!runtime) return;
+  // Fire immediately + every 30s.
+  const tick = () => agenaHeartbeat(runtime.runtime_id, runtime.auth_token);
+  tick();
+  setInterval(tick, 30_000);
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`CLI Bridge ready on :${PORT}`);
+  void bootAgenaAutoRegister();
 });
