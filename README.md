@@ -62,6 +62,17 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 - See [`docs/SKILLS.md`](docs/SKILLS.md) for the extraction + retrieval
   flow, tuning knobs, and comparisons vs agents / refinement items
 
+**Runtimes Registry**
+- Every compute environment that can execute agent tasks (host CLI
+  bridge, teammate's laptop, cloud daemon) registers as a Runtime
+- Auto-enrollment: `bridge-server.mjs` picks up `AGENA_JWT` +
+  `AGENA_TENANT_SLUG` from env and calls `/runtimes/register` on
+  startup, then heartbeats every 30s with its current CLI availability
+- `/dashboard/runtimes` shows the live list with status dots, CLI
+  badges, heartbeat age, and daemon version
+- See [`docs/RUNTIMES.md`](docs/RUNTIMES.md) for the enrollment +
+  heartbeat + security model
+
 **Multi-Repo Orchestration**
 - Assign a single task to multiple repositories simultaneously
 - Each repo runs its own AI pipeline in parallel — independent branches and PRs
