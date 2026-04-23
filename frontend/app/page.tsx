@@ -606,6 +606,59 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── TEAM SKILL CATALOG ── */}
+        <section style={{ padding: '8px 0 56px' }}>
+          <div style={{ marginBottom: 20 }}>
+            <div className='section-label'>{t('landing.skillsLabel')}</div>
+            <h2 style={{ fontSize: 'clamp(24px, 2.5vw, 36px)', fontWeight: 800, color: 'var(--ink-90)', marginBottom: 10 }}>
+              {t('landing.skillsTitle')}
+            </h2>
+            <p style={{ color: 'var(--ink-50)', fontSize: 14, maxWidth: 820, lineHeight: 1.7 }}>
+              {t('landing.skillsSubtitle')}
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid', gap: 16,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          }}>
+            {[
+              { n: '01', t: 'landing.skillsStep1Title', d: 'landing.skillsStep1Desc' },
+              { n: '02', t: 'landing.skillsStep2Title', d: 'landing.skillsStep2Desc' },
+              { n: '03', t: 'landing.skillsStep3Title', d: 'landing.skillsStep3Desc' },
+              { n: '04', t: 'landing.skillsStep4Title', d: 'landing.skillsStep4Desc' },
+            ].map((s, i) => (
+              <div key={s.n} style={{
+                padding: 18, borderRadius: 14,
+                border: '1px solid var(--panel-border-2)',
+                background: 'var(--panel)',
+                display: 'grid', gap: 8,
+                animation: `fadeInUp 0.4s ease ${0.1 + i * 0.08}s backwards`,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#a78bfa', letterSpacing: 1 }}>{s.n}</div>
+                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+                  {t(s.t as Parameters<typeof t>[0])}
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--ink-50)', margin: 0, lineHeight: 1.6 }}>
+                  {t(s.d as Parameters<typeof t>[0])}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            marginTop: 18, padding: '14px 18px', borderRadius: 14,
+            border: '1px dashed rgba(167,139,250,0.3)',
+            background: 'rgba(167,139,250,0.05)',
+            display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: 20 }}>🧠</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-78)', flex: 1 }}>
+              {t('landing.skillsExampleQuote')}
+            </span>
+          </div>
+        </section>
+
         {/* ── STATS ── */}
         <section style={{ padding: '60px 0' }}>
           <div className='stats-bar'>
