@@ -74,6 +74,11 @@ brews:
       owner: aozyildirim
       name: homebrew-tap
       token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
+      branch: main
+    # Conventional Homebrew tap layout: formulas live under Formula/.
+    # Without this GoReleaser writes to the repo root and `brew tap`
+    # won't pick up the file.
+    directory: Formula
     homepage: https://agena.dev
     description: Official CLI for the AGENA platform
     license: MIT
