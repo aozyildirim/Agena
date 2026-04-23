@@ -50,6 +50,18 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 - See [`docs/REFINEMENT.md`](docs/REFINEMENT.md) for the full flow and
   tuning knobs
 
+**Team Skill Catalog**
+- Completed tasks are automatically distilled into reusable skills
+  (name + approach + prompt fragment + touched files + tags) via
+  the LLM — Claude CLI, Codex CLI or API, whichever you're using
+- When a new task matches an existing skill, the relevant entries are
+  prepended to the agent's system prompt so past solutions compound
+  instead of being rediscovered ad-hoc
+- `/dashboard/skills` catalog page: list with pattern-type badges,
+  usage counters, search / filter / manual create + edit
+- See [`docs/SKILLS.md`](docs/SKILLS.md) for the extraction + retrieval
+  flow, tuning knobs, and comparisons vs agents / refinement items
+
 **Multi-Repo Orchestration**
 - Assign a single task to multiple repositories simultaneously
 - Each repo runs its own AI pipeline in parallel — independent branches and PRs
