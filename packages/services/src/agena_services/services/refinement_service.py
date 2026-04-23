@@ -125,6 +125,8 @@ class RefinementService:
             if sp_int <= 0:
                 continue
             score = float(row.get('_score') or 0.0)
+            raw_branches = row.get('branches') or []
+            raw_pr_titles = row.get('pr_titles') or []
             record = SimilarPastItem(
                 external_id=ext_id,
                 title=str(row.get('title') or '')[:300],
@@ -133,6 +135,10 @@ class RefinementService:
                 url=str(row.get('url') or ''),
                 source=str(row.get('source') or ''),
                 score=score,
+                branches=[str(b) for b in raw_branches if b][:5] if isinstance(raw_branches, list) else [],
+                pr_titles=[str(t) for t in raw_pr_titles if t][:5] if isinstance(raw_pr_titles, list) else [],
+                pr_count=int(row.get('pr_count') or 0) if isinstance(row.get('pr_count'), (int, float)) else 0,
+                commit_count=int(row.get('commit_count') or 0) if isinstance(row.get('commit_count'), (int, float)) else 0,
             )
             shaped.append((record, str(row.get('work_item_type') or '')))
 
@@ -185,6 +191,17 @@ class RefinementService:
                 if is_turkish
                 else f'  {i}. [{it.story_points} SP, similarity {pct}%] #{it.external_id} {it.title} (assignee: {who})'
             )
+            if it.pr_titles:
+                pr_line = '     PRs: ' + ' | '.join(it.pr_titles[:3])
+                lines.append(pr_line[:240])
+            elif it.branches:
+                lines.append('     Branches: ' + ', '.join(it.branches[:3]))
+            if it.pr_count or it.commit_count:
+                lines.append(
+                    f'     ({it.pr_count} PR, {it.commit_count} commit)'
+                    if is_turkish else
+                    f'     ({it.pr_count} PRs, {it.commit_count} commits)'
+                )
         trailer = (
             'Bu benzer islerin SP dagilimina dayanarak puan oner; aciklamanda '
             'hangi isle benzestigini ve neden bu puani sectigini kisa anlat.'

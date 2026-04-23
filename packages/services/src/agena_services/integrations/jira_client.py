@@ -502,6 +502,80 @@ class JiraClient:
         value = str(field.get('fieldId') or '').strip()
         return value or None
 
+    async def fetch_dev_info(
+        self,
+        cfg: dict[str, str],
+        *,
+        issue_id: str,
+        concurrency_note: str = '',
+    ) -> dict[str, list[str]]:
+        """Best-effort fetch of development info (branches, PRs, commits) from
+        Jira's dev-status endpoint. Returns {branches, pr_titles, pr_count,
+        commit_count}. Silently returns empty for instances that don't expose
+        this API (self-hosted, or without a dev tool integration configured).
+
+        Tries common applicationTypes: github, bitbucket, stash, GitLab.
+        """
+        base_url, email, api_token = self._resolve_config(cfg)
+        if not base_url or not issue_id:
+            return {'branches': [], 'pr_titles': [], 'pr_count': 0, 'commit_count': 0}
+        url = f"{base_url.rstrip('/')}/rest/dev-status/1.0/issue/detail"
+        branches: list[str] = []
+        pr_titles: list[str] = []
+        pr_count = 0
+        commit_count = 0
+        async with httpx.AsyncClient(timeout=15) as client:
+            for app_type, data_type in (
+                ('GitHub', 'pullrequest'),
+                ('bitbucket', 'pullrequest'),
+                ('stash', 'pullrequest'),
+                ('GitLab', 'pullrequest'),
+                ('GitHub', 'branch'),
+                ('bitbucket', 'branch'),
+                ('GitHub', 'repository'),  # commits
+            ):
+                try:
+                    resp = await client.get(
+                        url,
+                        params={'issueId': issue_id, 'applicationType': app_type, 'dataType': data_type},
+                        auth=(email, api_token),
+                    )
+                    if resp.status_code != 200:
+                        continue
+                    detail = resp.json().get('detail') or []
+                    for entry in detail:
+                        if not isinstance(entry, dict):
+                            continue
+                        for pr in entry.get('pullRequests') or []:
+                            if isinstance(pr, dict) and pr.get('name'):
+                                pr_titles.append(str(pr['name'])[:300])
+                                pr_count += 1
+                        for br in entry.get('branches') or []:
+                            if isinstance(br, dict) and br.get('name'):
+                                branches.append(str(br['name']))
+                        for repo in entry.get('repositories') or []:
+                            if isinstance(repo, dict):
+                                commit_count += len(repo.get('commits') or [])
+                except Exception:
+                    continue
+
+        # Dedup
+        def _dedup(xs: list[str]) -> list[str]:
+            seen: set[str] = set()
+            out: list[str] = []
+            for x in xs:
+                if x and x not in seen:
+                    seen.add(x)
+                    out.append(x)
+            return out
+
+        return {
+            'branches': _dedup(branches)[:10],
+            'pr_titles': _dedup(pr_titles)[:10],
+            'pr_count': len(_dedup(pr_titles)),
+            'commit_count': commit_count,
+        }
+
     def _to_external_task(self, issue: dict[str, Any], *, story_point_field: str | None = None) -> ExternalTask:
         fields = issue.get('fields', {})
         story_points = None
@@ -526,6 +600,7 @@ class JiraClient:
                 break
         return ExternalTask(
             id=issue.get('key', '') or issue.get('id', ''),
+            internal_id=str(issue.get('id')) if issue.get('id') is not None else None,
             title=fields.get('summary', ''),
             description=self._parse_jira_description(fields.get('description')),
             source='jira',

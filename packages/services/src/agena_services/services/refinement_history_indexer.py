@@ -145,6 +145,65 @@ class RefinementHistoryIndexer:
         indexed = 0
         skipped_no_sp = 0
 
+        # Azure-only: resolve all referenced PR titles in one parallel pass
+        # (10 concurrent). Cap per-item to first 5 PRs so a pathological item
+        # can't blow the budget; dedup globally across items since the same
+        # PR often appears on multiple items.
+        pr_title_map: dict[str, str] = {}
+        if src == 'azure' and config is not None:
+            all_refs: list[str] = []
+            seen_refs: set[str] = set()
+            for it in items:
+                if self._pick_story_points(it) is None:
+                    continue
+                for ref in (it.linked_pr_refs or [])[:5]:
+                    if ref not in seen_refs:
+                        seen_refs.add(ref)
+                        all_refs.append(ref)
+            if all_refs:
+                _emit(status='fetching', phase='pr_resolution',
+                      message=f'{len(all_refs)} bağlı PR başlığı çözümleniyor...')
+                try:
+                    pr_title_map = await self.azure_client.fetch_pr_titles(
+                        {'org_url': config.base_url, 'pat': config.secret},
+                        pr_refs=all_refs,
+                        concurrency=10,
+                    )
+                    logger.info('Resolved %d/%d PR titles', len(pr_title_map), len(all_refs))
+                except Exception as exc:
+                    logger.warning('PR title resolution failed: %s', exc)
+
+        # Jira-only: parallel dev-info fetch (branches/PRs/commits) per issue
+        # (10 concurrent). Best-effort — many self-hosted instances don't
+        # expose dev-status; we silently skip when that happens.
+        jira_dev_map: dict[str, dict[str, Any]] = {}
+        if src == 'jira' and config is not None:
+            import asyncio
+            jira_items = [it for it in items if self._pick_story_points(it) is not None and it.internal_id]
+            if jira_items:
+                _emit(status='fetching', phase='jira_dev_info',
+                      message=f'{len(jira_items)} Jira issue için dev bilgisi çekiliyor...')
+                sem = asyncio.Semaphore(10)
+
+                async def _one(it: ExternalTask) -> None:
+                    async with sem:
+                        try:
+                            info = await self.jira_client.fetch_dev_info(
+                                {
+                                    'base_url': config.base_url,
+                                    'email': config.username or '',
+                                    'api_token': config.secret,
+                                },
+                                issue_id=it.internal_id or '',
+                            )
+                            if info and (info.get('branches') or info.get('pr_titles')):
+                                jira_dev_map[it.id] = info
+                        except Exception:
+                            pass
+
+                await asyncio.gather(*[_one(it) for it in jira_items])
+                logger.info('Resolved Jira dev-info for %d/%d issues', len(jira_dev_map), len(jira_items))
+
         _emit(status='indexing', phase='embedding', total=total_seen, indexed=0, skipped_no_sp=0,
               message=f'{total_seen} iş tarandı; SP\'si olanlar Qdrant\'a yazılıyor...')
 
@@ -153,6 +212,19 @@ class RefinementHistoryIndexer:
             if sp is None or sp <= 0:
                 skipped_no_sp += 1
                 continue
+            # Attach resolved PR titles to the item before indexing
+            if pr_title_map:
+                item.linked_pr_titles = [
+                    pr_title_map[ref]
+                    for ref in (item.linked_pr_refs or [])[:5]
+                    if ref in pr_title_map
+                ]
+            if jira_dev_map and item.id in jira_dev_map:
+                info = jira_dev_map[item.id]
+                item.branch_names = info.get('branches') or []
+                item.linked_pr_titles = info.get('pr_titles') or []
+                item.linked_pr_refs = [f'jira/{i}' for i in range(info.get('pr_count') or 0)]
+                item.linked_commit_shas = [f'sha{i}' for i in range(info.get('commit_count') or 0)]
             try:
                 await self._index_one(item, organization_id=organization_id, story_points=sp)
                 indexed += 1
@@ -234,12 +306,25 @@ class RefinementHistoryIndexer:
     ) -> None:
         title = (item.title or '').strip()
         description = (item.description or '').strip()
-        input_text = title if not description else f'{title}\n\n{description}'
-        # Qdrant/OpenAI tolerate long text, but we cap to avoid embedding cost blow-ups.
+
+        # Code-level signals: branch names + resolved PR titles. Each gives
+        # us vocabulary that the description often lacks (dev-written,
+        # technical terms, file/feature names).
+        branches = [b for b in (item.branch_names or []) if b][:5]
+        pr_titles = [t for t in (item.linked_pr_titles or []) if t][:5]
+
+        code_signal_parts: list[str] = []
+        if branches:
+            code_signal_parts.append('Branches: ' + ', '.join(branches))
+        if pr_titles:
+            code_signal_parts.append('Pull Requests:\n- ' + '\n- '.join(pr_titles))
+        code_block = '\n'.join(code_signal_parts)
+
+        embed_parts = [title, description, code_block]
+        input_text = '\n\n'.join(p for p in embed_parts if p).strip()
         if len(input_text) > 6000:
             input_text = input_text[:6000]
 
-        # Sprint label: prefer the explicit name, else derive from the path tail
         sprint_name = (item.sprint_name or '').strip()
         if not sprint_name and item.sprint_path:
             tail = item.sprint_path.replace('/', '\\').rstrip('\\').split('\\')[-1]
@@ -258,12 +343,16 @@ class RefinementHistoryIndexer:
             'sprint_path': item.sprint_path or '',
             'completed_at': (item.closed_date or '').strip() or (item.activated_date or ''),
             'created_at': (item.created_date or '').strip(),
+            'branches': branches,
+            'pr_titles': pr_titles,
+            'pr_count': len(item.linked_pr_refs or []),
+            'commit_count': len(item.linked_commit_shas or []),
         }
         key = f'completed:{payload["source"]}:{payload["external_id"]}'
         await self.memory.upsert_memory(
             key=key,
             input_text=input_text,
-            output_text='',  # full context already in payload fields
+            output_text='',
             organization_id=organization_id,
             extra=payload,
         )

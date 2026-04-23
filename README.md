@@ -41,6 +41,15 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 - Prompt Studio — edit system prompts at runtime without code deploy
 - Vector memory (Qdrant) — learns from previous tasks for better context
 
+**History-Grounded Sprint Refinement**
+- Index closed Azure / Jira work items (with final SPs, assignees, PR
+  titles, branches) into a per-org Qdrant collection
+- For every new item, the LLM receives the top-5 similar past items and
+  anchors its SP suggestion on your team's real distribution — naming
+  which item it resembles and who did the prior work
+- See [`docs/REFINEMENT.md`](docs/REFINEMENT.md) for the full flow and
+  tuning knobs
+
 **Multi-Repo Orchestration**
 - Assign a single task to multiple repositories simultaneously
 - Each repo runs its own AI pipeline in parallel — independent branches and PRs

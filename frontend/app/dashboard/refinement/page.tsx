@@ -53,6 +53,10 @@ type SimilarPastItem = {
   url: string;
   source: string;
   score: number;
+  branches?: string[];
+  pr_titles?: string[];
+  pr_count?: number;
+  commit_count?: number;
 };
 
 type RefinementSuggestion = {
@@ -1842,9 +1846,31 @@ export default function RefinementPage() {
                                                   <span>#{si.external_id} {si.title}</span>
                                                 )}
                                               </div>
-                                              {si.assigned_to && (
-                                                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 2 }}>
-                                                  Yapan: {si.assigned_to}
+                                              <div style={{ display: 'flex', gap: 8, marginTop: 3, flexWrap: 'wrap', fontSize: 11 }}>
+                                                {si.assigned_to && (
+                                                  <span style={{ color: 'var(--ink-42)' }}>👤 {si.assigned_to}</span>
+                                                )}
+                                                {(si.pr_count ?? 0) > 0 && (
+                                                  <span style={{ color: '#7dd3fc' }} title={(si.pr_titles || []).join('\n')}>
+                                                    🔀 {si.pr_count} PR
+                                                  </span>
+                                                )}
+                                                {(si.commit_count ?? 0) > 0 && (
+                                                  <span style={{ color: 'var(--ink-42)' }}>⎘ {si.commit_count} commit</span>
+                                                )}
+                                                {(si.branches || []).slice(0, 2).map((b) => (
+                                                  <span key={b} style={{ color: '#a5b4fc', fontFamily: 'monospace', fontSize: 10, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b}>
+                                                    🌿 {b}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                              {(si.pr_titles || []).length > 0 && (
+                                                <div style={{ fontSize: 11, color: 'var(--ink-58)', marginTop: 3, lineHeight: 1.35 }}>
+                                                  {(si.pr_titles || []).slice(0, 2).map((t, i) => (
+                                                    <div key={i} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                      ↳ {t}
+                                                    </div>
+                                                  ))}
                                                 </div>
                                               )}
                                             </div>

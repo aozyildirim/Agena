@@ -40,6 +40,10 @@ class SimilarPastItem(BaseModel):
     url: str = ''
     source: str = ''
     score: float = 0.0
+    branches: list[str] = Field(default_factory=list)
+    pr_titles: list[str] = Field(default_factory=list)
+    pr_count: int = 0
+    commit_count: int = 0
 
 
 class RefinementSuggestion(BaseModel):

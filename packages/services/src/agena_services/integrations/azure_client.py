@@ -203,6 +203,7 @@ class AzureDevOpsClient:
                         wiql_payload=wiql_payload,
                         org_url=org_url,
                         fields_param=fields_param,
+                        include_relations=True,
                     )
                 except httpx.HTTPStatusError as exc:
                     body = ''
@@ -627,6 +628,7 @@ class AzureDevOpsClient:
         wiql_payload: dict[str, Any],
         org_url: str,
         fields_param: str,
+        include_relations: bool = False,
     ) -> list[dict[str, Any]]:
         wiql_response = await client.post(wiql_url, headers=headers, json=wiql_payload)
         wiql_response.raise_for_status()
@@ -641,12 +643,22 @@ class AzureDevOpsClient:
 
         ids = [str(item['id']) for item in work_item_refs if item.get('id')]
         details_payload: list[dict[str, Any]] = []
+        # When relations are requested we cannot combine &fields with
+        # &$expand=relations in the same call (Azure returns 400 "cannot
+        # combine the $expand and fields query parameters"). In that case
+        # we drop the field filter and accept the larger payload.
         for start in range(0, len(ids), 200):
             batch_ids = ','.join(ids[start:start + 200])
-            details_url = (
-                f"{org_url.rstrip('/')}/_apis/wit/workitems"
-                f'?ids={batch_ids}&fields={fields_param}&api-version=7.1-preview.3'
-            )
+            if include_relations:
+                details_url = (
+                    f"{org_url.rstrip('/')}/_apis/wit/workitems"
+                    f'?ids={batch_ids}&$expand=relations&api-version=7.1-preview.3'
+                )
+            else:
+                details_url = (
+                    f"{org_url.rstrip('/')}/_apis/wit/workitems"
+                    f'?ids={batch_ids}&fields={fields_param}&api-version=7.1-preview.3'
+                )
             details_response = await client.get(details_url, headers=headers)
             details_response.raise_for_status()
             try:
@@ -655,6 +667,98 @@ class AzureDevOpsClient:
                 logger.error('Azure work items response is not valid JSON: %s', details_response.text[:200])
                 return []
         return details_payload
+
+    @staticmethod
+    def _parse_relations(relations: list[dict[str, Any]] | None) -> dict[str, list[str]]:
+        """Parse Azure ArtifactLink relations to extract code-level signals.
+
+        Artifact URLs look like:
+            vstfs:///Git/Commit/{projectId}/{repoId}/{commitSha}
+            vstfs:///Git/PullRequestId/{projectId}/{repoId}/{prId}
+            vstfs:///Git/Ref/{projectId}/{repoId}/GBfeature%2Ffix  (branch)
+        """
+        from urllib.parse import unquote
+        branches: list[str] = []
+        # Each PR ref keeps projectId/repoId/prId so later passes can
+        # resolve titles via /git/repositories/{repoId}/pullrequests/{prId}.
+        pr_refs: list[str] = []
+        commit_shas: list[str] = []
+        for rel in relations or []:
+            if not isinstance(rel, dict):
+                continue
+            url = str(rel.get('url') or '')
+            if not url.startswith('vstfs:///Git/'):
+                continue
+            kind = url[len('vstfs:///Git/'):].split('/', 1)[0]
+            rest = url[len('vstfs:///Git/') + len(kind) + 1:]
+            parts = rest.split('/')
+            if kind == 'PullRequestId' and len(parts) >= 3:
+                pr_refs.append(f'{parts[0]}/{parts[1]}/{parts[2]}')
+            elif kind == 'Commit' and len(parts) >= 3:
+                commit_shas.append(parts[2])
+            elif kind == 'Ref' and len(parts) >= 3:
+                raw = unquote(parts[2])
+                if raw.startswith('GB'):
+                    branches.append(raw[2:])
+                elif raw.startswith('GT'):
+                    branches.append(f'tag:{raw[2:]}')
+
+        def _dedup(items: list[str]) -> list[str]:
+            seen: set[str] = set()
+            out: list[str] = []
+            for x in items:
+                if x and x not in seen:
+                    seen.add(x)
+                    out.append(x)
+            return out
+
+        return {
+            'branches': _dedup(branches),
+            'pr_refs': _dedup(pr_refs),
+            'commit_shas': _dedup(commit_shas),
+        }
+
+    async def fetch_pr_titles(
+        self,
+        cfg: dict[str, str],
+        *,
+        pr_refs: list[str],  # ["projectId/repoId/prId", ...]
+        concurrency: int = 10,
+    ) -> dict[str, str]:
+        """Resolve a batch of PR refs to their titles. Returns a map of
+        'projectId/repoId/prId' -> title. Missing / unauthorized PRs are
+        simply absent from the result.
+        """
+        import asyncio
+        org_url = cfg.get('org_url') or self.settings.azure_org_url
+        pat = cfg.get('pat') or self.settings.azure_pat
+        if not org_url or not pat or not pr_refs:
+            return {}
+        headers = self._headers(pat)
+        sem = asyncio.Semaphore(concurrency)
+        out: dict[str, str] = {}
+
+        async def one(client: httpx.AsyncClient, ref: str) -> None:
+            parts = ref.split('/')
+            if len(parts) != 3:
+                return
+            _project_id, repo_id, pr_id = parts
+            url = f"{org_url.rstrip('/')}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}?api-version=7.1-preview.1"
+            async with sem:
+                try:
+                    resp = await client.get(url, headers=headers, timeout=15)
+                    if resp.status_code != 200:
+                        return
+                    data = resp.json()
+                    title = str(data.get('title') or '').strip()
+                    if title:
+                        out[ref] = title[:300]
+                except Exception:
+                    pass
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            await asyncio.gather(*[one(client, r) for r in pr_refs])
+        return out
 
     def _to_external_task(self, item: dict[str, Any], *, org_url: str, project: str) -> ExternalTask:
         fields = item.get('fields', {})
@@ -685,6 +789,10 @@ class AzureDevOpsClient:
         ]
         merged_description = '\n\n'.join(part for part in description_parts if part)
 
+        # Parse linked git artifacts (branches, PRs, commits) from the
+        # relations array when $expand=relations was requested.
+        rel_info = self._parse_relations(item.get('relations'))
+
         return ExternalTask(
             id=item_id,
             title=fields.get('System.Title', ''),
@@ -700,6 +808,9 @@ class AzureDevOpsClient:
             work_item_type=fields.get('System.WorkItemType'),
             sprint_path=fields.get('System.IterationPath'),
             web_url=web_url or None,
+            branch_names=rel_info.get('branches') or [],
+            linked_pr_refs=rel_info.get('pr_refs') or [],
+            linked_commit_shas=rel_info.get('commit_shas') or [],
         )
 
     def _build_work_item_web_url(self, *, org_url: str, project: str, item_id: str) -> str:
