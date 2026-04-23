@@ -34,8 +34,10 @@
     "node": ">=18"
   },
   "dependencies": {
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "keytar": "^7.9.0"
   },
+  "optionalDependencies": {},
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0"
