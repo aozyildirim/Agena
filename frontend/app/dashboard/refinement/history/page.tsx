@@ -54,7 +54,9 @@ const PAGE_SIZE = 50;
 
 export default function RefinementHistoryPage() {
   const { t } = useLocale();
-  const tr = (k: string) => t(k as Parameters<typeof t>[0]);
+  // Stable wrapper so useCallback deps don't churn every render and cause
+  // an infinite re-fetch loop against /preview.
+  const tr = useCallback((k: string) => t(k as Parameters<typeof t>[0]), [t]);
   const [preview, setPreview] = useState<IndexPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
