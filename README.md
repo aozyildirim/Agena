@@ -288,6 +288,25 @@ pip install -e packages/agents   # includes CrewAI + LangGraph
 
 ---
 
+## CLI
+
+`@agena/cli` wraps the host bridge so you don't have to juggle env vars
+manually:
+
+```bash
+npm install -g @agena/cli
+
+agena login               # saves backend URL + tenant + JWT to ~/.agena/config.json
+agena daemon start        # launches bridge-server.mjs, auto-enrolls as a Runtime
+agena runtime list        # status table of every runtime on your tenant
+```
+
+See [`packages/cli/README.md`](packages/cli/README.md) for the full
+command list. A Go rewrite with Homebrew tap + browser OAuth is the
+next dedicated release.
+
+---
+
 ## Quick Start
 
 ### 1. Clone and configure

@@ -384,6 +384,37 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── CLI INSTALL BANNER ── */}
+        <section style={{ padding: '20px 0 28px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap',
+            padding: '18px 22px', borderRadius: 16,
+            border: '1px solid rgba(94,234,212,0.35)',
+            background: 'linear-gradient(135deg, rgba(13,148,136,0.08), rgba(125,211,252,0.06))',
+          }}>
+            <span style={{ fontSize: 26 }}>⚡</span>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#5eead4', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                {t('landing.cliLabel')}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', marginTop: 2 }}>
+                {t('landing.cliTitle')}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-50)', marginTop: 4 }}>
+                {t('landing.cliSubtitle')}
+              </div>
+            </div>
+            <code style={{
+              fontSize: 13, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              padding: '10px 14px', borderRadius: 10,
+              background: 'var(--panel)', border: '1px solid var(--panel-border-2)',
+              color: 'var(--ink-85)', whiteSpace: 'nowrap',
+            }}>
+              npm install -g @agena/cli
+            </code>
+          </div>
+        </section>
+
         {/* ── INTEGRATIONS MARQUEE ── */}
         <section style={{ padding: '0 0 6px' }}>
           <div style={{ marginBottom: 10 }}>
