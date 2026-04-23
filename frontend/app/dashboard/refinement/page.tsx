@@ -53,6 +53,7 @@ type SimilarPastItem = {
   url: string;
   source: string;
   score: number;
+  tier?: 'strong' | 'related' | 'weak';
   branches?: string[];
   pr_titles?: string[];
   pr_count?: number;
@@ -1875,16 +1876,22 @@ export default function RefinementPage() {
                                               )}
                                             </div>
                                             {(() => {
+                                              const tier = si.tier || 'related';
                                               const pct = Math.round((si.score || 0) * 100);
-                                              const color = pct >= 75 ? '#86efac' : pct >= 60 ? '#fde68a' : '#fca5a5';
+                                              const meta = tier === 'strong'
+                                                ? { label: 'ÇOK YAKIN', color: '#86efac' }
+                                                : tier === 'related'
+                                                  ? { label: 'yakın', color: '#fde68a' }
+                                                  : { label: 'uzak', color: '#fca5a5' };
                                               return (
                                                 <span style={{
                                                   fontSize: 10, fontWeight: 700,
-                                                  color, whiteSpace: 'nowrap',
+                                                  color: meta.color, whiteSpace: 'nowrap',
                                                   padding: '2px 6px', borderRadius: 4,
-                                                  background: `${color}20`,
-                                                }} title={`Cosine similarity: ${(si.score || 0).toFixed(3)}`}>
-                                                  %{pct}
+                                                  background: `${meta.color}20`,
+                                                  textTransform: 'uppercase', letterSpacing: 0.3,
+                                                }} title={`Cosine similarity: ${(si.score || 0).toFixed(3)} (${pct}%)`}>
+                                                  {meta.label}
                                                 </span>
                                               );
                                             })()}

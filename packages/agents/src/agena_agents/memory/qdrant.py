@@ -11,7 +11,22 @@ from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, P
 from agena_core.settings import get_settings
 from agena_agents.memory.base import MemoryStore
 
+# Default vector size; overridden by _vector_size_for_model() below.
 EMBEDDING_VECTOR_SIZE = 1536
+
+
+def _vector_size_for_model(model: str) -> int:
+    """OpenAI embedding dims:
+    - text-embedding-3-small: 1536
+    - text-embedding-3-large: 3072
+    - text-embedding-ada-002 (legacy): 1536
+    Gemini text-embedding-004 is 768 by default but we request 1536 via
+    outputDimensionality.
+    """
+    m = (model or '').strip().lower()
+    if 'large' in m:
+        return 3072
+    return 1536
 
 
 class QdrantMemoryStore(MemoryStore):
@@ -68,13 +83,39 @@ class QdrantMemoryStore(MemoryStore):
     async def ensure_collection(self) -> None:
         if not self.enabled or not self.client:
             return
+        target_size = _vector_size_for_model(self.embedding_model or self.settings.qdrant_openai_embedding_model)
         collections = await self.client.get_collections()
         names = {item.name for item in collections.collections}
-        if self.settings.qdrant_collection not in names:
+        name = self.settings.qdrant_collection
+        if name not in names:
             await self.client.create_collection(
-                collection_name=self.settings.qdrant_collection,
-                vectors_config=VectorParams(size=EMBEDDING_VECTOR_SIZE, distance=Distance.COSINE),
+                collection_name=name,
+                vectors_config=VectorParams(size=target_size, distance=Distance.COSINE),
             )
+            return
+        # Detect dimension mismatch (e.g. after switching from
+        # text-embedding-3-small → text-embedding-3-large). If the existing
+        # collection has the wrong vector size, recreate it. Points will be
+        # re-inserted on the next backfill.
+        try:
+            info = await self.client.get_collection(name)
+            current_size = None
+            vectors = getattr(info.config.params, 'vectors', None)
+            if vectors is not None:
+                current_size = getattr(vectors, 'size', None)
+            if current_size and int(current_size) != target_size:
+                import logging as _l
+                _l.getLogger(__name__).warning(
+                    'Qdrant collection %s has vector size %s but model %s expects %s; recreating.',
+                    name, current_size, self.embedding_model, target_size,
+                )
+                await self.client.delete_collection(collection_name=name)
+                await self.client.create_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(size=target_size, distance=Distance.COSINE),
+                )
+        except Exception:
+            pass
 
     async def upsert_memory(
         self,
@@ -228,7 +269,7 @@ class QdrantMemoryStore(MemoryStore):
             'backend': 'qdrant',
             'collection': self.settings.qdrant_collection,
             'embedding_mode': mode,
-            'vector_size': EMBEDDING_VECTOR_SIZE,
+            'vector_size': self._target_size(),
             'distance': 'cosine',
             'tenant_filtering': 'organization_id payload filter',
             'points_count': int(points_count or 0),
@@ -289,7 +330,7 @@ class QdrantMemoryStore(MemoryStore):
         payload = {
             'model': f'models/{model}',
             'content': {'parts': [{'text': text}]},
-            'outputDimensionality': EMBEDDING_VECTOR_SIZE,
+            'outputDimensionality': self._target_size(),
         }
         async with httpx.AsyncClient(timeout=self.settings.qdrant_embedding_timeout_sec) as client:
             resp = await client.post(url, json=payload)
@@ -298,14 +339,19 @@ class QdrantMemoryStore(MemoryStore):
         values = ((data.get('embedding') or {}).get('values') or [])
         return [float(v) for v in values]
 
+    def _target_size(self) -> int:
+        return _vector_size_for_model(self.embedding_model or self.settings.qdrant_openai_embedding_model)
+
     def _normalize_vector(self, raw: list[float]) -> list[float]:
-        vec = [float(v) for v in raw[:EMBEDDING_VECTOR_SIZE]]
-        if len(vec) < EMBEDDING_VECTOR_SIZE:
-            vec.extend([0.0] * (EMBEDDING_VECTOR_SIZE - len(vec)))
+        size = self._target_size()
+        vec = [float(v) for v in raw[:size]]
+        if len(vec) < size:
+            vec.extend([0.0] * (size - len(vec)))
         return vec
 
     def _deterministic_placeholder_embedding(self, text: str) -> list[float]:
-        emb = [float((ord(c) % 31) / 31.0) for c in text[:EMBEDDING_VECTOR_SIZE]]
-        if len(emb) < EMBEDDING_VECTOR_SIZE:
-            emb.extend([0.0] * (EMBEDDING_VECTOR_SIZE - len(emb)))
-        return emb[:EMBEDDING_VECTOR_SIZE]
+        size = self._target_size()
+        emb = [float((ord(c) % 31) / 31.0) for c in text[:size]]
+        if len(emb) < size:
+            emb.extend([0.0] * (size - len(emb)))
+        return emb[:size]
