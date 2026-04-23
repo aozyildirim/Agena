@@ -88,13 +88,17 @@ class RefinementService:
         the LLM's SP estimate and surface 'kimler yaptı' context."""
         if not self.memory.enabled:
             return []
-        query_parts = [str(item.title or '').strip()]
-        desc = str(item.description or '').strip()
-        if desc:
-            query_parts.append(desc[:1500])
+        # Normalise the description BEFORE embedding — Azure returns HTML
+        # <p>...</p><br/> which dilutes semantic signal unless stripped.
+        clean_desc = self._normalize_description(item.description)
+        query_parts = [str(item.title or '').strip(), clean_desc[:1500]]
         query = '\n\n'.join(p for p in query_parts if p)
         if not query:
             return []
+        logger.info(
+            'Refinement embed input for %s (len=%d): %r',
+            item.id, len(query), query[:300],
+        )
         # Pull a wider candidate pool so we have room to filter on score +
         # type before picking the top N.
         candidate_limit = max(limit * 4, 12)

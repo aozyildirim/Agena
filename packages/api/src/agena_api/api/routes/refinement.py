@@ -337,6 +337,52 @@ async def refinement_history_items(
     }
 
 
+@router.post('/debug/similarity')
+async def debug_similarity(
+    payload: dict,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+) -> dict:
+    """Diagnostic: given a work-item title+description, show the exact text
+    that gets embedded and the top-10 Qdrant hits with payload snippets.
+    Use this to verify whether low-quality matches come from bad embedding
+    input or from genuinely missing history."""
+    from agena_agents.memory.qdrant import QdrantMemoryStore
+    from agena_services.services.refinement_history_indexer import RefinementHistoryIndexer
+
+    title = str(payload.get('title') or '').strip()
+    description = str(payload.get('description') or '').strip()
+    if not title and not description:
+        raise HTTPException(status_code=400, detail='title or description required')
+    clean_desc = RefinementHistoryIndexer._clean_html(description)
+    embed_input = '\n\n'.join(p for p in [title, clean_desc[:1500]] if p).strip()
+    store = QdrantMemoryStore()
+    if not store.enabled:
+        return {'error': 'Qdrant disabled', 'embed_input': embed_input}
+    rows = await store.search_similar(
+        embed_input,
+        limit=10,
+        organization_id=tenant.organization_id,
+        extra_filters={'kind': 'completed_task'},
+    )
+    return {
+        'embed_input': embed_input[:2000],
+        'embed_input_length': len(embed_input),
+        'hits': [
+            {
+                'score': r.get('_score'),
+                'external_id': r.get('external_id'),
+                'title': r.get('title'),
+                'story_points': r.get('story_points'),
+                'assigned_to': r.get('assigned_to'),
+                'work_item_type': r.get('work_item_type'),
+                'branches': r.get('branches') or [],
+                'pr_titles': r.get('pr_titles') or [],
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.get('/history/status')
 async def refinement_history_status(
     tenant: CurrentTenant = Depends(get_current_tenant),

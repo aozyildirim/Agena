@@ -297,6 +297,24 @@ class RefinementHistoryIndexer:
         finally:
             _mark_job(organization_id, finished_at=datetime.utcnow().isoformat())
 
+    @staticmethod
+    def _clean_html(raw: str) -> str:
+        """Strip HTML tags from Azure description while preserving paragraph
+        breaks. Azure System.Description is rich-HTML; feeding tags like
+        <p>, <br>, <div> into the embedding dilutes semantic signal."""
+        import re as _re
+        import html as _html
+        if not raw:
+            return ''
+        txt = _re.sub(r'(?i)<br\s*/?>', '\n', raw)
+        txt = _re.sub(r'(?i)</p\s*>', '\n\n', txt)
+        txt = _re.sub(r'(?is)<[^>]+>', ' ', txt)
+        txt = _html.unescape(txt)
+        txt = _re.sub(r'\r\n?', '\n', txt)
+        txt = _re.sub(r'\n{3,}', '\n\n', txt)
+        txt = _re.sub(r'[ \t]{2,}', ' ', txt)
+        return txt.strip()
+
     async def _index_one(
         self,
         item: ExternalTask,
@@ -305,7 +323,7 @@ class RefinementHistoryIndexer:
         story_points: int,
     ) -> None:
         title = (item.title or '').strip()
-        description = (item.description or '').strip()
+        description = self._clean_html(item.description or '')
 
         # Code-level signals: branch names + resolved PR titles. Each gives
         # us vocabulary that the description often lacks (dev-written,
