@@ -67,12 +67,24 @@ class RefinementService:
         self.cost_tracker = CostTracker()
         self.memory = QdrantMemoryStore()
 
-    # Only feed hits above this cosine score to the LLM. Below this the
-    # match is generic enough that it's more likely to mislead than ground.
+    # Absolute floor — below this it's pure noise. But because short-text
+    # Turkish/multilingual embeddings compress scores into a narrow 0.70-
+    # 0.80 band, we don't rely on absolute score alone. We also apply a
+    # *relative* gap from the top hit, and classify into tiers so the UI
+    # + LLM can weight strong vs weak matches correctly.
     SIMILAR_MIN_SCORE = 0.55
-    # If we have >=3 hits of the same work_item_type (e.g. Bug/User Story)
-    # after the threshold, keep only those — this avoids anchoring a Bug's
-    # SP on a User Story just because their titles sound alike.
+    # Hits further than this below the top hit are dropped — risk of
+    # diluting the LLM's reasoning outweighs any grounding benefit.
+    SIMILAR_MAX_GAP = 0.06
+    # Absolute tier cutoffs. Because short Turkish/multilingual embeddings
+    # compress into 0.70-0.80 for ANY two "same domain" items, a hit is
+    # only "strong" when it clears a high absolute bar (real semantic
+    # closeness). Gap-based tiers falsely mark the top hit strong even
+    # when the whole cluster is generic noise.
+    TIER_STRONG_SCORE = 0.82
+    TIER_RELATED_SCORE = 0.72
+    # If we have >=3 hits of the same work_item_type after the threshold,
+    # keep only those — avoids anchoring a Bug's SP on a same-worded Story.
     TYPE_MATCH_MIN_COUNT = 3
 
     async def _fetch_similar_past(
@@ -147,11 +159,24 @@ class RefinementService:
             shaped.append((record, str(row.get('work_item_type') or '')))
 
         total_raw = len(shaped)
-        # Drop low-score noise
+        # Drop absolute-floor noise
         filtered = [(r, wt) for r, wt in shaped if r.score >= self.SIMILAR_MIN_SCORE]
         dropped_low = total_raw - len(filtered)
 
-        # If we have enough same-type hits, prefer them
+        # Apply relative-gap drop — keep only items within SIMILAR_MAX_GAP
+        # of the top score. This fights the "everything is 0.72-0.78" cluster
+        # problem by forcing separation from the best match.
+        if filtered:
+            top_score = max(r.score for r, _ in filtered)
+            gap_cut = top_score - self.SIMILAR_MAX_GAP
+            filtered_gap = [(r, wt) for r, wt in filtered if r.score >= gap_cut]
+            dropped_gap = len(filtered) - len(filtered_gap)
+            filtered = filtered_gap
+        else:
+            top_score = 0.0
+            dropped_gap = 0
+
+        # Prefer same work_item_type when we have enough of them
         target_type = (item.work_item_type or '').strip()
         type_filtered = filtered
         used_type_filter = False
@@ -161,19 +186,31 @@ class RefinementService:
                 type_filtered = same_type
                 used_type_filter = True
 
-        out = [r for r, _ in type_filtered[:limit]]
+        # Classify into tiers by absolute score
+        out: list[SimilarPastItem] = []
+        for r, _ in type_filtered[:limit]:
+            if r.score >= self.TIER_STRONG_SCORE:
+                r.tier = 'strong'
+            elif r.score >= self.TIER_RELATED_SCORE:
+                r.tier = 'related'
+            else:
+                r.tier = 'weak'
+            out.append(r)
 
         logger.info(
             'Refinement similar lookup for %s (type=%s): %d candidates, '
-            'dropped_low_score=%d (<%0.2f), type_filter=%s, returned=%d. Top: %s',
+            'dropped_low_score=%d (<%.2f), dropped_gap=%d (gap>%.2f), '
+            'type_filter=%s, returned=%d. Top: %s',
             item.id,
             target_type or '—',
             total_raw,
             dropped_low,
             self.SIMILAR_MIN_SCORE,
+            dropped_gap,
+            self.SIMILAR_MAX_GAP,
             used_type_filter,
             len(out),
-            [f'#{x.external_id}={x.story_points}SP@{x.score:.2f}' for x in out[:5]],
+            [f'#{x.external_id}={x.story_points}SP@{x.score:.2f}[{x.tier}]' for x in out[:5]],
         )
         return out
 
@@ -186,14 +223,26 @@ class RefinementService:
             if is_turkish
             else 'Similar Completed Items (Historical SP Reference):'
         )
+        def _tier_label(tier: str) -> str:
+            if is_turkish:
+                return {'strong': 'ÇOK YAKIN', 'related': 'yakın', 'weak': 'uzak'}.get(tier, 'yakın')
+            return {'strong': 'VERY CLOSE', 'related': 'close', 'weak': 'loose'}.get(tier, 'close')
+
         lines = [header]
+        strong_count = sum(1 for it in items if it.tier == 'strong')
+        if strong_count == 0:
+            lines.append(
+                '  (Not: yüksek güvenli eşleşme yok — aşağıdaki işler gevşek benzer, tahminini ihtiyatlı yap.)'
+                if is_turkish else
+                '  (Note: no high-confidence match — the items below are loosely related, hedge your estimate.)'
+            )
         for i, it in enumerate(items, 1):
             who = it.assigned_to or ('-' if is_turkish else 'unknown')
-            pct = int(round(max(0.0, min(1.0, it.score)) * 100))
+            tag = _tier_label(it.tier)
             lines.append(
-                f'  {i}. [{it.story_points} SP, benzerlik %{pct}] #{it.external_id} {it.title} (yapan: {who})'
+                f'  {i}. [{it.story_points} SP · {tag}] #{it.external_id} {it.title} (yapan: {who})'
                 if is_turkish
-                else f'  {i}. [{it.story_points} SP, similarity {pct}%] #{it.external_id} {it.title} (assignee: {who})'
+                else f'  {i}. [{it.story_points} SP · {tag}] #{it.external_id} {it.title} (assignee: {who})'
             )
             if it.pr_titles:
                 pr_line = '     PRs: ' + ' | '.join(it.pr_titles[:3])

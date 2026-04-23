@@ -21,6 +21,10 @@ from agena_services.services.refinement_service import RefinementService
 
 router = APIRouter(prefix='/refinement', tags=['refinement'])
 
+# Keep strong refs to in-flight backfill tasks so asyncio doesn't GC them
+# out from under us. Per-org since only one backfill runs at a time.
+_BACKFILL_TASKS: dict[int, object] = {}
+
 
 class RefinementHistoryItem(BaseModel):
     id: int
@@ -150,23 +154,34 @@ async def backfill_refinement_history(
     Poll GET /refinement/history/backfill-status for progress.
     """
     import asyncio
+    import logging as _logging
     from agena_core.database import SessionLocal
+    from agena_services.services.refinement_history_indexer import _mark_job
+
+    _log = _logging.getLogger(__name__)
 
     async def _runner() -> None:
-        # Use a fresh session bound to the background task's event loop
-        async with SessionLocal() as session:
-            await RefinementHistoryIndexer.run_backfill_job(
-                session,
-                tenant.organization_id,
-                source=payload.source,
-                project=payload.project,
-                team=payload.team,
-                board_id=payload.board_id,
-                since_days=payload.since_days,
-                max_items=payload.max_items,
-            )
+        try:
+            _log.info('Backfill runner starting for org=%s source=%s project=%s team=%s',
+                      tenant.organization_id, payload.source, payload.project, payload.team)
+            async with SessionLocal() as session:
+                await RefinementHistoryIndexer.run_backfill_job(
+                    session,
+                    tenant.organization_id,
+                    source=payload.source,
+                    project=payload.project,
+                    team=payload.team,
+                    board_id=payload.board_id,
+                    since_days=payload.since_days,
+                    max_items=payload.max_items,
+                )
+        except Exception as exc:
+            _log.exception('Backfill runner crashed for org=%s: %s', tenant.organization_id, exc)
+            _mark_job(tenant.organization_id, status='failed', error=f'runner crash: {exc}'[:400])
 
-    asyncio.create_task(_runner())
+    # Keep a strong reference so the task isn't GC'd mid-flight
+    task = asyncio.create_task(_runner())
+    _BACKFILL_TASKS[tenant.organization_id] = task
     return {'status': 'started', 'organization_id': tenant.organization_id}
 
 

@@ -40,6 +40,11 @@ class SimilarPastItem(BaseModel):
     url: str = ''
     source: str = ''
     score: float = 0.0
+    # Relative tier: "strong" (within 0.02 of best), "related" (within 0.05
+    # of best), "weak" (further). Used for UI colour coding + LLM prompt
+    # hedging instead of raw cosine %, since short-text embedding scores
+    # cluster tightly and raw % misleads the eye.
+    tier: str = 'weak'
     branches: list[str] = Field(default_factory=list)
     pr_titles: list[str] = Field(default_factory=list)
     pr_count: int = 0
