@@ -1,0 +1,103 @@
+# GoReleaser config for the agena CLI.
+#
+# Released artifacts:
+#   - cross-platform binaries (darwin/linux/windows, amd64+arm64)
+#   - tarball uploaded to GitHub releases
+#   - Homebrew formula auto-updated in aozyildirim/homebrew-tap
+#   - Scoop bucket manifest auto-updated (optional)
+#
+# Usage:
+#   goreleaser release --snapshot --clean   # dry-run
+#   git tag v0.1.0 && git push --tags      # real release
+#
+# Required secrets in GitHub Actions:
+#   - GITHUB_TOKEN (auto)
+#   - HOMEBREW_TAP_TOKEN (personal access token with push to
+#     aozyildirim/homebrew-tap; only needed if you use `brews:`)
+version: 2
+
+project_name: agena
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: agena
+    main: ./packages/cli-go/cmd/agena
+    binary: agena
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Commit={{.Commit}}
+      - -X main.Date={{.Date}}
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE*
+      - README.md
+      - packages/cli/README.md
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+
+snapshot:
+  version_template: '{{ .Version }}-next'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+brews:
+  - name: agena
+    # Requires the tap repo aozyildirim/homebrew-tap to exist.
+    repository:
+      owner: aozyildirim
+      name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
+    homepage: https://agena.dev
+    description: Official CLI for the AGENA platform
+    license: MIT
+    # The bottle uses the prebuilt binaries. No `go build` on the user's
+    # machine.
+    commit_author:
+      name: agena-bot
+      email: hello@agena.dev
+    install: |
+      bin.install "agena"
+    # Optional: also install the Node CLI for now, since the Go binary
+    # shells out to it. Once all commands are ported native, drop this.
+    dependencies:
+      - name: node
+        type: optional
+    caveats: |
+      For the full command set while the Go port is in progress, also run:
+
+          npm install -g @agena/cli
+
+      Once Go-native parity lands the npm dependency will go away.
+
+release:
+  draft: false
+  prerelease: auto
