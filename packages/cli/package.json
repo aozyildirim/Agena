@@ -1,0 +1,43 @@
+{
+  "name": "@agena/cli",
+  "version": "0.1.0",
+  "description": "Official command-line tool for AGENA — enroll your machine as a Runtime, run the CLI bridge, and manage agents.",
+  "bin": {
+    "agena": "./bin/agena.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node --esm src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "agena",
+    "cli",
+    "ai-agent",
+    "daemon",
+    "runtime"
+  ],
+  "author": "AGENA <hello@agena.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aozyildirim/Agena",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://agena.dev",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
