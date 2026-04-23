@@ -1848,9 +1848,20 @@ export default function RefinementPage() {
                                                 </div>
                                               )}
                                             </div>
-                                            <span style={{ fontSize: 10, color: 'var(--ink-35)', whiteSpace: 'nowrap' }}>
-                                              {Math.round((si.score || 0) * 100)}% benzer
-                                            </span>
+                                            {(() => {
+                                              const pct = Math.round((si.score || 0) * 100);
+                                              const color = pct >= 75 ? '#86efac' : pct >= 60 ? '#fde68a' : '#fca5a5';
+                                              return (
+                                                <span style={{
+                                                  fontSize: 10, fontWeight: 700,
+                                                  color, whiteSpace: 'nowrap',
+                                                  padding: '2px 6px', borderRadius: 4,
+                                                  background: `${color}20`,
+                                                }} title={`Cosine similarity: ${(si.score || 0).toFixed(3)}`}>
+                                                  %{pct}
+                                                </span>
+                                              );
+                                            })()}
                                           </div>
                                         ))}
                                       </div>

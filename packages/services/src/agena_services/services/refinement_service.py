@@ -67,6 +67,14 @@ class RefinementService:
         self.cost_tracker = CostTracker()
         self.memory = QdrantMemoryStore()
 
+    # Only feed hits above this cosine score to the LLM. Below this the
+    # match is generic enough that it's more likely to mislead than ground.
+    SIMILAR_MIN_SCORE = 0.55
+    # If we have >=3 hits of the same work_item_type (e.g. Bug/User Story)
+    # after the threshold, keep only those — this avoids anchoring a Bug's
+    # SP on a User Story just because their titles sound alike.
+    TYPE_MATCH_MIN_COUNT = 3
+
     async def _fetch_similar_past(
         self,
         organization_id: int,
@@ -87,17 +95,22 @@ class RefinementService:
         query = '\n\n'.join(p for p in query_parts if p)
         if not query:
             return []
+        # Pull a wider candidate pool so we have room to filter on score +
+        # type before picking the top N.
+        candidate_limit = max(limit * 4, 12)
         try:
             rows = await self.memory.search_similar(
                 query,
-                limit=max(limit + 1, 6),  # +1 so we can skip self-match
+                limit=candidate_limit,
                 organization_id=organization_id,
                 extra_filters={'kind': 'completed_task'},
             )
         except Exception as exc:
             logger.info('Qdrant similar-past lookup failed for item %s: %s', item.id, exc)
             return []
-        out: list[SimilarPastItem] = []
+
+        # Shape raw rows into typed records; track scores for diagnostics
+        shaped: list[tuple[SimilarPastItem, str]] = []  # (record, work_item_type)
         for row in rows:
             ext_id = str(row.get('external_id') or '')
             if not ext_id:
@@ -111,25 +124,46 @@ class RefinementService:
                 sp_int = 0
             if sp_int <= 0:
                 continue
-            out.append(
-                SimilarPastItem(
-                    external_id=ext_id,
-                    title=str(row.get('title') or '')[:300],
-                    story_points=sp_int,
-                    assigned_to=str(row.get('assigned_to') or ''),
-                    url=str(row.get('url') or ''),
-                    source=str(row.get('source') or ''),
-                    score=float(row.get('_score') or 0.0),
-                )
+            score = float(row.get('_score') or 0.0)
+            record = SimilarPastItem(
+                external_id=ext_id,
+                title=str(row.get('title') or '')[:300],
+                story_points=sp_int,
+                assigned_to=str(row.get('assigned_to') or ''),
+                url=str(row.get('url') or ''),
+                source=str(row.get('source') or ''),
+                score=score,
             )
-            if len(out) >= limit:
-                break
+            shaped.append((record, str(row.get('work_item_type') or '')))
+
+        total_raw = len(shaped)
+        # Drop low-score noise
+        filtered = [(r, wt) for r, wt in shaped if r.score >= self.SIMILAR_MIN_SCORE]
+        dropped_low = total_raw - len(filtered)
+
+        # If we have enough same-type hits, prefer them
+        target_type = (item.work_item_type or '').strip()
+        type_filtered = filtered
+        used_type_filter = False
+        if target_type:
+            same_type = [(r, wt) for r, wt in filtered if wt and wt.strip().lower() == target_type.lower()]
+            if len(same_type) >= self.TYPE_MATCH_MIN_COUNT:
+                type_filtered = same_type
+                used_type_filter = True
+
+        out = [r for r, _ in type_filtered[:limit]]
+
         logger.info(
-            'Refinement similar lookup for item %s: %d scroll hits, %d qualifying (sp>0, dedup). Top: %s',
+            'Refinement similar lookup for %s (type=%s): %d candidates, '
+            'dropped_low_score=%d (<%0.2f), type_filter=%s, returned=%d. Top: %s',
             item.id,
-            len(rows),
+            target_type or '—',
+            total_raw,
+            dropped_low,
+            self.SIMILAR_MIN_SCORE,
+            used_type_filter,
             len(out),
-            [f'#{x.external_id}={x.story_points}SP@{x.score:.2f}' for x in out[:3]],
+            [f'#{x.external_id}={x.story_points}SP@{x.score:.2f}' for x in out[:5]],
         )
         return out
 
@@ -145,10 +179,11 @@ class RefinementService:
         lines = [header]
         for i, it in enumerate(items, 1):
             who = it.assigned_to or ('-' if is_turkish else 'unknown')
+            pct = int(round(max(0.0, min(1.0, it.score)) * 100))
             lines.append(
-                f'  {i}. [{it.story_points} SP] {it.title} (yapan: {who})'
+                f'  {i}. [{it.story_points} SP, benzerlik %{pct}] #{it.external_id} {it.title} (yapan: {who})'
                 if is_turkish
-                else f'  {i}. [{it.story_points} SP] {it.title} (assignee: {who})'
+                else f'  {i}. [{it.story_points} SP, similarity {pct}%] #{it.external_id} {it.title} (assignee: {who})'
             )
         trailer = (
             'Bu benzer islerin SP dagilimina dayanarak puan oner; aciklamanda '
