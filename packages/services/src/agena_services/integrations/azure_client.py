@@ -694,6 +694,7 @@ class AzureDevOpsClient:
             assigned_to=assigned_to,
             created_date=fields.get('System.CreatedDate'),
             activated_date=fields.get('Microsoft.VSTS.Common.ActivatedDate'),
+            closed_date=fields.get('Microsoft.VSTS.Common.ClosedDate'),
             story_points=story_points,
             effort=effort,
             work_item_type=fields.get('System.WorkItemType'),

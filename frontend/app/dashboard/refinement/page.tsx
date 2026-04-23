@@ -736,22 +736,23 @@ export default function RefinementPage() {
 
   const runBackfill = useCallback(async () => {
     setError('');
+    const tt = (k: string) => t(k as Parameters<typeof t>[0]);
     if (provider === 'azure') {
       if (!azureProject) {
-        setBackfillJob({ status: 'failed', error: 'Önce yukarıdan bir Azure proje seç.' });
+        setBackfillJob({ status: 'failed', error: tt('refinement.backfill.needAzureProject') });
         return;
       }
       if (!azureTeam) {
-        setBackfillJob({ status: 'failed', error: 'Önce yukarıdan bir takım seç — yoksa sorgu projedeki tüm ekiplerin işlerini çeker ve Azure 20k limitine takılır.' });
+        setBackfillJob({ status: 'failed', error: tt('refinement.backfill.needAzureTeam') });
         return;
       }
     } else if (provider === 'jira') {
       if (!jiraProject) {
-        setBackfillJob({ status: 'failed', error: 'Önce yukarıdan bir Jira projesi seç.' });
+        setBackfillJob({ status: 'failed', error: tt('refinement.backfill.needJiraProject') });
         return;
       }
     }
-    setBackfillJob({ status: 'queued', message: 'Arka plan işi başlatılıyor...' });
+    setBackfillJob({ status: 'queued', message: tt('refinement.backfill.starting') });
     try {
       const body: Record<string, unknown> =
         provider === 'azure'
@@ -762,9 +763,9 @@ export default function RefinementPage() {
         { method: 'POST', body: JSON.stringify(body) },
       );
     } catch (err) {
-      setBackfillJob({ status: 'failed', error: err instanceof Error ? err.message : 'Backfill başlatılamadı' });
+      setBackfillJob({ status: 'failed', error: err instanceof Error ? err.message : tt('refinement.backfill.startFailed') });
     }
-  }, [provider, azureProject, azureTeam, jiraProject, jiraBoard]);
+  }, [provider, azureProject, azureTeam, jiraProject, jiraBoard, t]);
 
   const loadIndexPreview = useCallback(async () => {
     try {
@@ -1276,20 +1277,20 @@ export default function RefinementPage() {
                   }
                   title={
                     provider === 'azure'
-                      ? (!azureProject ? 'Önce yukarıdan proje seç'
-                        : !azureTeam ? 'Önce yukarıdan takım seç (projedeki tüm işler 20k limitini aşar)'
-                        : 'Seçili Azure proje+takım için kapanmış işleri Qdrant\'a indexler')
-                      : (!jiraProject ? 'Önce yukarıdan Jira projesi seç'
-                        : 'Seçili Jira projesi için kapanmış issue\'ları Qdrant\'a indexler')
+                      ? (!azureProject ? t('refinement.backfill.needAzureProjectShort' as Parameters<typeof t>[0])
+                        : !azureTeam ? t('refinement.backfill.needAzureTeamShort' as Parameters<typeof t>[0])
+                        : t('refinement.backfill.tooltipAzure' as Parameters<typeof t>[0]))
+                      : (!jiraProject ? t('refinement.backfill.needJiraProjectShort' as Parameters<typeof t>[0])
+                        : t('refinement.backfill.tooltipJira' as Parameters<typeof t>[0]))
                   }
                 >
                   {jobActive
-                    ? `İndexleniyor${backfillJob?.total ? ` (${backfillJob.processed || 0}/${backfillJob.total})` : '...'}`
+                    ? `${t('refinement.backfill.buttonActive' as Parameters<typeof t>[0])}${backfillJob?.total ? ` (${backfillJob.processed || 0}/${backfillJob.total})` : '...'}`
                     : jobDone
-                      ? `Geçmiş İndexlendi (${backfillJob.indexed ?? 0})`
+                      ? `${t('refinement.backfill.buttonDone' as Parameters<typeof t>[0])} (${backfillJob.indexed ?? 0})`
                       : jobFailed
-                        ? 'Tekrar Dene'
-                        : 'Geçmiş İşleri İndexle'}
+                        ? t('refinement.backfill.buttonRetry' as Parameters<typeof t>[0])
+                        : t('refinement.backfill.buttonIdle' as Parameters<typeof t>[0])}
                 </button>
               );
             })()}
@@ -1365,11 +1366,11 @@ export default function RefinementPage() {
               }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, marginBottom: 2 }}>
-                  {backfillJob.status === 'queued' && 'Sıraya alındı'}
-                  {backfillJob.status === 'fetching' && 'Azure DevOps taranıyor'}
-                  {backfillJob.status === 'indexing' && `Qdrant\'a yazılıyor${backfillJob.total ? ` — ${backfillJob.processed || 0}/${backfillJob.total}` : ''}`}
-                  {backfillJob.status === 'completed' && `Tamamlandı — ${backfillJob.indexed ?? 0} iş indexlendi${backfillJob.capped ? ' (üst sınıra takıldı, daha fazla olabilir)' : ''}`}
-                  {backfillJob.status === 'failed' && `Başarısız: ${backfillJob.error || 'bilinmeyen hata'}`}
+                  {backfillJob.status === 'queued' && t('refinement.backfill.statusQueued' as Parameters<typeof t>[0])}
+                  {backfillJob.status === 'fetching' && t('refinement.backfill.statusFetching' as Parameters<typeof t>[0])}
+                  {backfillJob.status === 'indexing' && `${t('refinement.backfill.statusIndexing' as Parameters<typeof t>[0])}${backfillJob.total ? ` — ${backfillJob.processed || 0}/${backfillJob.total}` : ''}`}
+                  {backfillJob.status === 'completed' && `${t('refinement.backfill.statusCompletedPrefix' as Parameters<typeof t>[0])} ${backfillJob.indexed ?? 0} ${t('refinement.backfill.statusCompletedSuffix' as Parameters<typeof t>[0])}${backfillJob.capped ? ` (${t('refinement.backfill.statusCapped' as Parameters<typeof t>[0])})` : ''}`}
+                  {backfillJob.status === 'failed' && `${t('refinement.backfill.statusFailedPrefix' as Parameters<typeof t>[0])}: ${backfillJob.error || t('refinement.backfill.statusUnknownError' as Parameters<typeof t>[0])}`}
                 </div>
                 {backfillJob.message && backfillJob.status !== 'completed' && backfillJob.status !== 'failed' && (
                   <div style={{ fontSize: 11, color: 'var(--ink-45)' }}>{backfillJob.message}</div>
@@ -1379,7 +1380,7 @@ export default function RefinementPage() {
                 <button
                   onClick={() => setBackfillJob(null)}
                   style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
-                  title='Bu mesajı kapat (iş arka planda devam eder)'
+                  title={t('refinement.backfill.dismissTitle' as Parameters<typeof t>[0])}
                 >×</button>
               )}
             </div>
@@ -1400,10 +1401,10 @@ export default function RefinementPage() {
               <span style={{ fontSize: 16 }}>📚</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>
-                  Index'te {indexPreview.total.toLocaleString()} tamamlanmış iş var
+                  {t('refinement.indexLink.title' as Parameters<typeof t>[0]).replace('{count}', indexPreview.total.toLocaleString())}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--ink-45)' }}>
-                  SP dağılımı, en çok iş yapanlar, örnek işler — detayı gör
+                  {t('refinement.indexLink.subtitle' as Parameters<typeof t>[0])}
                 </div>
               </div>
               <span style={{ fontSize: 11, color: 'var(--ink-45)' }}>→</span>

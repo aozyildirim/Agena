@@ -231,8 +231,10 @@ class JiraClient:
         jql = ' AND '.join(jql_parts) + ' ORDER BY resolutiondate DESC'
 
         url = f"{base_url.rstrip('/')}/rest/api/3/search"
-        # Always request the numeric SP custom field too so we can coerce it server-side
-        fields_list = ['summary', 'description', 'status', 'assignee', 'created', 'resolutiondate', 'issuetype', sp_field]
+        # Always request the numeric SP custom field so we can coerce it, and
+        # include *all so the sprint custom field (varies by instance) comes
+        # through without us having to guess its id.
+        fields_list = ['summary', 'description', 'status', 'assignee', 'created', 'resolutiondate', 'issuetype', sp_field, '*all']
         items: list[ExternalTask] = []
         start_at = 0
         page_size = 100
@@ -505,6 +507,23 @@ class JiraClient:
         story_points = None
         if story_point_field:
             story_points = self._coerce_float(fields.get(story_point_field))
+        # Jira sprint lives in a customfield_NNNNN; we don't know the exact id
+        # across instances, so scan values for an array of sprint-shaped objects
+        # and pick the most recent/active one.
+        sprint_name: str | None = None
+        sprint_id: str | None = None
+        for fk, fv in (fields or {}).items():
+            if not isinstance(fk, str) or not fk.startswith('customfield_'):
+                continue
+            if isinstance(fv, list) and fv and isinstance(fv[0], dict) and fv[0].get('name') and ('state' in fv[0] or 'boardId' in fv[0]):
+                # pick active sprint if any, else last (most recent) entry
+                active = next((s for s in fv if isinstance(s, dict) and str(s.get('state', '')).lower() == 'active'), None)
+                closed = [s for s in fv if isinstance(s, dict) and str(s.get('state', '')).lower() == 'closed']
+                picked = active or (closed[-1] if closed else fv[-1] if isinstance(fv[-1], dict) else None)
+                if picked:
+                    sprint_name = picked.get('name')
+                    sprint_id = str(picked.get('id')) if picked.get('id') is not None else None
+                break
         return ExternalTask(
             id=issue.get('key', '') or issue.get('id', ''),
             title=fields.get('summary', ''),
@@ -513,7 +532,10 @@ class JiraClient:
             state=((fields.get('status') or {}).get('name') if isinstance(fields.get('status'), dict) else None),
             assigned_to=((fields.get('assignee') or {}).get('displayName') if isinstance(fields.get('assignee'), dict) else None),
             created_date=fields.get('created'),
+            closed_date=fields.get('resolutiondate'),
             story_points=story_points,
+            sprint_id=sprint_id,
+            sprint_name=sprint_name,
         )
 
     def _parse_jira_description(self, payload: Any) -> str:
