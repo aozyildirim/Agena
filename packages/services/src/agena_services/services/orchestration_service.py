@@ -212,9 +212,13 @@ class OrchestrationService:
             )
             if _skill_hits:
                 _skill_block = SkillService.format_for_prompt(_skill_hits, is_turkish=True)
+                _skills_summary = ', '.join(f'#{h.id} {h.name[:60]}({h.tier})' for h in _skill_hits)
                 await task_service.add_log(task.id, organization_id, 'agent',
-                    f'Retrieved {len(_skill_hits)} relevant skill(s) from catalog: '
-                    + ', '.join(f'#{h.id} {h.name[:60]}({h.tier})' for h in _skill_hits)
+                    f'Retrieved {len(_skill_hits)} relevant skill(s) from catalog: {_skills_summary}'
+                )
+                logger.info(
+                    'Retrieved %d relevant skill(s) for task %s: %s',
+                    len(_skill_hits), task.id, _skills_summary,
                 )
                 effective_description = (
                     '--- RELEVANT TEAM SKILLS (from prior completed tasks) ---\n'
@@ -1540,8 +1544,13 @@ class OrchestrationService:
 
         # Replace placeholders
         branch_name = branch_pattern.replace('{ext_id}', ext_id).replace('{title_slug}', title_slug).replace('{id}', task_id).replace('{timestamp}', timestamp)
-        # Sanitize branch name
-        branch_name = re.sub(r'[^a-zA-Z0-9/_#.-]', '-', branch_name).strip('-')
+        # Sanitize branch name. Azure git refs reject '#' (used in their
+        # refs URL format) and a few other characters Git itself forbids
+        # (~^:?*[\\). Keep only alnum + /_.- and squash everything else
+        # down to a single '-'. Then strip leading/trailing dashes and
+        # collapse runs of dashes so we don't end up with "feature/--foo".
+        branch_name = re.sub(r'[^a-zA-Z0-9/_.-]+', '-', branch_name)
+        branch_name = re.sub(r'-+', '-', branch_name).strip('-')
 
         auth_error = self._extract_cli_auth_error(reviewed_code)
         if auth_error:
