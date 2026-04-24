@@ -230,6 +230,8 @@ export default function SprintPerformancePage() {
   const [velocitySparkline, setVelocitySparkline] = useState<number[]>([]);
   const [pulseLoading, setPulseLoading] = useState(false);
   const [doraModuleEnabled, setDoraModuleEnabled] = useState<boolean | null>(null);
+  const [pingState, setPingState] = useState<Record<string, 'idle' | 'loading' | 'sent' | 'error'>>({});
+  const [pingError, setPingError] = useState<Record<string, string>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -557,6 +559,31 @@ export default function SprintPerformancePage() {
     return () => { cancelled = true; };
   }, [missingConfig, activeSprintName, doraModuleEnabled]);
 
+  const handlePing = useCallback(async (item: BlockedItem) => {
+    const key = item.id;
+    if (pingState[key] === 'loading' || pingState[key] === 'sent') return;
+    setPingState((s) => ({ ...s, [key]: 'loading' }));
+    setPingError((s) => ({ ...s, [key]: '' }));
+    const mention = item.assignee && item.assignee !== '—' ? item.assignee : t('sprintPerf.pingFallbackAssignee');
+    const reasonLine = item.reason ? t('sprintPerf.pingReasonLine', { reason: item.reason }) : '';
+    const comment = [
+      t('sprintPerf.pingGreeting', { name: mention }),
+      t('sprintPerf.pingBody'),
+      reasonLine,
+      t('sprintPerf.pingSignature'),
+    ].filter(Boolean).join('\n\n');
+    const path = provider === 'jira'
+      ? `/tasks/jira/issues/${encodeURIComponent(item.id)}/comment`
+      : `/tasks/azure/workitems/${encodeURIComponent(item.id)}/comment`;
+    try {
+      await apiFetch(path, { method: 'POST', body: JSON.stringify({ comment }) });
+      setPingState((s) => ({ ...s, [key]: 'sent' }));
+    } catch (err) {
+      setPingState((s) => ({ ...s, [key]: 'error' }));
+      setPingError((s) => ({ ...s, [key]: err instanceof Error ? err.message : 'Failed' }));
+    }
+  }, [pingState, provider, t]);
+
   const avgCompletion = useMemo(() => {
     if (!memberStats.length) return 0;
     return Math.round(memberStats.reduce((sum, m) => sum + m.score, 0) / memberStats.length);
@@ -872,8 +899,7 @@ export default function SprintPerformancePage() {
             </div>
           )}
 
-          {/* ── Engineering Pulse (DORA + PR + Velocity) ── gated on dora module */}
-          {doraModuleEnabled && (
+          {/* ── Engineering Pulse (DORA + PR + Velocity) ── always rendered; DORA link gated */}
           <div style={{
             padding: 20, borderRadius: 16,
             border: '1px solid var(--panel-border-2)',
@@ -889,9 +915,11 @@ export default function SprintPerformancePage() {
                   {t('sprintPerf.pulseWindow')}
                 </span>
               </div>
-              <Link href="/dashboard/dora" style={{ fontSize: 11, color: 'var(--ink-58)', textDecoration: 'none' }}>
-                {t('sprintPerf.pulseSeeAll')} →
-              </Link>
+              {doraModuleEnabled && (
+                <Link href="/dashboard/dora" style={{ fontSize: 11, color: 'var(--ink-58)', textDecoration: 'none' }}>
+                  {t('sprintPerf.pulseSeeAll')} →
+                </Link>
+              )}
             </div>
             {pulseLoading && !doraMetrics && !prMetrics ? (
               <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--ink-45)', fontSize: 13 }}>
@@ -946,7 +974,6 @@ export default function SprintPerformancePage() {
               </div>
             )}
           </div>
-          )}
 
           {/* ── Team Member Cards ── */}
           <div style={{
@@ -1274,7 +1301,7 @@ export default function SprintPerformancePage() {
                         {item.state}
                       </span>
                     </div>
-                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <div style={{
                         width: 18, height: 18, borderRadius: 6,
                         background: getAvatarColor(item.assignee),
@@ -1284,7 +1311,25 @@ export default function SprintPerformancePage() {
                         {getInitials(item.assignee)}
                       </div>
                       <span style={{ fontSize: 12, color: 'var(--ink-55)' }}>{item.assignee}</span>
+                      <span style={{ flex: 1 }} />
+                      <PingButton
+                        state={pingState[item.id] || 'idle'}
+                        onClick={() => void handlePing(item)}
+                        labelIdle={t('sprintPerf.pingAction')}
+                        labelLoading={t('sprintPerf.pingSending')}
+                        labelSent={t('sprintPerf.pingSent')}
+                        labelError={t('sprintPerf.pingRetry')}
+                      />
                     </div>
+                    {pingError[item.id] && pingState[item.id] === 'error' && (
+                      <div style={{
+                        marginTop: 6, fontSize: 11, color: '#f87171',
+                        padding: '4px 8px', borderRadius: 6,
+                        background: 'rgba(248,113,113,0.08)',
+                      }}>
+                        {pingError[item.id]}
+                      </div>
+                    )}
                     {item.reason && (
                       <div style={{
                         marginTop: 8, fontSize: 12, color: 'var(--ink-65)', lineHeight: 1.5,
@@ -1432,6 +1477,40 @@ function PulseCard({ label, value, sub, accent, sparkline }: {
         <Sparkline values={sparkline} color={accent} />
       )}
     </div>
+  );
+}
+
+function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelError }: {
+  state: 'idle' | 'loading' | 'sent' | 'error';
+  onClick: () => void;
+  labelIdle: string;
+  labelLoading: string;
+  labelSent: string;
+  labelError: string;
+}) {
+  const label = state === 'loading' ? labelLoading : state === 'sent' ? labelSent : state === 'error' ? labelError : labelIdle;
+  const color = state === 'sent' ? '#22c55e' : state === 'error' ? '#f87171' : '#5eead4';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={state === 'loading' || state === 'sent'}
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0.4,
+        padding: '4px 10px',
+        borderRadius: 999,
+        border: `1px solid ${color}44`,
+        background: `${color}14`,
+        color,
+        cursor: state === 'loading' || state === 'sent' ? 'default' : 'pointer',
+        opacity: state === 'loading' ? 0.7 : 1,
+        transition: 'all 0.15s ease',
+      }}
+    >
+      {state === 'sent' ? '✓ ' : ''}{label}
+    </button>
   );
 }
 

@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -401,6 +402,67 @@ async def list_azure_workitem_comments(
         return await client.fetch_work_item_comments(cfg=cfg, project=project, work_item_id=work_item_id)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f'Azure comments fetch failed: {exc}') from exc
+
+
+class CommentPostRequest(BaseModel):
+    comment: str
+
+
+class CommentPostResponse(BaseModel):
+    ok: bool
+
+
+@router.post('/azure/workitems/{work_item_id}/comment', response_model=CommentPostResponse)
+async def post_azure_workitem_comment(
+    work_item_id: str,
+    payload: CommentPostRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> CommentPostResponse:
+    text = (payload.comment or '').strip()
+    if not text:
+        raise HTTPException(status_code=400, detail='comment is required')
+    service = IntegrationConfigService(db)
+    config = await service.get_config(tenant.organization_id, 'azure')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Azure integration not configured')
+    from agena_services.integrations.azure_client import AzureDevOpsClient
+    client = AzureDevOpsClient()
+    cfg = {'org_url': config.base_url, 'pat': config.secret}
+    try:
+        await client.writeback_refinement(
+            cfg=cfg, work_item_id=work_item_id, suggested_story_points=0, comment=text,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f'Azure comment post failed: {exc}') from exc
+    return CommentPostResponse(ok=True)
+
+
+@router.post('/jira/issues/{issue_key}/comment', response_model=CommentPostResponse)
+async def post_jira_issue_comment(
+    issue_key: str,
+    payload: CommentPostRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> CommentPostResponse:
+    text = (payload.comment or '').strip()
+    if not text:
+        raise HTTPException(status_code=400, detail='comment is required')
+    service = IntegrationConfigService(db)
+    config = await service.get_config(tenant.organization_id, 'jira')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Jira integration not configured')
+    from agena_services.integrations.jira_client import JiraClient
+    client = JiraClient()
+    cfg = {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
+    try:
+        await client.writeback_refinement(
+            cfg=cfg, issue_key=issue_key, suggested_story_points=0,
+            comment=text, board_id='',
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f'Jira comment post failed: {exc}') from exc
+    return CommentPostResponse(ok=True)
 
 
 @router.get('/azure/repos')
