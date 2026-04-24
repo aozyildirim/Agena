@@ -334,6 +334,45 @@ class JiraClient:
                     break
         return items
 
+    async def fetch_issue_comments(
+        self, *, cfg: dict[str, str] | None, issue_key: str,
+    ) -> list[dict[str, Any]]:
+        """Return comments on a Jira issue, newest-first, with plain-text body."""
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(issue_key or '').strip()
+        if not base_url or not key:
+            return []
+        url = f"{base_url.rstrip('/')}/rest/api/3/issue/{key}/comment"
+        params = {'orderBy': '-created', 'maxResults': 50}
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, params=params, auth=(email, api_token))
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+        out: list[dict[str, Any]] = []
+        for c in data.get('comments', []) or []:
+            body = c.get('body') or {}
+            text = self._flatten_adf_text(body) if isinstance(body, dict) else str(body or '')
+            out.append({
+                'id': c.get('id'),
+                'text': text,
+                'created_by': (c.get('author') or {}).get('displayName') or '',
+                'created_at': c.get('created') or c.get('updated') or '',
+            })
+        return out
+
+    @staticmethod
+    def _flatten_adf_text(node: dict[str, Any]) -> str:
+        # Atlassian Document Format → plain text (depth-first concat of text nodes).
+        if not isinstance(node, dict):
+            return ''
+        if node.get('type') == 'text':
+            return str(node.get('text') or '')
+        parts: list[str] = []
+        for child in node.get('content') or []:
+            parts.append(JiraClient._flatten_adf_text(child))
+        return ''.join(parts).strip()
+
     async def writeback_refinement(
         self,
         *,

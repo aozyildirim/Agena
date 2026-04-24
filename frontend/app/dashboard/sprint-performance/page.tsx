@@ -230,9 +230,12 @@ export default function SprintPerformancePage() {
   const [velocitySparkline, setVelocitySparkline] = useState<number[]>([]);
   const [pulseLoading, setPulseLoading] = useState(false);
   const [doraModuleEnabled, setDoraModuleEnabled] = useState<boolean | null>(null);
-  const [pingState, setPingState] = useState<Record<string, 'idle' | 'loading' | 'sent' | 'error'>>({});
+  const [pingState, setPingState] = useState<Record<string, 'idle' | 'loading' | 'sent' | 'error' | 'too_soon'>>({});
   const [pingError, setPingError] = useState<Record<string, string>>({});
+  const [pingDetail, setPingDetail] = useState<Record<string, string>>({});
   const [pingLang, setPingLang] = useState<Lang>('tr');
+  const [pingAgentProvider, setPingAgentProvider] = useState<'openai' | 'gemini' | 'claude_cli' | 'codex_cli' | 'hal'>('openai');
+  const [pingAgentModel, setPingAgentModel] = useState<string>('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -571,25 +574,54 @@ export default function SprintPerformancePage() {
     if (pingState[key] === 'loading' || pingState[key] === 'sent') return;
     setPingState((s) => ({ ...s, [key]: 'loading' }));
     setPingError((s) => ({ ...s, [key]: '' }));
-    const mention = item.assignee && item.assignee !== '—' ? item.assignee : translate(pingLang, 'sprintPerf.pingFallbackAssignee');
-    const reasonLine = item.reason ? translate(pingLang, 'sprintPerf.pingReasonLine', { reason: item.reason }) : '';
-    const comment = [
-      translate(pingLang, 'sprintPerf.pingGreeting', { name: mention }),
-      translate(pingLang, 'sprintPerf.pingBody'),
-      reasonLine,
-      translate(pingLang, 'sprintPerf.pingSignature'),
-    ].filter(Boolean).join('\n\n');
-    const path = provider === 'jira'
-      ? `/tasks/jira/issues/${encodeURIComponent(item.id)}/comment`
-      : `/tasks/azure/workitems/${encodeURIComponent(item.id)}/comment`;
+    setPingDetail((s) => ({ ...s, [key]: '' }));
+    const body = {
+      provider,
+      item_id: item.id,
+      project: selectedProject || undefined,
+      title: item.title,
+      reason: item.reason || '',
+      assignee: item.assignee || '',
+      language: pingLang,
+      agent_provider: pingAgentProvider,
+      agent_model: pingAgentModel,
+    };
     try {
-      await apiFetch(path, { method: 'POST', body: JSON.stringify({ comment }) });
-      setPingState((s) => ({ ...s, [key]: 'sent' }));
+      const resp = await apiFetch<{
+        sent: boolean;
+        reason_code: string;
+        hours_silent: number | null;
+        last_commenter: string;
+        comment_text: string;
+        generated_by: string;
+        error?: string | null;
+      }>('/tasks/ai-nudge', { method: 'POST', body: JSON.stringify(body) });
+      if (resp.sent) {
+        setPingState((s) => ({ ...s, [key]: 'sent' }));
+        setPingDetail((s) => ({
+          ...s,
+          [key]: translate(pingLang, 'sprintPerf.pingSentDetail', {
+            model: resp.generated_by || pingAgentProvider,
+            hours: resp.hours_silent == null ? '?' : String(Math.round(resp.hours_silent)),
+          }),
+        }));
+      } else if (resp.reason_code === 'too_soon') {
+        setPingState((s) => ({ ...s, [key]: 'too_soon' }));
+        setPingDetail((s) => ({
+          ...s,
+          [key]: translate(pingLang, 'sprintPerf.pingTooSoon', {
+            hours: resp.hours_silent == null ? '?' : String(Math.round(resp.hours_silent)),
+          }),
+        }));
+      } else {
+        setPingState((s) => ({ ...s, [key]: 'error' }));
+        setPingError((s) => ({ ...s, [key]: resp.error || resp.reason_code || 'Failed' }));
+      }
     } catch (err) {
       setPingState((s) => ({ ...s, [key]: 'error' }));
       setPingError((s) => ({ ...s, [key]: err instanceof Error ? err.message : 'Failed' }));
     }
-  }, [pingState, provider, pingLang, translate]);
+  }, [pingState, provider, selectedProject, pingLang, pingAgentProvider, pingAgentModel, translate]);
 
   const avgCompletion = useMemo(() => {
     if (!memberStats.length) return 0;
@@ -1265,27 +1297,61 @@ export default function SprintPerformancePage() {
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>{t('sprintPerf.blockedTitle')}</h2>
               <span style={{ flex: 1 }} />
               {blockedItems.length > 0 && (
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-55)' }}>
-                  {t('sprintPerf.pingLangLabel')}
-                  <select
-                    value={pingLang}
-                    onChange={(e) => setPingLang(e.target.value as Lang)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-55)' }}>
+                    {t('sprintPerf.pingLangLabel')}
+                    <select
+                      value={pingLang}
+                      onChange={(e) => setPingLang(e.target.value as Lang)}
+                      style={{
+                        fontSize: 11, fontWeight: 600,
+                        padding: '3px 8px', borderRadius: 8,
+                        border: '1px solid var(--panel-border-2)',
+                        background: 'var(--panel)', color: 'var(--ink-80)',
+                      }}
+                    >
+                      <option value="tr">Türkçe</option>
+                      <option value="en">English</option>
+                      <option value="de">Deutsch</option>
+                      <option value="es">Español</option>
+                      <option value="it">Italiano</option>
+                      <option value="ja">日本語</option>
+                      <option value="zh">中文</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-55)' }}>
+                    {t('sprintPerf.pingAgentLabel')}
+                    <select
+                      value={pingAgentProvider}
+                      onChange={(e) => setPingAgentProvider(e.target.value as typeof pingAgentProvider)}
+                      style={{
+                        fontSize: 11, fontWeight: 600,
+                        padding: '3px 8px', borderRadius: 8,
+                        border: '1px solid var(--panel-border-2)',
+                        background: 'var(--panel)', color: 'var(--ink-80)',
+                      }}
+                    >
+                      <option value="openai">OpenAI</option>
+                      <option value="gemini">Gemini</option>
+                      <option value="claude_cli">Claude CLI</option>
+                      <option value="codex_cli">Codex CLI</option>
+                      <option value="hal">HAL</option>
+                    </select>
+                  </label>
+                  <input
+                    type="text"
+                    value={pingAgentModel}
+                    onChange={(e) => setPingAgentModel(e.target.value)}
+                    placeholder={t('sprintPerf.pingModelPlaceholder')}
                     style={{
-                      fontSize: 11, fontWeight: 600,
+                      fontSize: 11, fontWeight: 500,
                       padding: '3px 8px', borderRadius: 8,
                       border: '1px solid var(--panel-border-2)',
                       background: 'var(--panel)', color: 'var(--ink-80)',
+                      width: 140,
                     }}
-                  >
-                    <option value="tr">Türkçe</option>
-                    <option value="en">English</option>
-                    <option value="de">Deutsch</option>
-                    <option value="es">Español</option>
-                    <option value="it">Italiano</option>
-                    <option value="ja">日本語</option>
-                    <option value="zh">中文</option>
-                  </select>
-                </label>
+                  />
+                </div>
               )}
             </div>
 
@@ -1350,6 +1416,7 @@ export default function SprintPerformancePage() {
                         labelLoading={t('sprintPerf.pingSending')}
                         labelSent={t('sprintPerf.pingSent')}
                         labelError={t('sprintPerf.pingRetry')}
+                        labelTooSoon={t('sprintPerf.pingTooSoonBadge')}
                       />
                     </div>
                     {pingError[item.id] && pingState[item.id] === 'error' && (
@@ -1359,6 +1426,16 @@ export default function SprintPerformancePage() {
                         background: 'rgba(248,113,113,0.08)',
                       }}>
                         {pingError[item.id]}
+                      </div>
+                    )}
+                    {pingDetail[item.id] && (pingState[item.id] === 'sent' || pingState[item.id] === 'too_soon') && (
+                      <div style={{
+                        marginTop: 6, fontSize: 11,
+                        color: pingState[item.id] === 'too_soon' ? '#fbbf24' : '#22c55e',
+                        padding: '4px 8px', borderRadius: 6,
+                        background: pingState[item.id] === 'too_soon' ? 'rgba(251,191,36,0.08)' : 'rgba(34,197,94,0.08)',
+                      }}>
+                        {pingDetail[item.id]}
                       </div>
                     )}
                     {item.reason && (
@@ -1511,16 +1588,25 @@ function PulseCard({ label, value, sub, accent, sparkline }: {
   );
 }
 
-function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelError }: {
-  state: 'idle' | 'loading' | 'sent' | 'error';
+function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelError, labelTooSoon }: {
+  state: 'idle' | 'loading' | 'sent' | 'error' | 'too_soon';
   onClick: () => void;
   labelIdle: string;
   labelLoading: string;
   labelSent: string;
   labelError: string;
+  labelTooSoon: string;
 }) {
-  const label = state === 'loading' ? labelLoading : state === 'sent' ? labelSent : state === 'error' ? labelError : labelIdle;
-  const color = state === 'sent' ? '#22c55e' : state === 'error' ? '#f87171' : '#5eead4';
+  const label = state === 'loading' ? labelLoading
+    : state === 'sent' ? labelSent
+    : state === 'error' ? labelError
+    : state === 'too_soon' ? labelTooSoon
+    : labelIdle;
+  const color = state === 'sent' ? '#22c55e'
+    : state === 'error' ? '#f87171'
+    : state === 'too_soon' ? '#fbbf24'
+    : '#5eead4';
+  const prefix = state === 'sent' ? '✓ ' : state === 'too_soon' ? '⏳ ' : '';
   return (
     <button
       type="button"
@@ -1540,7 +1626,7 @@ function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelE
         transition: 'all 0.15s ease',
       }}
     >
-      {state === 'sent' ? '✓ ' : ''}{label}
+      {prefix}{label}
     </button>
   );
 }

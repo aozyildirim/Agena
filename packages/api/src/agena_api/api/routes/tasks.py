@@ -438,6 +438,56 @@ async def post_azure_workitem_comment(
     return CommentPostResponse(ok=True)
 
 
+class AINudgeRequest(BaseModel):
+    provider: str  # 'azure' | 'jira'
+    item_id: str
+    project: str | None = None
+    title: str = ''
+    reason: str = ''
+    assignee: str = ''
+    language: str = 'en'
+    agent_provider: str = 'openai'
+    agent_model: str = ''
+
+
+class AINudgeResponse(BaseModel):
+    sent: bool
+    reason_code: str
+    hours_silent: float | None = None
+    last_commenter: str = ''
+    comment_text: str = ''
+    generated_by: str = ''
+    error: str | None = None
+
+
+@router.post('/ai-nudge', response_model=AINudgeResponse)
+async def post_ai_nudge(
+    payload: AINudgeRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> AINudgeResponse:
+    from agena_services.services.nudge_service import NudgeService
+    svc = NudgeService(db)
+    try:
+        result = await svc.post_ai_nudge(
+            organization_id=tenant.organization_id,
+            provider=payload.provider,
+            item_id=payload.item_id,
+            project=payload.project,
+            title=payload.title,
+            reason=payload.reason,
+            assignee=payload.assignee,
+            language=payload.language,
+            agent_provider=payload.agent_provider,
+            agent_model=payload.agent_model,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — surface a clean 502 to the UI
+        raise HTTPException(status_code=502, detail=f'ai-nudge failed: {exc}') from exc
+    return AINudgeResponse(**result)
+
+
 @router.post('/jira/issues/{issue_key}/comment', response_model=CommentPostResponse)
 async def post_jira_issue_comment(
     issue_key: str,
