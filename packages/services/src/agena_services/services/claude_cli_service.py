@@ -278,3 +278,77 @@ class ClaudeCLIService:
             raise
         except (httpx.RequestError, Exception) as exc:
             raise RuntimeError(f'CLI bridge request failed: {exc}')
+
+    async def generate_text(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        model: str | None = None,
+        timeout_sec: int = 120,
+    ) -> str:
+        """Lightweight text-in / text-out wrapper around the CLI bridge.
+
+        Intended for short one-shot generations (e.g. a nudge comment) —
+        does NOT touch a repo, does NOT create a worktree, and short-circuits
+        on the first `result` frame the bridge emits. Uses the bridge's
+        /claude/stream endpoint with /tmp as a harmless working dir.
+        """
+        import json as _json
+        import httpx
+
+        bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=5)) as client:
+            try:
+                health = await client.get(f'{bridge_url}/health')
+            except Exception as exc:
+                raise RuntimeError(f'CLI bridge unreachable: {exc}')
+            if health.status_code >= 400:
+                raise RuntimeError(f'CLI bridge health check failed ({health.status_code})')
+            h = health.json() if health.content else {}
+            if not bool((h or {}).get('claude', False)):
+                raise RuntimeError('Claude CLI is not installed on the host bridge')
+            if not bool((h or {}).get('claude_auth', False)):
+                raise RuntimeError('Claude CLI is not authenticated on the host bridge')
+
+        # Compose prompt (Claude CLI has no system/user split on the CLI
+        # side — merge into one instruction block).
+        full_prompt = (
+            f'{system_prompt.strip()}\n\n---\n{user_prompt.strip()}\n\n'
+            'Respond with ONLY the comment text. No preamble, no code blocks, no markdown — plain text only.'
+        )
+
+        collected: list[str] = []
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_sec + 10, connect=10)) as client:
+            async with client.stream(
+                'POST',
+                f'{bridge_url}/claude/stream',
+                json={
+                    'repo_path': '/tmp',
+                    'prompt': full_prompt,
+                    'model': model or 'sonnet',
+                    'timeout': timeout_sec,
+                    'task_id': '',
+                },
+            ) as resp:
+                async for raw in resp.aiter_lines():
+                    if not raw.startswith('data: '):
+                        continue
+                    try:
+                        event = _json.loads(raw[6:])
+                    except (ValueError, TypeError):
+                        continue
+                    etype = event.get('type', '')
+                    if etype == 'text':
+                        txt = event.get('text', '')
+                        if txt:
+                            collected.append(txt)
+                    elif etype == 'result':
+                        txt = event.get('text', '')
+                        if txt:
+                            collected.clear()
+                            collected.append(txt)
+        out = ''.join(collected).strip()
+        if not out:
+            raise RuntimeError('Claude CLI returned empty output')
+        return out

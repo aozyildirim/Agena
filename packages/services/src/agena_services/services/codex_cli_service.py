@@ -223,6 +223,75 @@ class CodexCLIService:
             or 'reconnecting' in lowered
         )
 
+    async def generate_text(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        model: str | None = None,
+        timeout_sec: int = 120,
+    ) -> str:
+        """Lightweight text-in / text-out wrapper around the Codex CLI
+        bridge. Used for short prompts (e.g. nudge comments) — no repo,
+        no multi-step agent flow. Consumes /codex/stream with /tmp as a
+        harmless cwd and short-circuits on the first final text frame.
+        """
+        import json as _json
+        import httpx
+
+        bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10, connect=5)) as client:
+            try:
+                health = await client.get(f'{bridge_url}/health')
+            except Exception as exc:
+                raise RuntimeError(f'CLI bridge unreachable: {exc}')
+            if health.status_code >= 400:
+                raise RuntimeError(f'CLI bridge health check failed ({health.status_code})')
+            h = health.json() if health.content else {}
+            if not bool((h or {}).get('codex', False)):
+                raise RuntimeError('Codex CLI is not installed on the host bridge')
+            if not bool((h or {}).get('codex_auth', False)):
+                raise RuntimeError('Codex CLI is not authenticated on the host bridge')
+
+        full_prompt = (
+            f'{system_prompt.strip()}\n\n---\n{user_prompt.strip()}\n\n'
+            'Respond with ONLY the comment text. No preamble, no code blocks, no markdown — plain text only.'
+        )
+
+        collected: list[str] = []
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_sec + 10, connect=10)) as client:
+            async with client.stream(
+                'POST',
+                f'{bridge_url}/codex/stream',
+                json={
+                    'repo_path': '/tmp',
+                    'prompt': full_prompt,
+                    'model': model or 'gpt-4o-mini',
+                    'timeout': timeout_sec,
+                    'task_id': '',
+                },
+            ) as resp:
+                async for raw in resp.aiter_lines():
+                    if not raw.startswith('data: '):
+                        continue
+                    try:
+                        event = _json.loads(raw[6:])
+                    except (ValueError, TypeError):
+                        continue
+                    etype = event.get('type', '')
+                    if etype == 'text':
+                        txt = event.get('text', '')
+                        if txt:
+                            collected.append(txt)
+                    elif etype == 'line':
+                        line = event.get('text', '')
+                        if line:
+                            collected.append(line + '\n')
+        out = ''.join(collected).strip()
+        if not out:
+            raise RuntimeError('Codex CLI returned empty output')
+        return out
+
     async def _generate_via_bridge(
         self,
         cli: str,

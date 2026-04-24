@@ -77,8 +77,7 @@ class NudgeService:
                 'generated_by': '',
             }
 
-        # 2) Ask the LLM for a polite nudge in the requested language
-        llm = self._build_llm(agent_provider)
+        # 2) Prepare prompts
         lang_name = LANGUAGE_NAMES.get((language or 'en').lower(), 'English')
         system_prompt = (
             f'You are a tactful sprint facilitator. Write a short, friendly status-check '
@@ -98,6 +97,82 @@ class NudgeService:
             f'{last_line}\n\n'
             'Draft the comment now.'
         )
+
+        slug = (agent_provider or 'openai').strip().lower()
+        try:
+            if slug == 'claude_cli':
+                claude_model = (agent_model or 'sonnet').strip() or 'sonnet'
+                try:
+                    from agena_services.services.claude_cli_service import ClaudeCLIService
+                    claude = ClaudeCLIService()
+                    comment_text = await claude.generate_text(
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        model=claude_model,
+                    )
+                    return await self._finalise_and_post(
+                        src=src, config=config, item_id=item_id, comment_text=comment_text,
+                        last_commenter=last_commenter, hours_silent=hours_silent,
+                        generated_by=f'claude_cli · {claude_model}',
+                    )
+                except RuntimeError as claude_exc:
+                    # Host Claude CLI unavailable / not authed → fall back to
+                    # Codex CLI on the same bridge. The user's env already
+                    # has Codex configured by default in their setup.
+                    logger.info('claude_cli unavailable, falling back to codex_cli: %s', claude_exc)
+                    from agena_services.services.codex_cli_service import CodexCLIService
+                    codex = CodexCLIService()
+                    codex_model = 'gpt-4o-mini'
+                    comment_text = await codex.generate_text(
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        model=codex_model,
+                    )
+                    return await self._finalise_and_post(
+                        src=src, config=config, item_id=item_id, comment_text=comment_text,
+                        last_commenter=last_commenter, hours_silent=hours_silent,
+                        generated_by=f'codex_cli · {codex_model} (fallback from claude_cli)',
+                    )
+
+            if slug == 'codex_cli':
+                from agena_services.services.codex_cli_service import CodexCLIService
+                codex = CodexCLIService()
+                model = (agent_model or '').strip() or 'gpt-4o-mini'
+                comment_text = await codex.generate_text(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    model=model,
+                )
+                return await self._finalise_and_post(
+                    src=src, config=config, item_id=item_id, comment_text=comment_text,
+                    last_commenter=last_commenter, hours_silent=hours_silent,
+                    generated_by=f'codex_cli · {model}',
+                )
+
+            llm, resolved_provider = await self._build_llm(organization_id, slug)
+        except ValueError as exc:
+            return {
+                'sent': False,
+                'reason_code': 'no_llm_configured',
+                'hours_silent': round(hours_silent, 1) if hours_silent is not None else None,
+                'last_commenter': last_commenter,
+                'comment_text': '',
+                'generated_by': '',
+                'error': str(exc),
+            }
+        except RuntimeError as exc:
+            # Claude CLI bridge / auth / connectivity errors land here.
+            return {
+                'sent': False,
+                'reason_code': 'cli_unavailable',
+                'hours_silent': round(hours_silent, 1) if hours_silent is not None else None,
+                'last_commenter': last_commenter,
+                'comment_text': '',
+                'generated_by': '',
+                'error': str(exc),
+            }
+
+        # OpenAI / Gemini path — direct API call via LLMProvider.
         try:
             comment_text, _usage, model, _cached = await llm.generate(
                 system_prompt=system_prompt,
@@ -127,11 +202,27 @@ class NudgeService:
                 'comment_text': '',
                 'generated_by': model,
             }
-        # Also log the agent_model the caller asked for (we may override it
-        # at provider level but the intent is worth preserving).
         resolved_model = agent_model.strip() or model
+        return await self._finalise_and_post(
+            src=src, config=config, item_id=item_id, comment_text=comment_text,
+            last_commenter=last_commenter, hours_silent=hours_silent,
+            generated_by=f'{resolved_provider} · {resolved_model}',
+        )
 
-        # 3) Post
+    async def _finalise_and_post(
+        self, *, src: str, config: Any, item_id: str, comment_text: str,
+        last_commenter: str, hours_silent: float | None, generated_by: str,
+    ) -> dict[str, Any]:
+        comment_text = (comment_text or '').strip()
+        if not comment_text:
+            return {
+                'sent': False,
+                'reason_code': 'llm_empty',
+                'hours_silent': round(hours_silent, 1) if hours_silent is not None else None,
+                'last_commenter': last_commenter,
+                'comment_text': '',
+                'generated_by': generated_by,
+            }
         try:
             if src == 'azure':
                 await self.azure_client.writeback_refinement(
@@ -151,7 +242,7 @@ class NudgeService:
                 'hours_silent': round(hours_silent, 1) if hours_silent is not None else None,
                 'last_commenter': last_commenter,
                 'comment_text': comment_text,
-                'generated_by': resolved_model,
+                'generated_by': generated_by,
                 'error': str(exc)[:240],
             }
         return {
@@ -160,7 +251,7 @@ class NudgeService:
             'hours_silent': round(hours_silent, 1) if hours_silent is not None else None,
             'last_commenter': last_commenter,
             'comment_text': comment_text,
-            'generated_by': resolved_model,
+            'generated_by': generated_by,
         }
 
     async def _last_comment_signal(
@@ -209,15 +300,49 @@ class NudgeService:
             'api_token': config.secret or '',
         }
 
-    def _build_llm(self, agent_provider: str) -> LLMProvider:
+    async def _build_llm(
+        self, organization_id: int, agent_provider: str,
+    ) -> tuple[LLMProvider, str]:
+        """Resolve an API key + base_url for the chosen provider.
+
+        Loads from the org's saved integration_config first (Integrations
+        page), then falls back to the global settings env var. Raises
+        ValueError with a clear message when neither is available — the
+        route surfaces this as `no_llm_configured` instead of silently
+        returning mock output.
+        """
         slug = (agent_provider or 'openai').strip().lower()
-        # CLI-bridge modes (claude_cli / codex_cli) would loop through the
-        # bridge — overkill for a short nudge. We collapse to their
-        # API-native equivalent provider where possible.
-        if slug in {'claude_cli', 'anthropic'}:
-            # Anthropic isn't a top-level provider in LLMProvider today;
-            # fall through to the default openai-compatible route.
-            return LLMProvider()
-        if slug == 'gemini':
-            return LLMProvider(provider='gemini')
-        return LLMProvider()  # openai default / hal / codex_cli fallback
+        # CLI-bridge modes and 'hal' get mapped to an API-native route for
+        # a short one-shot nudge — looping through the bridge/HAL adds
+        # latency without benefit here.
+        if slug in {'claude_cli', 'anthropic', 'hal'}:
+            slug = 'openai'
+        elif slug == 'codex_cli':
+            slug = 'openai'
+        elif slug not in {'openai', 'gemini'}:
+            slug = 'openai'
+
+        integration = await self.integration_service.get_config(organization_id, slug)
+        api_key = ((integration.secret if integration else '') or '').strip()
+        base_url = ((integration.base_url if integration else '') or '').strip()
+
+        settings = self.azure_client.settings  # reuse any initialized settings obj
+        if slug == 'openai':
+            api_key = api_key or (settings.openai_api_key or '').strip()
+            base_url = base_url or (settings.openai_base_url or '').strip()
+        elif slug == 'gemini' and not base_url:
+            base_url = 'https://generativelanguage.googleapis.com'
+
+        if not api_key or api_key.startswith('your_'):
+            raise ValueError(
+                f"{slug} API key is not configured — add it at "
+                "/dashboard/integrations (provider: "
+                f"{slug}) or set the env var."
+            )
+
+        llm = LLMProvider(
+            provider=slug,
+            api_key=api_key,
+            base_url=base_url or None,
+        )
+        return llm, slug

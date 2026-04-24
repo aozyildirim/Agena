@@ -2147,6 +2147,7 @@
   "sprintPerf.pingTooSoonBadge": "Kürzliche Antwort",
   "sprintPerf.pingSentDetail": "{model} verfasst + gepostet · {hours}h ohne Aktivität",
   "sprintPerf.pingTooSoon": "Übersprungen — letzte Antwort vor {hours}h",
+  "sprintPerf.pingNeedsKey": "Kein {provider}-API-Key — unter /dashboard/integrations hinzufügen und erneut versuchen.",
   "sprintPerf.pingFallbackAssignee": "Team",
   "sprintPerf.pingGreeting": "Hallo {name},",
   "sprintPerf.pingBody": "Dieses Work Item ist als blockiert markiert. Ein kurzes Status-Update wäre hilfreich, damit der Sprint weiterlaufen kann.",

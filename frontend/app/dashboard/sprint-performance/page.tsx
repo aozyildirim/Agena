@@ -234,8 +234,8 @@ export default function SprintPerformancePage() {
   const [pingError, setPingError] = useState<Record<string, string>>({});
   const [pingDetail, setPingDetail] = useState<Record<string, string>>({});
   const [pingLang, setPingLang] = useState<Lang>('tr');
-  const [pingAgentProvider, setPingAgentProvider] = useState<'openai' | 'gemini' | 'claude_cli' | 'codex_cli' | 'hal'>('openai');
-  const [pingAgentModel, setPingAgentModel] = useState<string>('');
+  const [pingAgentProvider, setPingAgentProvider] = useState<'openai' | 'gemini' | 'claude_cli' | 'codex_cli' | 'hal'>('claude_cli');
+  const [pingAgentModel, setPingAgentModel] = useState<string>('sonnet');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -612,6 +612,12 @@ export default function SprintPerformancePage() {
           [key]: translate(pingLang, 'sprintPerf.pingTooSoon', {
             hours: resp.hours_silent == null ? '?' : String(Math.round(resp.hours_silent)),
           }),
+        }));
+      } else if (resp.reason_code === 'no_llm_configured') {
+        setPingState((s) => ({ ...s, [key]: 'error' }));
+        setPingError((s) => ({
+          ...s,
+          [key]: translate(pingLang, 'sprintPerf.pingNeedsKey', { provider: pingAgentProvider }),
         }));
       } else {
         setPingState((s) => ({ ...s, [key]: 'error' }));

@@ -440,6 +440,7 @@
   "sprintPerf.pingTooSoonBadge": "Yakın zamanda cevap",
   "sprintPerf.pingSentDetail": "{model} yazdı ve gönderdi · {hours} saattir sessiz",
   "sprintPerf.pingTooSoon": "Atlandı — son cevap daha {hours} saat önce",
+  "sprintPerf.pingNeedsKey": "{provider} API anahtarı yok — /dashboard/integrations'tan ekle, tekrar dene.",
   "sprintPerf.pingFallbackAssignee": "ekip",
   "sprintPerf.pingGreeting": "Selam {name},",
   "sprintPerf.pingBody": "Bu iş engellenmiş olarak işaretli. Sprint'i ilerletebilmemiz için kısa bir durum güncellemesi paylaşabilir misin?",

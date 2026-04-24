@@ -440,6 +440,7 @@
   "sprintPerf.pingTooSoonBadge": "Recent reply",
   "sprintPerf.pingSentDetail": "AI wrote + posted via {model} · silent for {hours}h",
   "sprintPerf.pingTooSoon": "Skipped — last reply was only {hours}h ago",
+  "sprintPerf.pingNeedsKey": "No {provider} API key — add it at /dashboard/integrations, then retry.",
   "sprintPerf.pingFallbackAssignee": "team",
   "sprintPerf.pingGreeting": "Hi {name},",
   "sprintPerf.pingBody": "This work item is flagged as blocked and we'd love a quick status update so we can keep the sprint moving.",
