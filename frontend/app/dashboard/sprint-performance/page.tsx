@@ -230,12 +230,13 @@ export default function SprintPerformancePage() {
   const [velocitySparkline, setVelocitySparkline] = useState<number[]>([]);
   const [pulseLoading, setPulseLoading] = useState(false);
   const [doraModuleEnabled, setDoraModuleEnabled] = useState<boolean | null>(null);
-  const [pingState, setPingState] = useState<Record<string, 'idle' | 'loading' | 'sent' | 'error' | 'too_soon'>>({});
+  const [pingState, setPingState] = useState<Record<string, 'idle' | 'loading' | 'sent' | 'error' | 'too_soon' | 'already_nudged'>>({});
   const [pingError, setPingError] = useState<Record<string, string>>({});
   const [pingDetail, setPingDetail] = useState<Record<string, string>>({});
   const [pingLang, setPingLang] = useState<Lang>('tr');
   const [pingAgentProvider, setPingAgentProvider] = useState<'openai' | 'gemini' | 'claude_cli' | 'codex_cli' | 'hal'>('claude_cli');
   const [pingAgentModel, setPingAgentModel] = useState<string>('sonnet');
+  const [nudgeHistory, setNudgeHistory] = useState<Record<string, { generated_by: string | null; created_at: string | null }>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -569,6 +570,25 @@ export default function SprintPerformancePage() {
     return () => { cancelled = true; };
   }, [missingConfig, activeSprintName, doraModuleEnabled]);
 
+  useEffect(() => {
+    if (!blockedItems.length) { setNudgeHistory({}); return; }
+    const ids = blockedItems.map((b) => b.id).filter(Boolean).join(',');
+    if (!ids) return;
+    const qs = new URLSearchParams({ provider, item_ids: ids }).toString();
+    let cancelled = false;
+    apiFetch<{ items: Array<{ item_id: string; generated_by: string | null; created_at: string | null }> }>(`/tasks/ai-nudge/history?${qs}`)
+      .then((resp) => {
+        if (cancelled) return;
+        const m: Record<string, { generated_by: string | null; created_at: string | null }> = {};
+        for (const r of resp.items || []) {
+          m[r.item_id] = { generated_by: r.generated_by, created_at: r.created_at };
+        }
+        setNudgeHistory(m);
+      })
+      .catch(() => { if (!cancelled) setNudgeHistory({}); });
+    return () => { cancelled = true; };
+  }, [blockedItems, provider]);
+
   const handlePing = useCallback(async (item: BlockedItem) => {
     const key = item.id;
     if (pingState[key] === 'loading' || pingState[key] === 'sent') return;
@@ -611,6 +631,15 @@ export default function SprintPerformancePage() {
           ...s,
           [key]: translate(pingLang, 'sprintPerf.pingTooSoon', {
             hours: resp.hours_silent == null ? '?' : String(Math.round(resp.hours_silent)),
+          }),
+        }));
+      } else if (resp.reason_code === 'already_nudged') {
+        setPingState((s) => ({ ...s, [key]: 'already_nudged' }));
+        const hoursSince = (resp as unknown as { hours_since_last_nudge?: number }).hours_since_last_nudge;
+        setPingDetail((s) => ({
+          ...s,
+          [key]: translate(pingLang, 'sprintPerf.pingAlreadyDetail', {
+            hours: hoursSince == null ? '?' : String(Math.round(hoursSince)),
           }),
         }));
       } else if (resp.reason_code === 'no_llm_configured') {
@@ -1414,15 +1443,34 @@ export default function SprintPerformancePage() {
                         {getInitials(item.assignee)}
                       </div>
                       <span style={{ fontSize: 12, color: 'var(--ink-55)' }}>{item.assignee}</span>
+                      {nudgeHistory[item.id] && !pingState[item.id] && (
+                        <span
+                          title={nudgeHistory[item.id].generated_by || ''}
+                          style={{
+                            fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                            borderRadius: 999, letterSpacing: 0.4,
+                            background: 'rgba(94,234,212,0.1)',
+                            border: '1px solid rgba(94,234,212,0.28)',
+                            color: '#5eead4', whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ✓ {t('sprintPerf.pingHistoryBadge', {
+                            hours: nudgeHistory[item.id].created_at
+                              ? String(Math.max(0, Math.round((Date.now() - new Date(nudgeHistory[item.id].created_at as string).getTime()) / 3600000)))
+                              : '?',
+                          })}
+                        </span>
+                      )}
                       <span style={{ flex: 1 }} />
                       <PingButton
-                        state={pingState[item.id] || 'idle'}
+                        state={pingState[item.id] || (nudgeHistory[item.id] ? 'already_nudged' : 'idle')}
                         onClick={() => void handlePing(item)}
                         labelIdle={t('sprintPerf.pingAction')}
                         labelLoading={t('sprintPerf.pingSending')}
                         labelSent={t('sprintPerf.pingSent')}
                         labelError={t('sprintPerf.pingRetry')}
                         labelTooSoon={t('sprintPerf.pingTooSoonBadge')}
+                        labelAlready={t('sprintPerf.pingAlreadyBadge')}
                       />
                     </div>
                     {pingError[item.id] && pingState[item.id] === 'error' && (
@@ -1434,12 +1482,12 @@ export default function SprintPerformancePage() {
                         {pingError[item.id]}
                       </div>
                     )}
-                    {pingDetail[item.id] && (pingState[item.id] === 'sent' || pingState[item.id] === 'too_soon') && (
+                    {pingDetail[item.id] && (pingState[item.id] === 'sent' || pingState[item.id] === 'too_soon' || pingState[item.id] === 'already_nudged') && (
                       <div style={{
                         marginTop: 6, fontSize: 11,
-                        color: pingState[item.id] === 'too_soon' ? '#fbbf24' : '#22c55e',
+                        color: pingState[item.id] === 'sent' ? '#22c55e' : '#fbbf24',
                         padding: '4px 8px', borderRadius: 6,
-                        background: pingState[item.id] === 'too_soon' ? 'rgba(251,191,36,0.08)' : 'rgba(34,197,94,0.08)',
+                        background: pingState[item.id] === 'sent' ? 'rgba(34,197,94,0.08)' : 'rgba(251,191,36,0.08)',
                       }}>
                         {pingDetail[item.id]}
                       </div>
@@ -1594,30 +1642,32 @@ function PulseCard({ label, value, sub, accent, sparkline }: {
   );
 }
 
-function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelError, labelTooSoon }: {
-  state: 'idle' | 'loading' | 'sent' | 'error' | 'too_soon';
+function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelError, labelTooSoon, labelAlready }: {
+  state: 'idle' | 'loading' | 'sent' | 'error' | 'too_soon' | 'already_nudged';
   onClick: () => void;
   labelIdle: string;
   labelLoading: string;
   labelSent: string;
   labelError: string;
   labelTooSoon: string;
+  labelAlready: string;
 }) {
   const label = state === 'loading' ? labelLoading
     : state === 'sent' ? labelSent
     : state === 'error' ? labelError
     : state === 'too_soon' ? labelTooSoon
+    : state === 'already_nudged' ? labelAlready
     : labelIdle;
   const color = state === 'sent' ? '#22c55e'
     : state === 'error' ? '#f87171'
-    : state === 'too_soon' ? '#fbbf24'
+    : state === 'too_soon' || state === 'already_nudged' ? '#fbbf24'
     : '#5eead4';
-  const prefix = state === 'sent' ? '✓ ' : state === 'too_soon' ? '⏳ ' : '';
+  const prefix = state === 'sent' ? '✓ ' : state === 'too_soon' || state === 'already_nudged' ? '⏳ ' : '';
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={state === 'loading' || state === 'sent'}
+      disabled={state === 'loading' || state === 'sent' || state === 'already_nudged'}
       style={{
         fontSize: 11,
         fontWeight: 700,
