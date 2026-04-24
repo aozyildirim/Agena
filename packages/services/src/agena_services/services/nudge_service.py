@@ -30,6 +30,21 @@ LANGUAGE_NAMES: dict[str, str] = {
 }
 
 
+# Agena signature appended to every nudge — localized so the tone matches
+# the rest of the comment. We keep it a short one-liner with the AI model
+# so the recipient knows (a) it was auto-generated, (b) which model, and
+# (c) what to reply to (they still @-reply to the assignee, not the bot).
+AGENA_SIGNATURE: dict[str, str] = {
+    'tr': '— 🤖 Agena, sprint ekibi adına {model} ile yazdı. Serbestçe düzenleyebilirsin.',
+    'en': '— 🤖 Written by Agena via {model} on behalf of the sprint team. Edit freely.',
+    'de': '— 🤖 Von Agena via {model} im Auftrag des Sprint-Teams verfasst. Frei editierbar.',
+    'es': '— 🤖 Redactado por Agena con {model} en nombre del equipo del sprint. Edita libremente.',
+    'it': '— 🤖 Scritto da Agena tramite {model} per conto del team di sprint. Modifica liberamente.',
+    'ja': '— 🤖 Agena が {model} を使いスプリントチームの代わりに作成。自由に編集してください。',
+    'zh': '— 🤖 Agena 通过 {model} 代表 sprint 团队撰写。可自由编辑。',
+}
+
+
 class NudgeService:
     """Generates a polite status-update nudge for a blocked work item
     and posts it back as a comment on the source system (Azure or Jira).
@@ -81,10 +96,12 @@ class NudgeService:
         lang_name = LANGUAGE_NAMES.get((language or 'en').lower(), 'English')
         system_prompt = (
             f'You are a tactful sprint facilitator. Write a short, friendly status-check '
-            f'comment in {lang_name} for a blocked work item. '
-            'Address the named assignee warmly, reference the stated blocker briefly, '
-            'ask for a quick status update, and sign off naturally. '
-            'Keep it under 80 words. Plain text only, no markdown, no code blocks.'
+            f'message in {lang_name} for a blocked work item. '
+            'Do NOT address the assignee by name — an @mention will be prepended automatically. '
+            'Do NOT include any greeting like "Hi <name>," or "Dear <name>," — start directly with the status question or context. '
+            'Reference the stated blocker briefly, ask for a quick status update. '
+            'Keep it under 60 words. Plain text only, no markdown, no code blocks. '
+            'Do NOT sign off or add a signature — a separate signature line is appended automatically.'
         )
         silent_phrase = (
             f'{int(hours_silent)} hours' if hours_silent is not None else 'a long while'
@@ -105,15 +122,19 @@ class NudgeService:
                 try:
                     from agena_services.services.claude_cli_service import ClaudeCLIService
                     claude = ClaudeCLIService()
-                    comment_text = await claude.generate_text(
+                    raw = await claude.generate_text(
                         system_prompt=system_prompt,
                         user_prompt=user_prompt,
                         model=claude_model,
                     )
+                    generated_by = f'claude_cli · {claude_model}'
+                    final = self._compose_final_comment(
+                        body=raw, assignee=assignee, language=language, generated_by=generated_by,
+                    )
                     return await self._finalise_and_post(
-                        src=src, config=config, item_id=item_id, comment_text=comment_text,
+                        src=src, config=config, item_id=item_id, comment_text=final,
                         last_commenter=last_commenter, hours_silent=hours_silent,
-                        generated_by=f'claude_cli · {claude_model}',
+                        generated_by=generated_by,
                     )
                 except RuntimeError as claude_exc:
                     # Host Claude CLI unavailable / not authed → fall back to
@@ -123,30 +144,38 @@ class NudgeService:
                     from agena_services.services.codex_cli_service import CodexCLIService
                     codex = CodexCLIService()
                     codex_model = 'gpt-4o-mini'
-                    comment_text = await codex.generate_text(
+                    raw = await codex.generate_text(
                         system_prompt=system_prompt,
                         user_prompt=user_prompt,
                         model=codex_model,
                     )
+                    generated_by = f'codex_cli · {codex_model} (fallback from claude_cli)'
+                    final = self._compose_final_comment(
+                        body=raw, assignee=assignee, language=language, generated_by=generated_by,
+                    )
                     return await self._finalise_and_post(
-                        src=src, config=config, item_id=item_id, comment_text=comment_text,
+                        src=src, config=config, item_id=item_id, comment_text=final,
                         last_commenter=last_commenter, hours_silent=hours_silent,
-                        generated_by=f'codex_cli · {codex_model} (fallback from claude_cli)',
+                        generated_by=generated_by,
                     )
 
             if slug == 'codex_cli':
                 from agena_services.services.codex_cli_service import CodexCLIService
                 codex = CodexCLIService()
                 model = (agent_model or '').strip() or 'gpt-4o-mini'
-                comment_text = await codex.generate_text(
+                raw = await codex.generate_text(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     model=model,
                 )
+                generated_by = f'codex_cli · {model}'
+                final = self._compose_final_comment(
+                    body=raw, assignee=assignee, language=language, generated_by=generated_by,
+                )
                 return await self._finalise_and_post(
-                    src=src, config=config, item_id=item_id, comment_text=comment_text,
+                    src=src, config=config, item_id=item_id, comment_text=final,
                     last_commenter=last_commenter, hours_silent=hours_silent,
-                    generated_by=f'codex_cli · {model}',
+                    generated_by=generated_by,
                 )
 
             llm, resolved_provider = await self._build_llm(organization_id, slug)
@@ -203,11 +232,29 @@ class NudgeService:
                 'generated_by': model,
             }
         resolved_model = agent_model.strip() or model
-        return await self._finalise_and_post(
-            src=src, config=config, item_id=item_id, comment_text=comment_text,
-            last_commenter=last_commenter, hours_silent=hours_silent,
-            generated_by=f'{resolved_provider} · {resolved_model}',
+        generated_by = f'{resolved_provider} · {resolved_model}'
+        final = self._compose_final_comment(
+            body=comment_text, assignee=assignee, language=language, generated_by=generated_by,
         )
+        return await self._finalise_and_post(
+            src=src, config=config, item_id=item_id, comment_text=final,
+            last_commenter=last_commenter, hours_silent=hours_silent,
+            generated_by=generated_by,
+        )
+
+    @staticmethod
+    def _compose_final_comment(
+        *, body: str, assignee: str, language: str, generated_by: str,
+    ) -> str:
+        """Wrap the LLM-generated body with an @mention of the assignee
+        and a localized Agena signature line. The LLM is instructed not
+        to greet by name or sign off, so this helper owns both framing
+        bits deterministically."""
+        clean = (body or '').strip()
+        mention = f'@{assignee.strip()} ' if assignee and assignee.strip() and assignee.strip() != '—' else ''
+        sig_template = AGENA_SIGNATURE.get((language or 'en').lower(), AGENA_SIGNATURE['en'])
+        signature = sig_template.format(model=generated_by or 'AI')
+        return f'{mention}{clean}\n\n---\n{signature}'
 
     async def _finalise_and_post(
         self, *, src: str, config: Any, item_id: str, comment_text: str,
