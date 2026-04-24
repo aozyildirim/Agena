@@ -176,7 +176,7 @@
   "landing.nudgeStep3Desc": "以所选语言生成(7 种 locale),用 <at>@Display Name</at> 包裹(Azure 渲染为真实 mention),并以 \"由 Agena 通过 {model} 撰写\" 签名。",
   "landing.nudgeStep4Title": "冷却 + 历史",
   "landing.nudgeStep4Desc": "每个成功的 nudge 都存入 nudge_history。UI 用 \"Agena X 小时前提醒过\" 标记已发送的条目,48 小时冷却阻止误发。",
-  "landing.nudgeExampleQuote": "@Zaide KAYMAK Sneakerbox Stage 产品同步 — SBX dev/stage 元数据未开通,已 45 小时无回复。短状态更新? — 🤖 Agena via claude_cli · sonnet",
+  "landing.nudgeExampleQuote": "@Ali Agena Flow Editor 新节点类型 — 已 45 小时无进展。短状态更新? — 🤖 Agena via claude_cli · sonnet",
   "landing.cliLabel": "CLI · v1.2.0",
   "landing.cliTitle": "安装 / 登录 / 启动守护进程 — 各一条命令",
   "landing.cliSubtitle": "brew install aozyildirim/tap/agena · agena setup · device-code OAuth + 自动注册。无需复制粘贴 JWT,凭证存于 keychain。",

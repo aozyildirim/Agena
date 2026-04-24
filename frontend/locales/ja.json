@@ -176,7 +176,7 @@
   "landing.nudgeStep3Desc": "選択言語(7 locales)で生成、<at>@Display Name</at> でラップ(Azure が実メンションとしてレンダリング)、\"Agena via {model}\" の署名付き。",
   "landing.nudgeStep4Title": "クールダウン + 履歴",
   "landing.nudgeStep4Desc": "成功した nudge は nudge_history に保存。UI は既にリマインドされたアイテムに \"Agena が X 時間前にリマインド\" バッジを表示、48 時間クールダウンで誤スパムを防止。",
-  "landing.nudgeExampleQuote": "@Zaide KAYMAK Sneakerbox Stage 同期 — SBX dev/stage メタデータ未開通、45 時間更新なし。短いステータス更新いただけますか? — 🤖 Agena via claude_cli · sonnet",
+  "landing.nudgeExampleQuote": "@Ali Agena Flow Editor の新しいノードタイプ — 45 時間進展なし。短いステータス更新いただけますか? — 🤖 Agena via claude_cli · sonnet",
   "landing.cliLabel": "CLI · v1.2.0",
   "landing.cliTitle": "インストール / ログイン / デーモン起動 — それぞれ 1 コマンド",
   "landing.cliSubtitle": "brew install aozyildirim/tap/agena · agena setup · device-code OAuth + 自動登録。JWT のコピペ不要、認証情報は keychain に保存。",

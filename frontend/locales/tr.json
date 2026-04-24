@@ -176,7 +176,7 @@
   "landing.nudgeStep3Desc": "Mesaj seçilen dilde üretilir (7 locale), <at>@Display Name</at> ile sarılır (Azure gerçek mention olarak render eder), \"Agena {model} ile yazdı\" satırıyla imzalanır — tam şeffaflık.",
   "landing.nudgeStep4Title": "Cooldown + history",
   "landing.nudgeStep4Desc": "Her başarılı nudge nudge_history'ye yazılır. UI, daha önce dürtülenleri \"Agena X saat önce yorum attı\" badge'iyle işaretler, 48 saat cooldown kazara spam'i engeller.",
-  "landing.nudgeExampleQuote": "@Zaide KAYMAK Sneakerbox Stage Ürün Eşitlemesi'nde SBX dev/stage metadata hâlâ açılmadı ve 45 saattir haber yok — kısa bir statü paylaşabilir misin? — 🤖 Agena via claude_cli · sonnet",
+  "landing.nudgeExampleQuote": "@Ali Agena Flow Editor'e eklenecek yeni node type'ta 45 saattir ilerleme yok — kısa bir statü paylaşabilir misin? — 🤖 Agena via claude_cli · sonnet",
   "landing.cliLabel": "CLI · v1.2.0",
   "landing.cliTitle": "Kur, giriş yap, daemon'u başlat — her biri tek komut",
   "landing.cliSubtitle": "brew install aozyildirim/tap/agena · agena setup · device-code OAuth + otomatik enroll. JWT kopyalama yok, auth keychain'de.",

@@ -176,7 +176,7 @@
   "landing.nudgeStep3Desc": "Mensaje en el idioma elegido (7 locales), envuelto con <at>@Display Name</at> (Azure lo renderiza como mención real) y firmado \"escrito por Agena via {model}\".",
   "landing.nudgeStep4Title": "Cooldown + historial",
   "landing.nudgeStep4Desc": "Cada nudge exitoso se guarda en nudge_history. La UI marca items ya avisados con \"Agena avisó hace Xh\", y un cooldown de 48h bloquea spam accidental.",
-  "landing.nudgeExampleQuote": "@Zaide KAYMAK Sneakerbox Stage Product Sync — SBX dev/stage metadata aún no abierto, 45h sin respuesta. ¿Un update? — 🤖 Agena via claude_cli · sonnet",
+  "landing.nudgeExampleQuote": "@Ali Nuevo node type en Agena Flow Editor — 45h sin avances. ¿Un update breve? — 🤖 Agena via claude_cli · sonnet",
   "landing.cliLabel": "CLI · v1.2.0",
   "landing.cliTitle": "Instala, inicia sesión y arranca el daemon — un comando cada uno",
   "landing.cliSubtitle": "brew install aozyildirim/tap/agena · agena setup · OAuth device-code + auto-enrollment. Sin copiar/pegar JWT, auth en el keychain.",
