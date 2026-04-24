@@ -3,8 +3,11 @@
  * task descriptions. Handles: H2/H3/H4, **bold**, *italic*, `inline code`,
  * ```fenced code```, tables, bullet lists, [links](url), bare URLs.
  *
- * Input is fully HTML-escaped before formatting, so raw HTML in the source
- * never reaches the DOM — safe for dangerouslySetInnerHTML.
+ * Markdown input is fully HTML-escaped before formatting so raw HTML in
+ * the source never reaches the DOM. If the input already IS HTML (e.g.
+ * Azure DevOps work-item descriptions), it is sanitized instead of
+ * escaped — structural tags come through, but inline style/class,
+ * event handlers, script/iframe blocks and javascript: URLs are stripped.
  */
 
 function escapeHtml(s: string): string {
@@ -16,8 +19,62 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+// Loose detection: does this string look like it was authored as HTML?
+// Azure DevOps / Jira rich-text fields ship wrapped in <div>, <p>, <span>,
+// headings, lists, tables, etc. A single matching opening tag is enough
+// to flip into HTML mode.
+function looksLikeHtml(src: string): boolean {
+  return /<(?:p|div|span|br|ul|ol|li|h[1-6]|strong|em|b|i|u|code|pre|blockquote|table|thead|tbody|tr|td|th|a|img|hr)\b[^>]*>/i.test(src);
+}
+
+// Regex-based HTML sanitizer. We deliberately avoid DOMParser so this
+// stays safe under SSR. Everything dangerous is stripped; visible
+// structure stays.
+function sanitizeHtml(html: string): string {
+  let s = html;
+  // Drop entire <script>/<style>/<iframe>/… blocks including their contents.
+  s = s.replace(/<(script|style|iframe|object|embed|form|input|textarea|select|link|meta|base)\b[\s\S]*?<\/\1\s*>/gi, '');
+  // Drop self-closing / void variants of the same dangerous tags.
+  s = s.replace(/<(script|style|iframe|object|embed|form|input|textarea|select|link|meta|base)\b[^>]*\/?\s*>/gi, '');
+  // Strip on* event handler attributes (onclick, onerror, onload, …).
+  s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+  s = s.replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+  s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
+  // Strip inline style="…" — ADO ships Teams-dark backgrounds / Segoe UI
+  // font stacks that clash with our theme. Dropping them lets the parent
+  // .task-md class own the typography.
+  s = s.replace(/\sstyle\s*=\s*"[^"]*"/gi, '');
+  s = s.replace(/\sstyle\s*=\s*'[^']*'/gi, '');
+  // Strip class="…" — ADO uses its own utility classes that we don't ship.
+  s = s.replace(/\sclass\s*=\s*"[^"]*"/gi, '');
+  s = s.replace(/\sclass\s*=\s*'[^']*'/gi, '');
+  // Neutralize javascript: / vbscript: / data: URIs in href/src.
+  s = s.replace(/\s(href|src)\s*=\s*"\s*(?:javascript|vbscript|data):[^"]*"/gi, ' $1="#"');
+  s = s.replace(/\s(href|src)\s*=\s*'\s*(?:javascript|vbscript|data):[^']*'/gi, " $1='#'");
+  // Force anchors to open externally.
+  s = s.replace(/<a\b([^>]*)>/gi, (_m, attrs) => {
+    const hasTarget = /\btarget\s*=/.test(attrs);
+    const hasRel = /\brel\s*=/.test(attrs);
+    return `<a${attrs}${hasTarget ? '' : ' target="_blank"'}${hasRel ? '' : ' rel="noreferrer"'} class="md-link">`;
+  });
+  // The backend sometimes appends plain-text metadata lines after the HTML
+  // body (e.g. "\n\n---\nRemote Repo: foo"). Preserve those line breaks
+  // outside of tags so they render instead of collapsing into one line.
+  s = s.replace(/>([^<]+)</g, (_m, between: string) => {
+    return '>' + between.replace(/\n/g, '<br>') + '<';
+  });
+  // Handle a trailing plain-text tail after the last closing tag too.
+  const lastClose = s.lastIndexOf('>');
+  if (lastClose !== -1 && lastClose < s.length - 1) {
+    const tail = s.slice(lastClose + 1).replace(/\n/g, '<br>');
+    s = s.slice(0, lastClose + 1) + tail;
+  }
+  return s;
+}
+
 export function renderMarkdown(src: string): string {
   if (!src) return '';
+  if (looksLikeHtml(src)) return sanitizeHtml(src);
   let text = src.replace(/\r\n?/g, '\n');
 
   // Stash fenced code blocks first (so their contents aren't touched)

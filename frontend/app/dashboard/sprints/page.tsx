@@ -263,8 +263,11 @@ export default function SprintsPage() {
   const [flowResult, setFlowResult] = useState<FlowRunResult | null>(null);
   const [flowError, setFlowError] = useState('');
   const [taskMapByExternalId, setTaskMapByExternalId] = useState<Record<string, number>>({});
+  const [taskStatusByExternalId, setTaskStatusByExternalId] = useState<Record<string, string>>({});
   const [hydrating, setHydrating] = useState(true);
   const [preferredSprint, setPreferredSprint] = useState('');
+  const [importPickerItem, setImportPickerItem] = useState<WorkItem | null>(null);
+  const [importPickerRepoId, setImportPickerRepoId] = useState<string>('');
   const isJiraAuthError = (message: string) => message.toLowerCase().includes('jira credentials are invalid');
 
   const setProject = useCallback((v: string) => {
@@ -640,6 +643,52 @@ export default function SprintsPage() {
     void run();
   }, [sprint, project, team, provider, t]);
 
+  // Load Agena tasks already imported for this provider so the board can
+  // show "Agena #ID · status" badges on items that were brought in before.
+  // Refetched whenever the provider changes or after a successful import.
+  const loadExistingImports = useCallback(async () => {
+    try {
+      type SearchRow = { id: number; source: string; external_id?: string | null; title?: string; status: string };
+      type SearchResp = { items: SearchRow[]; total: number };
+      // Pull both:
+      //   (a) tasks tagged source=azure|jira — new imports have a clean
+      //       external_id = work item id
+      //   (b) tasks tagged source=internal whose title starts with
+      //       `[Azure #<id>] ...` / `[Jira #<id>] ...` — these are older
+      //       per-item imports made before the source/external_id plumbing,
+      //       so we recover them by title pattern.
+      const providerQs = new URLSearchParams({ source: provider, page: '1', page_size: '200' });
+      const internalQs = new URLSearchParams({ source: 'internal', page: '1', page_size: '200' });
+      const [tagged, internal] = await Promise.all([
+        apiFetch<SearchResp>(`/tasks/search?${providerQs.toString()}`).catch(() => ({ items: [], total: 0 })),
+        apiFetch<SearchResp>(`/tasks/search?${internalQs.toString()}`).catch(() => ({ items: [], total: 0 })),
+      ]);
+      const idMap: Record<string, number> = {};
+      const stMap: Record<string, string> = {};
+      for (const row of tagged.items || []) {
+        if (row.external_id) {
+          idMap[row.external_id] = row.id;
+          stMap[row.external_id] = row.status;
+        }
+      }
+      const titlePrefix = provider === 'jira' ? 'Jira' : 'Azure';
+      const titleRe = new RegExp(`^\\[${titlePrefix}\\s*#([^\\]\\s]+)\\]`);
+      for (const row of internal.items || []) {
+        const m = row.title ? titleRe.exec(row.title) : null;
+        if (m && m[1] && !idMap[m[1]]) {
+          idMap[m[1]] = row.id;
+          stMap[m[1]] = row.status;
+        }
+      }
+      setTaskMapByExternalId(idMap);
+      setTaskStatusByExternalId(stMap);
+    } catch {
+      // Non-fatal — badges just won't populate.
+    }
+  }, [provider]);
+
+  useEffect(() => { void loadExistingImports(); }, [loadExistingImports]);
+
   function doImport(state: string) {
     setImp(state); setErr('');
     const endpoint = provider === 'jira' ? '/tasks/import/jira' : '/tasks/import/azure';
@@ -654,16 +703,30 @@ export default function SprintsPage() {
       .finally(() => setImp(''));
   }
 
-  async function importSingleItem(item: WorkItem) {
-    // Check if already imported
+  function requestImportSingleItem(item: WorkItem) {
+    if (taskMapByExternalId[item.id]) {
+      setMsg(t('sprints.alreadyImported'));
+      return;
+    }
+    if (repoMappings.length <= 1) {
+      void importSingleItem(item, repoMappings[0]);
+      return;
+    }
+    // 2+ mappings → ask which repo this work item should target. Preselect
+    // the last choice so multi-item imports don't force a re-pick each time.
+    if (!importPickerRepoId && repoMappings[0]) {
+      setImportPickerRepoId(String(repoMappings[0].id));
+    }
+    setImportPickerItem(item);
+  }
+
+  async function importSingleItem(item: WorkItem, mapping: RepoMapping | undefined) {
     if (taskMapByExternalId[item.id]) {
       setMsg(t('sprints.alreadyImported'));
       return;
     }
     try {
       const desc = String(item.description || '').trim();
-      // Auto-attach repo mapping info from the first available mapping
-      const mapping = repoMappings[0];
       const ctxParts = [
         `External Source: ${provider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
         'Prompt Instruction: Read any images in the task description and include their context in your analysis.',
@@ -674,15 +737,18 @@ export default function SprintsPage() {
         mapping?.repo_playbook ? `Repo Playbook: ${mapping.repo_playbook.replace(/\n+/g, ' ').trim()}` : '',
         mapping?.github_repo_full_name ? `GitHub Repo: ${mapping.github_repo_full_name}` : '',
       ].filter(Boolean);
-      type TaskRecord = { id: number };
+      type TaskRecord = { id: number; status: string };
       const created = await apiFetch<TaskRecord>('/tasks', {
         method: 'POST',
         body: JSON.stringify({
           title: `[${provider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`,
           description: `${desc}\n\n---\n${ctxParts.join('\n')}`,
+          source: provider,
+          external_id: String(item.id),
         }),
       });
       setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: created.id }));
+      setTaskStatusByExternalId((prev) => ({ ...prev, [item.id]: created.status || 'new' }));
       setMsg(t('sprints.importedSingle'));
       // Open detail panel for agent assignment
       setSelected(item);
@@ -928,6 +994,7 @@ export default function SprintsPage() {
                     </div>
                     {!lbd && col.length > 0 ? (
                       <button onClick={() => doImport(state)} disabled={imp === state}
+                        className='sprint-col-import'
                         style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: s.color + '18', border: '1px solid ' + s.color + '40', color: s.color, cursor: imp === state ? 'not-allowed' : 'pointer' }}>
                         {imp === state ? '…' : t('sprints.import')}
                       </button>
@@ -940,8 +1007,9 @@ export default function SprintsPage() {
                       <BoardCard key={item.id} item={item} stateColor={s.color}
                         selected={selected?.id === item.id}
                         onClick={() => setSelected(selected?.id === item.id ? null : item)}
-                        onImport={() => void importSingleItem(item)}
-                        isImported={Boolean(taskMapByExternalId[item.id])} />
+                        onImport={() => requestImportSingleItem(item)}
+                        agenaTaskId={taskMapByExternalId[item.id]}
+                        agenaStatus={taskStatusByExternalId[item.id]} />
                     ))}
                   </div>
                 </div>
@@ -974,6 +1042,95 @@ export default function SprintsPage() {
           />
         )}
       </div>
+
+      {/* Import repo picker modal (portaled to body so it sits above all panels) */}
+      {importPickerItem && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setImportPickerItem(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 460, maxWidth: '100%', maxHeight: '90vh',
+              background: 'var(--surface)', color: 'var(--ink-90)',
+              border: '1px solid var(--panel-border-3)', borderRadius: 14,
+              padding: 18, boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+              display: 'flex', flexDirection: 'column', minHeight: 0,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4 }}>
+              {t('sprints.importRepoPicker.label' as TranslationKey)}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 2, lineHeight: 1.35 }}>
+              {`[${provider === 'jira' ? 'Jira' : 'Azure'} #${importPickerItem.id}] ${importPickerItem.title}`}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-55)', marginBottom: 14 }}>
+              {t('sprints.importRepoPicker.hint' as TranslationKey)}
+            </div>
+            <div style={{ display: 'grid', gap: 6, overflowY: 'auto', marginBottom: 14, minHeight: 0, flex: 1 }}>
+              {repoMappings.map((m) => {
+                const selected = String(m.id) === importPickerRepoId;
+                return (
+                  <label
+                    key={m.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                      borderRadius: 8, border: '1px solid ' + (selected ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-2)'),
+                      background: selected ? 'rgba(13,148,136,0.1)' : 'var(--panel-alt)',
+                      cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)',
+                    }}
+                  >
+                    <input
+                      type='radio'
+                      name='import-repo'
+                      checked={selected}
+                      onChange={() => setImportPickerRepoId(String(m.id))}
+                      style={{ accentColor: '#0d9488', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--ink-90)' }}>{m.name}</span>
+                      {m.local_path && (
+                        <span style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.local_path}</span>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                type='button'
+                className='button button-outline'
+                onClick={() => setImportPickerItem(null)}
+                style={{ fontSize: 12 }}
+              >
+                {t('tasks.cancel')}
+              </button>
+              <button
+                type='button'
+                className='button button-primary'
+                disabled={!importPickerRepoId}
+                onClick={() => {
+                  const picked = repoMappings.find((m) => String(m.id) === importPickerRepoId);
+                  const target = importPickerItem;
+                  setImportPickerItem(null);
+                  if (target) void importSingleItem(target, picked);
+                }}
+                style={{ fontSize: 12 }}
+              >
+                {t('sprints.import')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* AI assign result toast */}
       {aiResult && (
@@ -1025,11 +1182,22 @@ function SkeletonCard({ opacity = 1 }: { opacity?: number }) {
   );
 }
 
-function BoardCard({ item, stateColor, selected, onClick, onImport, isImported }: {
+function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId, agenaStatus }: {
   item: WorkItem; stateColor: string; selected: boolean; onClick: () => void;
-  onImport?: () => void; isImported?: boolean;
+  onImport?: () => void; agenaTaskId?: number; agenaStatus?: string;
 }) {
   const { t } = useLocale();
+  const isImported = typeof agenaTaskId === 'number';
+  const statusColor = (() => {
+    switch ((agenaStatus || '').toLowerCase()) {
+      case 'running': return '#38bdf8';
+      case 'queued': return '#f59e0b';
+      case 'completed': return '#22c55e';
+      case 'failed': return '#f87171';
+      case 'cancelled': return '#94a3b8';
+      default: return '#94a3b8'; // new / unknown
+    }
+  })();
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
 
@@ -1073,7 +1241,7 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, isImported }
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-        <span style={{ fontSize: 9, color: 'var(--panel-border-3)', fontFamily: 'monospace' }}>#{item.id}</span>
+        <span style={{ fontSize: 9, color: 'var(--ink-45)', fontFamily: 'monospace' }}>#{item.id}</span>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {timeLabel && (
             <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)', color: 'var(--ink-35)' }}>
@@ -1082,15 +1250,27 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, isImported }
           )}
           {onImport && !isImported && (
             <button onClick={(e) => { e.stopPropagation(); onImport(); }}
-              style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(13,148,136,0.12)', border: '1px solid rgba(13,148,136,0.3)', color: '#5eead4', cursor: 'pointer' }}
+              className='sprint-import-chip'
               title={t('sprints.importToAgena')}>
-              ↓
+              ↓ {t('sprints.import')}
             </button>
           )}
           {isImported && (
-            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }}>
-              ✓
-            </span>
+            <a
+              href={`/tasks/${agenaTaskId}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                background: statusColor + '20', border: '1px solid ' + statusColor + '55',
+                color: statusColor, textDecoration: 'none',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              }}
+              title={t('sprints.openInAgena' as TranslationKey, { status: agenaStatus || '—' })}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, boxShadow: '0 0 4px ' + statusColor + '80' }} />
+              #{agenaTaskId}
+            </a>
           )}
         </div>
       </div>

@@ -13,6 +13,8 @@ class TaskCreateRequest(BaseModel):
     max_cost_usd: float | None = None
     depends_on_task_ids: list[int] | None = None  # set dependencies at creation time
     repo_mapping_ids: list[int] | None = None  # pre-select target repos at creation time
+    source: str | None = None  # tag with external system (azure|jira|…) for dedup
+    external_id: str | None = None  # e.g. Azure/Jira work item id — used with source
 
 
 class TaskUpdateRequest(BaseModel):
@@ -37,6 +39,7 @@ class TaskResponse(BaseModel):
     max_tokens: int | None = None
     max_cost_usd: float | None = None
     source: str
+    external_id: str | None = None
     priority: str | None = None
     fixability_score: float | None = None
     is_unhandled: bool | None = None

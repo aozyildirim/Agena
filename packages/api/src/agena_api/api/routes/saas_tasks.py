@@ -94,6 +94,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         max_tokens=task.max_tokens,
         max_cost_usd=task.max_cost_usd,
         source=task.source,
+        external_id=task.external_id,
         priority=getattr(task, 'priority', None),
         fixability_score=getattr(task, 'fixability_score', None),
         is_unhandled=getattr(task, 'is_unhandled', None),
@@ -148,6 +149,8 @@ async def create_task(
             edge_cases=request.edge_cases,
             max_tokens=request.max_tokens,
             max_cost_usd=request.max_cost_usd,
+            source=request.source,
+            external_id=request.external_id,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc

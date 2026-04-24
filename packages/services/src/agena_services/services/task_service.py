@@ -54,6 +54,8 @@ class TaskService:
         edge_cases: str | None = None,
         max_tokens: int | None = None,
         max_cost_usd: float | None = None,
+        source: str | None = None,
+        external_id: str | None = None,
     ) -> TaskRecord:
         if self.db is None:
             raise ValueError('DB session required')
@@ -62,11 +64,28 @@ class TaskService:
         await usage.check_task_quota(organization_id)
 
         import uuid
+        # When the caller provides a source+external_id (e.g. sprint-list
+        # imports tagging a task with its Azure/Jira work item), honor it so
+        # the task shows up alongside bulk imports and can be deduped by
+        # `(org, source, external_id)`. Otherwise fall back to an internal id.
+        eff_source = (source or 'internal').strip().lower() or 'internal'
+        eff_external_id = (external_id or '').strip() or f'int-{uuid.uuid4().hex[:12]}'
+        if eff_source != 'internal':
+            existing = (await self.db.execute(
+                select(TaskRecord).where(
+                    TaskRecord.organization_id == organization_id,
+                    TaskRecord.source == eff_source,
+                    TaskRecord.external_id == eff_external_id,
+                )
+            )).scalar_one_or_none()
+            if existing is not None:
+                return existing
+
         task = TaskRecord(
             organization_id=organization_id,
             created_by_user_id=user_id,
-            source='internal',
-            external_id=f'int-{uuid.uuid4().hex[:12]}',
+            source=eff_source,
+            external_id=eff_external_id,
             title=title,
             description=description,
             story_context=(story_context or '').strip() or None,

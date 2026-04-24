@@ -40,8 +40,8 @@ _SKIP_PREFIXES = (
 
 # Plan -> max requests per minute.  ``0`` means unlimited.
 _PLAN_LIMITS: dict[str, int] = {
-    'free': 300,
-    'pro': 1000,
+    'free': 1500,
+    'pro': 5000,
     'enterprise': 0,
 }
 
@@ -65,6 +65,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Skip routes that don't need rate limiting.
         if any(path.startswith(prefix) for prefix in _SKIP_PREFIXES):
             return await call_next(request)
+
+        # In development we don't want the sliding window to fight hot-reload
+        # + multi-tab workflows — trust the operator.
+        try:
+            if (get_settings().app_env or '').strip().lower() in ('dev', 'development', 'local'):
+                return await call_next(request)
+        except Exception:
+            pass
 
         # Extract org_id from the Bearer token (best-effort; if missing let
         # the auth dependency handle rejection).
