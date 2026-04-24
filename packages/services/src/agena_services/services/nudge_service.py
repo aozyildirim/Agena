@@ -373,9 +373,14 @@ class NudgeService:
         multi-word names (Zaide KAYMAK, María José García) were tripping
         up a regex-based splitter. We just peel off the exact prefix.
 
-        When an `identity` dict with an `id` GUID is supplied, the
-        mention renders as a real Azure DevOps anchor that fires a
-        notification; otherwise it falls back to plain escaped text.
+        Mention strategy: ADO's comment renderer auto-converts plain
+        `@user@domain.com` text into a real mention with notification, so
+        when we have the assignee's UPN we emit `@upn` as the link text
+        wrapped in a mailto anchor — that fires the notification reliably
+        AND lets us keep the readable display name visible. The previous
+        `data-vss-mention="version:2.0,{guid}"` form was malformed (v2
+        expects a Graph subject descriptor like `aad.xxx`, not a TFS
+        identity GUID) so it rendered as a dead anchor.
         """
         import html as html_mod
 
@@ -387,13 +392,14 @@ class NudgeService:
         prefix = f'@{name}' if name else ''
         if prefix and raw.startswith(prefix):
             body = raw[len(prefix):].lstrip()
-            if identity and identity.get('id'):
-                descriptor = identity.get('id', '')
-                display = identity.get('display_name') or name
-                mention_html = (
-                    f'<a href="#" data-vss-mention="version:2.0,{html_mod.escape(descriptor)}">'
-                    f'@{html_mod.escape(display)}</a> '
-                )
+            upn = ((identity or {}).get('unique_name') or '').strip()
+            if upn and '@' in upn:
+                # Plain `@upn` text — ADO's comment renderer walks the
+                # body and converts any `@email` token into a real mention
+                # with notification. We accept the trade-off that the
+                # visible label is the email rather than the display name,
+                # because reliable notification > prettier text.
+                mention_html = f'@{html_mod.escape(upn)} '
             else:
                 mention_html = f'@{html_mod.escape(name)} '
 

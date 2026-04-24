@@ -379,11 +379,24 @@ class AzureDevOpsClient:
                 pick = v
                 break
         pick = pick or values[0]
+        # ADO identity properties wrap each value as {"$type": ..., "$value": ...}
+        # We try Mail → Account → SignInAddress in that order. We do NOT fall
+        # back to the display name here — callers need a real UPN/email so they
+        # can build an `@upn@domain.com` mention that ADO auto-resolves.
+        props = pick.get('properties') or {}
+
+        def _prop(key: str) -> str:
+            entry = props.get(key)
+            if isinstance(entry, dict):
+                return str(entry.get('$value') or '').strip()
+            return ''
+
+        upn = _prop('Mail') or _prop('Account') or _prop('SignInAddress')
         return {
             'id': str(pick.get('id') or ''),
             'descriptor': str(pick.get('descriptor') or ''),
             'display_name': str(pick.get('providerDisplayName') or name),
-            'unique_name': str((pick.get('properties') or {}).get('Mail', {}).get('$value') if isinstance((pick.get('properties') or {}).get('Mail'), dict) else pick.get('providerDisplayName') or ''),
+            'unique_name': upn,
         }
 
     async def post_raw_html_comment(

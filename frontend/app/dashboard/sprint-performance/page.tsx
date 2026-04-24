@@ -1257,33 +1257,6 @@ export default function SprintPerformancePage() {
               </div>
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>{t('sprintPerf.blockedTitle')}</h2>
               <span style={{ flex: 1 }} />
-              {blockedItems.length > 0 && Object.keys(nudgeHistory).length > 0 && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!window.confirm(t('sprintPerf.pingClearConfirm'))) return;
-                    try {
-                      await apiFetch(`/tasks/ai-nudge/history?provider=${encodeURIComponent(provider)}`, { method: 'DELETE' });
-                      setNudgeHistory({});
-                      setPingState({});
-                      setPingDetail({});
-                      setPingError({});
-                    } catch (err) {
-                      alert(err instanceof Error ? err.message : 'Failed');
-                    }
-                  }}
-                  style={{
-                    fontSize: 11, fontWeight: 700,
-                    padding: '3px 10px', borderRadius: 999,
-                    border: '1px solid rgba(248,113,113,0.35)',
-                    background: 'rgba(248,113,113,0.08)',
-                    color: '#f87171',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('sprintPerf.pingClearBtn')}
-                </button>
-              )}
               {blockedItems.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-55)' }}>
@@ -1401,21 +1374,70 @@ export default function SprintPerformancePage() {
                       </div>
                       <span style={{ fontSize: 12, color: 'var(--ink-55)' }}>{item.assignee}</span>
                       {nudgeHistory[item.id] && !pingState[item.id] && (
-                        <span
-                          title={nudgeHistory[item.id].generated_by || ''}
-                          style={{
-                            fontSize: 10, fontWeight: 700, padding: '2px 7px',
-                            borderRadius: 999, letterSpacing: 0.4,
-                            background: 'rgba(94,234,212,0.1)',
-                            border: '1px solid rgba(94,234,212,0.28)',
-                            color: '#5eead4', whiteSpace: 'nowrap',
-                          }}
-                        >
-                          ✓ {t('sprintPerf.pingHistoryBadge', {
-                            hours: nudgeHistory[item.id].created_at
-                              ? String(Math.max(0, Math.round((Date.now() - new Date(nudgeHistory[item.id].created_at as string).getTime()) / 3600000)))
-                              : '?',
-                          })}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span
+                            title={nudgeHistory[item.id].generated_by || ''}
+                            style={{
+                              fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                              borderRadius: 999, letterSpacing: 0.4,
+                              background: 'rgba(94,234,212,0.1)',
+                              border: '1px solid rgba(94,234,212,0.28)',
+                              color: '#5eead4', whiteSpace: 'nowrap',
+                            }}
+                          >
+                            ✓ {t('sprintPerf.pingHistoryBadge', {
+                              hours: nudgeHistory[item.id].created_at
+                                ? String(Math.max(0, Math.round((Date.now() - new Date(nudgeHistory[item.id].created_at as string).getTime()) / 3600000)))
+                                : '?',
+                            })}
+                          </span>
+                          <button
+                            type="button"
+                            title={t('sprintPerf.pingClearOneTitle')}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!window.confirm(t('sprintPerf.pingClearOneConfirm'))) return;
+                              try {
+                                const qs = `provider=${encodeURIComponent(provider)}&item_id=${encodeURIComponent(item.id)}`;
+                                await apiFetch(`/tasks/ai-nudge/history?${qs}`, { method: 'DELETE' });
+                                setNudgeHistory((h) => {
+                                  const next = { ...h };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                                setPingState((s) => {
+                                  const next = { ...s };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                                setPingDetail((d) => {
+                                  const next = { ...d };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                                setPingError((er) => {
+                                  const next = { ...er };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                              } catch (err) {
+                                alert(err instanceof Error ? err.message : 'Failed');
+                              }
+                            }}
+                            style={{
+                              width: 18, height: 18, padding: 0,
+                              borderRadius: 999, lineHeight: 1,
+                              border: '1px solid rgba(248,113,113,0.3)',
+                              background: 'rgba(248,113,113,0.08)',
+                              color: '#f87171',
+                              cursor: 'pointer',
+                              fontSize: 11, fontWeight: 700,
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                            aria-label={t('sprintPerf.pingClearOneTitle')}
+                          >
+                            ×
+                          </button>
                         </span>
                       )}
                       <span style={{ flex: 1 }} />

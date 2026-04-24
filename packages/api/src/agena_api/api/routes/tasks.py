@@ -509,18 +509,22 @@ class NudgeHistoryClearResponse(BaseModel):
 @router.delete('/ai-nudge/history', response_model=NudgeHistoryClearResponse)
 async def clear_nudge_history(
     provider: str | None = Query(default=None, description='Optional: restrict to azure or jira'),
+    item_id: str | None = Query(default=None, description='Optional: clear just this external item id'),
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> NudgeHistoryClearResponse:
-    """Wipe this tenant's nudge history so Ping buttons become live again.
-    Scoped to the authenticated organization — never deletes other tenants'
-    rows. Pass ?provider=azure|jira to scope to one source.
+    """Wipe nudge history rows so Ping buttons become live again. Scoped to
+    the authenticated organization — never deletes other tenants' rows.
+    Pass ?provider=azure|jira to scope to one source, and ?item_id=... to
+    clear a single item's cooldown without touching the rest.
     """
     from sqlalchemy import delete
     from agena_models.models.nudge_history import NudgeHistory
     stmt = delete(NudgeHistory).where(NudgeHistory.organization_id == tenant.organization_id)
     if provider:
         stmt = stmt.where(NudgeHistory.provider == provider.strip().lower())
+    if item_id:
+        stmt = stmt.where(NudgeHistory.external_item_id == item_id.strip())
     result = await db.execute(stmt)
     await db.commit()
     return NudgeHistoryClearResponse(deleted=int(result.rowcount or 0))
