@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
+import { apiDownloadBlob, apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import { renderMarkdown } from '@/lib/markdown';
 import StatusBadge from '@/components/StatusBadge';
 import RemoteRepoSelector, { type RemoteRepoSelection, type RepoDefault } from '@/components/RemoteRepoSelector';
@@ -277,6 +277,8 @@ export default function TaskDetailPage() {
   const [rightTab, setRightTab] = useState<'agent' | 'steps' | 'memory' | 'diff' | 'logs'>('agent');
 
   const [task, setTask] = useState<TaskDetail | null>(null);
+  const [attachments, setAttachments] = useState<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>([]);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<Record<number, string>>({});
   const [logs, setLogs] = useState<TaskLog[]>([]);
   const [runs, setRuns] = useState<RunInfo[]>([]);
   const [error, setError] = useState('');
@@ -328,13 +330,14 @@ export default function TaskDetailPage() {
 
   async function loadData(isInitial = false) {
     try {
-      const [taskData, logsData, runsData, taskList, prefs, integrations] = await Promise.all([
+      const [taskData, logsData, runsData, taskList, prefs, integrations, attachmentsData] = await Promise.all([
         apiFetch<TaskDetail>('/tasks/' + taskId),
         apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs'),
         apiFetch<RunInfo[]>('/tasks/' + taskId + '/runs').catch(() => [] as RunInfo[]),
         apiFetch<DependencyTaskOption[]>('/tasks'),
         apiFetch<{ azure_project?: string | null; azure_sprint_path?: string | null }>('/preferences').catch(() => null),
         apiFetch<Array<{ provider: string; base_url: string }>>('/integrations').catch(() => [] as Array<{ provider: string; base_url: string }>),
+        apiFetch<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>('/tasks/' + taskId + '/attachments').catch(() => []),
       ]);
       if (prefs) {
         setAzureProject(prefs.azure_project || '');
@@ -343,6 +346,7 @@ export default function TaskDetailPage() {
       const azCfg = (integrations || []).find((c) => c.provider === 'azure');
       setAzureOrgUrl(azCfg?.base_url || '');
       setTask(taskData);
+      setAttachments(attachmentsData || []);
       setLogs(logsData);
       setRuns(runsData);
       const currentTaskId = Number(taskId);
@@ -360,6 +364,64 @@ export default function TaskDetailPage() {
       setError(err instanceof Error ? err.message : t('taskDetail.errorLoad'));
     } finally {
       setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const created: string[] = [];
+    let cancelled = false;
+    const imageAtts = attachments.filter((a) => a.content_type.startsWith('image/') && !attachmentPreviews[a.id]);
+    if (imageAtts.length === 0) return;
+    (async () => {
+      for (const att of imageAtts) {
+        try {
+          const blob = await apiDownloadBlob(`/tasks/${taskId}/attachments/${att.id}/download`);
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob);
+          created.push(url);
+          setAttachmentPreviews((prev) => ({ ...prev, [att.id]: url }));
+        } catch {
+          // ignore
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      created.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachments, taskId]);
+
+  async function onDeleteAttachment(attachmentId: number) {
+    if (!taskId) return;
+    try {
+      await apiFetch(`/tasks/${taskId}/attachments/${attachmentId}`, { method: 'DELETE' });
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      setAttachmentPreviews((prev) => {
+        const copy = { ...prev };
+        const url = copy[attachmentId];
+        if (url) URL.revokeObjectURL(url);
+        delete copy[attachmentId];
+        return copy;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
+
+  async function onUploadAttachments(files: FileList | null) {
+    if (!taskId || !files || files.length === 0) return;
+    const fd = new FormData();
+    Array.from(files).forEach((f) => fd.append('files', f, f.name));
+    try {
+      const { apiUpload } = await import('@/lib/api');
+      const uploaded = await apiUpload<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>(
+        `/tasks/${taskId}/attachments`,
+        fd,
+      );
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed');
     }
   }
 
@@ -872,6 +934,59 @@ export default function TaskDetailPage() {
                 style={{ marginTop: 0, marginBottom: 12, color: 'var(--ink-78)', fontSize: 13, lineHeight: 1.55, wordBreak: 'break-word' }}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(task.description || '') }}
               />
+              {/* Attachments */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>
+                    {t('tasks.attachments.title' as TranslationKey)} {attachments.length > 0 ? `(${attachments.length})` : ''}
+                  </div>
+                  <label style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
+                    + {t('tasks.attachments.add' as TranslationKey)}
+                    <input
+                      type='file'
+                      multiple
+                      accept='image/*,.pdf,.txt,.md,.log,.json,.csv,.zip'
+                      style={{ display: 'none' }}
+                      onChange={(e) => { void onUploadAttachments(e.target.files); e.target.value = ''; }}
+                    />
+                  </label>
+                </div>
+                {attachments.length === 0 ? (
+                  <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('tasks.attachments.none' as TranslationKey)}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {attachments.map((a) => {
+                      const isImg = a.content_type.startsWith('image/');
+                      const previewUrl = attachmentPreviews[a.id];
+                      return (
+                        <div key={a.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 10, color: 'var(--ink-72)', width: 96 }}>
+                          {isImg && previewUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <a href={previewUrl} target='_blank' rel='noreferrer'>
+                              <img src={previewUrl} alt={a.filename} style={{ width: 84, height: 64, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                            </a>
+                          ) : (
+                            <div style={{ width: 84, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--panel)', borderRadius: 4, fontSize: 22 }}>📄</div>
+                          )}
+                          <span title={a.filename} style={{ maxWidth: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{a.filename}</span>
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <span style={{ color: 'var(--ink-35)', fontSize: 9 }}>{(a.size_bytes / 1024).toFixed(0)} KB</span>
+                            <button
+                              type='button'
+                              onClick={() => void onDeleteAttachment(a.id)}
+                              style={{ background: 'none', border: 'none', color: 'var(--ink-35)', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1 }}
+                              aria-label='Delete'
+                              title={t('tasks.attachments.delete' as TranslationKey)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               {/* Primary chips: status, source, linked work item */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                 <StatusBadge status={task.status} />

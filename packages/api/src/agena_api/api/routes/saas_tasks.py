@@ -1,10 +1,13 @@
 import asyncio
 import json
+import os
+import uuid
+from pathlib import Path
 import httpx
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +26,7 @@ from agena_models.schemas.saas_task import (
     AppDynamicsImportRequest,
     ImportTasksResponse,
     RepoAssignmentResponse,
+    TaskAttachmentResponse,
     TaskListResponse,
     QueueTaskItem,
     TaskDependencyUpdateRequest,
@@ -37,6 +41,11 @@ from agena_services.services.notification_service import NotificationService
 from agena_services.services.task_service import TaskService
 
 router = APIRouter(prefix='/tasks', tags=['saas-tasks'])
+
+# Task attachments config
+ATTACHMENT_ROOT = Path(os.getenv('TASK_ATTACHMENT_ROOT', '/app/data/uploads/tasks'))
+ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024  # 20 MB per file
+ATTACHMENT_MAX_PER_REQUEST = 10
 
 
 async def _get_repo_mapping_name(db: AsyncSession, mapping_id: int | None) -> str | None:
@@ -769,9 +778,172 @@ async def delete_task(
         ))
     except Exception:
         pass
+    # Clean up attachment files from disk (DB rows cascade via FK)
+    try:
+        from agena_models.models.task_attachment import TaskAttachment
+        att_rows = (await db.execute(
+            select(TaskAttachment).where(TaskAttachment.task_id == task_id)
+        )).scalars().all()
+        for att in att_rows:
+            try:
+                Path(att.storage_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        task_dir = ATTACHMENT_ROOT / str(tenant.organization_id) / str(task_id)
+        try:
+            task_dir.rmdir()  # only removes if empty
+        except OSError:
+            pass
+    except Exception:
+        pass
     await db.delete(task)
     await db.commit()
     return {'status': 'deleted', 'task_id': str(task_id)}
+
+
+# ─── Task attachments ────────────────────────────────────────────────────────
+
+async def _load_task_for_org(db: AsyncSession, organization_id: int, task_id: int):
+    from agena_models.models.task_record import TaskRecord
+    row = (await db.execute(
+        select(TaskRecord).where(TaskRecord.id == task_id, TaskRecord.organization_id == organization_id)
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+    return row
+
+
+@router.post('/{task_id}/attachments', response_model=list[TaskAttachmentResponse])
+async def upload_task_attachments(
+    task_id: int,
+    files: list[UploadFile] = File(...),
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[TaskAttachmentResponse]:
+    if not files:
+        raise HTTPException(status_code=400, detail='No files provided')
+    if len(files) > ATTACHMENT_MAX_PER_REQUEST:
+        raise HTTPException(status_code=400, detail=f'Too many files (max {ATTACHMENT_MAX_PER_REQUEST} per upload)')
+
+    await _load_task_for_org(db, tenant.organization_id, task_id)
+
+    from agena_models.models.task_attachment import TaskAttachment
+
+    target_dir = ATTACHMENT_ROOT / str(tenant.organization_id) / str(task_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    saved: list[TaskAttachment] = []
+    for upload in files:
+        data = await upload.read()
+        size = len(data)
+        if size == 0:
+            continue
+        if size > ATTACHMENT_MAX_BYTES:
+            raise HTTPException(status_code=413, detail=f'{upload.filename}: file exceeds {ATTACHMENT_MAX_BYTES // (1024 * 1024)} MB limit')
+
+        original = (upload.filename or 'file').strip() or 'file'
+        ext = Path(original).suffix[:32]
+        disk_name = f'{uuid.uuid4().hex}{ext}'
+        disk_path = target_dir / disk_name
+        disk_path.write_bytes(data)
+
+        row = TaskAttachment(
+            task_id=task_id,
+            organization_id=tenant.organization_id,
+            uploaded_by_user_id=tenant.user_id,
+            filename=original[:512],
+            content_type=(upload.content_type or 'application/octet-stream')[:128],
+            size_bytes=size,
+            storage_path=str(disk_path),
+        )
+        db.add(row)
+        saved.append(row)
+
+    if not saved:
+        raise HTTPException(status_code=400, detail='No non-empty files')
+
+    await db.commit()
+    for row in saved:
+        await db.refresh(row)
+
+    return [
+        TaskAttachmentResponse(
+            id=r.id, filename=r.filename, content_type=r.content_type,
+            size_bytes=r.size_bytes, created_at=r.created_at,
+        )
+        for r in saved
+    ]
+
+
+@router.get('/{task_id}/attachments', response_model=list[TaskAttachmentResponse])
+async def list_task_attachments(
+    task_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:read')),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[TaskAttachmentResponse]:
+    await _load_task_for_org(db, tenant.organization_id, task_id)
+    from agena_models.models.task_attachment import TaskAttachment
+    rows = (await db.execute(
+        select(TaskAttachment)
+        .where(TaskAttachment.task_id == task_id, TaskAttachment.organization_id == tenant.organization_id)
+        .order_by(TaskAttachment.id)
+    )).scalars().all()
+    return [
+        TaskAttachmentResponse(
+            id=r.id, filename=r.filename, content_type=r.content_type,
+            size_bytes=r.size_bytes, created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+@router.get('/{task_id}/attachments/{attachment_id}/download')
+async def download_task_attachment(
+    task_id: int,
+    attachment_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:read')),
+    db: AsyncSession = Depends(get_db_session),
+) -> FileResponse:
+    from agena_models.models.task_attachment import TaskAttachment
+    row = (await db.execute(
+        select(TaskAttachment).where(
+            TaskAttachment.id == attachment_id,
+            TaskAttachment.task_id == task_id,
+            TaskAttachment.organization_id == tenant.organization_id,
+        )
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='Attachment not found')
+    path = Path(row.storage_path)
+    if not path.is_file():
+        raise HTTPException(status_code=410, detail='Attachment file missing on server')
+    return FileResponse(path=str(path), media_type=row.content_type, filename=row.filename)
+
+
+@router.delete('/{task_id}/attachments/{attachment_id}')
+async def delete_task_attachment(
+    task_id: int,
+    attachment_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    from agena_models.models.task_attachment import TaskAttachment
+    row = (await db.execute(
+        select(TaskAttachment).where(
+            TaskAttachment.id == attachment_id,
+            TaskAttachment.task_id == task_id,
+            TaskAttachment.organization_id == tenant.organization_id,
+        )
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='Attachment not found')
+    try:
+        Path(row.storage_path).unlink(missing_ok=True)
+    except OSError:
+        pass
+    await db.delete(row)
+    await db.commit()
+    return {'status': 'deleted', 'attachment_id': str(attachment_id)}
 
 
 @router.post('/{task_id}/sentry-resolve')

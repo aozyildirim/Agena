@@ -124,6 +124,45 @@ export function invalidateApiCache(pathPrefix?: string): void {
   keysToRemove.forEach((k) => sessionStorage.removeItem(k));
 }
 
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const API_BASE = resolveApiBase();
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const slug = getOrgSlug();
+  if (slug) headers['X-Tenant-Slug'] = slug;
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    cache: 'no-store',
+  });
+  const text = response.ok ? '' : await response.text();
+  if (!response.ok) {
+    let message = text || `Request failed: ${response.status}`;
+    try {
+      const parsed = JSON.parse(text) as { detail?: string };
+      if (typeof parsed.detail === 'string') message = parsed.detail;
+    } catch {}
+    throw new Error(message);
+  }
+  return (await response.json()) as T;
+}
+
+export async function apiDownloadBlob(path: string): Promise<Blob> {
+  const API_BASE = resolveApiBase();
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const slug = getOrgSlug();
+  if (slug) headers['X-Tenant-Slug'] = slug;
+  const response = await fetch(`${API_BASE}${path}`, { headers, cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Download failed: ${response.status}`);
+  }
+  return await response.blob();
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit, auth = true): Promise<T> {
   const API_BASE = resolveApiBase();
   const headers: Record<string, string> = {

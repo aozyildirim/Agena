@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { apiFetch, loadPrefs, type BackendRepoMapping, type RepoMapping } from '@/lib/api';
+import { apiFetch, apiUpload, loadPrefs, type BackendRepoMapping, type RepoMapping } from '@/lib/api';
 import { TaskItem, type RepoAssignment } from '@/components/TaskTable';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector from '@/components/RemoteRepoSelector';
@@ -99,6 +99,8 @@ export default function DashboardTasksPage() {
   const [createMappings, setCreateMappings] = useState<BackendRepoMapping[]>([]);
   const [createMappingsLoaded, setCreateMappingsLoaded] = useState(false);
   const [selectedRepoMappingIds, setSelectedRepoMappingIds] = useState<number[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasAnyModalOpen = aiPopupTaskId !== null
@@ -249,7 +251,7 @@ export default function DashboardTasksPage() {
       const fullDesc = remoteRepoMeta
         ? description + '\n\n---\nRemote Repo: ' + remoteRepoMeta
         : description;
-      await apiFetch('/tasks', {
+      const created = await apiFetch<{ id: number }>('/tasks', {
         method: 'POST',
         body: JSON.stringify({
           title,
@@ -263,6 +265,18 @@ export default function DashboardTasksPage() {
           repo_mapping_ids: selectedRepoMappingIds.length > 0 ? selectedRepoMappingIds : undefined,
         }),
       });
+      if (attachedFiles.length > 0 && created?.id) {
+        setUploadingFiles(true);
+        try {
+          const fd = new FormData();
+          attachedFiles.forEach((f) => fd.append('files', f, f.name));
+          await apiUpload(`/tasks/${created.id}/attachments`, fd);
+        } catch (upErr) {
+          setError(upErr instanceof Error ? upErr.message : t('tasks.attachments.uploadFailed' as TranslationKey));
+        } finally {
+          setUploadingFiles(false);
+        }
+      }
       setTitle('');
       setDescription('');
       setStoryContext('');
@@ -274,6 +288,7 @@ export default function DashboardTasksPage() {
       setSelectedRepoMappingIds([]);
       setShowDepsSection(false);
       setDepSearchQuery('');
+      setAttachedFiles([]);
       setShowCreate(false);
       setMsg(t('tasks.created')); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.createFailed')); }
@@ -486,6 +501,47 @@ export default function DashboardTasksPage() {
               <RemoteRepoSelector compact onChange={(sel) => setRemoteRepoMeta(sel?.meta || '')} />
             </div>
 
+            {/* Attachments section */}
+            <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', padding: '10px 12px', background: 'var(--panel)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
+                {t('tasks.attachments.title' as TranslationKey)} {attachedFiles.length > 0 ? `(${attachedFiles.length})` : ''}
+              </div>
+              <input
+                type='file'
+                multiple
+                accept='image/*,.pdf,.txt,.md,.log,.json,.csv,.zip'
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files || []);
+                  const MAX = 20 * 1024 * 1024;
+                  const oversize = picked.filter((f) => f.size > MAX);
+                  const ok = picked.filter((f) => f.size <= MAX);
+                  if (oversize.length > 0) {
+                    setError(t('tasks.attachments.tooLarge' as TranslationKey, { names: oversize.map((f) => f.name).join(', ') }));
+                  }
+                  setAttachedFiles((prev) => {
+                    const combined = [...prev, ...ok];
+                    return combined.slice(0, 10);
+                  });
+                  e.target.value = '';
+                }}
+                style={{ fontSize: 12, color: 'var(--ink-58)' }}
+              />
+              <div style={{ fontSize: 10, color: 'var(--ink-35)', marginTop: 4 }}>
+                {t('tasks.attachments.hint' as TranslationKey)}
+              </div>
+              {attachedFiles.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {attachedFiles.map((f, i) => (
+                    <AttachedFilePreview
+                      key={`${f.name}-${f.lastModified}-${i}`}
+                      file={f}
+                      onRemove={() => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Dependencies section */}
             <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', overflow: 'hidden' }}>
               <button
@@ -555,8 +611,10 @@ export default function DashboardTasksPage() {
               />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type='submit' className='button button-primary'>{t('tasks.create')}</button>
-              <button type='button' className='button button-outline' onClick={() => setShowCreate(false)}>{t('tasks.cancel')}</button>
+              <button type='submit' className='button button-primary' disabled={uploadingFiles}>
+                {uploadingFiles ? t('tasks.attachments.uploading' as TranslationKey) : t('tasks.create')}
+              </button>
+              <button type='button' className='button button-outline' onClick={() => setShowCreate(false)} disabled={uploadingFiles}>{t('tasks.cancel')}</button>
             </div>
           </form>
         </div>
@@ -1478,3 +1536,32 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
     document.body
   );
 }
+
+function AttachedFilePreview({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  useEffect(() => {
+    if (!file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => { URL.revokeObjectURL(url); };
+  }, [file]);
+  return (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 11, color: 'var(--ink-72)' }}>
+      {previewUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={previewUrl} alt={file.name} style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />
+      )}
+      <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+      <span style={{ color: 'var(--ink-35)' }}>{(file.size / 1024).toFixed(0)} KB</span>
+      <button
+        type='button'
+        onClick={onRemove}
+        style={{ background: 'none', border: 'none', color: 'var(--ink-35)', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
+        aria-label='Remove'
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+

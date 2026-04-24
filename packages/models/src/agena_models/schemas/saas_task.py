@@ -78,6 +78,14 @@ class AssignTaskResponse(BaseModel):
     queue_key: str
 
 
+class TaskAttachmentResponse(BaseModel):
+    id: int
+    filename: str
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+
+
 class RepoAssignmentResponse(BaseModel):
     id: int
     repo_mapping_id: int
