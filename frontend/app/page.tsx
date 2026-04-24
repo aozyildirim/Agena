@@ -743,6 +743,59 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── NUDGE ── */}
+        <section style={{ padding: '8px 0 56px' }}>
+          <div style={{ marginBottom: 20 }}>
+            <div className='section-label'>{t('landing.nudgeLabel')}</div>
+            <h2 style={{ fontSize: 'clamp(24px, 2.5vw, 36px)', fontWeight: 800, color: 'var(--ink-90)', marginBottom: 10 }}>
+              {t('landing.nudgeTitle')}
+            </h2>
+            <p style={{ color: 'var(--ink-50)', fontSize: 14, maxWidth: 820, lineHeight: 1.7 }}>
+              {t('landing.nudgeSubtitle')}
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid', gap: 16,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          }}>
+            {[
+              { n: '01', t: 'landing.nudgeStep1Title', d: 'landing.nudgeStep1Desc' },
+              { n: '02', t: 'landing.nudgeStep2Title', d: 'landing.nudgeStep2Desc' },
+              { n: '03', t: 'landing.nudgeStep3Title', d: 'landing.nudgeStep3Desc' },
+              { n: '04', t: 'landing.nudgeStep4Title', d: 'landing.nudgeStep4Desc' },
+            ].map((s, i) => (
+              <div key={s.n} style={{
+                padding: 18, borderRadius: 14,
+                border: '1px solid var(--panel-border-2)',
+                background: 'var(--panel)',
+                display: 'grid', gap: 8,
+                animation: `fadeInUp 0.4s ease ${0.1 + i * 0.08}s backwards`,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24', letterSpacing: 1 }}>{s.n}</div>
+                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+                  {t(s.t as Parameters<typeof t>[0])}
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--ink-50)', margin: 0, lineHeight: 1.6 }}>
+                  {t(s.d as Parameters<typeof t>[0])}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            marginTop: 18, padding: '14px 18px', borderRadius: 14,
+            border: '1px dashed rgba(251,191,36,0.3)',
+            background: 'rgba(251,191,36,0.05)',
+            display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: 20 }}>🤖</span>
+            <span style={{ fontSize: 13, color: 'var(--ink-78)', flex: 1 }}>
+              {t('landing.nudgeExampleQuote')}
+            </span>
+          </div>
+        </section>
+
         {/* ── CLI ── */}
         <section style={{ padding: '8px 0 56px' }}>
           <div style={{ marginBottom: 20 }}>

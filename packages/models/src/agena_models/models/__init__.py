@@ -17,6 +17,7 @@ from agena_models.models.organization_member import OrganizationMember
 from agena_models.models.payment_record import PaymentRecord
 from agena_models.models.prompt import Prompt
 from agena_models.models.prompt_override import PromptOverride
+from agena_models.models.nudge_history import NudgeHistory
 from agena_models.models.refinement_record import RefinementRecord
 from agena_models.models.repo_mapping import RepoMapping
 from agena_models.models.runtime import Runtime
@@ -46,4 +47,5 @@ __all__ = [
     'SentryProjectMapping',
     'Skill',
     'Runtime',
+    'NudgeHistory',
 ]

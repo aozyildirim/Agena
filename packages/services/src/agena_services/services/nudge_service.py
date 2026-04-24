@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agena_models.models.nudge_history import NudgeHistory
 from agena_services.integrations.azure_client import AzureDevOpsClient
 from agena_services.integrations.jira_client import JiraClient
 from agena_services.services.integration_config_service import IntegrationConfigService
@@ -17,6 +19,11 @@ logger = logging.getLogger(__name__)
 # One full day of silence before the nudge fires. Items that already had
 # activity in the last 24h are too fresh to ping — we'd just be noise.
 SILENCE_THRESHOLD_HOURS = 24
+
+# Minimum hours between two nudges on the same item. Prevents spam:
+# if you pinged yesterday and the thread is still silent, don't ping
+# again until the cooldown elapses.
+NUDGE_COOLDOWN_HOURS = 48
 
 
 LANGUAGE_NAMES: dict[str, str] = {
@@ -56,6 +63,46 @@ class NudgeService:
         self.azure_client = AzureDevOpsClient()
         self.jira_client = JiraClient()
 
+    async def list_recent_nudges(
+        self,
+        *,
+        organization_id: int,
+        provider: str,
+        item_ids: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Return a map of external_item_id → latest nudge record for the
+        items passed in. Used by the UI to badge items that have already
+        been pinged so the operator doesn't spam them."""
+        if not item_ids:
+            return {}
+        src = (provider or '').strip().lower()
+        cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+        stmt = (
+            select(NudgeHistory)
+            .where(
+                NudgeHistory.organization_id == organization_id,
+                NudgeHistory.provider == src,
+                NudgeHistory.external_item_id.in_(item_ids),
+                NudgeHistory.created_at >= cutoff.replace(tzinfo=None),
+            )
+            .order_by(NudgeHistory.external_item_id, desc(NudgeHistory.created_at))
+        )
+        rows = (await self.db.execute(stmt)).scalars().all()
+        out: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            key = row.external_item_id
+            if key in out:
+                continue  # already took the newest thanks to ORDER BY
+            out[key] = {
+                'item_id': key,
+                'assignee': row.assignee,
+                'language': row.language,
+                'generated_by': row.generated_by,
+                'hours_silent': row.hours_silent,
+                'created_at': row.created_at.isoformat() if row.created_at else None,
+            }
+        return out
+
     async def post_ai_nudge(
         self,
         *,
@@ -69,6 +116,7 @@ class NudgeService:
         language: str,
         agent_provider: str,
         agent_model: str,
+        user_id: int | None = None,
     ) -> dict[str, Any]:
         src = (provider or '').strip().lower()
         if src not in {'azure', 'jira'}:
@@ -77,10 +125,47 @@ class NudgeService:
         if config is None or not config.secret:
             raise ValueError(f'{src.capitalize()} integration not configured')
 
+        # 0) Dedup — did we already nudge this item inside the cooldown window?
+        cooldown_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=NUDGE_COOLDOWN_HOURS)
+        stmt = (
+            select(NudgeHistory)
+            .where(
+                NudgeHistory.organization_id == organization_id,
+                NudgeHistory.provider == src,
+                NudgeHistory.external_item_id == item_id,
+                NudgeHistory.created_at >= cooldown_cutoff,
+            )
+            .order_by(desc(NudgeHistory.created_at))
+            .limit(1)
+        )
+        existing = (await self.db.execute(stmt)).scalar_one_or_none()
+        if existing is not None:
+            delta_hours = (datetime.now(timezone.utc).replace(tzinfo=None) - existing.created_at).total_seconds() / 3600.0
+            return {
+                'sent': False,
+                'reason_code': 'already_nudged',
+                'hours_silent': None,
+                'last_commenter': '',
+                'comment_text': existing.comment_text or '',
+                'generated_by': existing.generated_by or '',
+                'hours_since_last_nudge': round(delta_hours, 1),
+            }
+
         # 1) Fetch comments + timestamp of the last message
-        last_commenter, hours_silent, last_comment_text = await self._last_comment_signal(
+        last_commenter, hours_silent, recent_comments = await self._last_comment_signal(
             src=src, cfg=self._build_cfg(src, config), project=project or '', item_id=item_id,
         )
+        # Stash request metadata for _finalise_and_post to persist on success.
+        self._pending_meta = {
+            'organization_id': organization_id,
+            'user_id': user_id,
+            'provider': src,
+            'item_id': item_id,
+            'assignee': assignee,
+            'language': language,
+            'agent_provider': agent_provider,
+            'agent_model': agent_model,
+        }
         # If the item had activity in the last 24h, bail out — don't nudge
         if hours_silent is not None and hours_silent < SILENCE_THRESHOLD_HOURS:
             return {
@@ -95,24 +180,40 @@ class NudgeService:
         # 2) Prepare prompts
         lang_name = LANGUAGE_NAMES.get((language or 'en').lower(), 'English')
         system_prompt = (
-            f'You are a tactful sprint facilitator. Write a short, friendly status-check '
-            f'message in {lang_name} for a blocked work item. '
-            'Do NOT address the assignee by name — an @mention will be prepended automatically. '
-            'Do NOT include any greeting like "Hi <name>," or "Dear <name>," — start directly with the status question or context. '
-            'Reference the stated blocker briefly, ask for a quick status update. '
-            'Keep it under 60 words. Plain text only, no markdown, no code blocks. '
-            'Do NOT sign off or add a signature — a separate signature line is appended automatically.'
+            f'You write tight, context-aware sprint status-check messages in {lang_name}. '
+            'You will be given the work item, the blocker note, and the last few comments on the thread. '
+            'Read the comments carefully — reference what was ACTUALLY said, acknowledge any commitments or handoffs '
+            'that were made, and ask a specific question about the concrete next step (not a generic "any update?"). '
+            'If the last commenter promised to do X, ask how X is going. If they flagged a dependency, ask about that dependency by name. '
+            'Produce exactly ONE short paragraph — no line breaks, no empty lines, no bullet points. '
+            'Target 2-3 sentences, max 65 words. Plain text, no markdown, no code blocks. '
+            'Do NOT start with "Hi <name>," — the @mention is prepended separately. '
+            'Do NOT sign off or add a signature — it is appended separately. '
+            'Never invent details that are not in the comments or the blocker note.'
         )
         silent_phrase = (
             f'{int(hours_silent)} hours' if hours_silent is not None else 'a long while'
         )
-        last_line = f'Last reply was from {last_commenter} ({silent_phrase} ago).' if last_commenter else 'No replies on the thread yet.'
+        last_line = f'Last reply was {silent_phrase} ago from {last_commenter}.' if last_commenter else 'No prior replies on the thread.'
+
+        # Build the comments block for the prompt. Oldest → newest so the
+        # model's last "read" is the most recent activity.
+        if recent_comments:
+            thread_lines = ['', 'Recent thread (oldest → newest):']
+            for c in recent_comments:
+                ts = c.get('ts', '')[:16] or '?'
+                thread_lines.append(f'  [{ts}] {c.get("author", "?")}:\n    {c.get("text", "")}')
+            thread_block = '\n'.join(thread_lines)
+        else:
+            thread_block = '\nThe thread has no prior comments yet.'
+
         user_prompt = (
-            f'Work item title: {title}\n'
+            f'Title: {title}\n'
             f'Assignee: {assignee}\n'
-            f'Blocker note: {reason or "(not supplied)"}\n'
-            f'{last_line}\n\n'
-            'Draft the comment now.'
+            f'Blocker: {reason or "(not supplied)"}\n'
+            f'{last_line}'
+            f'{thread_block}\n\n'
+            'Now write the single-paragraph nudge, grounding every question in the thread above.'
         )
 
         slug = (agent_provider or 'openai').strip().lower()
@@ -254,7 +355,66 @@ class NudgeService:
         mention = f'@{assignee.strip()} ' if assignee and assignee.strip() and assignee.strip() != '—' else ''
         sig_template = AGENA_SIGNATURE.get((language or 'en').lower(), AGENA_SIGNATURE['en'])
         signature = sig_template.format(model=generated_by or 'AI')
-        return f'{mention}{clean}\n\n---\n{signature}'
+        # Keep the gap between body and signature to a single blank line —
+        # Azure and Jira both collapse <p><br/></p> clusters, so extra
+        # breaks here only add visual noise on the generated side.
+        return f'{mention}{clean}\n\n{signature}'
+
+    @staticmethod
+    def _compose_azure_html(text: str) -> str:
+        """Convert the composed plain-text nudge to Azure DevOps HTML.
+
+        Uses <at>@Display Name</at> wrapping for the leading mention so
+        the full display name (including spaces) is a single mention
+        token in the Azure renderer. Everything after the mention goes
+        through html.escape, so user-supplied content can't inject tags.
+        """
+        import html as html_mod
+        import re
+
+        raw = (text or '').strip()
+        mention_html = ''
+        match = re.match(r'^@([^\n]+?)\s{2}', raw + '  ')  # find leading "@Name " (up to first double-space or newline)
+        if raw.startswith('@'):
+            # Take the mention as the first "word group" up to the first
+            # newline OR two spaces: everything after is the body.
+            sep_idx = raw.find('\n')
+            # Azure mentions are a single display name; consume up to the
+            # first double-space, newline, or the first char after the
+            # name token. We use the first run of non-newline chars that
+            # terminates at either a double-space or a newline.
+            m = re.match(r'^@(\S[^\n]*?)(\s{2,}|\s+\S|\Z)', raw)
+            if m:
+                name = m.group(1).strip()
+                # Trim trailing punctuation that isn't part of a real name
+                while name and name[-1] in ',:;':
+                    name = name[:-1]
+                mention_html = f'<at>@{html_mod.escape(name)}</at> '
+                body = raw[len(m.group(0)) - len(m.group(2)):].lstrip()
+            else:
+                body = raw
+        else:
+            body = raw
+        parts: list[str] = []
+        if mention_html:
+            parts.append('<p>' + mention_html)
+        else:
+            parts.append('<p>')
+        first_paragraph = True
+        for block in body.split('\n\n'):
+            block = block.strip()
+            if not block:
+                continue
+            escaped = html_mod.escape(block).replace('\n', '<br/>')
+            if first_paragraph and mention_html:
+                parts.append(escaped + '</p>')
+                first_paragraph = False
+            else:
+                parts.append(f'<p>{escaped}</p>')
+        # If body was empty (mention only) still close the first <p>.
+        if first_paragraph and mention_html and body == '':
+            parts.append('</p>')
+        return ''.join(parts)
 
     async def _finalise_and_post(
         self, *, src: str, config: Any, item_id: str, comment_text: str,
@@ -272,9 +432,15 @@ class NudgeService:
             }
         try:
             if src == 'azure':
-                await self.azure_client.writeback_refinement(
+                # Azure's writeback_refinement() escapes everything through
+                # html.escape, so the <at>@Name</at> mention tag gets turned
+                # into literal text. Use the raw-HTML path instead — we
+                # build the HTML ourselves so the mention wraps the whole
+                # display name (spaces and all) as one token.
+                html_body = self._compose_azure_html(comment_text)
+                await self.azure_client.post_raw_html_comment(
                     cfg=self._build_cfg(src, config), work_item_id=item_id,
-                    suggested_story_points=0, comment=comment_text,
+                    html_body=html_body,
                 )
             else:
                 await self.jira_client.writeback_refinement(
@@ -292,6 +458,32 @@ class NudgeService:
                 'generated_by': generated_by,
                 'error': str(exc)[:240],
             }
+        # Persist the nudge record for dedup + UI badging. Swallow write
+        # failures — the comment is already on the external system.
+        meta = getattr(self, '_pending_meta', None) or {}
+        try:
+            row = NudgeHistory(
+                organization_id=int(meta.get('organization_id') or 0) or None,
+                user_id=meta.get('user_id'),
+                provider=meta.get('provider') or src,
+                external_item_id=str(meta.get('item_id') or item_id),
+                assignee=(meta.get('assignee') or '')[:256] or None,
+                language=(meta.get('language') or 'en')[:8] or 'en',
+                agent_provider=(meta.get('agent_provider') or 'openai')[:32] or 'openai',
+                agent_model=(meta.get('agent_model') or '')[:64] or None,
+                generated_by=generated_by[:128] if generated_by else None,
+                comment_text=comment_text,
+                last_commenter=last_commenter[:256] if last_commenter else None,
+                hours_silent=hours_silent,
+            )
+            self.db.add(row)
+            await self.db.commit()
+        except Exception as exc:
+            logger.warning('nudge history persist failed: %s', exc)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
         return {
             'sent': True,
             'reason_code': 'sent',
@@ -303,7 +495,14 @@ class NudgeService:
 
     async def _last_comment_signal(
         self, *, src: str, cfg: dict[str, str], project: str, item_id: str,
-    ) -> tuple[str, float | None, str]:
+    ) -> tuple[str, float | None, list[dict[str, str]]]:
+        """Return (last_commenter, hours_silent, recent_comments).
+
+        `recent_comments` is the last 5 entries in chronological order
+        (oldest → newest) with {author, text, ts} keys — the LLM uses
+        them as context so the generated nudge references what's
+        actually been said rather than repeating a generic template.
+        """
         if src == 'azure':
             comments = await self.azure_client.fetch_work_item_comments(
                 cfg=cfg, project=project, work_item_id=item_id,
@@ -313,14 +512,32 @@ class NudgeService:
                 cfg=cfg, issue_key=item_id,
             )
         if not comments:
-            return '', None, ''
+            return '', None, []
         first = comments[0] or {}
         raw_ts = str(first.get('created_at') or first.get('modified_date') or '')
         hours_silent = self._hours_since(raw_ts)
+        # API returns newest-first; flip for prompt readability and keep
+        # the most recent 5 with their full text (truncated per entry).
+        recent: list[dict[str, str]] = []
+        for c in reversed(comments[:5]):
+            text = str(c.get('text') or '').strip()
+            if not text:
+                continue
+            # Strip HTML tags Azure sometimes wraps around comment bodies.
+            import re
+            text = re.sub(r'<[^>]+>', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            if len(text) > 600:
+                text = text[:600].rstrip() + '…'
+            recent.append({
+                'author': str(c.get('created_by') or 'unknown'),
+                'text': text,
+                'ts': str(c.get('created_at') or c.get('modified_date') or ''),
+            })
         return (
             str(first.get('created_by') or ''),
             hours_silent,
-            str(first.get('text') or ''),
+            recent,
         )
 
     @staticmethod

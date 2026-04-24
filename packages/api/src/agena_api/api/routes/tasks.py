@@ -480,12 +480,44 @@ async def post_ai_nudge(
             language=payload.language,
             agent_provider=payload.agent_provider,
             agent_model=payload.agent_model,
+            user_id=tenant.user_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 — surface a clean 502 to the UI
         raise HTTPException(status_code=502, detail=f'ai-nudge failed: {exc}') from exc
     return AINudgeResponse(**result)
+
+
+class NudgeHistoryItem(BaseModel):
+    item_id: str
+    assignee: str | None = None
+    language: str | None = None
+    generated_by: str | None = None
+    hours_silent: float | None = None
+    created_at: str | None = None
+
+
+class NudgeHistoryResponse(BaseModel):
+    items: list[NudgeHistoryItem]
+
+
+@router.get('/ai-nudge/history', response_model=NudgeHistoryResponse)
+async def list_nudge_history(
+    provider: str = Query(...),
+    item_ids: str = Query('', description='Comma-separated external item ids'),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> NudgeHistoryResponse:
+    ids = [s.strip() for s in (item_ids or '').split(',') if s.strip()]
+    if not ids:
+        return NudgeHistoryResponse(items=[])
+    from agena_services.services.nudge_service import NudgeService
+    svc = NudgeService(db)
+    hits = await svc.list_recent_nudges(
+        organization_id=tenant.organization_id, provider=provider, item_ids=ids,
+    )
+    return NudgeHistoryResponse(items=[NudgeHistoryItem(**v) for v in hits.values()])
 
 
 @router.post('/jira/issues/{issue_key}/comment', response_model=CommentPostResponse)

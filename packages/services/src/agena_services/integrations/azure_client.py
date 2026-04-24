@@ -322,6 +322,29 @@ class AzureDevOpsClient:
             patch_resp = await client.patch(url_patch, headers=patch_headers, json=patch_ops)
             patch_resp.raise_for_status()
 
+    async def post_raw_html_comment(
+        self, *, cfg: dict[str, str], work_item_id: str, html_body: str,
+    ) -> None:
+        """Post a comment to the work item's System.History with html_body
+        used verbatim (no escaping). Used by the nudge service so that
+        <at>@Display Name</at> mention tags survive to the Azure renderer.
+        The caller is responsible for producing safe HTML.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        item_id = str(work_item_id or '').strip()
+        if not item_id or not (html_body or '').strip():
+            return
+        patch_ops = [{'op': 'add', 'path': '/fields/System.History', 'value': html_body}]
+        url = f"{org_url.rstrip('/')}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
+        headers = self._headers(pat)
+        headers['Content-Type'] = 'application/json-patch+json'
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.patch(url, headers=headers, json=patch_ops)
+            response.raise_for_status()
+
     async def fetch_work_item_comments(
         self, *, cfg: dict[str, str], project: str, work_item_id: str,
     ) -> list[dict[str, Any]]:

@@ -98,6 +98,19 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 - Free/Pro/Enterprise plans with usage quotas
 - Stripe billing integration
 
+**AI-powered Sprint Nudges**
+- Every blocked Azure DevOps or Jira work item gets a "Ping" button
+- Checks the last comment timestamp — if >24h silent, fires a nudge
+- LLM-generated, single-paragraph, language-picked-per-ping (7 locales)
+- Pick the generator at send time: Claude CLI (subscription, via host
+  bridge), Codex CLI (subscription), OpenAI, Gemini, or HAL. Claude
+  CLI failures auto-fall-back to Codex CLI on the same bridge.
+- Posts back with an `<at>@Display Name</at>` mention so Azure
+  renders it as a real tag, plus a signed "written by Agena via
+  {model}" line for transparency
+- 48h cooldown + DB-persisted history prevents spam; UI badges
+  already-nudged items with "Agena pinged Xh ago"
+
 **Dashboard**
 - Boss Mode — pixel-art office where you manage AI agents visually
 - Visual flow builder — drag-and-drop automation pipelines
