@@ -266,12 +266,14 @@ export default function DashboardTasksPage() {
   }, [hasAnyModalOpen]);
 
   useEffect(() => {
-    if (showCreate && !createMappingsLoaded) {
+    // Both Create and Edit modals render the local-repo-mappings checkbox
+    // list, so trigger the load whenever either is opened.
+    if ((showCreate || editTask) && !createMappingsLoaded) {
       apiFetch<BackendRepoMapping[]>('/repo-mappings')
         .then((data) => { setCreateMappings(data); setCreateMappingsLoaded(true); })
         .catch(() => setCreateMappingsLoaded(true));
     }
-  }, [showCreate, createMappingsLoaded]);
+  }, [showCreate, editTask, createMappingsLoaded]);
 
   async function loadDepCandidates() {
     try {
