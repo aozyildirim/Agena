@@ -1963,9 +1963,28 @@ input:focus, textarea:focus {
   }
   .dashboard-topbar {
     left: 0 !important;
+    padding: 0 8px !important;
+    gap: 4px !important;
+    overflow: visible !important;
   }
   .dashboard-topbar .topbar-username {
     display: none;
+  }
+  /* Sprint switcher: tighten button + reflow dropdown into viewport */
+  .sprint-switcher-trigger {
+    padding: 6px 8px !important;
+    max-width: 160px !important;
+  }
+  .sprint-switcher-label {
+    max-width: 90px !important;
+  }
+  .sprint-switcher-dropdown {
+    position: fixed !important;
+    top: 124px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: none !important;
   }
   .dashboard-main {
     margin-left: 0 !important;

@@ -214,8 +214,9 @@ export default function SprintSwitcher() {
   const hasActiveSprint = provider === 'jira' ? Boolean(jiraSprint) : Boolean(azSprint);
 
   return (
-    <div ref={rootRef} style={{ position: 'relative' }}>
+    <div ref={rootRef} className='sprint-switcher-root' style={{ position: 'relative' }}>
       <button
+        className='sprint-switcher-trigger'
         onClick={() => setOpen((v) => !v)}
         title={t('sprintSwitcher.tooltip')}
         style={{
@@ -229,12 +230,12 @@ export default function SprintSwitcher() {
         }}
       >
         <span style={{ fontSize: 13 }}>{provider === 'jira' ? '◉' : '◎'}</span>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{activeLabel}</span>
+        <span className='sprint-switcher-label' style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{activeLabel}</span>
         <span style={{ fontSize: 9, opacity: 0.7 }}>&#9660;</span>
       </button>
 
       {open && (
-        <div style={{
+        <div className='sprint-switcher-dropdown' style={{
           position: 'absolute', top: 40, right: 0, width: 360,
           border: '1px solid var(--border)', background: 'var(--surface)',
           borderRadius: 12, padding: 14, display: 'grid', gap: 12, zIndex: 200,
