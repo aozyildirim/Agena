@@ -98,6 +98,12 @@ export default function DashboardTasksPage() {
   const [editTask, setEditTask] = useState<TaskItem | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editStoryContext, setEditStoryContext] = useState('');
+  const [editAcceptance, setEditAcceptance] = useState('');
+  const [editEdgeCases, setEditEdgeCases] = useState('');
+  const [editMaxTokens, setEditMaxTokens] = useState('');
+  const [editMaxCost, setEditMaxCost] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
   const [createMappings, setCreateMappings] = useState<BackendRepoMapping[]>([]);
   const [createMappingsLoaded, setCreateMappingsLoaded] = useState(false);
   const [selectedRepoMappingIds, setSelectedRepoMappingIds] = useState<number[]>([]);
@@ -518,18 +524,61 @@ export default function DashboardTasksPage() {
     }
   }
 
-  function openEditTask(task: TaskItem) {
+  async function openEditTask(task: TaskItem) {
     setEditTask(task);
     setEditTitle(task.title);
     setEditDesc(task.description || '');
+    setEditStoryContext('');
+    setEditAcceptance('');
+    setEditEdgeCases('');
+    setEditMaxTokens('');
+    setEditMaxCost('');
+    // List rows don't carry the rich guardrail fields — fetch the full
+    // task so the edit form can prefill story_context / acceptance /
+    // edge_cases / max_tokens / max_cost_usd.
+    setEditLoading(true);
+    try {
+      type FullTask = {
+        title: string;
+        description: string;
+        story_context?: string | null;
+        acceptance_criteria?: string | null;
+        edge_cases?: string | null;
+        max_tokens?: number | null;
+        max_cost_usd?: number | null;
+      };
+      const full = await apiFetch<FullTask>('/tasks/' + task.id);
+      setEditTitle(full.title || '');
+      setEditDesc(full.description || '');
+      setEditStoryContext(full.story_context || '');
+      setEditAcceptance(full.acceptance_criteria || '');
+      setEditEdgeCases(full.edge_cases || '');
+      setEditMaxTokens(full.max_tokens != null ? String(full.max_tokens) : '');
+      setEditMaxCost(full.max_cost_usd != null ? String(full.max_cost_usd) : '');
+    } catch {
+      // Keep title + description from the row; the rest stays empty.
+    } finally {
+      setEditLoading(false);
+    }
   }
 
   async function saveEditTask() {
     if (!editTask) return;
     try {
+      const body: Record<string, unknown> = {
+        title: editTitle,
+        description: editDesc,
+        story_context: editStoryContext,
+        acceptance_criteria: editAcceptance,
+        edge_cases: editEdgeCases,
+      };
+      // Numeric fields: send 0 to mean "unset" so the backend can null
+      // them (max_tokens=0 → null, max_cost_usd=0 → null per task_service).
+      body.max_tokens = editMaxTokens.trim() ? Number(editMaxTokens) : 0;
+      body.max_cost_usd = editMaxCost.trim() ? Number(editMaxCost) : 0;
       await apiFetch('/tasks/' + editTask.id, {
         method: 'PUT',
-        body: JSON.stringify({ title: editTitle, description: editDesc }),
+        body: JSON.stringify(body),
       });
       setEditTask(null);
       setMsg('Task updated');
@@ -1559,15 +1608,45 @@ export default function DashboardTasksPage() {
                 <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>Edit Task #{editTask.id}</h3>
                 <button onClick={() => setEditTask(null)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>×</button>
               </div>
+              {editLoading && (
+                <div style={{ fontSize: 11, color: 'var(--ink-50)' }}>{t('tasks.picker.loading' as TranslationKey)}</div>
+              )}
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>Title</label>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.titlePlaceholder')}</label>
                 <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>Description</label>
-                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={6}
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.descriptionPlaceholder')}</label>
+                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={5}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.storyContextPlaceholder')}</label>
+                <textarea value={editStoryContext} onChange={(e) => setEditStoryContext(e.target.value)} rows={2}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.acceptancePlaceholder')}</label>
+                <textarea value={editAcceptance} onChange={(e) => setEditAcceptance(e.target.value)} rows={2}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.edgeCasesPlaceholder')}</label>
+                <textarea value={editEdgeCases} onChange={(e) => setEditEdgeCases(e.target.value)} rows={2}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.maxTokensPlaceholder')}</label>
+                  <input type='number' min='0' step='1' value={editMaxTokens} onChange={(e) => setEditMaxTokens(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.maxCostPlaceholder')}</label>
+                  <input type='number' min='0' step='0.0001' value={editMaxCost} onChange={(e) => setEditMaxCost(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', boxSizing: 'border-box' }} />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setEditTask(null)}
