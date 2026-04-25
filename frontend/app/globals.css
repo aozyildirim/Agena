@@ -2931,8 +2931,8 @@ html.light .teal-chip-active {
 }
 
 /* Edit-task + Create-task modal grids: stack to a single column under
-   880px so the phone view doesn't clip the right column off-screen. */
-@media (max-width: 880px) {
+   720px so the phone view doesn't clip the right column off-screen. */
+@media (max-width: 720px) {
   .edit-task-grid,
   .create-task-grid {
     grid-template-columns: 1fr !important;

@@ -684,7 +684,7 @@ export default function DashboardTasksPage() {
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: 1080, maxWidth: '100%',
+            width: 880, maxWidth: '100%',
             borderRadius: 20, border: '1px solid rgba(13,148,136,0.35)',
             background: 'var(--surface)', padding: 24,
             position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
@@ -876,8 +876,6 @@ export default function DashboardTasksPage() {
               placeholder={t('tasks.storyContextPlaceholder')}
               rows={2}
             />
-            </div>
-            <div style={{ display: 'grid', gap: 12, alignContent: 'start', minWidth: 0 }}>
             <textarea
               value={acceptanceCriteria}
               onChange={(e) => setAcceptanceCriteria(e.target.value)}
@@ -890,6 +888,8 @@ export default function DashboardTasksPage() {
               placeholder={t('tasks.edgeCasesPlaceholder')}
               rows={2}
             />
+            </div>
+            <div style={{ display: 'grid', gap: 12, alignContent: 'start', minWidth: 0 }}>
             {/* Target Repo Selector */}
             <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', padding: '10px 12px', background: 'var(--panel)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.multiRepo.title' as TranslationKey)}</div>
@@ -1649,7 +1649,7 @@ export default function DashboardTasksPage() {
       {editTask && typeof document !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}
           onClick={() => setEditTask(null)}>
-          <div style={{ width: 'min(1040px, calc(100vw - 24px))', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+          <div style={{ width: 'min(880px, calc(100vw - 24px))', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ height: 3, background: 'linear-gradient(90deg, #38bdf8, #7c3aed)', flexShrink: 0 }} />
             {/* Header — sticky so the Save / Cancel actions are reachable
@@ -1720,8 +1720,6 @@ export default function DashboardTasksPage() {
                     );
                   })()}
                 </div>
-              </div>
-              <div style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
                 <div>
                   <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.storyContextPlaceholder')}</label>
                   <textarea value={editStoryContext} onChange={(e) => setEditStoryContext(e.target.value)} rows={2}
@@ -1737,6 +1735,8 @@ export default function DashboardTasksPage() {
                   <textarea value={editEdgeCases} onChange={(e) => setEditEdgeCases(e.target.value)} rows={2}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
                 </div>
+              </div>
+              <div style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
                 {/* Repo assignments + remote selector */}
                 <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', padding: '10px 12px', background: 'var(--panel)' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.multiRepo.title' as TranslationKey)}</div>
