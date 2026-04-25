@@ -118,6 +118,10 @@ export default function DashboardTasksPage() {
   // that have already been imported and route the user to the existing
   // task instead of creating a duplicate.
   const [importedExternalMap, setImportedExternalMap] = useState<Record<string, number>>({});
+  // When the user clicks a row that's already imported, hold off on
+  // navigating until they confirm in a themed modal (replaces the
+  // jarring window.confirm browser dialog).
+  const [alreadyImportedPrompt, setAlreadyImportedPrompt] = useState<{ taskId: number; title: string } | null>(null);
   const [createSource, setCreateSource] = useState<'internal' | 'azure' | 'jira'>('internal');
   const [createExternalId, setCreateExternalId] = useState('');
 
@@ -686,14 +690,11 @@ export default function DashboardTasksPage() {
                             key={it.id}
                             type='button'
                             onClick={() => {
-                              if (isTaken) {
-                                // Don't auto-navigate — confirm first.
-                                const ok = window.confirm(
-                                  t('tasks.picker.alreadyImportedConfirm' as TranslationKey, { id: String(existingId) })
-                                );
-                                if (!ok) return;
-                                setShowCreate(false);
-                                router.push(`/tasks/${existingId}`);
+                              if (isTaken && existingId) {
+                                // Don't auto-navigate — confirm via themed
+                                // modal so the user can change their mind
+                                // without losing their place in the picker.
+                                setAlreadyImportedPrompt({ taskId: existingId, title: it.title });
                               } else {
                                 applyPickedItem(pickerSource as 'azure' | 'jira', it);
                               }
@@ -938,6 +939,69 @@ export default function DashboardTasksPage() {
             </div>
           </form>
         </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* Already-imported confirm — themed replacement for window.confirm.
+          Sits on top of the Create modal so the user can cancel and keep
+          browsing the picker. */}
+      {alreadyImportedPrompt && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setAlreadyImportedPrompt(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10010,
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 420, maxWidth: '100%',
+              background: 'var(--surface)', color: 'var(--ink-90)',
+              border: '1px solid var(--panel-border-3)', borderRadius: 14,
+              padding: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+              display: 'grid', gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 22 }}>⚠</span>
+              <h3 style={{ margin: 0, fontSize: 16, color: 'var(--ink-90)' }}>
+                {t('tasks.picker.alreadyImportedBadge' as TranslationKey)}
+              </h3>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-72)', lineHeight: 1.5 }}>
+              {t('tasks.picker.alreadyImportedConfirm' as TranslationKey, { id: String(alreadyImportedPrompt.taskId) })}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-50)', padding: '6px 10px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {alreadyImportedPrompt.title}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button
+                type='button'
+                className='button button-outline'
+                onClick={() => setAlreadyImportedPrompt(null)}
+                style={{ fontSize: 12 }}
+              >
+                {t('tasks.cancel')}
+              </button>
+              <button
+                type='button'
+                className='button button-primary'
+                onClick={() => {
+                  const id = alreadyImportedPrompt.taskId;
+                  setAlreadyImportedPrompt(null);
+                  setShowCreate(false);
+                  router.push(`/tasks/${id}`);
+                }}
+                style={{ fontSize: 12 }}
+              >
+                {t('tasks.picker.openTask' as TranslationKey, { id: String(alreadyImportedPrompt.taskId) })}
+              </button>
+            </div>
+          </div>
         </div>,
         document.body,
       )}

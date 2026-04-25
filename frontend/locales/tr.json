@@ -1191,6 +1191,7 @@
   "tasks.picker.alreadyImportedBadge": "Zaten var",
   "tasks.picker.alreadyImportedHint": "Bu iş zaten Agena'da · Görev #{id}",
   "tasks.picker.alreadyImportedConfirm": "Bu iş zaten Agena'da var (Görev #{id}). Açmak ister misin?",
+  "tasks.picker.openTask": "Görev #{id}'i aç",
   "tasks.descriptionPreview": "Açıklama önizleme",
   "tasks.descriptionEdit": "Ham metni düzenle",
   "taskDetail.removeAssignment": "Bu repo'yu kaldır",

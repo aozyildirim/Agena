@@ -778,7 +778,7 @@ export default function TaskDetailPage() {
   const activeRunRecord = runs[activeRunIndex] || null;
 
   return (
-    <div className='container' style={{ paddingTop: 96, paddingBottom: 20, maxWidth: 1820 }}>
+    <div style={{ paddingBottom: 20, width: '100%', maxWidth: '100%' }}>
       {/* Top action bar */}
       <section style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, flex: 1, minWidth: 200, lineHeight: 1.3 }}>

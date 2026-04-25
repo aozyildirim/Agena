@@ -271,6 +271,7 @@
   "tasks.picker.alreadyImportedBadge": "Già presente",
   "tasks.picker.alreadyImportedHint": "Già in Agena · task #{id}",
   "tasks.picker.alreadyImportedConfirm": "Questo work item è già in Agena (task #{id}). Aprirlo?",
+  "tasks.picker.openTask": "Apri task #{id}",
   "tasks.descriptionPreview": "Anteprima descrizione",
   "tasks.descriptionEdit": "Modifica testo grezzo",
   "taskDetail.removeAssignment": "Rimuovi questo repo",

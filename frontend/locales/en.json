@@ -1191,6 +1191,7 @@
   "tasks.picker.alreadyImportedBadge": "Already in",
   "tasks.picker.alreadyImportedHint": "Already in Agena · task #{id}",
   "tasks.picker.alreadyImportedConfirm": "This work item is already in Agena (task #{id}). Open it?",
+  "tasks.picker.openTask": "Open task #{id}",
   "tasks.descriptionPreview": "Description preview",
   "tasks.descriptionEdit": "Edit raw text",
   "taskDetail.removeAssignment": "Remove this repo",
