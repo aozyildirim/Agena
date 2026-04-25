@@ -1831,6 +1831,10 @@ function RunConfigModal({ task, onRun, onClose }: {
   const [selectedMapping, setSelectedMapping] = useState('');
   const [agentConfigs, setAgentConfigs] = useState<{ role: string; label: string; provider: string; model: string; custom_model?: string }[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('');
+  // Local-CLI selection (Claude CLI / Codex CLI). When set, takes
+  // precedence over the agent dropdown — same shape the Run popup on
+  // the tasks list uses (mode=mcp_agent, hardcoded provider/model).
+  const [selectedCli, setSelectedCli] = useState<'' | 'claude_cli' | 'codex_cli'>('');
   const [runMode, setRunMode] = useState<'agent' | 'mcp' | 'flow'>((task?.last_mode === 'mcp_agent') ? 'mcp' : 'agent');
   const [createPr, setCreatePr] = useState(true);
   const [flows, setFlows] = useState<{ id: string; name: string; description?: string; nodes?: unknown[] }[]>([]);
@@ -1888,6 +1892,21 @@ function RunConfigModal({ task, onRun, onClose }: {
         if (m.azure_project) parts.push(`Project: ${m.azure_project}`);
         if (m.azure_repo_name) parts.push(`Azure Repo: ${m.azure_repo_name}`);
       }
+    }
+    // Local CLI selection wins over the agent dropdown (matches the
+    // tasks-list Run popup: mode=mcp_agent, hardcoded provider/model).
+    if (selectedCli) {
+      const cliModel = selectedCli === 'claude_cli' ? 'sonnet' : 'gpt-4o';
+      onRun(
+        parts.length > 0 ? parts.join('\n') : undefined,
+        {
+          provider: selectedCli,
+          model: cliModel,
+          createPr,
+          mode: 'mcp_agent',
+        },
+      );
+      return;
     }
     const agent = agentConfigs.find((a) => a.role === selectedAgent);
     onRun(
@@ -1992,12 +2011,13 @@ function RunConfigModal({ task, onRun, onClose }: {
             {agentConfigs.length > 0 ? (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {agentConfigs.map((a) => (
-                  <button key={a.role} onClick={() => setSelectedAgent(a.role)}
+                  <button key={a.role} onClick={() => { setSelectedAgent(a.role); setSelectedCli(''); }}
                     style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      border: selectedAgent === a.role ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
-                      background: selectedAgent === a.role ? 'rgba(94,234,212,0.12)' : 'transparent',
-                      color: selectedAgent === a.role ? '#5eead4' : 'var(--ink-45)',
-                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                      border: selectedAgent === a.role && !selectedCli ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                      background: selectedAgent === a.role && !selectedCli ? 'rgba(94,234,212,0.12)' : 'transparent',
+                      color: selectedAgent === a.role && !selectedCli ? '#5eead4' : 'var(--ink-45)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+                      opacity: selectedCli ? 0.5 : 1 }}>
                     <span>{a.label || a.role}</span>
                     <span style={{ fontSize: 9, opacity: 0.6 }}>{a.provider} / {a.custom_model || a.model}</span>
                   </button>
@@ -2009,6 +2029,39 @@ function RunConfigModal({ task, onRun, onClose }: {
               </div>
             )}
           </div>}
+
+          {/* Local CLI options — same hardcoded set as the tasks-list Run
+              popup so the rerun modal exposes every execution path the
+              user might want, including Claude / Codex run on the host. */}
+          {runMode !== 'flow' && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>Local CLI</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { provider: 'claude_cli', label: 'Claude CLI', model: 'sonnet', color: '#fb923c', icon: '✎' },
+                  { provider: 'codex_cli', label: 'Codex CLI', model: 'gpt-4o', color: '#a78bfa', icon: '⌘' },
+                ].map((cli) => {
+                  const isSel = selectedCli === cli.provider;
+                  return (
+                    <button
+                      key={cli.provider}
+                      onClick={() => { setSelectedCli(isSel ? '' : (cli.provider as 'claude_cli' | 'codex_cli')); setSelectedAgent(''); }}
+                      style={{
+                        padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        border: isSel ? `1px solid ${cli.color}80` : `1px solid ${cli.color}40`,
+                        background: isSel ? `${cli.color}1a` : `${cli.color}0a`,
+                        color: cli.color,
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+                      }}
+                    >
+                      <span>{cli.icon} {cli.label}</span>
+                      <span style={{ fontSize: 9, opacity: 0.7, color: 'var(--ink-50)' }}>{cli.provider} · {cli.model}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Flow selection (only visible in Flow mode) */}
           {runMode === 'flow' && flows.length > 0 && (
