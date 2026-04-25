@@ -789,14 +789,16 @@ export default function TaskDetailPage() {
           <button className='button button-primary' onClick={handleRunClick} disabled={isRerunBusy} style={{ padding: '8px 18px', fontSize: 13 }}>
             {isRerunBusy ? t('taskDetail.rerunning') : t('taskDetail.rerunTask')}
           </button>
-          <button
-            className='button button-outline'
-            onClick={() => void cancelTask()}
-            disabled={isCancelBusy || !(task?.status === 'queued' || task?.status === 'running')}
-            style={{ padding: '8px 18px', fontSize: 13 }}
-          >
-            {isCancelBusy ? t('taskDetail.stopping') : t('taskDetail.stopTask')}
-          </button>
+          {(task?.status === 'queued' || task?.status === 'running') && (
+            <button
+              className='button button-outline'
+              onClick={() => void cancelTask()}
+              disabled={isCancelBusy}
+              style={{ padding: '8px 18px', fontSize: 13 }}
+            >
+              {isCancelBusy ? t('taskDetail.stopping') : t('taskDetail.stopTask')}
+            </button>
+          )}
         </div>
       </section>
 
