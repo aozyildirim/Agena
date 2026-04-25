@@ -736,11 +736,7 @@ export default function DashboardTasksPage() {
                   </button>
                 );
               })}
-              {createSource !== 'internal' && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto', padding: '5px 10px', borderRadius: 999, background: 'rgba(96,165,250,0.12)', color: '#60a5fa', fontSize: 11, fontWeight: 700 }}>
-                  ✓ {createSource === 'azure' ? 'Azure' : 'Jira'} #{createExternalId}
-                </span>
-              )}
+              {/* Source chip removed — title already shows `[Azure #N]` */}
             </div>
 
             {pickerSource !== 'empty' && (
