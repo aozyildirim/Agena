@@ -2855,6 +2855,18 @@ html.light {
 .task-md div { margin: 0; }
 .task-md div + div { margin-top: 2px; }
 
+/* Light-mode override: the bright teal `#5eead4` is the dark-mode accent
+   text colour, used in ~250 inline styles across the dashboard. On a
+   white surface it disappears, so we map it to a darker teal site-wide
+   here without touching every component. CSS attribute selectors match
+   the literal `style="..."` value React writes to the DOM, so border /
+   background usages with the same hex are NOT affected — only the
+   `color` property is overridden. */
+html.light [style*="color:#5eead4"],
+html.light [style*="color: #5eead4"] {
+  color: #0d7377 !important;
+}
+
 /* Code diff renderer (Code Diff Preview tab on /tasks/[id]).
    Pastel green/red work on dark backgrounds but disappear against the
    washed-out tints in light mode — bump contrast there. */
