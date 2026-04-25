@@ -680,37 +680,41 @@ export default function DashboardTasksPage() {
                       .slice(0, 200)
                       .map((it) => {
                         const existingId = importedExternalMap[String(it.id)];
+                        const isTaken = !!existingId;
                         return (
                           <button
                             key={it.id}
                             type='button'
                             onClick={() => {
-                              if (existingId) {
-                                // Already imported — open the existing task
-                                // instead of recreating it.
+                              if (isTaken) {
+                                // Don't auto-navigate — confirm first.
+                                const ok = window.confirm(
+                                  t('tasks.picker.alreadyImportedConfirm' as TranslationKey, { id: String(existingId) })
+                                );
+                                if (!ok) return;
                                 setShowCreate(false);
                                 router.push(`/tasks/${existingId}`);
                               } else {
                                 applyPickedItem(pickerSource as 'azure' | 'jira', it);
                               }
                             }}
-                            title={existingId ? t('tasks.picker.openExisting' as TranslationKey, { id: existingId }) : ''}
+                            title={isTaken ? t('tasks.picker.alreadyImportedHint' as TranslationKey, { id: String(existingId) }) : ''}
                             style={{
                               textAlign: 'left', padding: '7px 10px', borderRadius: 8,
-                              border: '1px solid ' + (existingId ? 'rgba(34,197,94,0.25)' : 'var(--panel-border-2)'),
-                              background: existingId ? 'rgba(34,197,94,0.06)' : 'var(--panel-alt)',
-                              color: 'var(--ink-78)', fontSize: 12, cursor: 'pointer',
+                              border: '1px solid ' + (isTaken ? 'var(--panel-border-2)' : 'var(--panel-border-3)'),
+                              background: isTaken ? 'transparent' : 'var(--panel-alt)',
+                              fontSize: 12, cursor: isTaken ? 'help' : 'pointer',
                               display: 'flex', alignItems: 'center', gap: 8,
-                              opacity: existingId ? 0.85 : 1,
+                              opacity: isTaken ? 0.55 : 1,
                             }}
                           >
                             <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <span style={{ color: 'var(--ink-45)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
-                              <span style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{it.title}</span>
+                              <span style={{ color: 'var(--ink-35)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
+                              <span style={{ fontWeight: 600, color: isTaken ? 'var(--ink-50)' : 'var(--ink-90)', textDecoration: isTaken ? 'line-through' : 'none' }}>{it.title}</span>
                             </span>
-                            {existingId && (
-                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,0.18)', color: '#22c55e', whiteSpace: 'nowrap' }}>
-                                ✓ #{existingId}
+                            {isTaken && (
+                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(245,158,11,0.14)', color: '#f59e0b', whiteSpace: 'nowrap', border: '1px solid rgba(245,158,11,0.35)' }}>
+                                ⚠ {t('tasks.picker.alreadyImportedBadge' as TranslationKey)} · #{existingId}
                               </span>
                             )}
                           </button>
