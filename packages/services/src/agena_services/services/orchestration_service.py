@@ -191,7 +191,9 @@ class OrchestrationService:
         # downstream consumer (Claude/Codex CLI, MCP agent, classic
         # LangGraph pipeline, flow nodes) sees what the user uploaded.
         try:
-            attachments_section = await self._build_attachments_section(task.id, organization_id)
+            attachments_section = await self._build_attachments_section(
+                task.id, organization_id, description=task.description,
+            )
             if attachments_section:
                 effective_description = f'{effective_description}\n\n{attachments_section}'
                 await task_service.add_log(
@@ -562,7 +564,9 @@ class OrchestrationService:
                 # Same attachment injection as the non-flow path so flow
                 # nodes also see uploaded files.
                 try:
-                    _flow_atts = await self._build_attachments_section(task.id, organization_id)
+                    _flow_atts = await self._build_attachments_section(
+                        task.id, organization_id, description=task.description,
+                    )
                     if _flow_atts:
                         enriched_desc = f'{enriched_desc}\n\n{_flow_atts}'
                 except Exception:
@@ -2570,9 +2574,97 @@ class OrchestrationService:
                      task.source, file_path, line_number or '?', len(file_content))
         return filled
 
-    async def _build_attachments_section(self, task_id: int, organization_id: int) -> str:
-        """Render every TaskAttachment as a prompt fragment so agents,
-        local CLIs, and flow nodes all see the same thing.
+    async def _prefetch_inline_images_to_disk(
+        self,
+        description: str | None,
+        organization_id: int,
+        task_id: int,
+    ) -> list[dict]:
+        """Download images embedded in the task description (Azure DevOps
+        attachments, Jira inline `<img>`, plain markdown image links, etc.)
+        and stash them under the same uploads tree as user attachments so
+        local CLIs (Claude/Codex) can read them with the standard Read tool.
+
+        Returns a list of dicts: {filename, path, content_type, size_bytes,
+        source_url}. Uses a content-hash filename so re-runs reuse the
+        same file instead of re-fetching.
+        """
+        urls = self._extract_task_image_urls(description)
+        if not urls:
+            return []
+        import hashlib
+        target_root = Path('/app/data/uploads/tasks') / str(organization_id) / str(task_id) / 'inline'
+        target_root.mkdir(parents=True, exist_ok=True)
+        azure_auth_header: str | None = None
+        azure_auth_loaded = False
+        saved: list[dict] = []
+        for url in urls:
+            normalized = (url or '').strip()
+            if not normalized or normalized.startswith('data:'):
+                continue
+            try:
+                headers: dict[str, str] = {}
+                is_azure_attachment = (
+                    'dev.azure.com/' in normalized or '/_apis/wit/attachments/' in normalized
+                )
+                if is_azure_attachment:
+                    if not azure_auth_loaded:
+                        azure_auth_loaded = True
+                        azure_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'azure')
+                        pat = (azure_cfg.secret or '').strip() if azure_cfg and azure_cfg.secret else ''
+                        if pat:
+                            token = base64.b64encode(f':{pat}'.encode()).decode()
+                            azure_auth_header = f'Basic {token}'
+                    if azure_auth_header:
+                        headers['Authorization'] = azure_auth_header
+
+                async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+                    response = await client.get(normalized, headers=headers)
+                    response.raise_for_status()
+                content_type = str(response.headers.get('content-type', '')).split(';', 1)[0].strip().lower()
+                if not content_type.startswith('image/'):
+                    continue
+                if len(response.content) > 5 * 1024 * 1024:
+                    continue
+                ext_map = {
+                    'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif',
+                    'image/webp': '.webp', 'image/svg+xml': '.svg',
+                }
+                ext = ext_map.get(content_type, '.bin')
+                digest = hashlib.sha1(normalized.encode()).hexdigest()[:16]
+                disk_path = target_root / f'{digest}{ext}'
+                if not disk_path.is_file():
+                    disk_path.write_bytes(response.content)
+                # Build a friendly filename so prompts have context about origin.
+                friendly = 'inline-image' + ext
+                if 'fileName=' in normalized:
+                    try:
+                        from urllib.parse import urlparse, parse_qs
+                        q = parse_qs(urlparse(normalized).query)
+                        if q.get('fileName'):
+                            friendly = q['fileName'][0]
+                    except Exception:
+                        pass
+                saved.append({
+                    'filename': friendly,
+                    'path': str(disk_path),
+                    'content_type': content_type,
+                    'size_bytes': len(response.content),
+                    'source_url': normalized,
+                })
+            except Exception as exc:
+                logger.info('Inline image prefetch skipped (%s): %s', normalized[:120], exc)
+        return saved
+
+    async def _build_attachments_section(
+        self,
+        task_id: int,
+        organization_id: int,
+        description: str | None = None,
+    ) -> str:
+        """Render every TaskAttachment plus any description-embedded images
+        we managed to prefetch as a prompt fragment so agents, local CLIs,
+        and flow nodes all see the same thing.
 
         - Images and other binaries: list filename + content_type + size +
           host-resolved file path. Vision-capable LLMs and the local CLI
@@ -2580,24 +2672,34 @@ class OrchestrationService:
           the file exists.
         - Text-like blobs (text/*, JSON, XML, YAML, MD): inline the
           contents up to a per-file cap so the prompt is self-contained.
-        Returns '' when the task has no attachments.
+        Returns '' when the task has no attachments and no inline images.
         """
-        if self.db_session is None:
-            return ''
-        try:
-            from agena_models.models.task_attachment import TaskAttachment
-            rows = (await self.db_session.execute(
-                select(TaskAttachment)
-                .where(
-                    TaskAttachment.task_id == task_id,
-                    TaskAttachment.organization_id == organization_id,
+        rows = []
+        if self.db_session is not None:
+            try:
+                from agena_models.models.task_attachment import TaskAttachment
+                rows = (await self.db_session.execute(
+                    select(TaskAttachment)
+                    .where(
+                        TaskAttachment.task_id == task_id,
+                        TaskAttachment.organization_id == organization_id,
+                    )
+                    .order_by(TaskAttachment.id)
+                )).scalars().all()
+            except Exception as exc:
+                logger.warning('Could not load attachments for task %s: %s', task_id, exc)
+
+        # Pull description-embedded image URLs onto disk so CLIs can Read them.
+        inline_items: list[dict] = []
+        if description:
+            try:
+                inline_items = await self._prefetch_inline_images_to_disk(
+                    description, organization_id, task_id,
                 )
-                .order_by(TaskAttachment.id)
-            )).scalars().all()
-        except Exception as exc:
-            logger.warning('Could not load attachments for task %s: %s', task_id, exc)
-            return ''
-        if not rows:
+            except Exception as exc:
+                logger.info('Inline image prefetch failed for task %s: %s', task_id, exc)
+
+        if not rows and not inline_items:
             return ''
 
         host_root = (get_settings().attachment_host_root or '').rstrip('/')
@@ -2642,6 +2744,18 @@ class OrchestrationService:
                 lines.append(header + '  [image — vision-capable models can open the file path above]')
             else:
                 lines.append(header)
+
+        # Description-embedded images that we prefetched to disk. Local CLIs
+        # can open these directly with the Read tool; the original URL is
+        # kept for traceability when the caller needs to reference it.
+        for item in inline_items:
+            host_path = _resolve_host_path(item['path'])
+            size_kb = (item['size_bytes'] or 0) / 1024
+            lines.append(
+                f"- {item['filename']} ({item['content_type']}, {size_kb:.1f} KB) — file: {host_path}"
+                f"  [inline image from task description; source: {item['source_url']}]"
+            )
+
         return '\n'.join(lines)
 
     def _build_effective_description(
