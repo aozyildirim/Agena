@@ -79,6 +79,10 @@ class TaskService:
                 )
             )).scalar_one_or_none()
             if existing is not None:
+                # Transient flag so the route can tell the caller "already
+                # had this one" instead of pretending we just created it.
+                # Not a column — lives on the in-memory object only.
+                setattr(existing, '_was_existing', True)
                 return existing
 
         task = TaskRecord(

@@ -8,6 +8,7 @@ import { apiFetch, apiUpload, loadPrefs, type BackendRepoMapping, type RepoMappi
 import { TaskItem, type RepoAssignment } from '@/components/TaskTable';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector from '@/components/RemoteRepoSelector';
+import { renderMarkdown } from '@/lib/markdown';
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
@@ -110,6 +111,10 @@ export default function DashboardTasksPage() {
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState('');
   const [pickerSearch, setPickerSearch] = useState('');
+  // external_id → existing Agena task id, so the picker can mark items
+  // that have already been imported and route the user to the existing
+  // task instead of creating a duplicate.
+  const [importedExternalMap, setImportedExternalMap] = useState<Record<string, number>>({});
   const [createSource, setCreateSource] = useState<'internal' | 'azure' | 'jira'>('internal');
   const [createExternalId, setCreateExternalId] = useState('');
 
@@ -269,12 +274,26 @@ export default function DashboardTasksPage() {
     setPickerLoading(true);
     setPickerError('');
     try {
-      // Reuse the same project / sprint that the Sprint Board uses by
-      // pulling values from localStorage (the marketing-side cache that
-      // sprint pages already populate).
-      const project = localStorage.getItem(source === 'jira' ? 'agena_jira_project' : 'agena_sprint_project') || '';
-      const team = localStorage.getItem(source === 'jira' ? 'agena_jira_board' : 'agena_sprint_team') || '';
-      const sprint = localStorage.getItem(source === 'jira' ? 'agena_jira_sprint' : 'agena_sprint_path') || '';
+      // Single source of truth: /preferences (DB-backed). Azure values live
+      // in named columns; Jira values are tucked into profile_settings JSON
+      // (see SprintSwitcher.save). We don't read localStorage here — the
+      // user might be on a fresh browser, second device, or have it cleared.
+      type Prefs = {
+        azure_project?: string | null;
+        azure_team?: string | null;
+        azure_sprint_path?: string | null;
+        profile_settings?: Record<string, string | undefined>;
+      };
+      const prefs = await apiFetch<Prefs>('/preferences').catch(() => ({} as Prefs));
+      const ps = prefs.profile_settings || {};
+      const project = (source === 'jira' ? (ps.jira_project || '') : prefs.azure_project) || '';
+      const team = (source === 'jira' ? (ps.jira_board || '') : prefs.azure_team) || '';
+      const sprint = (source === 'jira' ? (ps.jira_sprint_id || '') : prefs.azure_sprint_path) || '';
+      if (!sprint) {
+        setPickerError(t('tasks.picker.needSprint' as TranslationKey));
+        setPickerItems([]);
+        return;
+      }
       const qs = new URLSearchParams();
       if (source === 'jira') {
         if (project) qs.set('project_key', project);
@@ -284,11 +303,34 @@ export default function DashboardTasksPage() {
         if (project) qs.set('project', project);
         if (team) qs.set('team', team);
         if (sprint) qs.set('sprint_path', sprint);
+        // Default backend filter is `state=New`; we want every state in
+        // the sprint so the picker can pull bugs / in-progress items too.
+        qs.set('state', '');
       }
       const path = source === 'jira' ? '/tasks/jira' : '/tasks/azure';
       const data = await apiFetch<{ items?: SprintItem[] } | SprintItem[]>(`${path}?${qs.toString()}`);
       const items = Array.isArray(data) ? data : (data.items || []);
       setPickerItems(items);
+      // Build a map of already-imported items so we can mark them and route
+      // clicks to the existing task instead of trying to recreate it.
+      try {
+        type Row = { id: number; external_id?: string; title?: string };
+        const tagged = await apiFetch<{ items: Row[] }>(`/tasks/search?source=${source}&page=1&page_size=200`).catch(() => ({ items: [] as Row[] }));
+        const internal = await apiFetch<{ items: Row[] }>(`/tasks/search?source=internal&page=1&page_size=200`).catch(() => ({ items: [] as Row[] }));
+        const map: Record<string, number> = {};
+        for (const r of tagged.items || []) {
+          if (r.external_id) map[r.external_id] = r.id;
+        }
+        // Legacy: pre-source imports still use `[Azure #N] / [Jira KEY]` titles.
+        const titleRe = new RegExp(`^\\[${source === 'jira' ? 'Jira' : 'Azure'}\\s*#([^\\]\\s]+)\\]`);
+        for (const r of internal.items || []) {
+          const m = r.title ? titleRe.exec(r.title) : null;
+          if (m && m[1] && !map[m[1]]) map[m[1]] = r.id;
+        }
+        setImportedExternalMap(map);
+      } catch {
+        setImportedExternalMap({});
+      }
       if (items.length === 0) {
         setPickerError(t('tasks.picker.empty.list' as TranslationKey));
       }
@@ -302,6 +344,9 @@ export default function DashboardTasksPage() {
   function applyPickedItem(source: 'azure' | 'jira', item: SprintItem) {
     const prefix = source === 'jira' ? 'Jira' : 'Azure';
     setTitle(`[${prefix} #${item.id}] ${item.title}`);
+    // Keep the original HTML — the textarea shows raw markup for editing
+    // but a live preview pane (renderMarkdown, same path the task detail
+    // uses) renders it underneath so the user sees the formatted version.
     setDescription((item.description || '').trim());
     setCreateSource(source);
     setCreateExternalId(String(item.id));
@@ -314,7 +359,7 @@ export default function DashboardTasksPage() {
       const fullDesc = remoteRepoMeta
         ? description + '\n\n---\nRemote Repo: ' + remoteRepoMeta
         : description;
-      const created = await apiFetch<{ id: number }>('/tasks', {
+      const created = await apiFetch<{ id: number; was_existing?: boolean }>('/tasks', {
         method: 'POST',
         body: JSON.stringify({
           title,
@@ -333,6 +378,16 @@ export default function DashboardTasksPage() {
           external_id: createSource !== 'internal' && createExternalId ? createExternalId : undefined,
         }),
       });
+      // If the task was already in the system (matched by source +
+      // external_id), don't pretend we just created it — tell the user
+      // and jump straight to the existing detail page so they can decide
+      // what to do next.
+      if (created?.was_existing && created?.id) {
+        setMsg(t('tasks.alreadyExisted' as TranslationKey));
+        setShowCreate(false);
+        router.push(`/tasks/${created.id}`);
+        return;
+      }
       if (attachedFiles.length > 0 && created?.id) {
         setUploadingFiles(true);
         try {
@@ -592,12 +647,23 @@ export default function DashboardTasksPage() {
 
             {pickerSource !== 'empty' && (
               <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 10, display: 'grid', gap: 8 }}>
-                <input
-                  value={pickerSearch}
-                  onChange={(e) => setPickerSearch(e.target.value)}
-                  placeholder={t('tasks.picker.searchPlaceholder' as TranslationKey)}
-                  style={{ padding: '6px 10px', fontSize: 12, borderRadius: 8 }}
-                />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    placeholder={t('tasks.picker.searchPlaceholder' as TranslationKey)}
+                    style={{ flex: 1, padding: '6px 10px', fontSize: 12, borderRadius: 8 }}
+                  />
+                  <button
+                    type='button'
+                    onClick={() => void loadSprintItems(pickerSource as 'azure' | 'jira')}
+                    disabled={pickerLoading}
+                    title={t('tasks.picker.refresh' as TranslationKey)}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-78)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    ↻
+                  </button>
+                </div>
                 {pickerLoading ? (
                   <div style={{ fontSize: 11, color: 'var(--ink-58)', padding: '8px 4px' }}>{t('tasks.picker.loading' as TranslationKey)}</div>
                 ) : pickerError ? (
@@ -607,21 +673,44 @@ export default function DashboardTasksPage() {
                     {pickerItems
                       .filter((it) => !pickerSearch || it.title.toLowerCase().includes(pickerSearch.toLowerCase()) || String(it.id).includes(pickerSearch))
                       .slice(0, 200)
-                      .map((it) => (
-                        <button
-                          key={it.id}
-                          type='button'
-                          onClick={() => applyPickedItem(pickerSource, it)}
-                          style={{
-                            textAlign: 'left', padding: '7px 10px', borderRadius: 8,
-                            border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)',
-                            color: 'var(--ink-78)', fontSize: 12, cursor: 'pointer',
-                          }}
-                        >
-                          <span style={{ color: 'var(--ink-45)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
-                          <span style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{it.title}</span>
-                        </button>
-                      ))}
+                      .map((it) => {
+                        const existingId = importedExternalMap[String(it.id)];
+                        return (
+                          <button
+                            key={it.id}
+                            type='button'
+                            onClick={() => {
+                              if (existingId) {
+                                // Already imported — open the existing task
+                                // instead of recreating it.
+                                setShowCreate(false);
+                                router.push(`/tasks/${existingId}`);
+                              } else {
+                                applyPickedItem(pickerSource as 'azure' | 'jira', it);
+                              }
+                            }}
+                            title={existingId ? t('tasks.picker.openExisting' as TranslationKey, { id: existingId }) : ''}
+                            style={{
+                              textAlign: 'left', padding: '7px 10px', borderRadius: 8,
+                              border: '1px solid ' + (existingId ? 'rgba(34,197,94,0.25)' : 'var(--panel-border-2)'),
+                              background: existingId ? 'rgba(34,197,94,0.06)' : 'var(--panel-alt)',
+                              color: 'var(--ink-78)', fontSize: 12, cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              opacity: existingId ? 0.85 : 1,
+                            }}
+                          >
+                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ color: 'var(--ink-45)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
+                              <span style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{it.title}</span>
+                            </span>
+                            {existingId && (
+                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,0.18)', color: '#22c55e', whiteSpace: 'nowrap' }}>
+                                ✓ #{existingId}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
               </div>
@@ -630,7 +719,22 @@ export default function DashboardTasksPage() {
 
           <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tasks.titlePlaceholder')} required />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPlaceholder')} rows={3} required />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPlaceholder')} rows={4} required />
+            {/* Live preview pane — same renderer the task detail page uses,
+                so HTML pasted in from Azure/Jira shows up styled instead of
+                as raw `<div>` markup. Hidden when the field is empty. */}
+            {description && (
+              <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '10px 12px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
+                  {t('tasks.descriptionPreview' as TranslationKey)}
+                </div>
+                <div
+                  className='task-md'
+                  style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ink-78)', maxHeight: 240, overflowY: 'auto', wordBreak: 'break-word' }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
+                />
+              </div>
+            )}
             <textarea
               value={storyContext}
               onChange={(e) => setStoryContext(e.target.value)}

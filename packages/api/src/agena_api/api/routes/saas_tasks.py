@@ -187,7 +187,9 @@ async def create_task(
             await db.commit()
             await db.refresh(task)
 
-    return await _to_task_response(service, tenant.organization_id, task)
+    response = await _to_task_response(service, tenant.organization_id, task)
+    response.was_existing = bool(getattr(task, '_was_existing', False))
+    return response
 
 
 @router.get('', response_model=list[TaskResponse])
