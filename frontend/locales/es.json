@@ -1092,6 +1092,7 @@
   "tasks.picker.refresh": "Actualizar",
   "tasks.picker.openExisting": "Ya importado · abrir task #{id}",
   "tasks.descriptionPreview": "Vista previa de descripción",
+  "tasks.descriptionEdit": "Editar texto crudo",
   "taskDetail.removeAssignment": "Quitar este repo",
   "taskDetail.removeAssignmentBlocked": "No se puede quitar una asignación en ejecución",
   "taskDetail.removeAssignmentConfirm": "¿Quitar la asignación de {name}?",

@@ -269,6 +269,7 @@
   "tasks.picker.refresh": "更新",
   "tasks.picker.openExisting": "すでに取り込み済み · タスク #{id} を開く",
   "tasks.descriptionPreview": "説明プレビュー",
+  "tasks.descriptionEdit": "生のテキストを編集",
   "taskDetail.removeAssignment": "このリポジトリを外す",
   "taskDetail.removeAssignmentBlocked": "実行中の割り当ては削除できません",
   "taskDetail.removeAssignmentConfirm": "{name} の割り当てを削除しますか？",

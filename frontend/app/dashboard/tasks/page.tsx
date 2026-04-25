@@ -103,6 +103,9 @@ export default function DashboardTasksPage() {
   const [selectedRepoMappingIds, setSelectedRepoMappingIds] = useState<number[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  // When description has HTML markers (came from a sprint pick), default
+  // to the rendered preview view; an "edit" toggle reveals the raw textarea.
+  const [showRawDescription, setShowRawDescription] = useState(false);
   // Create-modal "fetch from sprint" picker. Empty = blank task; otherwise
   // the user is browsing Azure/Jira items and a click prefills the form.
   const [pickerSource, setPickerSource] = useState<'empty' | 'azure' | 'jira'>('empty');
@@ -350,6 +353,7 @@ export default function DashboardTasksPage() {
     setDescription((item.description || '').trim());
     setCreateSource(source);
     setCreateExternalId(String(item.id));
+    setShowRawDescription(false);  // start in rendered preview
     setPickerSource('empty');  // collapse the list, full form is now visible
   }
 
@@ -417,6 +421,7 @@ export default function DashboardTasksPage() {
       setPickerSearch('');
       setCreateSource('internal');
       setCreateExternalId('');
+      setShowRawDescription(false);
       setShowCreate(false);
       setMsg(t('tasks.created')); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.createFailed')); }
@@ -719,22 +724,53 @@ export default function DashboardTasksPage() {
 
           <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tasks.titlePlaceholder')} required />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPlaceholder')} rows={4} required />
-            {/* Live preview pane — same renderer the task detail page uses,
-                so HTML pasted in from Azure/Jira shows up styled instead of
-                as raw `<div>` markup. Hidden when the field is empty. */}
-            {description && (
-              <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '10px 12px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>
-                  {t('tasks.descriptionPreview' as TranslationKey)}
+            {/* Description: rendered (read-only) by default when there's
+                content, with an Edit toggle that flips to a raw textarea.
+                When the field is empty we always show the textarea so the
+                user can start typing without an extra click. */}
+            {(() => {
+              const hasContent = !!description.trim();
+              const isRich = /<\/?(div|p|span|br|h[1-6]|ul|ol|li|table|img|strong|em|b|i|code|pre|blockquote)\b/i.test(description);
+              const showText = !hasContent || showRawDescription || !isRich;
+              return showText ? (
+                <div style={{ position: 'relative' }}>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t('tasks.descriptionPlaceholder')}
+                    rows={5}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                  {hasContent && isRich && (
+                    <button
+                      type='button'
+                      onClick={() => setShowRawDescription(false)}
+                      style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                      title={t('tasks.descriptionPreview' as TranslationKey)}
+                    >
+                      👁
+                    </button>
+                  )}
                 </div>
-                <div
-                  className='task-md'
-                  style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ink-78)', maxHeight: 240, overflowY: 'auto', wordBreak: 'break-word' }}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
-                />
-              </div>
-            )}
+              ) : (
+                <div style={{ position: 'relative', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '10px 36px 10px 12px' }}>
+                  <button
+                    type='button'
+                    onClick={() => setShowRawDescription(true)}
+                    style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                    title={t('tasks.descriptionEdit' as TranslationKey)}
+                  >
+                    ✏️
+                  </button>
+                  <div
+                    className='task-md'
+                    style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ink-78)', maxHeight: 280, overflowY: 'auto', wordBreak: 'break-word' }}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
+                  />
+                </div>
+              );
+            })()}
             <textarea
               value={storyContext}
               onChange={(e) => setStoryContext(e.target.value)}

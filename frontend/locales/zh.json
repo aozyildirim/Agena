@@ -269,6 +269,7 @@
   "tasks.picker.refresh": "刷新",
   "tasks.picker.openExisting": "已导入 · 打开任务 #{id}",
   "tasks.descriptionPreview": "描述预览",
+  "tasks.descriptionEdit": "编辑原始文本",
   "taskDetail.removeAssignment": "移除此仓库",
   "taskDetail.removeAssignmentBlocked": "运行中的分配无法移除",
   "taskDetail.removeAssignmentConfirm": "移除 {name} 的分配？",

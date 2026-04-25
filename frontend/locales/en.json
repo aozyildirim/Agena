@@ -1189,6 +1189,7 @@
   "tasks.picker.refresh": "Refresh",
   "tasks.picker.openExisting": "Already imported · open task #{id}",
   "tasks.descriptionPreview": "Description preview",
+  "tasks.descriptionEdit": "Edit raw text",
   "taskDetail.removeAssignment": "Remove this repo",
   "taskDetail.removeAssignmentBlocked": "Running assignment can't be removed",
   "taskDetail.removeAssignmentConfirm": "Remove the {name} assignment?",

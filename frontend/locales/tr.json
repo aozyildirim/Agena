@@ -1189,6 +1189,7 @@
   "tasks.picker.refresh": "Yenile",
   "tasks.picker.openExisting": "Bu iş zaten alınmış · Görev #{id}'i aç",
   "tasks.descriptionPreview": "Açıklama önizleme",
+  "tasks.descriptionEdit": "Ham metni düzenle",
   "taskDetail.removeAssignment": "Bu repo'yu kaldır",
   "taskDetail.removeAssignmentBlocked": "Çalışan atama silinemez",
   "taskDetail.removeAssignmentConfirm": "{name} ataması silinsin mi?",

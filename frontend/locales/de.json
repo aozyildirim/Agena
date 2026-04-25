@@ -269,6 +269,7 @@
   "tasks.picker.refresh": "Aktualisieren",
   "tasks.picker.openExisting": "Bereits importiert · Aufgabe #{id} öffnen",
   "tasks.descriptionPreview": "Beschreibungsvorschau",
+  "tasks.descriptionEdit": "Rohtext bearbeiten",
   "taskDetail.removeAssignment": "Dieses Repo entfernen",
   "taskDetail.removeAssignmentBlocked": "Laufende Zuweisung kann nicht entfernt werden",
   "taskDetail.removeAssignmentConfirm": "Zuweisung {name} entfernen?",
