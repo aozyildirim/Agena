@@ -46,6 +46,7 @@ type TaskDetail = {
   last_seen_at?: string | null;
   first_seen_at?: string | null;
   external_work_item_id?: string | null;
+  external_id?: string | null;
   repo_assignments?: {
     id: number;
     repo_mapping_id: number;
@@ -272,6 +273,7 @@ export default function TaskDetailPage() {
   const [azureOrgUrl, setAzureOrgUrl] = useState('');
   const [azureProject, setAzureProject] = useState('');
   const [azureSprintPath, setAzureSprintPath] = useState('');
+  const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [linkWorkItemInput, setLinkWorkItemInput] = useState('');
   const [linkBusy, setLinkBusy] = useState(false);
   const [rightTab, setRightTab] = useState<'agent' | 'steps' | 'memory' | 'diff' | 'logs'>('agent');
@@ -345,6 +347,8 @@ export default function TaskDetailPage() {
       }
       const azCfg = (integrations || []).find((c) => c.provider === 'azure');
       setAzureOrgUrl(azCfg?.base_url || '');
+      const jrCfg = (integrations || []).find((c) => c.provider === 'jira');
+      setJiraBaseUrl(jrCfg?.base_url || '');
       setTask(taskData);
       setAttachments(attachmentsData || []);
       setLogs(logsData);
@@ -993,6 +997,33 @@ export default function TaskDetailPage() {
                 <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'var(--glass)', color: 'var(--ink-58)', textTransform: 'capitalize' }}>
                   {task.source}
                 </span>
+                {/* Source link chip — points back to the original Azure /
+                    Jira work item the task was imported from. We only
+                    render it when there's no manually-linked work item
+                    (which already gets its own AB# anchor below). */}
+                {!task.external_work_item_id && task.external_id && (() => {
+                  const src = (task.source || '').toLowerCase();
+                  let href = '';
+                  let label = `${task.source}#${task.external_id}`;
+                  if (src === 'azure' && azureOrgUrl && azureProject && /^\d+$/.test(task.external_id)) {
+                    href = `${azureOrgUrl.replace(/\/$/, '')}/${encodeURIComponent(azureProject)}/_workitems/edit/${task.external_id}`;
+                    label = `Azure #${task.external_id}`;
+                  } else if (src === 'jira' && jiraBaseUrl) {
+                    href = `${jiraBaseUrl.replace(/\/$/, '')}/browse/${encodeURIComponent(task.external_id)}`;
+                    label = `Jira ${task.external_id}`;
+                  }
+                  if (!href) return null;
+                  return (
+                    <a
+                      href={href}
+                      target='_blank'
+                      rel='noreferrer'
+                      style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(96,165,250,0.12)', color: '#60a5fa', textDecoration: 'none' }}
+                    >
+                      {label} ↗
+                    </a>
+                  );
+                })()}
                 {task.external_work_item_id && (
                   azureOrgUrl && azureProject && /^\d+$/.test(task.external_work_item_id) ? (
                     <a
