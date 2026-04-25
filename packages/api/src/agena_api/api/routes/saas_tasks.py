@@ -806,6 +806,147 @@ async def delete_task(
     return {'status': 'deleted', 'task_id': str(task_id)}
 
 
+# ─── Task repo assignments ──────────────────────────────────────────────────
+
+class TaskRepoAssignmentUpdateRequest(BaseModel):
+    repo_mapping_ids: list[int]  # full replacement set; deletes anything missing
+
+
+@router.put('/{task_id}/repo-assignments', response_model=list[RepoAssignmentResponse])
+async def update_task_repo_assignments(
+    task_id: int,
+    payload: TaskRepoAssignmentUpdateRequest,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[RepoAssignmentResponse]:
+    """Replace the set of repo mappings attached to a task. Removes any
+    assignments not in the new list (only when they're not running) and
+    creates rows for any new mapping ids. Used by the task detail page's
+    edit-assignments UI."""
+    from agena_models.models.task_record import TaskRecord
+    from agena_models.models.task_repo_assignment import TaskRepoAssignment
+    from agena_models.models.repo_mapping import RepoMapping
+
+    task = (await db.execute(
+        select(TaskRecord).where(
+            TaskRecord.id == task_id,
+            TaskRecord.organization_id == tenant.organization_id,
+        )
+    )).scalar_one_or_none()
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+
+    requested = list({int(x) for x in (payload.repo_mapping_ids or []) if int(x) > 0})
+
+    # Validate all requested mappings belong to this org and are active.
+    if requested:
+        valid = (await db.execute(
+            select(RepoMapping.id).where(
+                RepoMapping.id.in_(requested),
+                RepoMapping.organization_id == tenant.organization_id,
+                RepoMapping.is_active.is_(True),
+            )
+        )).scalars().all()
+        if len(valid) != len(requested):
+            raise HTTPException(status_code=400, detail='One or more repo mappings not found or inactive')
+
+    existing_rows = (await db.execute(
+        select(TaskRepoAssignment).where(
+            TaskRepoAssignment.task_id == task_id,
+            TaskRepoAssignment.organization_id == tenant.organization_id,
+        )
+    )).scalars().all()
+    existing_by_mapping = {r.repo_mapping_id: r for r in existing_rows}
+    requested_set = set(requested)
+    existing_set = set(existing_by_mapping.keys())
+
+    # Delete assignments the user removed, but refuse to drop one that's
+    # actively running so we don't orphan an in-flight worker job.
+    for mid in existing_set - requested_set:
+        row = existing_by_mapping[mid]
+        if (row.status or '').lower() == 'running':
+            raise HTTPException(status_code=409, detail=f'Cannot remove assignment {row.id}: still running')
+        await db.delete(row)
+
+    # Create rows for newly added mappings.
+    for mid in requested_set - existing_set:
+        db.add(TaskRepoAssignment(
+            task_id=task_id,
+            organization_id=tenant.organization_id,
+            repo_mapping_id=mid,
+            status='pending',
+        ))
+
+    # If the task's primary repo_mapping_id was on a removed assignment,
+    # rotate it to the first remaining mapping (or clear it).
+    if task.repo_mapping_id and task.repo_mapping_id not in requested_set:
+        task.repo_mapping_id = next(iter(requested_set), None)
+
+    await db.commit()
+
+    # Re-load with display info.
+    rows = (await db.execute(
+        select(TaskRepoAssignment, RepoMapping)
+        .outerjoin(RepoMapping, TaskRepoAssignment.repo_mapping_id == RepoMapping.id)
+        .where(TaskRepoAssignment.task_id == task_id, TaskRepoAssignment.organization_id == tenant.organization_id)
+        .order_by(TaskRepoAssignment.id)
+    )).all()
+    return [
+        RepoAssignmentResponse(
+            id=a.id,
+            repo_mapping_id=a.repo_mapping_id,
+            repo_display_name=f"{m.provider}:{m.owner}/{m.repo_name}" if m else '',
+            status=a.status,
+            pr_url=a.pr_url,
+            branch_name=a.branch_name,
+            failure_reason=a.failure_reason,
+        )
+        for a, m in rows
+    ]
+
+
+@router.delete('/{task_id}/repo-assignments/{assignment_id}')
+async def delete_task_repo_assignment(
+    task_id: int,
+    assignment_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    """Single-row delete used by the task detail page's "remove this repo"
+    button. Refuses to drop an assignment that's still running."""
+    from agena_models.models.task_record import TaskRecord
+    from agena_models.models.task_repo_assignment import TaskRepoAssignment
+    row = (await db.execute(
+        select(TaskRepoAssignment).where(
+            TaskRepoAssignment.id == assignment_id,
+            TaskRepoAssignment.task_id == task_id,
+            TaskRepoAssignment.organization_id == tenant.organization_id,
+        )
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='Assignment not found')
+    if (row.status or '').lower() == 'running':
+        raise HTTPException(status_code=409, detail='Cannot remove an assignment that is currently running')
+    removed_mapping_id = row.repo_mapping_id
+    await db.delete(row)
+
+    # Rotate the task's primary repo if it was the deleted one.
+    task = await db.get(TaskRecord, task_id)
+    if task and task.repo_mapping_id == removed_mapping_id:
+        survivor = (await db.execute(
+            select(TaskRepoAssignment.repo_mapping_id)
+            .where(
+                TaskRepoAssignment.task_id == task_id,
+                TaskRepoAssignment.organization_id == tenant.organization_id,
+            )
+            .limit(1)
+        )).scalar_one_or_none()
+        task.repo_mapping_id = survivor
+
+    await db.commit()
+    return {'status': 'deleted', 'assignment_id': str(assignment_id)}
+
+
 # ─── Task attachments ────────────────────────────────────────────────────────
 
 async def _load_task_for_org(db: AsyncSession, organization_id: int, task_id: int):

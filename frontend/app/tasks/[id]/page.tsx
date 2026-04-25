@@ -1135,6 +1135,7 @@ export default function TaskDetailPage() {
                     {task.repo_assignments.map((ra) => {
                       const sc: Record<string, string> = { completed: '#22c55e', running: '#38bdf8', failed: '#f87171', queued: '#f59e0b', new: '#94a3b8' };
                       const c = sc[ra.status] ?? '#6b7280';
+                      const canRemove = (ra.status || '').toLowerCase() !== 'running';
                       return (
                         <div key={ra.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border)' }}>
                           <span style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
@@ -1152,6 +1153,28 @@ export default function TaskDetailPage() {
                               {ra.failure_reason}
                             </span>
                           )}
+                          <button
+                            type='button'
+                            disabled={!canRemove}
+                            onClick={async () => {
+                              if (!canRemove) return;
+                              if (!window.confirm(t('taskDetail.removeAssignmentConfirm' as never, { name: ra.repo_display_name }))) return;
+                              try {
+                                await apiFetch(`/tasks/${task.id}/repo-assignments/${ra.id}`, { method: 'DELETE' });
+                                await loadData(false);
+                              } catch (e) {
+                                setError(e instanceof Error ? e.message : 'Delete failed');
+                              }
+                            }}
+                            title={canRemove ? t('taskDetail.removeAssignment' as never) : t('taskDetail.removeAssignmentBlocked' as never)}
+                            style={{
+                              background: 'none', border: 'none', color: canRemove ? 'var(--ink-50)' : 'var(--ink-30)',
+                              cursor: canRemove ? 'pointer' : 'not-allowed', fontSize: 14, padding: '0 4px', lineHeight: 1,
+                            }}
+                            aria-label='Remove'
+                          >
+                            ×
+                          </button>
                         </div>
                       );
                     })}

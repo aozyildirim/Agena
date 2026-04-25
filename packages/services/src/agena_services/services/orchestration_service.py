@@ -1316,6 +1316,28 @@ class OrchestrationService:
             task.status = 'completed'
             task.pr_url = pr_url
             task.branch_name = branch_name
+
+            # Mirror the completion onto the matching TaskRepoAssignment row
+            # (multi-repo path creates one row per mapping at import time).
+            # Without this the per-repo "x/N PRs" badge on the detail page
+            # stays stuck at 0 even when a PR was created.
+            try:
+                from agena_models.models.task_repo_assignment import TaskRepoAssignment
+                if repo_mapping is not None:
+                    rows = (await self.db_session.execute(
+                        select(TaskRepoAssignment).where(
+                            TaskRepoAssignment.task_id == task.id,
+                            TaskRepoAssignment.organization_id == organization_id,
+                            TaskRepoAssignment.repo_mapping_id == repo_mapping.id,
+                        )
+                    )).scalars().all()
+                    for row in rows:
+                        row.status = 'completed'
+                        row.pr_url = pr_url
+                        row.branch_name = branch_name
+            except Exception as _ar_exc:
+                logger.warning('Could not sync TaskRepoAssignment for task %s: %s', task.id, _ar_exc)
+
             await self.db_session.commit()
 
             # Auto-unblock: queue dependent tasks whose dependencies are now all completed
@@ -1474,6 +1496,22 @@ class OrchestrationService:
         except Exception as exc:
             task.status = 'failed'
             task.failure_reason = str(exc)
+            # Mirror failure onto the matching repo assignment row.
+            try:
+                from agena_models.models.task_repo_assignment import TaskRepoAssignment
+                if repo_mapping is not None:
+                    rows = (await self.db_session.execute(
+                        select(TaskRepoAssignment).where(
+                            TaskRepoAssignment.task_id == task.id,
+                            TaskRepoAssignment.organization_id == organization_id,
+                            TaskRepoAssignment.repo_mapping_id == repo_mapping.id,
+                        )
+                    )).scalars().all()
+                    for row in rows:
+                        row.status = 'failed'
+                        row.failure_reason = str(exc)[:1000]
+            except Exception:
+                pass
             await self.db_session.commit()
 
             publish_fire_and_forget(organization_id, 'task_status', {
