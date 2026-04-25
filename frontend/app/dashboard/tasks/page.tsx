@@ -102,6 +102,16 @@ export default function DashboardTasksPage() {
   const [selectedRepoMappingIds, setSelectedRepoMappingIds] = useState<number[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  // Create-modal "fetch from sprint" picker. Empty = blank task; otherwise
+  // the user is browsing Azure/Jira items and a click prefills the form.
+  const [pickerSource, setPickerSource] = useState<'empty' | 'azure' | 'jira'>('empty');
+  type SprintItem = { id: string; title: string; description?: string };
+  const [pickerItems, setPickerItems] = useState<SprintItem[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState('');
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [createSource, setCreateSource] = useState<'internal' | 'azure' | 'jira'>('internal');
+  const [createExternalId, setCreateExternalId] = useState('');
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasAnyModalOpen = aiPopupTaskId !== null
@@ -255,6 +265,49 @@ export default function DashboardTasksPage() {
     }
   }
 
+  async function loadSprintItems(source: 'azure' | 'jira') {
+    setPickerLoading(true);
+    setPickerError('');
+    try {
+      // Reuse the same project / sprint that the Sprint Board uses by
+      // pulling values from localStorage (the marketing-side cache that
+      // sprint pages already populate).
+      const project = localStorage.getItem(source === 'jira' ? 'agena_jira_project' : 'agena_sprint_project') || '';
+      const team = localStorage.getItem(source === 'jira' ? 'agena_jira_board' : 'agena_sprint_team') || '';
+      const sprint = localStorage.getItem(source === 'jira' ? 'agena_jira_sprint' : 'agena_sprint_path') || '';
+      const qs = new URLSearchParams();
+      if (source === 'jira') {
+        if (project) qs.set('project_key', project);
+        if (team) qs.set('board_id', team);
+        if (sprint) qs.set('sprint_id', sprint);
+      } else {
+        if (project) qs.set('project', project);
+        if (team) qs.set('team', team);
+        if (sprint) qs.set('sprint_path', sprint);
+      }
+      const path = source === 'jira' ? '/tasks/jira' : '/tasks/azure';
+      const data = await apiFetch<{ items?: SprintItem[] } | SprintItem[]>(`${path}?${qs.toString()}`);
+      const items = Array.isArray(data) ? data : (data.items || []);
+      setPickerItems(items);
+      if (items.length === 0) {
+        setPickerError(t('tasks.picker.empty.list' as TranslationKey));
+      }
+    } catch (e) {
+      setPickerError(e instanceof Error ? e.message : t('tasks.picker.loadFailed' as TranslationKey));
+    } finally {
+      setPickerLoading(false);
+    }
+  }
+
+  function applyPickedItem(source: 'azure' | 'jira', item: SprintItem) {
+    const prefix = source === 'jira' ? 'Jira' : 'Azure';
+    setTitle(`[${prefix} #${item.id}] ${item.title}`);
+    setDescription((item.description || '').trim());
+    setCreateSource(source);
+    setCreateExternalId(String(item.id));
+    setPickerSource('empty');  // collapse the list, full form is now visible
+  }
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     try {
@@ -273,6 +326,11 @@ export default function DashboardTasksPage() {
           max_cost_usd: maxCostUsd ? Number(maxCostUsd) : undefined,
           depends_on_task_ids: selectedDepIds.length > 0 ? selectedDepIds : undefined,
           repo_mapping_ids: selectedRepoMappingIds.length > 0 ? selectedRepoMappingIds : undefined,
+          // Tag with the originating system when the user prefilled the form
+          // from a sprint item — landed in the same dedup bucket as bulk
+          // imports and unlocks the "Azure #ID ↗" chip on the detail page.
+          source: createSource !== 'internal' ? createSource : undefined,
+          external_id: createSource !== 'internal' && createExternalId ? createExternalId : undefined,
         }),
       });
       if (attachedFiles.length > 0 && created?.id) {
@@ -299,6 +357,11 @@ export default function DashboardTasksPage() {
       setShowDepsSection(false);
       setDepSearchQuery('');
       setAttachedFiles([]);
+      setPickerSource('empty');
+      setPickerItems([]);
+      setPickerSearch('');
+      setCreateSource('internal');
+      setCreateExternalId('');
       setShowCreate(false);
       setMsg(t('tasks.created')); await load();
     } catch (e) { setError(e instanceof Error ? e.message : t('tasks.createFailed')); }
@@ -453,15 +516,118 @@ export default function DashboardTasksPage() {
         </button>
       </div>
 
-      {/* Create form */}
-      {showCreate && (
-        <div style={{
-          borderRadius: 20, border: '1px solid rgba(13,148,136,0.3)',
-          background: 'rgba(13,148,136,0.06)', padding: 24,
-          position: 'relative', overflow: 'hidden',
-        }}>
+      {/* Create modal — portaled so the overlay covers the whole viewport
+          and the form scrolls independently of the task list behind. */}
+      {showCreate && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => !uploadingFiles && setShowCreate(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '40px 16px', overflowY: 'auto',
+          }}
+        >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: 720, maxWidth: '100%',
+            borderRadius: 20, border: '1px solid rgba(13,148,136,0.35)',
+            background: 'var(--surface)', padding: 24,
+            position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+          }}
+        >
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.6), transparent)' }} />
-          <h3 style={{ color: 'var(--ink-90)', marginTop: 0, marginBottom: 16 }}>{t('tasks.createTitle')}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ color: 'var(--ink-90)', margin: 0 }}>{t('tasks.createTitle')}</h3>
+            <button
+              type='button'
+              onClick={() => !uploadingFiles && setShowCreate(false)}
+              disabled={uploadingFiles}
+              style={{ background: 'none', border: 'none', color: 'var(--ink-50)', fontSize: 22, cursor: 'pointer', padding: 0, lineHeight: 1 }}
+              aria-label={t('tasks.cancel')}
+            >×</button>
+          </div>
+
+          {/* Source picker — three tabs above the form. Picking Azure/Jira
+              loads sprint items below; clicking one prefills title +
+              description and tags the task with source/external_id so it
+              joins the same dedup bucket as bulk imports. */}
+          <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>
+              {t('tasks.picker.label' as TranslationKey)}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {(['empty', 'azure', 'jira'] as const).map((src) => {
+                const active = pickerSource === src;
+                return (
+                  <button
+                    key={src}
+                    type='button'
+                    onClick={() => {
+                      setPickerSource(src);
+                      if (src !== 'empty' && pickerItems.length === 0) {
+                        void loadSprintItems(src);
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      border: '1px solid ' + (active ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-3)'),
+                      background: active ? 'rgba(13,148,136,0.12)' : 'transparent',
+                      color: active ? 'var(--ink-90)' : 'var(--ink-65)',
+                    }}
+                  >
+                    {src === 'empty' && '✏️ ' + t('tasks.picker.empty' as TranslationKey)}
+                    {src === 'azure' && '📥 ' + t('tasks.picker.azure' as TranslationKey)}
+                    {src === 'jira' && '📥 ' + t('tasks.picker.jira' as TranslationKey)}
+                  </button>
+                );
+              })}
+              {createSource !== 'internal' && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto', padding: '5px 10px', borderRadius: 999, background: 'rgba(96,165,250,0.12)', color: '#60a5fa', fontSize: 11, fontWeight: 700 }}>
+                  ✓ {createSource === 'azure' ? 'Azure' : 'Jira'} #{createExternalId}
+                </span>
+              )}
+            </div>
+
+            {pickerSource !== 'empty' && (
+              <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 10, display: 'grid', gap: 8 }}>
+                <input
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
+                  placeholder={t('tasks.picker.searchPlaceholder' as TranslationKey)}
+                  style={{ padding: '6px 10px', fontSize: 12, borderRadius: 8 }}
+                />
+                {pickerLoading ? (
+                  <div style={{ fontSize: 11, color: 'var(--ink-58)', padding: '8px 4px' }}>{t('tasks.picker.loading' as TranslationKey)}</div>
+                ) : pickerError ? (
+                  <div style={{ fontSize: 11, color: '#fca5a5', padding: '8px 4px' }}>{pickerError}</div>
+                ) : (
+                  <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4 }}>
+                    {pickerItems
+                      .filter((it) => !pickerSearch || it.title.toLowerCase().includes(pickerSearch.toLowerCase()) || String(it.id).includes(pickerSearch))
+                      .slice(0, 200)
+                      .map((it) => (
+                        <button
+                          key={it.id}
+                          type='button'
+                          onClick={() => applyPickedItem(pickerSource, it)}
+                          style={{
+                            textAlign: 'left', padding: '7px 10px', borderRadius: 8,
+                            border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)',
+                            color: 'var(--ink-78)', fontSize: 12, cursor: 'pointer',
+                          }}
+                        >
+                          <span style={{ color: 'var(--ink-45)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
+                          <span style={{ fontWeight: 600, color: 'var(--ink-90)' }}>{it.title}</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <form onSubmit={onCreate} style={{ display: 'grid', gap: 12 }}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tasks.titlePlaceholder')} required />
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('tasks.descriptionPlaceholder')} rows={3} required />
@@ -628,6 +794,8 @@ export default function DashboardTasksPage() {
             </div>
           </form>
         </div>
+        </div>,
+        document.body,
       )}
 
       {/* Filters */}
