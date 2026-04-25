@@ -51,15 +51,6 @@ function sanitizeHtml(html: string): string {
   // Neutralize javascript: / vbscript: / data: URIs in href/src.
   s = s.replace(/\s(href|src)\s*=\s*"\s*(?:javascript|vbscript|data):[^"]*"/gi, ' $1="#"');
   s = s.replace(/\s(href|src)\s*=\s*'\s*(?:javascript|vbscript|data):[^']*'/gi, " $1='#'");
-  // Azure DevOps attachment images need a PAT to load — the browser
-  // can't reach them, so they render as a broken-image icon. Replace
-  // those <img> tags with a small inline notice so the description
-  // preview stays clean. The actual image bytes are still pulled at
-  // task-run time by the orchestration layer's image prefetch.
-  s = s.replace(
-    /<img\b[^>]*\bsrc=["'][^"']*(?:dev\.azure\.com|\/_apis\/wit\/attachments\/)[^"']*["'][^>]*>/gi,
-    '<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:4px;background:rgba(96,165,250,0.12);color:#60a5fa;font-size:11px;font-weight:600">📷 image</span>',
-  );
   // Force anchors to open externally.
   s = s.replace(/<a\b([^>]*)>/gi, (_m, attrs) => {
     const hasTarget = /\btarget\s*=/.test(attrs);
