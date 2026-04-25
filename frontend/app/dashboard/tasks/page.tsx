@@ -103,6 +103,8 @@ export default function DashboardTasksPage() {
   const [editEdgeCases, setEditEdgeCases] = useState('');
   const [editMaxTokens, setEditMaxTokens] = useState('');
   const [editMaxCost, setEditMaxCost] = useState('');
+  const [editRepoMappingIds, setEditRepoMappingIds] = useState<number[]>([]);
+  const [editShowRawDescription, setEditShowRawDescription] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [createMappings, setCreateMappings] = useState<BackendRepoMapping[]>([]);
   const [createMappingsLoaded, setCreateMappingsLoaded] = useState(false);
@@ -533,9 +535,11 @@ export default function DashboardTasksPage() {
     setEditEdgeCases('');
     setEditMaxTokens('');
     setEditMaxCost('');
+    setEditRepoMappingIds([]);
+    setEditShowRawDescription(false);
     // List rows don't carry the rich guardrail fields — fetch the full
     // task so the edit form can prefill story_context / acceptance /
-    // edge_cases / max_tokens / max_cost_usd.
+    // edge_cases / max_tokens / max_cost_usd / repo assignments.
     setEditLoading(true);
     try {
       type FullTask = {
@@ -546,6 +550,7 @@ export default function DashboardTasksPage() {
         edge_cases?: string | null;
         max_tokens?: number | null;
         max_cost_usd?: number | null;
+        repo_assignments?: { repo_mapping_id: number }[];
       };
       const full = await apiFetch<FullTask>('/tasks/' + task.id);
       setEditTitle(full.title || '');
@@ -555,6 +560,7 @@ export default function DashboardTasksPage() {
       setEditEdgeCases(full.edge_cases || '');
       setEditMaxTokens(full.max_tokens != null ? String(full.max_tokens) : '');
       setEditMaxCost(full.max_cost_usd != null ? String(full.max_cost_usd) : '');
+      setEditRepoMappingIds((full.repo_assignments || []).map((a) => a.repo_mapping_id));
     } catch {
       // Keep title + description from the row; the rest stays empty.
     } finally {
@@ -580,6 +586,17 @@ export default function DashboardTasksPage() {
         method: 'PUT',
         body: JSON.stringify(body),
       });
+      // Repo assignments live on a separate endpoint — sync them
+      // alongside the field edits so the user can fix a wrong repo
+      // without leaving the modal.
+      try {
+        await apiFetch(`/tasks/${editTask.id}/repo-assignments`, {
+          method: 'PUT',
+          body: JSON.stringify({ repo_mapping_ids: editRepoMappingIds }),
+        });
+      } catch (assignErr) {
+        setError(assignErr instanceof Error ? assignErr.message : 'Repo assignments save failed');
+      }
       setEditTask(null);
       setMsg('Task updated');
       await load();
@@ -1618,8 +1635,39 @@ export default function DashboardTasksPage() {
               </div>
               <div>
                 <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.descriptionPlaceholder')}</label>
-                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={5}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                {(() => {
+                  const hasContent = !!editDesc.trim();
+                  const isRich = /<\/?(div|p|span|br|h[1-6]|ul|ol|li|table|img|strong|em|b|i|code|pre|blockquote)\b/i.test(editDesc);
+                  const showText = !hasContent || editShowRawDescription || !isRich;
+                  return showText ? (
+                    <div style={{ position: 'relative' }}>
+                      <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={5}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                      {hasContent && isRich && (
+                        <button
+                          type='button'
+                          onClick={() => setEditShowRawDescription(false)}
+                          style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                          title={t('tasks.descriptionPreview' as TranslationKey)}
+                        >👁</button>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ position: 'relative', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '10px 36px 10px 12px' }}>
+                      <button
+                        type='button'
+                        onClick={() => setEditShowRawDescription(true)}
+                        style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                        title={t('tasks.descriptionEdit' as TranslationKey)}
+                      >✏️</button>
+                      <RichDescription
+                        className='task-md'
+                        style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ink-78)', maxHeight: 280, overflowY: 'auto', wordBreak: 'break-word' }}
+                        html={editDesc}
+                      />
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.storyContextPlaceholder')}</label>
@@ -1635,6 +1683,38 @@ export default function DashboardTasksPage() {
                 <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4, display: 'block' }}>{t('tasks.edgeCasesPlaceholder')}</label>
                 <textarea value={editEdgeCases} onChange={(e) => setEditEdgeCases(e.target.value)} rows={2}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              {/* Repo assignments — same multi-select shape Create uses
+                  so the user can swap a wrong mapping or add a missing one
+                  without leaving the row. RemoteRepoSelector also rendered
+                  to surface the "Remote Repo:" path used at run time. */}
+              <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', padding: '10px 12px', background: 'var(--panel)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.multiRepo.title' as TranslationKey)}</div>
+                {createMappingsLoaded && createMappings.length > 0 ? (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ maxHeight: 160, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '4px 0' }}>
+                      {createMappings.map((m) => (
+                        <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', background: editRepoMappingIds.includes(m.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                          <input
+                            type='checkbox'
+                            checked={editRepoMappingIds.includes(m.id)}
+                            onChange={() => setEditRepoMappingIds((prev) => prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id])}
+                            style={{ accentColor: '#0d9488', width: 14, height: 14 }}
+                          />
+                          <span style={{ fontWeight: 600 }}>{m.display_name || `${m.provider}:${m.owner}/${m.repo_name}`}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {editRepoMappingIds.length > 0 && (
+                      <div style={{ fontSize: 11, color: '#5eead4', marginTop: 4 }}>
+                        {t('tasks.multiRepo.selected' as TranslationKey, { n: editRepoMappingIds.length })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: 'var(--ink-35)', marginBottom: 8 }}>—</div>
+                )}
+                <RemoteRepoSelector compact onChange={() => { /* read-only here; assignment list is what's saved */ }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
