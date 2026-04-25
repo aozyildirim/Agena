@@ -2597,26 +2597,70 @@ class OrchestrationService:
         target_root.mkdir(parents=True, exist_ok=True)
         azure_auth_header: str | None = None
         azure_auth_loaded = False
+        jira_auth_header: str | None = None
+        jira_base_host: str = ''
+        jira_auth_loaded = False
         saved: list[dict] = []
+
+        async def _load_azure_auth() -> str | None:
+            nonlocal azure_auth_loaded, azure_auth_header
+            if azure_auth_loaded:
+                return azure_auth_header
+            azure_auth_loaded = True
+            azure_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'azure')
+            pat = (azure_cfg.secret or '').strip() if azure_cfg and azure_cfg.secret else ''
+            if pat:
+                token = base64.b64encode(f':{pat}'.encode()).decode()
+                azure_auth_header = f'Basic {token}'
+            return azure_auth_header
+
+        async def _load_jira_auth() -> tuple[str | None, str]:
+            nonlocal jira_auth_loaded, jira_auth_header, jira_base_host
+            if jira_auth_loaded:
+                return jira_auth_header, jira_base_host
+            jira_auth_loaded = True
+            jira_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'jira')
+            if jira_cfg and jira_cfg.secret:
+                email = (jira_cfg.username or '').strip()
+                token = (jira_cfg.secret or '').strip()
+                if email and token:
+                    encoded = base64.b64encode(f'{email}:{token}'.encode()).decode()
+                    jira_auth_header = f'Basic {encoded}'
+                base = (jira_cfg.base_url or '').strip().rstrip('/')
+                if base:
+                    try:
+                        from urllib.parse import urlparse
+                        jira_base_host = urlparse(base).netloc.lower()
+                    except Exception:
+                        jira_base_host = ''
+            return jira_auth_header, jira_base_host
+
         for url in urls:
             normalized = (url or '').strip()
             if not normalized or normalized.startswith('data:'):
                 continue
             try:
                 headers: dict[str, str] = {}
+                lowered = normalized.lower()
                 is_azure_attachment = (
-                    'dev.azure.com/' in normalized or '/_apis/wit/attachments/' in normalized
+                    'dev.azure.com/' in lowered or '/_apis/wit/attachments/' in lowered
                 )
+                # Jira: any atlassian.net host OR matches the org's configured Jira base host.
+                _ja_header, _ja_host = await _load_jira_auth()
+                is_jira_attachment = (
+                    'atlassian.net/' in lowered or (_ja_host and _ja_host in lowered)
+                )
+
                 if is_azure_attachment:
-                    if not azure_auth_loaded:
-                        azure_auth_loaded = True
-                        azure_cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'azure')
-                        pat = (azure_cfg.secret or '').strip() if azure_cfg and azure_cfg.secret else ''
-                        if pat:
-                            token = base64.b64encode(f':{pat}'.encode()).decode()
-                            azure_auth_header = f'Basic {token}'
-                    if azure_auth_header:
-                        headers['Authorization'] = azure_auth_header
+                    az_header = await _load_azure_auth()
+                    if az_header:
+                        headers['Authorization'] = az_header
+                elif is_jira_attachment and _ja_header:
+                    headers['Authorization'] = _ja_header
+                    # Jira sometimes redirects to S3 with its own signed token —
+                    # tell httpx we tolerate redirects (already on by default
+                    # below) but strip auth on cross-domain redirect to S3.
+                    headers['Accept'] = 'image/*,*/*;q=0.8'
 
                 async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
                     response = await client.get(normalized, headers=headers)
