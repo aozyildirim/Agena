@@ -732,9 +732,11 @@ function DashboardInner({ children }: { children: ReactNode }) {
         </Link>
 
         {/* Org chip (if present) — gives quick visual context for which tenant
-            the user is acting in. Read-only here; org switching lives in /profile. */}
+            the user is acting in. Read-only here; org switching lives in /profile.
+            Hidden on small viewports where every pixel counts. */}
         {(orgNameDisplay || orgSlug) && (
           <span
+            className='topbar-org-chip'
             title={`${t('tooltip.action.openProfile')} · ${orgNameDisplay || orgSlug}`}
             style={{
               fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
@@ -749,13 +751,38 @@ function DashboardInner({ children }: { children: ReactNode }) {
 
         <span style={{ flex: 1 }} />
 
-        {/* Active sprint switcher — gated on sprints module */}
-        {!isPlatformAdmin && enabledModules?.has('sprints') && <SprintSwitcher />}
+        {/* Quick "+ New Task" — most-used action, deserves a header slot.
+            Routes to the tasks list with a query flag the page picks up to
+            auto-open the Create modal. */}
+        <Link
+          href='/dashboard/tasks?new=1'
+          title={t('tasks.new')}
+          className='topbar-new-task'
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8,
+            background: 'linear-gradient(135deg, #0d9488, #16a34a)',
+            color: '#fff', fontSize: 12, fontWeight: 700,
+            textDecoration: 'none', whiteSpace: 'nowrap',
+            boxShadow: '0 2px 10px rgba(13,148,136,0.25)',
+          }}
+        >
+          + <span className='topbar-new-task-label'>{t('tasks.new')}</span>
+        </Link>
+
+        {/* Active sprint switcher — gated on sprints module. Hidden on
+            mobile to keep the bar clean; users can still get here from the
+            sidebar's Sprints item. */}
+        {!isPlatformAdmin && enabledModules?.has('sprints') && (
+          <span className='topbar-sprint-switcher'><SprintSwitcher /></span>
+        )}
 
         {/* Theme + Lang — moved here from the marketing nav so the dashboard
             isn't missing those controls now that the marketing nav is hidden. */}
-        <ThemeToggle />
-        <LangToggle />
+        <span className='topbar-toggles'>
+          <ThemeToggle />
+          <LangToggle />
+        </span>
 
         {/* Usage link */}
         <Link href='/dashboard/usage' title={navTooltip('nav.usage')} data-tour={tourAttr('nav.usage')} style={{

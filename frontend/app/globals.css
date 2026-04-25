@@ -2871,6 +2871,28 @@ html.light [style*="color: rgb(94, 234, 212)"] {
   color: #0d7377 !important;
 }
 
+/* Dashboard topbar — bump theme/lang toggle contrast in light mode and
+   collapse non-essentials on small viewports. */
+html.light .dashboard-topbar .topbar-toggles button,
+html.light .dashboard-topbar .topbar-toggles select {
+  color: var(--ink-78) !important;
+  border-color: var(--panel-border-3) !important;
+}
+.dashboard-topbar .topbar-new-task:hover { filter: brightness(1.08); }
+@media (max-width: 768px) {
+  .dashboard-topbar { padding: 0 12px !important; gap: 8px !important; }
+  .dashboard-topbar .topbar-org-chip { display: none; }
+  .dashboard-topbar .topbar-sprint-switcher { display: none; }
+  .dashboard-topbar .topbar-toggles { display: none; }
+  .dashboard-topbar .topbar-username { display: none !important; }
+  .dashboard-topbar .topbar-new-task-label { display: none; }
+  .dashboard-topbar .topbar-new-task {
+    padding: 6px 10px !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+  }
+}
+
 /* Code diff renderer (Code Diff Preview tab on /tasks/[id]).
    Pastel green/red work on dark backgrounds but disappear against the
    washed-out tints in light mode — bump contrast there. */

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch, apiUpload, loadPrefs, type BackendRepoMapping, type RepoMapping } from '@/lib/api';
 import { TaskItem, type RepoAssignment } from '@/components/TaskTable';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
@@ -51,6 +51,7 @@ function sourceLabel(s: string, t: (key: TranslationKey, vars?: Record<string, s
 export default function DashboardTasksPage() {
   const { t } = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const mob = useIsMobile();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -183,6 +184,15 @@ export default function DashboardTasksPage() {
       setError(e instanceof Error ? e.message : t('tasks.loadFailed'));
     }
   }, [dateFrom, dateTo, filter, sourceFilter, page, search, t]);
+
+  // Header's "+ New Task" button deep-links here with `?new=1` to auto-open
+  // the Create form. Strip the param afterwards so refreshes don't re-open.
+  useEffect(() => {
+    if (searchParams?.get('new') === '1') {
+      setShowCreate(true);
+      router.replace('/dashboard/tasks');
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     loadPrefs().then((prefs) => {
