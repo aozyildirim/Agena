@@ -271,6 +271,7 @@
   "tasks.picker.alreadyImportedBadge": "Bereits drin",
   "tasks.picker.alreadyImportedHint": "Schon in Agena · Aufgabe #{id}",
   "tasks.picker.alreadyImportedConfirm": "Dieses Work Item existiert bereits in Agena (Aufgabe #{id}). Öffnen?",
+  "tasks.picker.openTask": "Aufgabe #{id} öffnen",
   "tasks.descriptionPreview": "Beschreibungsvorschau",
   "tasks.descriptionEdit": "Rohtext bearbeiten",
   "taskDetail.removeAssignment": "Dieses Repo entfernen",

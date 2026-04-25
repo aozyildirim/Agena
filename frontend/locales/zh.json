@@ -271,6 +271,7 @@
   "tasks.picker.alreadyImportedBadge": "已存在",
   "tasks.picker.alreadyImportedHint": "已在 Agena · 任务 #{id}",
   "tasks.picker.alreadyImportedConfirm": "此工作项已在 Agena 中（任务 #{id}）。是否打开？",
+  "tasks.picker.openTask": "打开任务 #{id}",
   "tasks.descriptionPreview": "描述预览",
   "tasks.descriptionEdit": "编辑原始文本",
   "taskDetail.removeAssignment": "移除此仓库",

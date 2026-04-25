@@ -271,6 +271,7 @@
   "tasks.picker.alreadyImportedBadge": "取り込み済み",
   "tasks.picker.alreadyImportedHint": "Agena にあります · タスク #{id}",
   "tasks.picker.alreadyImportedConfirm": "このワークアイテムはすでに Agena にあります (タスク #{id})。開きますか？",
+  "tasks.picker.openTask": "タスク #{id} を開く",
   "tasks.descriptionPreview": "説明プレビュー",
   "tasks.descriptionEdit": "生のテキストを編集",
   "taskDetail.removeAssignment": "このリポジトリを外す",
