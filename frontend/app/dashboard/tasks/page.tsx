@@ -117,6 +117,12 @@ export default function DashboardTasksPage() {
   // When description has HTML markers (came from a sprint pick), default
   // to the rendered preview view; an "edit" toggle reveals the raw textarea.
   const [showRawDescription, setShowRawDescription] = useState(false);
+  // Currently-saved sprint labels for the picker buttons. Pulled from
+  // /preferences on modal open so users can see "Azure Sprint'ten çek
+  // (2026_09_Nankatsu)" without opening the picker first. Falls back
+  // to localStorage if the DB call fails.
+  const [activeAzureSprintLabel, setActiveAzureSprintLabel] = useState('');
+  const [activeJiraSprintLabel, setActiveJiraSprintLabel] = useState('');
   // Create-modal "fetch from sprint" picker. Empty = blank task; otherwise
   // the user is browsing Azure/Jira items and a click prefills the form.
   const [pickerSource, setPickerSource] = useState<'empty' | 'azure' | 'jira'>('empty');
@@ -277,6 +283,35 @@ export default function DashboardTasksPage() {
         .catch(() => setCreateMappingsLoaded(true));
     }
   }, [showCreate, editTask, createMappingsLoaded]);
+
+  useEffect(() => {
+    // Refresh the sprint-name suffix on the picker buttons every time
+    // the Create modal opens — the user might have switched sprints
+    // since the last time it was rendered.
+    if (!showCreate) return;
+    type Prefs = {
+      azure_sprint_path?: string | null;
+      profile_settings?: { jira_sprint_id?: string; jira_sprint_name?: string } | null;
+    };
+    apiFetch<Prefs>('/preferences')
+      .then((prefs) => {
+        const azPath = (prefs.azure_sprint_path || '').trim();
+        // Azure sprint paths look like "Project\\Iter\\2026_09_Nankatsu" —
+        // the leaf is the sprint name.
+        const azLeaf = azPath ? azPath.split(/[\\/]/).filter(Boolean).pop() || azPath : '';
+        setActiveAzureSprintLabel(azLeaf || localStorage.getItem('agena_sprint_path') || '');
+        const ps = prefs.profile_settings || {};
+        const jiraName = (ps.jira_sprint_name || ps.jira_sprint_id || '').toString().trim();
+        setActiveJiraSprintLabel(jiraName || localStorage.getItem('agena_jira_sprint') || '');
+      })
+      .catch(() => {
+        // DB fetch failed — fall back to whatever's in localStorage.
+        const az = localStorage.getItem('agena_sprint_path') || '';
+        const azLeaf = az ? az.split(/[\\/]/).filter(Boolean).pop() || az : '';
+        setActiveAzureSprintLabel(azLeaf);
+        setActiveJiraSprintLabel(localStorage.getItem('agena_jira_sprint') || '');
+      });
+  }, [showCreate]);
 
   async function loadDepCandidates() {
     try {
@@ -731,8 +766,22 @@ export default function DashboardTasksPage() {
                     }}
                   >
                     {src === 'empty' && '✏️ ' + t('tasks.picker.empty' as TranslationKey)}
-                    {src === 'azure' && '📥 ' + t('tasks.picker.azure' as TranslationKey)}
-                    {src === 'jira' && '📥 ' + t('tasks.picker.jira' as TranslationKey)}
+                    {src === 'azure' && (
+                      <>
+                        📥 {t('tasks.picker.azure' as TranslationKey)}
+                        {activeAzureSprintLabel && (
+                          <span style={{ marginLeft: 6, fontWeight: 500, opacity: 0.75 }}>({activeAzureSprintLabel})</span>
+                        )}
+                      </>
+                    )}
+                    {src === 'jira' && (
+                      <>
+                        📥 {t('tasks.picker.jira' as TranslationKey)}
+                        {activeJiraSprintLabel && (
+                          <span style={{ marginLeft: 6, fontWeight: 500, opacity: 0.75 }}>({activeJiraSprintLabel})</span>
+                        )}
+                      </>
+                    )}
                   </button>
                 );
               })}
