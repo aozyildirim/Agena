@@ -31,7 +31,8 @@ export default function Navbar() {
     <header className='navbar-shell'>
       <div className='container navbar-inner'>
         <Link href='/' title={t('tooltip.nav.home')} style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink)', textDecoration: 'none', flexShrink: 0 }}>
-          <img src='/media/agena-logo.svg' alt='AGENA' className='navbar-wordmark' />
+          <img src='/media/agena-logo.svg' alt='AGENA' className='navbar-wordmark logo-dark' />
+          <img src='/media/agena-logo-light.svg' alt='AGENA' className='navbar-wordmark logo-light' style={{ display: 'none' }} />
         </Link>
 
         {/* Desktop nav */}

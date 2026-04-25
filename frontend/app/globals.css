@@ -2871,6 +2871,13 @@ html.light [style*="color: rgb(94, 234, 212)"] {
   color: #0d7377 !important;
 }
 
+/* AGENA logo theme swap — the dark-mode logo uses pale gradient text
+   that vanishes on white surfaces. Two <img>s shipped per render; CSS
+   shows the right one for the active theme. */
+.logo-light { display: none !important; }
+html.light .logo-dark { display: none !important; }
+html.light .logo-light { display: block !important; }
+
 /* Dashboard topbar — bump theme/lang toggle contrast in light mode and
    collapse non-essentials on small viewports. */
 html.light .dashboard-topbar .topbar-toggles button,
