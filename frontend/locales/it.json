@@ -1828,6 +1828,7 @@
   "taskDetail.rerunTask": "Riesegui Task",
   "taskDetail.stopping": "Arresto in corso...",
   "taskDetail.stopTask": "Ferma Task",
+  "taskDetail.stopUnavailable": "Il task non è in esecuzione — non si può fermare",
   "taskDetail.downloadLogs": "Scarica Log",
   "taskDetail.openPullRequest": "Visualizza Pull Request",
   "taskDetail.copyBranch": "Copia Nome Branch",

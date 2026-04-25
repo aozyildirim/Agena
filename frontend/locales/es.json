@@ -1243,6 +1243,7 @@
   "taskDetail.rerunTask": "Görevi Yeniden Çalıştır",
   "taskDetail.stopping": "Durduruluyor...",
   "taskDetail.stopTask": "Görevi Durdur",
+  "taskDetail.stopUnavailable": "La tarea no está en ejecución — no se puede parar",
   "taskDetail.downloadLogs": "Logları İndir",
   "taskDetail.openPullRequest": "Ver Pull Request",
   "taskDetail.copyBranch": "Branch Adını Kopyala",

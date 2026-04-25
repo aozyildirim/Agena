@@ -2060,6 +2060,7 @@
   "taskDetail.rerunTask": "重新运行",
   "taskDetail.stopping": "停止中...",
   "taskDetail.stopTask": "停止任务",
+  "taskDetail.stopUnavailable": "任务未运行 — 无法停止",
   "taskDetail.downloadLogs": "下载日志",
   "taskDetail.openPullRequest": "查看 PR",
   "taskDetail.copyBranch": "复制分支",

@@ -1340,6 +1340,7 @@
   "taskDetail.rerunTask": "Görevi Yeniden Çalıştır",
   "taskDetail.stopping": "Durduruluyor...",
   "taskDetail.stopTask": "Görevi Durdur",
+  "taskDetail.stopUnavailable": "Görev çalışmıyor — durdurulamaz",
   "taskDetail.downloadLogs": "Logları İndir",
   "taskDetail.openPullRequest": "PR'ı Görüntüle",
   "taskDetail.copyBranch": "Branch Adını Kopyala",

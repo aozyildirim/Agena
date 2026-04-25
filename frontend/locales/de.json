@@ -1837,6 +1837,7 @@
   "taskDetail.rerunTask": "Aufgabe neu starten",
   "taskDetail.stopping": "Wird gestoppt...",
   "taskDetail.stopTask": "Aufgabe stoppen",
+  "taskDetail.stopUnavailable": "Aufgabe läuft nicht — kann nicht gestoppt werden",
   "taskDetail.downloadLogs": "Logs herunterladen",
   "taskDetail.openPullRequest": "Pull Request anzeigen",
   "taskDetail.copyBranch": "Branch-Namen kopieren",

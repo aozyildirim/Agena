@@ -1340,6 +1340,7 @@
   "taskDetail.rerunTask": "Re-run Task",
   "taskDetail.stopping": "Stopping...",
   "taskDetail.stopTask": "Stop Task",
+  "taskDetail.stopUnavailable": "Task isn't running — can't stop",
   "taskDetail.downloadLogs": "Download Logs",
   "taskDetail.openPullRequest": "View Pull Request",
   "taskDetail.copyBranch": "Copy Branch Name",

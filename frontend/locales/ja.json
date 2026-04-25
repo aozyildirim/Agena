@@ -1837,6 +1837,7 @@
   "taskDetail.rerunTask": "タスクを再実行",
   "taskDetail.stopping": "Durduruluyor...",
   "taskDetail.stopTask": "タスクi Durdur",
+  "taskDetail.stopUnavailable": "タスクは実行されていません — 停止できません",
   "taskDetail.downloadLogs": "ログをダウンロード",
   "taskDetail.openPullRequest": "Pull Request を表示",
   "taskDetail.copyBranch": "ブランチ名をコピー",
