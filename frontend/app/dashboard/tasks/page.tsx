@@ -318,8 +318,8 @@ export default function DashboardTasksPage() {
       // clicks to the existing task instead of trying to recreate it.
       try {
         type Row = { id: number; external_id?: string; title?: string };
-        const tagged = await apiFetch<{ items: Row[] }>(`/tasks/search?source=${source}&page=1&page_size=200`).catch(() => ({ items: [] as Row[] }));
-        const internal = await apiFetch<{ items: Row[] }>(`/tasks/search?source=internal&page=1&page_size=200`).catch(() => ({ items: [] as Row[] }));
+        const tagged = await apiFetch<{ items: Row[] }>(`/tasks/search?source=${source}&page=1&page_size=100`).catch(() => ({ items: [] as Row[] }));
+        const internal = await apiFetch<{ items: Row[] }>(`/tasks/search?source=internal&page=1&page_size=100`).catch(() => ({ items: [] as Row[] }));
         const map: Record<string, number> = {};
         for (const r of tagged.items || []) {
           if (r.external_id) map[r.external_id] = r.id;
