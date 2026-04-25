@@ -2863,7 +2863,11 @@ html.light {
    background usages with the same hex are NOT affected — only the
    `color` property is overridden. */
 html.light [style*="color:#5eead4"],
-html.light [style*="color: #5eead4"] {
+html.light [style*="color: #5eead4"],
+html.light [style*="color:rgb(94,234,212)"],
+html.light [style*="color: rgb(94,234,212)"],
+html.light [style*="color:rgb(94, 234, 212)"],
+html.light [style*="color: rgb(94, 234, 212)"] {
   color: #0d7377 !important;
 }
 
