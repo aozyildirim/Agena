@@ -728,7 +728,8 @@ function DashboardInner({ children }: { children: ReactNode }) {
           textDecoration: 'none', flexShrink: 0,
           paddingRight: 12, marginRight: 4, height: '100%',
         }}>
-          <img src='/media/agena-logo.svg' alt='AGENA' style={{ height: 22, display: 'block' }} />
+          <img src='/media/agena-logo.svg' alt='AGENA' className='logo-dark' style={{ height: 22, display: 'block' }} />
+          <img src='/media/agena-logo-light.svg' alt='AGENA' className='logo-light' style={{ height: 22, display: 'none' }} />
         </Link>
 
         {/* Org chip (if present) — gives quick visual context for which tenant
