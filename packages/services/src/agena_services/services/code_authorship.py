@@ -108,9 +108,16 @@ async def resolve_authorship_for_files(
     since: str = '6.months.ago',
     top_n: int = 3,
     user_id: int | None = None,
+    repo_mapping_id: int | None = None,
 ) -> tuple[list[TouchedFile], list[RecommendedAuthor]]:
     """For each path the LLM proposed, locate it inside one of the org's
     active repo mappings and aggregate `git log` authorship.
+
+    When `repo_mapping_id` is set, only that repo is searched — used by
+    refinement where the user picks a single repo for the sprint. When
+    None (default), all active org repos are tried — used by PM analyze
+    where the task already has a `TaskRepoAssignment` linking it to a
+    specific repo and we just want to find which one matches the path.
 
     Returns `(touched_files, recommended_authors)`. The function is
     best-effort: a missing checkout or unavailable git just yields the
@@ -122,12 +129,13 @@ async def resolve_authorship_for_files(
 
     from agena_models.models.repo_mapping import RepoMapping
 
-    rows = (await db.execute(
-        select(RepoMapping).where(
-            RepoMapping.organization_id == organization_id,
-            RepoMapping.is_active.is_(True),
-        )
-    )).scalars().all()
+    stmt = select(RepoMapping).where(
+        RepoMapping.organization_id == organization_id,
+        RepoMapping.is_active.is_(True),
+    )
+    if repo_mapping_id is not None:
+        stmt = stmt.where(RepoMapping.id == repo_mapping_id)
+    rows = (await db.execute(stmt)).scalars().all()
     repos = [r for r in rows if (r.local_repo_path or '').strip()]
     if not repos:
         # No checkout we can grep — return paths as-is so the UI can still

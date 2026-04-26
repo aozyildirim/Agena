@@ -364,8 +364,14 @@ class RefinementService:
         results: list[RefinementSuggestion] = []
 
         if selected:
-            # Load prompts from DB (Prompt Studio editable) with YAML fallback
-            system_tpl, desc_tpl, expected_tpl, agent_cfg = await self._load_prompt_config_from_db()
+            # Load prompts from DB (Prompt Studio editable) with YAML fallback.
+            # When the user picked a repo for this sprint we ask the LLM for
+            # a `file_changes` array; otherwise we skip code-aware to avoid
+            # hallucinated paths against a repo we don't know about.
+            code_aware = request.repo_mapping_id is not None
+            system_tpl, desc_tpl, expected_tpl, agent_cfg = await self._load_prompt_config_from_db(
+                code_aware=code_aware,
+            )
             point_scale = self._normalize_point_scale(request.point_scale)
 
             if not use_cli:
@@ -402,6 +408,7 @@ class RefinementService:
                         content = await self._run_cli_refinement(
                             agent_provider, agent_model, full_prompt,
                             organization_id=organization_id,
+                            repo_mapping_id=request.repo_mapping_id,
                         )
                         usage = {'prompt_tokens': len(full_prompt) // 4, 'completion_tokens': len(content) // 4, 'total_tokens': (len(full_prompt) + len(content)) // 4}
                         structured = None
@@ -428,21 +435,26 @@ class RefinementService:
                     else:
                         payload = self._extract_json_dict(content) or {}
                     # Debug: log raw payload to understand scoring issues
+                    raw_fc_for_log = payload.get('file_changes')
                     logger.info(
-                        'Refinement item %s raw payload: suggested_story_points=%r (type=%s), confidence=%r, structured_type=%s',
+                        'Refinement item %s raw payload: suggested_story_points=%r (type=%s), '
+                        'confidence=%r, structured_type=%s, file_changes_count=%d, file_changes_first=%r',
                         item.id,
                         payload.get('suggested_story_points'),
                         type(payload.get('suggested_story_points')).__name__,
                         payload.get('confidence'),
                         type(structured).__name__ if structured else 'dict',
+                        len(raw_fc_for_log) if isinstance(raw_fc_for_log, list) else -1,
+                        (raw_fc_for_log[0] if isinstance(raw_fc_for_log, list) and raw_fc_for_log else None),
                     )
                     # Pull file_changes from the structured output and run
                     # git authorship over them so the suggestion can name
-                    # who's worked there recently. Resolution is best-
-                    # effort: empty result just means no annotated authors.
+                    # who's worked there recently. Skipped when no repo
+                    # was picked for this sprint — without a repo to scan,
+                    # the LLM has no real paths to emit.
                     fc_paths: list[str] = []
                     raw_changes = payload.get('file_changes') or []
-                    if isinstance(raw_changes, list):
+                    if code_aware and isinstance(raw_changes, list):
                         for entry in raw_changes:
                             if isinstance(entry, dict):
                                 fc = str(entry.get('file') or '').strip()
@@ -450,11 +462,26 @@ class RefinementService:
                                 fc = str(entry).strip()
                             if fc:
                                 fc_paths.append(fc)
-                    from agena_services.services.code_authorship import (
-                        resolve_authorship_for_files as _resolve_authorship,
-                    )
-                    touched_files, recommended_authors = await _resolve_authorship(
-                        self.db, organization_id, fc_paths, user_id=user_id,
+                    if code_aware:
+                        from agena_services.services.code_authorship import (
+                            resolve_authorship_for_files as _resolve_authorship,
+                        )
+                        touched_files, recommended_authors = await _resolve_authorship(
+                            self.db, organization_id, fc_paths, user_id=user_id,
+                            repo_mapping_id=request.repo_mapping_id,
+                        )
+                    else:
+                        touched_files, recommended_authors = [], []
+                    logger.info(
+                        'Refinement item %s authorship: code_aware=%s, repo_mapping_id=%s, '
+                        'fc_paths=%d, touched=%d (with_repo=%d), authors=%d',
+                        item.id,
+                        code_aware,
+                        request.repo_mapping_id,
+                        len(fc_paths),
+                        len(touched_files),
+                        sum(1 for tf in touched_files if tf.repo_mapping_id),
+                        len(recommended_authors),
                     )
                     # Reason text per touched-file: prefer LLM-provided
                     # description; fall back to the action.
@@ -713,13 +740,16 @@ class RefinementService:
         model: str,
         prompt: str,
         organization_id: int | None = None,
+        repo_mapping_id: int | None = None,
     ) -> str:
         """Run refinement prompt through CLI bridge (claude or codex) in
         analysis-only mode: the bridge restricts tools to Read/Grep/Glob
         + git bash so the CLI can scan the repo without touching it.
 
-        Picks the org's first local-checkout repo as the working dir so
-        the CLI has actual files to grep through. Falls back to /tmp.
+        When `repo_mapping_id` is set, the CLI is opened on THAT repo's
+        checkout — that's the user's "this sprint targets repo X" pick.
+        Without it we fall back to /tmp (no real code to grep, but the
+        prompt is upstream-skipped from emitting `file_changes` anyway).
         """
         import os
         import httpx
@@ -727,23 +757,22 @@ class RefinementService:
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
         cli = 'claude' if cli_provider == 'claude_cli' else 'codex'
 
-        # Pick a repo to read from: first active mapping with local_repo_path.
         repo_path = '/tmp'
-        if organization_id is not None:
+        if organization_id is not None and repo_mapping_id is not None:
             try:
                 from agena_models.models.repo_mapping import RepoMapping
                 from sqlalchemy import select as _sel
-                rows = (await self.db.execute(
+                row = (await self.db.execute(
                     _sel(RepoMapping).where(
+                        RepoMapping.id == repo_mapping_id,
                         RepoMapping.organization_id == organization_id,
                         RepoMapping.is_active.is_(True),
                     )
-                )).scalars().all()
-                for r in rows:
-                    p = (r.local_repo_path or '').strip()
+                )).scalar_one_or_none()
+                if row is not None:
+                    p = (row.local_repo_path or '').strip()
                     if p:
                         repo_path = p
-                        break
             except Exception:
                 pass
 
@@ -867,7 +896,11 @@ class RefinementService:
         limit = max(1, min(int(max_items or 1), 20))
         return pool[:limit]
 
-    async def _load_prompt_config_from_db(self) -> tuple[str, str, str, dict[str, Any]]:
+    async def _load_prompt_config_from_db(
+        self,
+        *,
+        code_aware: bool = False,
+    ) -> tuple[str, str, str, dict[str, Any]]:
         """Load refinement prompts from PromptService (DB) with YAML fallback."""
         from agena_services.services.prompt_service import PromptService
 
@@ -922,12 +955,12 @@ class RefinementService:
                 'o yüzden Y SP önerildi." If no similar items were provided, state that no history '
                 'was found and estimate from scratch.'
             )
-        # Code-aware directive: ask for file_changes alongside the SP so the
-        # service can run git authorship and recommend an assignee. Read
-        # repo files if available, but DON'T write code — refinement is
-        # analysis-only. Curly braces in the example are doubled so
-        # `_format_template`'s `.format_map()` treats them as literals.
-        if 'file_changes' not in expected_tpl:
+        # Code-aware directive: only when the user picked a repo for this
+        # sprint do we ask for file_changes — without a repo to scan the
+        # LLM would just hallucinate paths. Curly braces in the example
+        # are doubled so `_format_template`'s `.format_map()` treats them
+        # as literals.
+        if code_aware and 'file_changes' not in expected_tpl:
             expected_tpl = expected_tpl.rstrip() + (
                 '\n\n'
                 'ALSO INCLUDE in the JSON output a "file_changes" array. Each entry is '

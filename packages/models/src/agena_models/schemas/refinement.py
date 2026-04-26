@@ -30,6 +30,11 @@ class RefinementAnalyzeRequest(BaseModel):
     item_ids: list[str] = Field(default_factory=list)
     point_scale: list[int] = Field(default_factory=lambda: [1, 2, 3, 5, 8, 13])
     max_items: int = 12
+    # Optional: when set, the LLM is asked to list `file_changes` against
+    # this repo's local checkout, then `resolve_authorship_for_files`
+    # runs `git log` over that repo only. If unset, code-aware analysis
+    # is skipped entirely (no LLM hallucinated paths, no resolver call).
+    repo_mapping_id: int | None = None
 
 
 class SimilarPastItem(BaseModel):
