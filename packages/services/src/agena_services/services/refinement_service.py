@@ -925,13 +925,14 @@ class RefinementService:
         # Code-aware directive: ask for file_changes alongside the SP so the
         # service can run git authorship and recommend an assignee. Read
         # repo files if available, but DON'T write code — refinement is
-        # analysis-only.
+        # analysis-only. Curly braces in the example are doubled so
+        # `_format_template`'s `.format_map()` treats them as literals.
         if 'file_changes' not in expected_tpl:
             expected_tpl = expected_tpl.rstrip() + (
                 '\n\n'
                 'ALSO INCLUDE in the JSON output a "file_changes" array. Each entry is '
-                '{"file": "relative/path.ext", "action": "modify"|"create"|"delete", '
-                '"description": "what would change in this file"}. List only files you '
+                '{{"file": "relative/path.ext", "action": "modify"|"create"|"delete", '
+                '"description": "what would change in this file"}}. List only files you '
                 'actually need to touch — do NOT invent paths. If the repo source is not '
                 'available, leave file_changes empty. Refinement is analysis-only: '
                 'never output code blocks; only describe the changes.'
