@@ -673,6 +673,40 @@ class OrchestrationService:
                         f'  file_changes: {json.dumps(spec.get("file_changes",[]), ensure_ascii=False)[:400]}\n'
                         f'  recommendedNextStep: {str(spec.get("recommendedNextStep",""))[:200]}'
                     )
+                    # Resolve recent git authors for the PM-suggested files
+                    # so the task log surfaces "who's been editing here" the
+                    # same way refinement does. Best-effort: log only.
+                    try:
+                        from agena_services.services.code_authorship import (
+                            resolve_authorship_for_files as _resolve_authorship,
+                        )
+                        _fc_paths: list[str] = []
+                        for entry in (spec.get('file_changes') or []):
+                            fc_val = ''
+                            if isinstance(entry, dict):
+                                fc_val = str(entry.get('file') or '').strip()
+                            else:
+                                fc_val = str(entry).strip()
+                            if fc_val:
+                                _fc_paths.append(fc_val)
+                        if _fc_paths:
+                            _touched, _authors = await _resolve_authorship(
+                                self.db_session, organization_id, _fc_paths,
+                                user_id=task.created_by_user_id,
+                            )
+                            if _authors:
+                                _authors_text = ', '.join(
+                                    f'{a.member_display_name or a.name}'
+                                    + (f' <{a.member_unique_name or a.email}>' if (a.member_unique_name or a.email) else '')
+                                    + f' ({a.commit_count}c/{a.files_touched}f)'
+                                    for a in _authors
+                                )
+                                await task_service.add_log(
+                                    task.id, organization_id, 'agent',
+                                    f'PM authorship: candidates from last 6 months — {_authors_text}',
+                                )
+                    except Exception as _aexc:
+                        logger.info('PM authorship lookup skipped for task %s: %s', task.id, _aexc)
                 else:
                     # === 2-STEP AI MODE ===
                     repo_root = None
