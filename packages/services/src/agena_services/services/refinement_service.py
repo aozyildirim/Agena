@@ -399,7 +399,10 @@ class RefinementService:
                             + self._format_template(desc_tpl, prompt_vars) + '\n\n'
                             + 'Expected output format:\n' + self._format_template(expected_tpl, prompt_vars)
                         )
-                        content = await self._run_cli_refinement(agent_provider, agent_model, full_prompt)
+                        content = await self._run_cli_refinement(
+                            agent_provider, agent_model, full_prompt,
+                            organization_id=organization_id,
+                        )
                         usage = {'prompt_tokens': len(full_prompt) // 4, 'completion_tokens': len(content) // 4, 'total_tokens': (len(full_prompt) + len(content)) // 4}
                         structured = None
                         model = agent_model
@@ -447,8 +450,11 @@ class RefinementService:
                                 fc = str(entry).strip()
                             if fc:
                                 fc_paths.append(fc)
-                    touched_files, recommended_authors = await self._resolve_authorship_for_files(
-                        organization_id, fc_paths,
+                    from agena_services.services.code_authorship import (
+                        resolve_authorship_for_files as _resolve_authorship,
+                    )
+                    touched_files, recommended_authors = await _resolve_authorship(
+                        self.db, organization_id, fc_paths,
                     )
                     # Reason text per touched-file: prefer LLM-provided
                     # description; fall back to the action.
@@ -701,23 +707,58 @@ class RefinementService:
 
         raise ValueError(f'Unsupported provider: {provider}')
 
-    async def _run_cli_refinement(self, cli_provider: str, model: str, prompt: str) -> str:
-        """Run refinement prompt through CLI bridge (claude or codex)."""
+    async def _run_cli_refinement(
+        self,
+        cli_provider: str,
+        model: str,
+        prompt: str,
+        organization_id: int | None = None,
+    ) -> str:
+        """Run refinement prompt through CLI bridge (claude or codex) in
+        analysis-only mode: the bridge restricts tools to Read/Grep/Glob
+        + git bash so the CLI can scan the repo without touching it.
+
+        Picks the org's first local-checkout repo as the working dir so
+        the CLI has actual files to grep through. Falls back to /tmp.
+        """
         import os
         import httpx
 
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
         cli = 'claude' if cli_provider == 'claude_cli' else 'codex'
 
+        # Pick a repo to read from: first active mapping with local_repo_path.
+        repo_path = '/tmp'
+        if organization_id is not None:
+            try:
+                from agena_models.models.repo_mapping import RepoMapping
+                from sqlalchemy import select as _sel
+                rows = (await self.db.execute(
+                    _sel(RepoMapping).where(
+                        RepoMapping.organization_id == organization_id,
+                        RepoMapping.is_active.is_(True),
+                    )
+                )).scalars().all()
+                for r in rows:
+                    p = (r.local_repo_path or '').strip()
+                    if p:
+                        repo_path = p
+                        break
+            except Exception:
+                pass
+
         try:
             async with httpx.AsyncClient(timeout=300) as client:
                 resp = await client.post(
                     f'{bridge_url}/{cli}',
                     json={
-                        'repo_path': '/tmp',
+                        'repo_path': repo_path,
                         'prompt': prompt,
                         'model': model or '',
                         'timeout': 240,
+                        # Bridge enforces read-only tools (Claude:
+                        # --allowedTools, Codex: --sandbox read-only)
+                        'read_only': True,
                     },
                 )
                 data = resp.json()
@@ -948,100 +989,6 @@ class RefinementService:
         if match:
             return int(match.group())
         return default
-
-    async def _resolve_authorship_for_files(
-        self, organization_id: int, file_paths: list[str],
-    ) -> tuple[list[TouchedFile], list[RecommendedAuthor]]:
-        """For each LLM-suggested file path, locate it in the org's local
-        repos and aggregate `git log` authorship over the last 6 months.
-        Returns (touched_files, recommended_authors) — empty if no repo
-        mapping has a local_repo_path or git is unavailable.
-        """
-        from agena_models.models.repo_mapping import RepoMapping
-
-        clean_paths = [str(p).strip() for p in file_paths if str(p or '').strip()]
-        if not clean_paths:
-            return [], []
-
-        from sqlalchemy import select as _select
-        rows = (await self.db.execute(
-            _select(RepoMapping).where(
-                RepoMapping.organization_id == organization_id,
-                RepoMapping.is_active.is_(True),
-            )
-        )).scalars().all()
-        repos = [r for r in rows if (r.local_repo_path or '').strip()]
-        if not repos:
-            # No checkout we can grep — return paths as-is so the UI still
-            # shows what the LLM thinks needs editing.
-            return [TouchedFile(file=p) for p in clean_paths], []
-
-        from pathlib import Path as _P
-        import os as _os
-        import subprocess as _sp
-
-        touched: list[TouchedFile] = []
-        # email -> {name, commits, files}
-        author_agg: dict[str, dict[str, Any]] = {}
-
-        for raw_path in clean_paths:
-            normalized = raw_path.lstrip('/')
-            located = None
-            for repo in repos:
-                root = _P(repo.local_repo_path).expanduser().resolve()
-                candidate = root / normalized
-                if candidate.exists():
-                    located = (repo, root, str(candidate.relative_to(root)))
-                    break
-            if not located:
-                touched.append(TouchedFile(file=raw_path, action='modify'))
-                continue
-            repo, root, rel = located
-            touched.append(TouchedFile(
-                file=rel, action='modify',
-                repo_mapping_name=f'{repo.provider}:{repo.owner}/{repo.repo_name}',
-            ))
-            try:
-                env = {**_os.environ, 'GIT_CONFIG_COUNT': '1',
-                       'GIT_CONFIG_KEY_0': 'safe.directory',
-                       'GIT_CONFIG_VALUE_0': str(root)}
-                result = _sp.run(
-                    ['git', '-C', str(root), 'log',
-                     '--since=6.months.ago', '--pretty=%aN\t%aE',
-                     '--', rel],
-                    capture_output=True, text=True, timeout=10, env=env,
-                )
-                for line in (result.stdout or '').splitlines():
-                    parts = line.split('\t', 1)
-                    if not parts or not parts[0].strip():
-                        continue
-                    name = parts[0].strip()
-                    email = (parts[1].strip() if len(parts) > 1 else '').lower()
-                    key = email or name
-                    bucket = author_agg.setdefault(key, {
-                        'name': name, 'email': email, 'commits': 0, 'files': set(),
-                    })
-                    bucket['commits'] = int(bucket['commits']) + 1
-                    bucket['files'].add(rel)
-            except Exception:
-                continue
-
-        ranked = sorted(
-            author_agg.values(),
-            key=lambda b: (b['commits'], len(b['files'])),
-            reverse=True,
-        )[:3]
-        authors = [
-            RecommendedAuthor(
-                name=str(b['name']),
-                email=str(b['email'] or ''),
-                commit_count=int(b['commits']),
-                files_touched=len(b['files']),
-                reason=f"{b['commits']} commits across {len(b['files'])} touched file(s) in last 6 months",
-            )
-            for b in ranked
-        ]
-        return touched, authors
 
     def _to_suggestion(
         self,

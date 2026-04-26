@@ -566,7 +566,7 @@ async function submitLoginCode(cli, data) {
 async function runCLI(bin, name, data) {
   if (!bin) return { status: 'error', message: `${name} binary not found in container` };
 
-  const { repo_path, prompt, model, timeout = 300 } = data;
+  const { repo_path, prompt, model, timeout = 300, read_only = false } = data;
   // Validate repo path exists before spawning — otherwise Node gives a misleading ENOENT on the binary
   if (repo_path && !existsSync(repo_path)) {
     return { status: 'error', message: `repo path not found: ${repo_path}` };
@@ -579,12 +579,21 @@ async function runCLI(bin, name, data) {
   // createReadStream already imported at top
   let args;
   if (name === 'codex') {
-    args = ['exec', '--skip-git-repo-check', '-C', repo_path, '--full-auto', '--sandbox', 'workspace-write'];
+    // read_only flips the sandbox from workspace-write to read-only so
+    // refinement-style analysis runs can't accidentally edit files.
+    const sandbox = read_only ? 'read-only' : 'workspace-write';
+    args = ['exec', '--skip-git-repo-check', '-C', repo_path, '--full-auto', '--sandbox', sandbox];
     if (model) args.push('-m', model);
     args.push('-o', promptFile + '.out');
     args.push('-');  // read prompt from stdin
   } else {
-    args = ['--print', '--dangerously-skip-permissions'];
+    if (read_only) {
+      // Whitelist read-style tools only. Drop --dangerously-skip-permissions
+      // so writes get refused even if the prompt asks for them.
+      args = ['--print', '--allowedTools', 'Read,Grep,Glob,Bash(git:*),WebFetch'];
+    } else {
+      args = ['--print', '--dangerously-skip-permissions'];
+    }
     if (model) args.push('--model', model);
     args.push('-p', prompt.slice(0, 10000));  // claude --prompt has limits, use shorter
   }
