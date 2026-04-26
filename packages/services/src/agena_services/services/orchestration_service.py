@@ -423,16 +423,18 @@ class OrchestrationService:
                     model=_mcp_model,
                 )
 
-                # Load agents.md for initial orientation
+                # Load CLAUDE.md / agents.md for initial orientation
                 _mcp_agents_md: str | None = None
                 if _is_local:
                     _mcp_repo_root = Path(routing.local_repo_path).expanduser().resolve()
-                    _mcp_agents_path = _mcp_repo_root / 'agents.md'
-                    if _mcp_agents_path.is_file():
-                        try:
-                            _mcp_agents_md = _mcp_agents_path.read_text(errors='replace')[:50_000]
-                        except Exception:
-                            pass
+                    for _guide_name in ('CLAUDE.md', 'agents.md', 'AGENTS.md'):
+                        _mcp_agents_path = _mcp_repo_root / _guide_name
+                        if _mcp_agents_path.is_file():
+                            try:
+                                _mcp_agents_md = _mcp_agents_path.read_text(errors='replace')[:50_000]
+                                break
+                            except Exception:
+                                pass
                 elif _is_remote:
                     _mcp_agents_md = await self._fetch_remote_agents_md(routing.remote_repo, organization_id)
 
@@ -2972,7 +2974,12 @@ class OrchestrationService:
         if root is None or not root.is_dir():
             return '', '', ''
 
-        for name in ['agents.md', 'AGENTS.md']:
+        # CLAUDE.md before agents.md — Claude CLI uses it natively, and many
+        # repos drop their codegen rules there expecting the agent to obey
+        # them. Without this Agena builds prompts off a full repo scan and
+        # the agent only learns the rules from CWD-level CLAUDE.md, which
+        # is easier to miss when buried in a long task description.
+        for name in ['CLAUDE.md', 'agents.md', 'AGENTS.md']:
             guide = root / name
             if not guide.is_file():
                 continue
@@ -3613,7 +3620,7 @@ class OrchestrationService:
                         token = gh_cfg.secret
                 if not token:
                     return None
-                for name in ['agents.md', 'AGENTS.md']:
+                for name in ['CLAUDE.md', 'agents.md', 'AGENTS.md']:
                     content = await svc.github_file_content(owner, repo, token, name, branch)
                     if content:
                         return content
@@ -3628,7 +3635,7 @@ class OrchestrationService:
                 az_cfg = await cfg_svc.get_config(organization_id, 'azure')
                 if not az_cfg or not az_cfg.secret or not az_cfg.base_url:
                     return None
-                for name in ['agents.md', 'AGENTS.md']:
+                for name in ['CLAUDE.md', 'agents.md', 'AGENTS.md']:
                     content = await svc.azure_file_content(az_cfg.base_url, project, repo, az_cfg.secret, name, branch)
                     if content:
                         return content
