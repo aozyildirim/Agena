@@ -22,6 +22,84 @@ from agena_models.schemas.refinement import RecommendedAuthor, TouchedFile
 logger = logging.getLogger(__name__)
 
 
+async def _load_team_members(db: AsyncSession, user_id: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Pull the user's saved `my_team` lists (Azure + Jira) so author
+    emails can be linked back to a real member id. Returns
+    `(azure_members, jira_members)`. Both lists are best-effort: an
+    empty preferences row yields empty lists."""
+    import json as _json
+    try:
+        from agena_models.models.user_preference import UserPreference
+        pref = (await db.execute(
+            select(UserPreference).where(UserPreference.user_id == user_id)
+        )).scalar_one_or_none()
+        if pref is None:
+            return [], []
+        # Azure team is stored either in legacy my_team_json or
+        # profile_settings.my_team_by_source.azure.
+        legacy: list[dict[str, Any]] = []
+        try:
+            legacy = _json.loads(pref.my_team_json or '[]') or []
+        except Exception:
+            legacy = []
+        ps_raw = pref.profile_settings_json or '{}'
+        try:
+            ps = _json.loads(ps_raw) or {}
+        except Exception:
+            ps = {}
+        by_source = ps.get('my_team_by_source') if isinstance(ps, dict) else None
+        azure_team = legacy
+        jira_team: list[dict[str, Any]] = []
+        if isinstance(by_source, dict):
+            azure_team = by_source.get('azure') or azure_team
+            jira_team = by_source.get('jira') or []
+        return (
+            [m for m in azure_team if isinstance(m, dict)],
+            [m for m in jira_team if isinstance(m, dict)],
+        )
+    except Exception as exc:
+        logger.info('Could not load team members for user %s: %s', user_id, exc)
+        return [], []
+
+
+def _match_email_to_member(
+    email: str,
+    name: str,
+    azure_team: list[dict[str, Any]],
+    jira_team: list[dict[str, Any]],
+) -> tuple[str, str, str, str]:
+    """Best-effort match of a git-author email/name to a saved team
+    member. Returns `(id, display_name, unique_name, source)` or all
+    blanks. Email beats name; case-insensitive on both."""
+    email_lc = (email or '').strip().lower()
+    name_lc = (name or '').strip().lower()
+    if not email_lc and not name_lc:
+        return '', '', '', ''
+    for source, team in (('azure', azure_team), ('jira', jira_team)):
+        for m in team:
+            unique = str(m.get('uniqueName') or m.get('emailAddress') or m.get('email') or '').strip().lower()
+            disp = str(m.get('displayName') or m.get('name') or '').strip().lower()
+            if email_lc and unique and email_lc == unique:
+                return (
+                    str(m.get('id') or ''),
+                    str(m.get('displayName') or m.get('name') or ''),
+                    str(m.get('uniqueName') or m.get('emailAddress') or m.get('email') or ''),
+                    source,
+                )
+        # Fallback: name match if email didn't hit.
+        if name_lc:
+            for m in team:
+                disp = str(m.get('displayName') or m.get('name') or '').strip().lower()
+                if disp and disp == name_lc:
+                    return (
+                        str(m.get('id') or ''),
+                        str(m.get('displayName') or m.get('name') or ''),
+                        str(m.get('uniqueName') or m.get('emailAddress') or m.get('email') or ''),
+                        source,
+                    )
+    return '', '', '', ''
+
+
 async def resolve_authorship_for_files(
     db: AsyncSession,
     organization_id: int,
@@ -29,6 +107,7 @@ async def resolve_authorship_for_files(
     *,
     since: str = '6.months.ago',
     top_n: int = 3,
+    user_id: int | None = None,
 ) -> tuple[list[TouchedFile], list[RecommendedAuthor]]:
     """For each path the LLM proposed, locate it inside one of the org's
     active repo mappings and aggregate `git log` authorship.
@@ -111,8 +190,17 @@ async def resolve_authorship_for_files(
         key=lambda b: (b['commits'], len(b['files'])),
         reverse=True,
     )[:top_n]
-    authors = [
-        RecommendedAuthor(
+    azure_team: list[dict[str, Any]] = []
+    jira_team: list[dict[str, Any]] = []
+    if user_id is not None:
+        azure_team, jira_team = await _load_team_members(db, user_id)
+    authors: list[RecommendedAuthor] = []
+    for b in ranked:
+        member_id, member_disp, member_unique, member_source = _match_email_to_member(
+            str(b['email'] or ''), str(b['name'] or ''),
+            azure_team, jira_team,
+        )
+        authors.append(RecommendedAuthor(
             name=str(b['name']),
             email=str(b['email'] or ''),
             commit_count=int(b['commits']),
@@ -121,7 +209,9 @@ async def resolve_authorship_for_files(
                 f"{b['commits']} commits across {len(b['files'])} touched file(s) "
                 f'in last {since.replace(".", " ").replace("ago", "ago")}'
             ),
-        )
-        for b in ranked
-    ]
+            member_id=member_id,
+            member_display_name=member_disp,
+            member_unique_name=member_unique,
+            member_source=member_source,
+        ))
     return touched, authors

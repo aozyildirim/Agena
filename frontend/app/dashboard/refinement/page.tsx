@@ -78,7 +78,17 @@ type RefinementSuggestion = {
   error?: string | null;
   similar_items?: SimilarPastItem[];
   touched_files?: { file: string; action?: string; reason?: string; repo_mapping_name?: string }[];
-  recommended_authors?: { name: string; email?: string; commit_count?: number; files_touched?: number; reason?: string }[];
+  recommended_authors?: {
+    name: string;
+    email?: string;
+    commit_count?: number;
+    files_touched?: number;
+    reason?: string;
+    member_id?: string;
+    member_display_name?: string;
+    member_unique_name?: string;
+    member_source?: string;
+  }[];
 };
 
 type RefinementAnalyzeResponse = {
@@ -1851,22 +1861,58 @@ export default function RefinementPage() {
                                     <div style={expandedSection}>
                                       <div style={expandedSectionLabel}>Önerilen Kişi (kodu son 6 ayda yazan)</div>
                                       <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
-                                        {suggestion.recommended_authors.map((a, i) => (
+                                        {suggestion.recommended_authors.map((a, i) => {
+                                          const matched = !!a.member_unique_name;
+                                          return (
                                           <div key={`${a.email || a.name}-${i}`} style={{
                                             display: 'flex', alignItems: 'center', gap: 10,
                                             padding: '8px 10px', borderRadius: 10,
-                                            border: '1px solid rgba(168,85,247,0.25)',
-                                            background: 'rgba(168,85,247,0.06)',
+                                            border: matched ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(168,85,247,0.25)',
+                                            background: matched ? 'rgba(34,197,94,0.06)' : 'rgba(168,85,247,0.06)',
                                           }}>
-                                            <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 8, background: 'rgba(168,85,247,0.18)', color: '#c084fc', minWidth: 40, textAlign: 'center' }}>
-                                              #{i + 1}
+                                            <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 8, background: matched ? 'rgba(34,197,94,0.18)' : 'rgba(168,85,247,0.18)', color: matched ? '#22c55e' : '#c084fc', minWidth: 40, textAlign: 'center' }}>
+                                              {matched ? '✓' : `#${i + 1}`}
                                             </span>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                              <div style={{ fontSize: 13, color: 'var(--ink-85)', fontWeight: 600 }}>{a.name}{a.email ? ` <${a.email}>` : ''}</div>
+                                              <div style={{ fontSize: 13, color: 'var(--ink-85)', fontWeight: 600 }}>
+                                                {matched ? a.member_display_name : a.name}
+                                                {(matched ? a.member_unique_name : a.email) ? ` <${matched ? a.member_unique_name : a.email}>` : ''}
+                                              </div>
                                               <div style={{ fontSize: 11, color: 'var(--ink-58)' }}>{a.reason || `${a.commit_count || 0} commit · ${a.files_touched || 0} dosya`}</div>
                                             </div>
+                                            {matched && (
+                                              <button
+                                                type='button'
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  if (!window.confirm(`${a.member_display_name} kişisine ata?`)) return;
+                                                  try {
+                                                    await apiFetch('/refinement/assign-author', {
+                                                      method: 'POST',
+                                                      body: JSON.stringify({
+                                                        work_item_id: suggestion.item_id,
+                                                        source: a.member_source || 'azure',
+                                                        member_unique_name: a.member_unique_name,
+                                                        project: azureProject || undefined,
+                                                      }),
+                                                    });
+                                                    setError(`✓ Atandı: ${a.member_display_name}`);
+                                                  } catch (err) {
+                                                    setError(err instanceof Error ? err.message : 'Atama başarısız');
+                                                  }
+                                                }}
+                                                style={{
+                                                  padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                                                  border: '1px solid rgba(34,197,94,0.5)', background: 'rgba(34,197,94,0.15)',
+                                                  color: '#22c55e', cursor: 'pointer', whiteSpace: 'nowrap',
+                                                }}
+                                              >
+                                                Ata
+                                              </button>
+                                            )}
                                           </div>
-                                        ))}
+                                        );
+                                        })}
                                       </div>
                                     </div>
                                   )}

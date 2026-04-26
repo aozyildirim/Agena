@@ -454,7 +454,7 @@ class RefinementService:
                         resolve_authorship_for_files as _resolve_authorship,
                     )
                     touched_files, recommended_authors = await _resolve_authorship(
-                        self.db, organization_id, fc_paths,
+                        self.db, organization_id, fc_paths, user_id=user_id,
                     )
                     # Reason text per touched-file: prefer LLM-provided
                     # description; fall back to the action.

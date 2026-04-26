@@ -120,6 +120,79 @@ async def analyze_refinement(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+class RefinementAssignAuthorRequest(BaseModel):
+    work_item_id: str  # Azure work item id or Jira issue key
+    source: str  # 'azure' | 'jira'
+    member_unique_name: str  # UPN for Azure, email for Jira
+    project: str | None = None  # required for Azure (project name)
+
+
+@router.post('/assign-author')
+async def assign_recommended_author(
+    payload: RefinementAssignAuthorRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    """Assign a work item to a refinement-recommended author. Backed by
+    Azure REST PATCH (`/_apis/wit/workitems/{id}`) or Jira REST PUT
+    (`/rest/api/3/issue/{key}/assignee`)."""
+    src = (payload.source or '').strip().lower()
+    upn = (payload.member_unique_name or '').strip()
+    wid = (payload.work_item_id or '').strip()
+    if not wid or not upn:
+        raise HTTPException(status_code=400, detail='work_item_id and member_unique_name are required')
+
+    from agena_services.services.integration_config_service import IntegrationConfigService
+    cfg_service = IntegrationConfigService(db)
+
+    if src == 'azure':
+        cfg = await cfg_service.get_config(tenant.organization_id, 'azure')
+        if cfg is None or not cfg.secret:
+            raise HTTPException(status_code=400, detail='Azure integration not configured')
+        org_url = (cfg.base_url or '').rstrip('/')
+        project = (payload.project or '').strip()
+        if not project:
+            raise HTTPException(status_code=400, detail='project is required for Azure')
+        import base64, httpx
+        token = base64.b64encode(f':{cfg.secret}'.encode()).decode()
+        url = f'{org_url}/{project}/_apis/wit/workitems/{wid}?api-version=7.1-preview.3'
+        headers = {
+            'Authorization': f'Basic {token}',
+            'Content-Type': 'application/json-patch+json',
+        }
+        body = [{'op': 'add', 'path': '/fields/System.AssignedTo', 'value': upn}]
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.patch(url, headers=headers, json=body)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f'Azure returned {resp.status_code}: {resp.text[:200]}')
+        return {'status': 'ok', 'assignee': upn}
+
+    if src == 'jira':
+        cfg = await cfg_service.get_config(tenant.organization_id, 'jira')
+        if cfg is None or not cfg.secret:
+            raise HTTPException(status_code=400, detail='Jira integration not configured')
+        import base64, httpx
+        email = (cfg.username or '').strip()
+        if not email:
+            raise HTTPException(status_code=400, detail='Jira email missing in integration config')
+        creds = base64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
+        base = (cfg.base_url or '').rstrip('/')
+        url = f'{base}/rest/api/3/issue/{wid}/assignee'
+        headers = {
+            'Authorization': f'Basic {creds}',
+            'Content-Type': 'application/json',
+        }
+        # Jira accepts {emailAddress} on Cloud; on Data Center it's {name}.
+        body = {'emailAddress': upn}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.put(url, headers=headers, json=body)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f'Jira returned {resp.status_code}: {resp.text[:200]}')
+        return {'status': 'ok', 'assignee': upn}
+
+    raise HTTPException(status_code=400, detail='source must be azure or jira')
+
+
 @router.post('/writeback', response_model=RefinementWritebackResponse)
 async def writeback_refinement(
     payload: RefinementWritebackRequest,
