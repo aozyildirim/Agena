@@ -67,6 +67,18 @@ echo "=== Configuring Redis ==="
 docker exec ai_agent_redis redis-cli CONFIG SET stop-writes-on-bgsave-error no &>/dev/null || true
 echo "  Redis ready"
 
+# ── Database migrations ──────────────────────────────────────────────
+# Wait for backend to finish `pip install -e` before running alembic.
+# Skip silently if already at head; otherwise upgrade so the modules
+# table (which drives the sidebar) is seeded on fresh checkouts.
+echo ""
+echo "=== Applying DB migrations ==="
+for i in $(seq 1 30); do
+  docker exec ai_agent_api alembic current &>/dev/null && break
+  sleep 1
+done
+docker exec ai_agent_api alembic upgrade head 2>&1 | grep -E "Running upgrade|alembic" | tail -5 || echo "  (migrations skipped — backend not ready)"
+
 # ── CLI Bridge (host) ────────────────────────────────────────────────
 echo ""
 echo "=== Starting CLI bridge ==="
