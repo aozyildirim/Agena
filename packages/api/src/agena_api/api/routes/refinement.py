@@ -120,6 +120,100 @@ async def analyze_refinement(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+class RefinementAskQuestionRequest(BaseModel):
+    work_item_id: str  # Azure WIT id or Jira issue key
+    source: str  # 'azure' | 'jira'
+    question: str  # the ambiguity / question text
+    mention_unique_name: str | None = None  # UPN/email to @mention
+    mention_display_name: str | None = None
+    project: str | None = None  # Azure project name
+
+
+@router.post('/ask-question')
+async def ask_refinement_question(
+    payload: RefinementAskQuestionRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, str]:
+    """Post an ambiguity / question from a refinement suggestion as a
+    comment on the originating Azure / Jira work item, optionally with
+    an @mention so the assignee is notified."""
+    src = (payload.source or '').strip().lower()
+    qtext = (payload.question or '').strip()
+    wid = (payload.work_item_id or '').strip()
+    if not qtext or not wid:
+        raise HTTPException(status_code=400, detail='question and work_item_id are required')
+
+    from agena_services.services.integration_config_service import IntegrationConfigService
+    cfg_service = IntegrationConfigService(db)
+
+    if src == 'azure':
+        cfg = await cfg_service.get_config(tenant.organization_id, 'azure')
+        if cfg is None or not cfg.secret:
+            raise HTTPException(status_code=400, detail='Azure integration not configured')
+        from agena_services.integrations.azure_client import AzureDevOpsClient
+        client = AzureDevOpsClient()
+        # Same plain-`@upn` mention pattern the nudge service uses (the
+        # Azure comment renderer auto-resolves it into a notifying anchor).
+        mention_html = ''
+        upn = (payload.mention_unique_name or '').strip()
+        if upn and '@' in upn:
+            import html as _h
+            mention_html = f'@{_h.escape(upn)} '
+        # Wrap question text in basic HTML, escape the question itself.
+        import html as _h2
+        body_html = (
+            f'<div>{mention_html}<strong>Refinement sorusu:</strong> '
+            f'{_h2.escape(qtext)}</div>'
+        )
+        try:
+            await client.post_raw_html_comment(
+                cfg={'org_url': cfg.base_url or '', 'pat': cfg.secret},
+                work_item_id=wid,
+                html_body=body_html,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f'Azure comment failed: {exc}')
+        return {'status': 'ok'}
+
+    if src == 'jira':
+        cfg = await cfg_service.get_config(tenant.organization_id, 'jira')
+        if cfg is None or not cfg.secret:
+            raise HTTPException(status_code=400, detail='Jira integration not configured')
+        import base64, httpx
+        email = (cfg.username or '').strip()
+        if not email:
+            raise HTTPException(status_code=400, detail='Jira email missing in integration config')
+        creds = base64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
+        base = (cfg.base_url or '').rstrip('/')
+        url = f'{base}/rest/api/3/issue/{wid}/comment'
+        # Jira ADF body — minimal paragraph. Mention requires the
+        # member's accountId which we don't have here; fall back to
+        # plain text "@email" prefix.
+        prefix = f'@{(payload.mention_unique_name or "").strip()} ' if payload.mention_unique_name else ''
+        body = {
+            'body': {
+                'type': 'doc', 'version': 1,
+                'content': [{
+                    'type': 'paragraph',
+                    'content': [{
+                        'type': 'text',
+                        'text': f'{prefix}Refinement sorusu: {qtext}',
+                    }],
+                }],
+            },
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, headers={
+                'Authorization': f'Basic {creds}', 'Content-Type': 'application/json',
+            }, json=body)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f'Jira returned {resp.status_code}: {resp.text[:200]}')
+        return {'status': 'ok'}
+
+    raise HTTPException(status_code=400, detail='source must be azure or jira')
+
+
 @router.get('/file-history')
 async def file_history(
     repo_mapping_id: int,
