@@ -2062,29 +2062,76 @@ export default function RefinementPage() {
                                     </div>
                                   )}
 
-                                  {/* Ambiguities & Questions side by side */}
-                                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-                                    <div style={expandedSection}>
-                                      <div style={expandedSectionLabel}>{copy.ambiguities}</div>
-                                      {suggestion.ambiguities.length ? (
-                                        <ul style={{ margin: 0, paddingLeft: 16, color: 'var(--ink-75)', lineHeight: 1.6, fontSize: 13 }}>
-                                          {suggestion.ambiguities.map((a, i) => <li key={i}>{a}</li>)}
-                                        </ul>
-                                      ) : (
-                                        <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>-</div>
-                                      )}
-                                    </div>
-                                    <div style={expandedSection}>
-                                      <div style={expandedSectionLabel}>{copy.questions}</div>
-                                      {suggestion.questions.length ? (
-                                        <ul style={{ margin: 0, paddingLeft: 16, color: 'var(--ink-75)', lineHeight: 1.6, fontSize: 13 }}>
-                                          {suggestion.questions.map((q, i) => <li key={i}>{q}</li>)}
-                                        </ul>
-                                      ) : (
-                                        <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>-</div>
-                                      )}
-                                    </div>
-                                  </div>
+                                  {/* Ambiguities & Questions side by side. Each
+                                      line gets a "Sor" button that posts the
+                                      text to the originating Azure / Jira work
+                                      item with an @mention of the matched
+                                      recommended author. */}
+                                  {(() => {
+                                    const matched = (suggestion.recommended_authors || []).find((x) => x.member_unique_name);
+                                    const askLine = async (text: string) => {
+                                      try {
+                                        await apiFetch('/refinement/ask-question', {
+                                          method: 'POST',
+                                          body: JSON.stringify({
+                                            work_item_id: suggestion.item_id,
+                                            source: matched?.member_source || 'azure',
+                                            question: text,
+                                            mention_unique_name: matched?.member_unique_name || undefined,
+                                            mention_display_name: matched?.member_display_name || undefined,
+                                            project: azureProject || undefined,
+                                          }),
+                                        });
+                                        setError(`✓ ${matched?.member_display_name || 'Assignee'} kişisine soruldu`);
+                                      } catch (err) {
+                                        setError(err instanceof Error ? err.message : 'Soru gönderilemedi');
+                                      }
+                                    };
+                                    return (
+                                      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                                        <div style={expandedSection}>
+                                          <div style={expandedSectionLabel}>{copy.ambiguities}</div>
+                                          {suggestion.ambiguities.length ? (
+                                            <div style={{ display: 'grid', gap: 4, marginTop: 4 }}>
+                                              {suggestion.ambiguities.map((a, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 13, color: 'var(--ink-75)', lineHeight: 1.5 }}>
+                                                  <span style={{ flex: 1 }}>• {a}</span>
+                                                  <button
+                                                    type='button'
+                                                    onClick={(e) => { e.stopPropagation(); if (window.confirm(`"${a}" sorulsun mu?`)) void askLine(a); }}
+                                                    title={'Work item’a comment olarak gönder'}
+                                                    style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'rgba(245,158,11,0.08)', color: '#f59e0b', cursor: 'pointer' }}
+                                                  >Sor</button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>-</div>
+                                          )}
+                                        </div>
+                                        <div style={expandedSection}>
+                                          <div style={expandedSectionLabel}>{copy.questions}</div>
+                                          {suggestion.questions.length ? (
+                                            <div style={{ display: 'grid', gap: 4, marginTop: 4 }}>
+                                              {suggestion.questions.map((q, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 13, color: 'var(--ink-75)', lineHeight: 1.5 }}>
+                                                  <span style={{ flex: 1 }}>• {q}</span>
+                                                  <button
+                                                    type='button'
+                                                    onClick={(e) => { e.stopPropagation(); if (window.confirm(`"${q}" sorulsun mu?`)) void askLine(q); }}
+                                                    title={'Work item’a comment olarak gönder'}
+                                                    style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'rgba(56,189,248,0.08)', color: '#38bdf8', cursor: 'pointer' }}
+                                                  >Sor</button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>-</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </>
                               )}
                             </div>
