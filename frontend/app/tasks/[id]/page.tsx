@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { apiDownloadBlob, apiFetch, getToken, loadPrefs, resolveApiBase } from '@/lib/api';
 import { renderMarkdown } from '@/lib/markdown';
 import RichDescription from '@/components/RichDescription';
+import ShareTaskModal from '@/components/ShareTaskModal';
 import StatusBadge from '@/components/StatusBadge';
 import RemoteRepoSelector, { type RemoteRepoSelection, type RepoDefault } from '@/components/RemoteRepoSelector';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
@@ -263,6 +264,7 @@ export default function TaskDetailPage() {
   const [isRerunBusy, setIsRerunBusy] = useState(false);
   const [showRunConfig, setShowRunConfig] = useState(false);
   const [isCancelBusy, setIsCancelBusy] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isDepsBusy, setIsDepsBusy] = useState(false);
   const [selectedDependencyIds, setSelectedDependencyIds] = useState<number[]>([]);
   const [dependencyCandidates, setDependencyCandidates] = useState<DependencyTaskOption[]>([]);
@@ -810,6 +812,15 @@ export default function TaskDetailPage() {
               </button>
             );
           })()}
+          <button
+            className='button button-outline'
+            onClick={() => setShareModalOpen(true)}
+            disabled={!task}
+            style={{ padding: '8px 18px', fontSize: 13 }}
+            title={t('taskDetail.share.button' as never)}
+          >
+            {t('taskDetail.share.button' as never)}
+          </button>
         </div>
       </section>
 
@@ -1776,6 +1787,13 @@ export default function TaskDetailPage() {
         />,
         document.body,
       )}
+
+      <ShareTaskModal
+        taskId={task?.id ?? 0}
+        taskTitle={task?.title ?? ''}
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+      />
 
       {repoConflict && typeof document !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001, padding: 16, overflowY: 'auto' }} onClick={() => setRepoConflict(null)}>

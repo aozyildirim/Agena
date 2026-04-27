@@ -1370,3 +1370,160 @@ async def set_task_dependencies(
     dependents = await service.get_dependents(tenant.organization_id, task_id)
     blockers = await service.get_dependency_blockers(tenant.organization_id, task_id)
     return {'depends_on_task_ids': deps, 'dependent_task_ids': dependents, 'blocker_task_ids': blockers}
+
+
+# --- Share-link endpoints --------------------------------------------------
+
+class CreateShareTokenRequest(BaseModel):
+    expires_in_days: int = 7
+    max_uses: int = 3
+
+
+class ShareTokenResponse(BaseModel):
+    id: int
+    token: str
+    url: str
+    expires_at: str | None
+    max_uses: int
+    use_count: int
+    revoked_at: str | None
+
+
+@router.post('/{task_id}/share', response_model=ShareTokenResponse)
+async def create_share_link(
+    task_id: int,
+    payload: CreateShareTokenRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> ShareTokenResponse:
+    from agena_services.services.task_share_service import TaskShareService
+    service = TaskService(db)
+    task = await service.get_task(tenant.organization_id, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+    share_service = TaskShareService(db)
+    row = await share_service.create_token(
+        organization_id=tenant.organization_id,
+        task_id=task_id,
+        user_id=tenant.user_id,
+        expires_in_days=payload.expires_in_days,
+        max_uses=payload.max_uses,
+    )
+    return ShareTokenResponse(
+        id=row.id,
+        token=row.token,
+        url=f'/share/{row.token}',
+        expires_at=row.expires_at.isoformat() if row.expires_at else None,
+        max_uses=row.max_uses,
+        use_count=row.use_count,
+        revoked_at=row.revoked_at.isoformat() if row.revoked_at else None,
+    )
+
+
+@router.get('/{task_id}/share', response_model=list[ShareTokenResponse])
+async def list_share_links(
+    task_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[ShareTokenResponse]:
+    from agena_services.services.task_share_service import TaskShareService
+    service = TaskService(db)
+    task = await service.get_task(tenant.organization_id, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+    rows = await TaskShareService(db).list_for_task(tenant.organization_id, task_id)
+    return [
+        ShareTokenResponse(
+            id=r.id,
+            token=r.token,
+            url=f'/share/{r.token}',
+            expires_at=r.expires_at.isoformat() if r.expires_at else None,
+            max_uses=r.max_uses,
+            use_count=r.use_count,
+            revoked_at=r.revoked_at.isoformat() if r.revoked_at else None,
+        )
+        for r in rows
+    ]
+
+
+@router.delete('/{task_id}/share/{token_id}')
+async def revoke_share_link(
+    task_id: int,
+    token_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, bool]:
+    from agena_services.services.task_share_service import TaskShareService
+    ok = await TaskShareService(db).revoke(tenant.organization_id, token_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail='Share token not found')
+    return {'revoked': True}
+
+
+@router.post('/share/{token}/import', response_model=TaskResponse)
+async def import_shared_task(
+    token: str,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> TaskResponse:
+    """Copy a shared task into the recipient's organization. Consumes one
+    `use_count` slot of the share token. Description / source are kept;
+    repo mapping is *not* carried across (IDs are tenant-scoped).
+    Existing TaskAttachment files are duplicated into the recipient's
+    storage tree."""
+    from agena_services.services.task_share_service import TaskShareService
+    from agena_models.models.task_attachment import TaskAttachment
+    from agena_models.models.task_record import TaskRecord
+    import shutil
+
+    share_service = TaskShareService(db)
+    share = await share_service.resolve(token)
+    if share is None:
+        raise HTTPException(status_code=404, detail='Share link is invalid, expired, or used up')
+
+    src_task = await db.get(TaskRecord, share.task_id)
+    if src_task is None or src_task.organization_id != share.organization_id:
+        raise HTTPException(status_code=404, detail='Underlying task no longer exists')
+
+    service = TaskService(db)
+    new_task = await service.create_task(
+        organization_id=tenant.organization_id,
+        user_id=tenant.user_id,
+        title=src_task.title or 'Imported task',
+        description=src_task.description or '',
+        source=getattr(src_task, 'source', None) or 'shared',
+        external_id=None,
+    )
+
+    src_atts = (await db.execute(
+        select(TaskAttachment).where(
+            TaskAttachment.task_id == src_task.id,
+            TaskAttachment.organization_id == src_task.organization_id,
+        )
+    )).scalars().all()
+    if src_atts:
+        dest_root = Path('/app/data/uploads/tasks') / str(tenant.organization_id) / str(new_task.id)
+        dest_root.mkdir(parents=True, exist_ok=True)
+        for a in src_atts:
+            try:
+                src_path = Path(a.storage_path)
+                if not src_path.is_file():
+                    continue
+                dest_path = dest_root / src_path.name
+                shutil.copyfile(src_path, dest_path)
+                db.add(TaskAttachment(
+                    task_id=new_task.id,
+                    organization_id=tenant.organization_id,
+                    uploaded_by_user_id=tenant.user_id,
+                    filename=a.filename,
+                    content_type=a.content_type,
+                    size_bytes=a.size_bytes,
+                    storage_path=str(dest_path),
+                ))
+            except Exception:
+                continue
+        await db.commit()
+        await db.refresh(new_task)
+
+    await share_service.consume(share)
+    return await _to_task_response(service, tenant.organization_id, new_task)

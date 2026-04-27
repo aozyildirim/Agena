@@ -9,6 +9,7 @@ import { TaskItem, type RepoAssignment } from '@/components/TaskTable';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector from '@/components/RemoteRepoSelector';
 import RichDescription from '@/components/RichDescription';
+import ShareTaskModal from '@/components/ShareTaskModal';
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
@@ -95,6 +96,7 @@ export default function DashboardTasksPage() {
   const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
   const [mcpPopupTaskId, setMcpPopupTaskId] = useState<number | null>(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<TaskItem | null>(null);
+  const [shareTask, setShareTask] = useState<TaskItem | null>(null);
   const [editTask, setEditTask] = useState<TaskItem | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -1472,6 +1474,18 @@ export default function DashboardTasksPage() {
                   style={{ padding: '6px 6px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(56,189,248,0.2)', background: 'transparent', color: '#38bdf8', cursor: 'pointer', lineHeight: 1 }}>
                   ✏️
                 </button>
+                <button
+                  onClick={() => setShareTask(task)}
+                  title={t('taskDetail.share.button' as TranslationKey)}
+                  style={{ padding: '6px 8px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(94,234,212,0.25)', background: 'transparent', color: '#5eead4', cursor: 'pointer', lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'>
+                    <circle cx='18' cy='5' r='3' />
+                    <circle cx='6' cy='12' r='3' />
+                    <circle cx='18' cy='19' r='3' />
+                    <line x1='8.59' y1='13.51' x2='15.42' y2='17.49' />
+                    <line x1='15.41' y1='6.51' x2='8.59' y2='10.49' />
+                  </svg>
+                </button>
                 {task.status !== 'running' && (
                   <button onClick={() => setDeleteConfirmTask(task)}
                     style={{ padding: '6px 6px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#ef4444', cursor: 'pointer', lineHeight: 1 }}>
@@ -1998,6 +2012,13 @@ export default function DashboardTasksPage() {
         </div>,
         document.body,
       )}
+
+      <ShareTaskModal
+        taskId={shareTask?.id ?? 0}
+        taskTitle={shareTask?.title ?? ''}
+        open={!!shareTask}
+        onClose={() => setShareTask(null)}
+      />
     </div>
   );
 }

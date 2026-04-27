@@ -28,6 +28,7 @@ from agena_models.models.subscription import Subscription
 from agena_models.models.task_dependency import TaskDependency
 from agena_models.models.task_repo_assignment import TaskRepoAssignment
 from agena_models.models.task_record import TaskRecord
+from agena_models.models.task_share_token import TaskShareToken
 from agena_models.models.task_attachment import TaskAttachment
 from agena_models.models.usage_record import UsageRecord
 from agena_models.models.user import User
@@ -38,7 +39,7 @@ from agena_models.models.user_preference import UserPreference
 
 __all__ = [
     'User', 'Organization', 'OrganizationMember', 'Subscription',
-    'TaskAttachment', 'TaskDependency', 'TaskRepoAssignment', 'PaymentRecord', 'Prompt', 'PromptOverride',
+    'TaskAttachment', 'TaskDependency', 'TaskRepoAssignment', 'TaskShareToken', 'PaymentRecord', 'Prompt', 'PromptOverride',
     'RefinementJob', 'RefinementRecord', 'RepoMapping', 'UsageRecord', 'TaskRecord', 'RunRecord',
     'AgentLog', 'AIUsageEvent', 'FlowTemplate', 'FlowVersion',
     'AgentAnalyticsSnapshot', 'FlowRun', 'FlowRunStep', 'Invite',
