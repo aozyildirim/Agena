@@ -1162,16 +1162,24 @@ export default function RefinementPage() {
 
   const providerLabel = provider === 'azure' ? 'Azure DevOps' : 'Jira';
 
-  const sortedItems = useMemo(() => {
-    const items = itemsData?.items || [];
-    return [...items].sort((a, b) => Number(hasEstimate(a)) - Number(hasEstimate(b)) || a.title.localeCompare(b.title));
-  }, [itemsData]);
-
   const resultByItemId = useMemo(() => {
     const map = new Map<string, RefinementSuggestion>();
     for (const row of results?.results || []) map.set(row.item_id, row);
     return map;
   }, [results]);
+
+  const sortedItems = useMemo(() => {
+    const items = itemsData?.items || [];
+    // Refined items first (most recent runs surface a suggestion in
+    // resultByItemId), then unestimated, then everything else.
+    return [...items].sort((a, b) => {
+      const refinedDiff = Number(!resultByItemId.has(a.id)) - Number(!resultByItemId.has(b.id));
+      if (refinedDiff !== 0) return refinedDiff;
+      const estimateDiff = Number(hasEstimate(a)) - Number(hasEstimate(b));
+      if (estimateDiff !== 0) return estimateDiff;
+      return a.title.localeCompare(b.title);
+    });
+  }, [itemsData, resultByItemId]);
 
   useEffect(() => {
     if (!itemsData || !results) return;
