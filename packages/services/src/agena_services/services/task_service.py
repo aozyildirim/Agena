@@ -202,16 +202,15 @@ class TaskService:
         if config is None:
             raise ValueError('Azure integration not configured for this organization')
 
-        external_items = await self.azure_client.fetch_new_work_items(
-            {
-                'org_url': config.base_url,
-                'project': project or config.project or '',
-                'pat': config.secret,
-                'team': team or '',
-                'sprint_path': sprint_path or '',
-                'state': state or '',
-            }
-        )
+        cfg = {
+            'org_url': config.base_url,
+            'project': project or config.project or '',
+            'pat': config.secret,
+            'team': team or '',
+            'sprint_path': sprint_path or '',
+            'state': state or '',
+        }
+        external_items = await self.azure_client.fetch_new_work_items(cfg)
         imported = 0
         skipped = 0
 
@@ -228,19 +227,74 @@ class TaskService:
                     skipped += 1
                     continue
 
+                description = await self._enrich_description_with_azure_comments(
+                    cfg, item.description, item.id,
+                )
+
                 await self.create_task_from_external(
                     organization_id=organization_id,
                     user_id=user_id,
                     source='azure',
                     external_id=item.id,
                     title=item.title,
-                    description=item.description,
+                    description=description,
                 )
                 imported += 1
             except PermissionError as pe:
                 raise ValueError(f'Task quota exceeded: {pe}') from pe
 
         return imported, skipped
+
+    async def _enrich_description_with_azure_comments(
+        self,
+        cfg: dict,
+        description: str,
+        work_item_id: str,
+    ) -> str:
+        """Pull the work item's discussion thread and append it to the
+        description so the AI sees clarifications, not just the original
+        ticket body. Best-effort — if the comments fetch fails, returns
+        the original description unchanged."""
+        project = (cfg.get('project') or '').strip()
+        if not project:
+            return description
+        try:
+            comments = await self.azure_client.fetch_work_item_comments(
+                cfg={'org_url': cfg.get('org_url') or '', 'pat': cfg.get('pat') or ''},
+                project=project,
+                work_item_id=work_item_id,
+            )
+        except Exception:
+            return description
+        if not comments:
+            return description
+        # Azure returns newest-first; flip so the AI reads in chronological order.
+        ordered = list(reversed(comments))
+        import re as _re
+        lines: list[str] = []
+        for idx, c in enumerate(ordered, start=1):
+            text = (c.get('text') or '').strip()
+            if not text:
+                continue
+            text = _re.sub(r'<[^>]+>', '', text)
+            text = (
+                text.replace('&nbsp;', ' ')
+                .replace('&amp;', '&')
+                .replace('&lt;', '<')
+                .replace('&gt;', '>')
+            )
+            text = _re.sub(r'\n{3,}', '\n\n', text).strip()
+            who = c.get('created_by') or 'unknown'
+            when = (c.get('created_at') or '')[:19].replace('T', ' ')
+            header = f'### Comment {idx} — {who}' + (f' ({when})' if when else '')
+            lines.append(f'{header}\n{text}')
+        if not lines:
+            return description
+        block = (
+            f'\n\n---\n## Discussion ({len(lines)} comment{"" if len(lines) == 1 else "s"})\n'
+            + '\n\n'.join(lines)
+        )
+        return (description or '') + block
 
     async def import_from_jira(
         self,

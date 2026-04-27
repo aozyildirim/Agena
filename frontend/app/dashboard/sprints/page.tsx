@@ -727,6 +727,40 @@ export default function SprintsPage() {
     }
     try {
       const desc = String(item.description || '').trim();
+      // Pull the work item's discussion thread so the AI sees clarifications
+      // and follow-ups, not just the original ticket body. Azure-only for now;
+      // a Jira equivalent endpoint would slot in the same way.
+      let commentsBlock = '';
+      if (provider === 'azure' && project) {
+        try {
+          type AzureComment = { id: number; text: string; created_by: string; created_at: string };
+          const params = new URLSearchParams({ project });
+          const comments = await apiFetch<AzureComment[]>(`/tasks/azure/workitems/${item.id}/comments?${params}`);
+          if (Array.isArray(comments) && comments.length) {
+            // Newest-first from API → flip to chronological so the AI reads
+            // the conversation in order.
+            const ordered = [...comments].reverse();
+            const lines = ordered.map((c, i) => {
+              const text = String(c.text || '')
+                .replace(/<\/?[^>]+>/g, '') // strip Azure's HTML wrappers
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+              const who = c.created_by || 'unknown';
+              const when = c.created_at ? c.created_at.slice(0, 19).replace('T', ' ') : '';
+              return `### Comment ${i + 1} — ${who}${when ? ` (${when})` : ''}\n${text}`;
+            }).filter((s) => s.length > 0);
+            if (lines.length) {
+              commentsBlock = `\n\n---\n## Discussion (${lines.length} comment${lines.length === 1 ? '' : 's'})\n${lines.join('\n\n')}`;
+            }
+          }
+        } catch {
+          // Comments are nice-to-have — don't block the import on a 4xx/5xx.
+        }
+      }
       const ctxParts = [
         `External Source: ${provider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
         'Prompt Instruction: Read any images in the task description and include their context in your analysis.',
@@ -742,9 +776,10 @@ export default function SprintsPage() {
         method: 'POST',
         body: JSON.stringify({
           title: `[${provider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`,
-          description: `${desc}\n\n---\n${ctxParts.join('\n')}`,
+          description: `${desc}${commentsBlock}\n\n---\n${ctxParts.join('\n')}`,
           source: provider,
           external_id: String(item.id),
+          ...(mapping?.id ? { repo_mapping_ids: [mapping.id] } : {}),
         }),
       });
       setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: created.id }));

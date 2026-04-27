@@ -404,6 +404,31 @@ async def list_azure_workitem_comments(
         raise HTTPException(status_code=502, detail=f'Azure comments fetch failed: {exc}') from exc
 
 
+@router.get('/jira/issues/{issue_key}/comments')
+async def list_jira_issue_comments(
+    issue_key: str,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[dict[str, Any]]:
+    """Read-only fetch of a Jira issue's comments — used by the sprints
+    importer to enrich a task description before the task exists in our DB."""
+    service = IntegrationConfigService(db)
+    config = await service.get_config(tenant.organization_id, 'jira')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Jira integration not configured')
+    from agena_services.integrations.jira_client import JiraClient
+    client = JiraClient()
+    cfg = {
+        'base_url': config.base_url or '',
+        'email': config.username or '',
+        'api_token': config.secret,
+    }
+    try:
+        return await client.fetch_issue_comments(cfg=cfg, issue_key=issue_key)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f'Jira comments fetch failed: {exc}') from exc
+
+
 class CommentPostRequest(BaseModel):
     comment: str
 
