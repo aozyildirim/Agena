@@ -466,12 +466,34 @@ class AnalyticsService:
                 ),
             }
 
+        # Require an explicit project — fall-back to config.project trips on
+        # stale configs (org renamed the project, etc.) and produces a 404
+        # the user can't act on.
+        effective_project = (project or '').strip()
+        if not effective_project:
+            return {
+                'period_days': days,
+                'source': 'external',
+                'error': 'Pick an Azure project from the dropdown above to load metrics.',
+                'kpi': {'predictability': 0.0, 'productivity': 0.0, 'delivery_rate': 0.0, 'planning_accuracy': 0.0},
+                'totals': {'planned': 0, 'completed': 0, 'failed': 0},
+                'avg_cycle_time_hours': 0.0,
+                'avg_lead_time_hours': 0.0,
+                'wip_count': 0,
+                'weekly_trend': [],
+                'time_trend': [],
+                'throughput_trend': [],
+                'git_activity': await self._git_activity_block(
+                    organization_id, since=datetime.utcnow() - timedelta(days=days), repo_mapping_id=repo_mapping_id,
+                ),
+            }
+
         client = AzureDevOpsClient()
         try:
             items = await client.fetch_period_work_items(
                 cfg={
                     'org_url': config.base_url or '',
-                    'project': project or config.project or '',
+                    'project': effective_project,
                     'pat': config.secret,
                     'team': team or '',
                 },
@@ -527,7 +549,7 @@ class AnalyticsService:
         return {
             'period_days': days,
             'source': 'external',
-            'project': project or config.project or '',
+            'project': effective_project,
             'team': team or '',
             'kpi': {
                 'predictability': predictability,

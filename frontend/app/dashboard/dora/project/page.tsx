@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
+  apiFetch,
   fetchProjectAnalytics,
   fetchSprintDetail,
   type ProjectAnalyticsResponse,
@@ -417,6 +418,30 @@ export default function DoraProjectPage() {
   const [source, setSource] = useState<'internal' | 'external'>('internal');
   const [azureProject, setAzureProject] = useState<string>('');
   const [azureTeam, setAzureTeam] = useState<string>('');
+  const [azureProjects, setAzureProjects] = useState<{ id: string; name: string }[]>([]);
+  const [azureTeams, setAzureTeams] = useState<{ id: string; name: string }[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+
+  // Lazy-load the org's Azure project list the first time external mode opens.
+  useEffect(() => {
+    if (source !== 'external' || azureProjects.length > 0 || projectsLoading) return;
+    setProjectsLoading(true);
+    apiFetch<{ id: string; name: string }[]>('/tasks/azure/projects')
+      .then((rows) => setAzureProjects(rows || []))
+      .catch(() => setAzureProjects([]))
+      .finally(() => setProjectsLoading(false));
+  }, [source, azureProjects.length, projectsLoading]);
+
+  // When the picked project changes, refresh the team list.
+  useEffect(() => {
+    if (source !== 'external' || !azureProject) { setAzureTeams([]); return; }
+    setTeamsLoading(true);
+    apiFetch<{ id: string; name: string }[]>(`/tasks/azure/teams?project=${encodeURIComponent(azureProject)}`)
+      .then((rows) => setAzureTeams(rows || []))
+      .catch(() => setAzureTeams([]))
+      .finally(() => setTeamsLoading(false));
+  }, [source, azureProject]);
 
   useEffect(() => {
     let active = true;
@@ -482,20 +507,28 @@ export default function DoraProjectPage() {
             >Azure (live WIQL)</button>
             {source === 'external' && (
               <>
-                <input
-                  type='text'
-                  placeholder='Project (e.g. EcomBackend)'
+                <select
                   value={azureProject}
-                  onChange={(e) => setAzureProject(e.target.value)}
-                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 12, width: 200 }}
-                />
-                <input
-                  type='text'
-                  placeholder='Team (optional, narrows by area)'
+                  onChange={(e) => { setAzureProject(e.target.value); setAzureTeam(''); }}
+                  disabled={projectsLoading}
+                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 12, minWidth: 180 }}
+                >
+                  <option value=''>{projectsLoading ? 'Loading projects…' : '— Pick a project —'}</option>
+                  {azureProjects.map((p) => (
+                    <option key={p.id} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <select
                   value={azureTeam}
                   onChange={(e) => setAzureTeam(e.target.value)}
-                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 12, width: 240 }}
-                />
+                  disabled={!azureProject || teamsLoading}
+                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 12, minWidth: 200 }}
+                >
+                  <option value=''>{!azureProject ? '(pick project first)' : teamsLoading ? 'Loading teams…' : '— All teams —'}</option>
+                  {azureTeams.map((tm) => (
+                    <option key={tm.id} value={tm.name}>{tm.name}</option>
+                  ))}
+                </select>
               </>
             )}
           </div>
