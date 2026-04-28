@@ -708,6 +708,20 @@ export interface ProjectTotals {
   planned: number;
   completed: number;
   failed: number;
+  removed?: number | null;
+  in_progress?: number | null;
+}
+
+export interface GitActivityBlock {
+  prs_opened: number;
+  prs_merged: number;
+  prs_open: number;
+  avg_pr_lead_time_hours: number | null;
+  commits: number;
+  contributors: number;
+  deployments_total: number;
+  deployments_success: number;
+  deployments_failed: number;
 }
 
 export interface WeeklyTrendItem {
@@ -730,6 +744,10 @@ export interface ThroughputTrendItem {
 
 export interface ProjectAnalyticsResponse {
   period_days: number;
+  source?: 'internal' | 'external';
+  project?: string | null;
+  team?: string | null;
+  error?: string | null;
   kpi: ProjectKPI;
   totals: ProjectTotals;
   avg_cycle_time_hours: number;
@@ -738,11 +756,25 @@ export interface ProjectAnalyticsResponse {
   weekly_trend: WeeklyTrendItem[];
   time_trend: TimeTrendItem[];
   throughput_trend: ThroughputTrendItem[];
+  git_activity?: GitActivityBlock | null;
 }
 
-export async function fetchProjectAnalytics(days = 30, repoMappingId?: string | null): Promise<ProjectAnalyticsResponse> {
+export interface ProjectAnalyticsOptions {
+  source?: 'internal' | 'external';
+  project?: string | null;
+  team?: string | null;
+}
+
+export async function fetchProjectAnalytics(
+  days = 30,
+  repoMappingId?: string | null,
+  opts: ProjectAnalyticsOptions = {},
+): Promise<ProjectAnalyticsResponse> {
   const qs = new URLSearchParams({ days: String(days) });
   if (repoMappingId) qs.set('repo_mapping_id', repoMappingId);
+  if (opts.source) qs.set('source', opts.source);
+  if (opts.project) qs.set('project', opts.project);
+  if (opts.team) qs.set('team', opts.team);
   return apiFetch<ProjectAnalyticsResponse>(`/analytics/dora/project?${qs.toString()}`);
 }
 

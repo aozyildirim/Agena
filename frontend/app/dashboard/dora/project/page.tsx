@@ -21,6 +21,17 @@ const box: React.CSSProperties = {
   padding: 24,
 };
 
+// ── Git activity inline stat (small chip in the activity row) ──────────────
+
+function GitStat({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+      <span style={{ fontSize: 18, fontWeight: 700, color: accent || 'var(--ink)', lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
+    </div>
+  );
+}
+
 // ── KPI Card ────────────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, suffix = '%', color }: { label: string; value: number; suffix?: string; color: string }) {
@@ -400,6 +411,12 @@ export default function DoraProjectPage() {
   const [workItemTab, setWorkItemTab] = useState<'completed' | 'incomplete' | 'removed'>('completed');
   const [velocityTab, setVelocityTab] = useState<'count' | 'effort'>('count');
   const [typeFilter, setTypeFilter] = useState<'all' | 'task' | 'bug'>('all');
+  // Source toggle: 'internal' = Agena task_records (the original behaviour),
+  // 'external' = Azure WIQL pulled live for the user's project/team. Project
+  // and team are only meaningful when source=external.
+  const [source, setSource] = useState<'internal' | 'external'>('internal');
+  const [azureProject, setAzureProject] = useState<string>('');
+  const [azureTeam, setAzureTeam] = useState<string>('');
 
   useEffect(() => {
     let active = true;
@@ -407,13 +424,17 @@ export default function DoraProjectPage() {
     setError('');
     (async () => {
       try {
-        const [res, sprintRes] = await Promise.all([
-          fetchProjectAnalytics(days, repoId),
-          fetchSprintDetail(days, repoId),
-        ]);
+        const opts = source === 'external'
+          ? { source: 'external' as const, project: azureProject || undefined, team: azureTeam || undefined }
+          : { source: 'internal' as const };
+        const tasks: Promise<unknown>[] = [
+          fetchProjectAnalytics(days, repoId, opts),
+        ];
+        if (source === 'internal') tasks.push(fetchSprintDetail(days, repoId));
+        const [res, sprintRes] = await Promise.all(tasks);
         if (active) {
-          setData(res);
-          setSprint(sprintRes);
+          setData(res as ProjectAnalyticsResponse);
+          setSprint((sprintRes as SprintDetailResponse) || null);
         }
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Failed to load project analytics');
@@ -422,7 +443,7 @@ export default function DoraProjectPage() {
       }
     })();
     return () => { active = false; };
-  }, [days, repoId]);
+  }, [days, repoId, source, azureProject, azureTeam]);
 
   const periodOptions = [7, 14, 30, 60, 90];
 
@@ -438,6 +459,46 @@ export default function DoraProjectPage() {
           <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{t('dora.project.pageTitle')}</h1>
           <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>{t('dora.projectDesc')}</p>
           <RepoSelector value={repoId} onSelect={setRepoId} />
+
+          {/* Internal / External source toggle */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setSource('internal')}
+              style={{
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                border: source === 'internal' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border)',
+                background: source === 'internal' ? 'rgba(94,234,212,0.12)' : 'var(--panel-alt)',
+                color: source === 'internal' ? '#5eead4' : 'var(--muted)',
+              }}
+            >Agena (internal)</button>
+            <button
+              onClick={() => setSource('external')}
+              style={{
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                border: source === 'external' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border)',
+                background: source === 'external' ? 'rgba(94,234,212,0.12)' : 'var(--panel-alt)',
+                color: source === 'external' ? '#5eead4' : 'var(--muted)',
+              }}
+            >Azure (live WIQL)</button>
+            {source === 'external' && (
+              <>
+                <input
+                  type='text'
+                  placeholder='Project (e.g. EcomBackend)'
+                  value={azureProject}
+                  onChange={(e) => setAzureProject(e.target.value)}
+                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 12, width: 200 }}
+                />
+                <input
+                  type='text'
+                  placeholder='Team (optional, narrows by area)'
+                  value={azureTeam}
+                  onChange={(e) => setAzureTeam(e.target.value)}
+                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 12, width: 240 }}
+                />
+              </>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {periodOptions.map((d) => (
@@ -481,22 +542,54 @@ export default function DoraProjectPage() {
           {/* Data-source banner — makes "what is this measuring?" obvious. */}
           <div style={{
             marginBottom: 16, padding: '10px 14px', borderRadius: 10,
-            background: data.totals.planned === 0 ? 'rgba(239,68,68,0.06)' : 'var(--panel-alt)',
-            border: data.totals.planned === 0 ? '1px solid rgba(239,68,68,0.25)' : '1px solid var(--panel-border)',
+            background: data.error
+              ? 'rgba(239,68,68,0.08)'
+              : data.totals.planned === 0 ? 'rgba(239,68,68,0.06)' : 'var(--panel-alt)',
+            border: data.error
+              ? '1px solid rgba(239,68,68,0.4)'
+              : data.totals.planned === 0 ? '1px solid rgba(239,68,68,0.25)' : '1px solid var(--panel-border)',
             fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
           }}>
-            <span style={{ fontSize: 14 }}>{data.totals.planned === 0 ? '⚠️' : '📊'}</span>
+            <span style={{ fontSize: 14 }}>{data.error ? '⛔' : data.totals.planned === 0 ? '⚠️' : data.source === 'external' ? '🔵' : '📊'}</span>
             <span style={{ flex: 1, minWidth: 280 }}>
-              {data.totals.planned === 0
-                ? <>No Agena task records in the last <strong>{days}d</strong>{repoId ? ' for this repo' : ''}. This page measures Agena-tracked tasks (imported from Sentry/NewRelic, created via the dashboard, or AI-generated) — not raw Azure/Jira work items.</>
-                : <>Based on <strong style={{ color: 'var(--ink)' }}>{data.totals.planned}</strong> Agena task records in the last <strong>{days}d</strong>{repoId ? ' for the selected repo' : ' across all repos'}. Source: <code style={{ fontSize: 11, padding: '1px 5px', borderRadius: 4, background: 'var(--panel)' }}>task_records</code> (Agena-tracked, not raw Azure/Jira sprints).</>}
+              {data.error
+                ? <>{data.error}</>
+                : data.source === 'external'
+                  ? data.totals.planned === 0
+                    ? <>Azure returned 0 work items{azureProject ? ` for "${azureProject}"` : ''} in the last <strong>{days}d</strong>. Check the project name + (optionally) team.</>
+                    : <>Live from Azure DevOps WIQL: <strong style={{ color: 'var(--ink)' }}>{data.totals.planned}</strong> work items{azureProject ? ` in "${azureProject}"` : ''}{azureTeam ? ` / ${azureTeam}` : ''} changed in the last <strong>{days}d</strong>. {data.totals.completed} done, {data.totals.in_progress ?? 0} in progress, {data.totals.removed ?? 0} removed.</>
+                  : data.totals.planned === 0
+                    ? <>No Agena task records in the last <strong>{days}d</strong>{repoId ? ' for this repo' : ''}. Switch to <strong>Azure (live WIQL)</strong> above to pull real sprint data, or import tasks first.</>
+                    : <>Based on <strong style={{ color: 'var(--ink)' }}>{data.totals.planned}</strong> Agena task records in the last <strong>{days}d</strong>{repoId ? ' for the selected repo' : ' across all repos'}. Source: <code style={{ fontSize: 11, padding: '1px 5px', borderRadius: 4, background: 'var(--panel)' }}>task_records</code>. For raw sprint data, switch to <strong>Azure (live WIQL)</strong>.</>}
             </span>
-            {data.totals.planned === 0 && (
+            {!data.error && data.source === 'internal' && data.totals.planned === 0 && (
               <Link href="/dashboard/tasks" style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 Import tasks →
               </Link>
             )}
           </div>
+
+          {/* Git activity for the same period+repo — universal across both sources */}
+          {data.git_activity && (
+            <div style={{
+              marginBottom: 24, padding: '12px 16px', borderRadius: 12,
+              background: 'var(--panel)', border: '1px solid var(--panel-border)',
+              display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Git activity · {days}d</div>
+              <GitStat label="PRs opened" value={data.git_activity.prs_opened} />
+              <GitStat label="merged" value={data.git_activity.prs_merged} accent="#22c55e" />
+              <GitStat label="open" value={data.git_activity.prs_open} accent="#f59e0b" />
+              <GitStat label="commits" value={data.git_activity.commits} />
+              <GitStat label="contributors" value={data.git_activity.contributors} />
+              {data.git_activity.deployments_total > 0 && (
+                <GitStat label="deploys" value={`${data.git_activity.deployments_success}/${data.git_activity.deployments_total}`} accent="#3b82f6" />
+              )}
+              {data.git_activity.avg_pr_lead_time_hours !== null && (
+                <GitStat label="avg PR lead" value={`${data.git_activity.avg_pr_lead_time_hours}h`} />
+              )}
+            </div>
+          )}
 
           {/* 4 KPI Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 32 }}>

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import String as SAString, case, cast, Date, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_models.models.ai_usage_event import AIUsageEvent
 from agena_models.models.git_commit import GitCommit
+from agena_models.models.git_deployment import GitDeployment
 from agena_models.models.git_pull_request import GitPullRequest
 from agena_models.models.run_record import RunRecord
 from agena_models.models.task_record import TaskRecord
@@ -312,8 +316,18 @@ class AnalyticsService:
             for w in weekly_trend
         ]
 
+        # ── Git activity for the same period+repo ─────────────────────────
+        # Always returned alongside the task-record stats so the page
+        # surfaces what actually shipped (PRs, commits, deploys) even when
+        # task_records is sparse — that's the most common "this looks
+        # empty but we did 200 PRs" confusion users hit.
+        git_activity = await self._git_activity_block(
+            organization_id, since=since, repo_mapping_id=repo_mapping_id,
+        )
+
         return {
             'period_days': days,
+            'source': 'internal',
             'kpi': {
                 'predictability': predictability,
                 'productivity': productivity,
@@ -331,6 +345,212 @@ class AnalyticsService:
             'weekly_trend': weekly_trend,
             'time_trend': time_trend,
             'throughput_trend': throughput_trend,
+            'git_activity': git_activity,
+        }
+
+    async def _git_activity_block(
+        self,
+        organization_id: int,
+        *,
+        since: datetime,
+        repo_mapping_id: str | None,
+    ) -> dict:
+        """Period-scoped PR/commit/deploy counters + lead time. Pulled from
+        the synced `git_*` tables — same source the DORA hub already uses."""
+        # PRs opened / merged / still-open in period
+        pr_counts_q = select(
+            func.count(GitPullRequest.id).label('total'),
+            func.sum(case((GitPullRequest.merged_at.isnot(None), 1), else_=0)).label('merged'),
+            func.sum(case((GitPullRequest.merged_at.is_(None), 1), else_=0)).label('open'),
+        ).where(
+            GitPullRequest.organization_id == organization_id,
+            GitPullRequest.created_at >= since,
+        )
+        if repo_mapping_id:
+            pr_counts_q = pr_counts_q.where(GitPullRequest.repo_mapping_id == repo_mapping_id)
+        pr_row = (await self.db.execute(pr_counts_q)).one()
+
+        # PR merge lead time
+        lt_q = select(
+            func.avg(
+                func.unix_timestamp(GitPullRequest.merged_at) -
+                func.unix_timestamp(GitPullRequest.first_commit_at)
+            ).label('avg_seconds')
+        ).where(
+            GitPullRequest.organization_id == organization_id,
+            GitPullRequest.merged_at >= since,
+            GitPullRequest.merged_at.isnot(None),
+            GitPullRequest.first_commit_at.isnot(None),
+        )
+        if repo_mapping_id:
+            lt_q = lt_q.where(GitPullRequest.repo_mapping_id == repo_mapping_id)
+        lt_row = (await self.db.execute(lt_q)).one()
+        avg_pr_lead_sec = float(lt_row.avg_seconds) if lt_row.avg_seconds else None
+
+        # Commits + contributors
+        commit_q = select(
+            func.count(GitCommit.id).label('commits'),
+            func.count(func.distinct(GitCommit.author_email)).label('contributors'),
+        ).where(
+            GitCommit.organization_id == organization_id,
+            GitCommit.committed_at >= since,
+        )
+        if repo_mapping_id:
+            commit_q = commit_q.where(GitCommit.repo_mapping_id == repo_mapping_id)
+        commit_row = (await self.db.execute(commit_q)).one()
+
+        # Deployments (success vs failure)
+        dep_q = select(
+            func.count(GitDeployment.id).label('total'),
+            func.sum(case((GitDeployment.status == 'success', 1), else_=0)).label('success'),
+            func.sum(case((GitDeployment.status == 'failure', 1), else_=0)).label('failed'),
+        ).where(
+            GitDeployment.organization_id == organization_id,
+            GitDeployment.deployed_at >= since,
+        )
+        if repo_mapping_id:
+            dep_q = dep_q.where(GitDeployment.repo_mapping_id == repo_mapping_id)
+        dep_row = (await self.db.execute(dep_q)).one()
+
+        return {
+            'prs_opened': int(pr_row.total or 0),
+            'prs_merged': int(pr_row.merged or 0),
+            'prs_open': int(pr_row.open or 0),
+            'avg_pr_lead_time_hours': round(avg_pr_lead_sec / 3600, 1) if avg_pr_lead_sec else None,
+            'commits': int(commit_row.commits or 0),
+            'contributors': int(commit_row.contributors or 0),
+            'deployments_total': int(dep_row.total or 0),
+            'deployments_success': int(dep_row.success or 0),
+            'deployments_failed': int(dep_row.failed or 0),
+        }
+
+    async def project_analytics_external(
+        self,
+        organization_id: int,
+        days: int = 30,
+        *,
+        project: str | None = None,
+        team: str | None = None,
+        repo_mapping_id: str | None = None,
+    ) -> dict:
+        """Same shape as `project_analytics` but the work-item population
+        comes from Azure DevOps directly via WIQL — captures the user's
+        real sprint throughput (thousands of items) instead of the few
+        Agena-tracked rows in `task_records`.
+
+        State mapping (Azure → metric category):
+          Done | Closed | Resolved → completed
+          Removed                  → removed (excluded from "failed")
+          New | Active | Committed | In Progress | Code Review → planned/in-progress
+        """
+        from agena_services.integrations.azure_client import AzureDevOpsClient
+        from agena_services.services.integration_config_service import IntegrationConfigService
+
+        cfg_service = IntegrationConfigService(self.db)
+        config = await cfg_service.get_config(organization_id, 'azure')
+        if config is None or not config.secret:
+            return {
+                'period_days': days,
+                'source': 'external',
+                'error': 'Azure integration is not configured for this organization.',
+                'kpi': {'predictability': 0.0, 'productivity': 0.0, 'delivery_rate': 0.0, 'planning_accuracy': 0.0},
+                'totals': {'planned': 0, 'completed': 0, 'failed': 0},
+                'avg_cycle_time_hours': 0.0,
+                'avg_lead_time_hours': 0.0,
+                'wip_count': 0,
+                'weekly_trend': [],
+                'time_trend': [],
+                'throughput_trend': [],
+                'git_activity': await self._git_activity_block(
+                    organization_id, since=datetime.utcnow() - timedelta(days=days), repo_mapping_id=repo_mapping_id,
+                ),
+            }
+
+        client = AzureDevOpsClient()
+        try:
+            items = await client.fetch_period_work_items(
+                cfg={
+                    'org_url': config.base_url or '',
+                    'project': project or config.project or '',
+                    'pat': config.secret,
+                    'team': team or '',
+                },
+                since_days=days,
+                max_items=5000,
+                team=team,
+            )
+        except Exception as exc:
+            logger.exception('Azure period fetch failed: %s', exc)
+            return {
+                'period_days': days,
+                'source': 'external',
+                'error': f'Azure fetch failed: {exc}',
+                'kpi': {'predictability': 0.0, 'productivity': 0.0, 'delivery_rate': 0.0, 'planning_accuracy': 0.0},
+                'totals': {'planned': 0, 'completed': 0, 'failed': 0},
+                'avg_cycle_time_hours': 0.0,
+                'avg_lead_time_hours': 0.0,
+                'wip_count': 0,
+                'weekly_trend': [],
+                'time_trend': [],
+                'throughput_trend': [],
+                'git_activity': await self._git_activity_block(
+                    organization_id, since=datetime.utcnow() - timedelta(days=days), repo_mapping_id=repo_mapping_id,
+                ),
+            }
+
+        completed_states = {'done', 'closed', 'resolved'}
+        removed_states = {'removed'}
+        # Bucket each work item by its current state (lower-cased for safety
+        # — Azure projects sometimes customize Casing).
+        total = len(items)
+        completed = sum(1 for it in items if (it.state or '').strip().lower() in completed_states)
+        removed = sum(1 for it in items if (it.state or '').strip().lower() in removed_states)
+        in_progress = total - completed - removed
+
+        predictability = round(completed / total * 100, 1) if total > 0 else 0.0
+        delivery_rate = predictability  # one population, no pull-in concept on raw work items
+        planning_accuracy = predictability
+        productivity = round(completed / max(days, 1), 2)  # completed-per-day proxy
+
+        # Weekly trend: created vs completed per ISO week. ExternalTask carries
+        # `created_at` and `state`; we don't have a "completed_at" so we use
+        # last-changed time when state is terminal.
+        weekly_buckets: dict[str, dict[str, int]] = {}
+        for it in items:
+            wk = (it.created_at or datetime.utcnow()).strftime('%G%V')
+            row = weekly_buckets.setdefault(wk, {'planned': 0, 'completed': 0, 'failed': 0})
+            row['planned'] += 1
+            if (it.state or '').strip().lower() in completed_states:
+                row['completed'] += 1
+        weekly_trend = [{'week': k, **v} for k, v in sorted(weekly_buckets.items())]
+
+        return {
+            'period_days': days,
+            'source': 'external',
+            'project': project or config.project or '',
+            'team': team or '',
+            'kpi': {
+                'predictability': predictability,
+                'productivity': productivity,
+                'delivery_rate': delivery_rate,
+                'planning_accuracy': planning_accuracy,
+            },
+            'totals': {
+                'planned': total,
+                'completed': completed,
+                'failed': 0,  # Azure doesn't have an analogous "failed" bucket; use removed count
+                'removed': removed,
+                'in_progress': in_progress,
+            },
+            'avg_cycle_time_hours': 0.0,  # would need state-transition history; left as TODO
+            'avg_lead_time_hours': 0.0,
+            'wip_count': in_progress,
+            'weekly_trend': weekly_trend,
+            'time_trend': [],
+            'throughput_trend': [{'week': w['week'], 'throughput': w['completed']} for w in weekly_trend],
+            'git_activity': await self._git_activity_block(
+                organization_id, since=datetime.utcnow() - timedelta(days=days), repo_mapping_id=repo_mapping_id,
+            ),
         }
 
     # ── DORA Development Analytics ─────────────────────────────────────────────

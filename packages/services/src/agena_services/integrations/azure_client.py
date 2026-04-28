@@ -245,6 +245,117 @@ class AzureDevOpsClient:
             details_payload = details_payload[:max_items]
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
 
+    async def fetch_period_work_items(
+        self,
+        cfg: dict[str, str] | None = None,
+        *,
+        since_days: int = 30,
+        max_items: int = 5000,
+        team: str | None = None,
+    ) -> list[ExternalTask]:
+        """Fetch ALL work items (regardless of state) changed within
+        `since_days` for project-level analytics.
+
+        Mirrors `fetch_completed_work_items`'s 90-day chunking + 20k
+        WIQL cap evasion + optional team area-path scope, but drops the
+        state filter so we capture in-progress / new / removed too —
+        which is what predictability + planning-accuracy need.
+        """
+        cfg = cfg or {}
+        org_url = cfg.get('org_url') or self.settings.azure_org_url
+        project = cfg.get('project') or self.settings.azure_project
+        pat = cfg.get('pat') or self.settings.azure_pat
+        team_eff = (team if team is not None else cfg.get('team')) or ''
+
+        if not org_url or not project:
+            logger.warning('Azure period fetch skipped: org/project not configured.')
+            return []
+
+        wiql_url = (
+            f"{org_url.rstrip('/')}/{project}"
+            '/_apis/wit/wiql?api-version=7.1-preview.2'
+        )
+        fields_param = (
+            'System.Id,System.Title,System.State,'
+            'System.AssignedTo,System.CreatedDate,System.ChangedDate,'
+            'Microsoft.VSTS.Common.ActivatedDate,Microsoft.VSTS.Common.ClosedDate,'
+            'System.WorkItemType,System.IterationPath,'
+            'Microsoft.VSTS.Scheduling.StoryPoints,Microsoft.VSTS.Scheduling.Effort'
+        )
+        headers = self._headers(pat)
+
+        chunk_days = 30  # finer than completed_work_items because no state filter → bigger result sets
+        window_days = max(1, int(since_days))
+        chunks: list[tuple[int, int]] = []
+        upper = 0
+        while upper < window_days:
+            lower = min(upper + chunk_days, window_days)
+            chunks.append((upper, lower))
+            upper = lower
+
+        seen_ids: set[int] = set()
+        details_payload: list[dict[str, Any]] = []
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            for idx, (newer_offset, older_offset) in enumerate(chunks):
+                date_filter = f'[System.ChangedDate] >= @Today-{older_offset}'
+                if newer_offset > 0:
+                    date_filter += f' AND [System.ChangedDate] < @Today-{newer_offset}'
+                parts = [date_filter]
+                if team_eff:
+                    area_root = f"{project}\\{team_eff}".replace("'", "''")
+                    parts.append(f"[System.AreaPath] UNDER '{area_root}'")
+                where_clause = ' AND '.join(parts)
+                wiql_payload = {
+                    'query': (
+                        'Select [System.Id], [System.Title], [System.State] '
+                        f'From WorkItems Where {where_clause} '
+                        'Order By [System.ChangedDate] Desc'
+                    )
+                }
+                try:
+                    chunk_rows = await self._fetch_details_from_wiql(
+                        client=client,
+                        wiql_url=wiql_url,
+                        headers=headers,
+                        wiql_payload=wiql_payload,
+                        org_url=org_url,
+                        fields_param=fields_param,
+                    )
+                except httpx.HTTPStatusError as exc:
+                    body = ''
+                    try:
+                        body = exc.response.text[:500]
+                    except Exception:
+                        pass
+                    if '20000' in body or 'size limit' in body.lower():
+                        logger.warning(
+                            'fetch_period_work_items chunk %d (%d-%dd) overflowed 20k cap; skipping. '
+                            'Narrow `team` or `since_days` to recover.',
+                            idx, newer_offset, older_offset,
+                        )
+                        continue
+                    detail = body or str(exc)
+                    raise RuntimeError(f'Azure WIQL {exc.response.status_code}: {detail}') from exc
+
+                for row in chunk_rows:
+                    try:
+                        rid = int(row.get('id') or (row.get('fields') or {}).get('System.Id') or 0)
+                    except (TypeError, ValueError):
+                        rid = 0
+                    if rid and rid in seen_ids:
+                        continue
+                    if rid:
+                        seen_ids.add(rid)
+                    details_payload.append(row)
+
+                if max_items > 0 and len(details_payload) >= max_items:
+                    break
+
+        if max_items > 0 and len(details_payload) > max_items:
+            details_payload = details_payload[:max_items]
+        return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
+
     async def writeback_refinement(
         self,
         *,

@@ -186,6 +186,21 @@ class ProjectTotals(BaseModel):
     planned: int
     completed: int
     failed: int
+    # External (Azure WIQL) source adds these; internal source leaves them None.
+    removed: int | None = None
+    in_progress: int | None = None
+
+
+class GitActivityBlock(BaseModel):
+    prs_opened: int = 0
+    prs_merged: int = 0
+    prs_open: int = 0
+    avg_pr_lead_time_hours: float | None = None
+    commits: int = 0
+    contributors: int = 0
+    deployments_total: int = 0
+    deployments_success: int = 0
+    deployments_failed: int = 0
 
 
 class WeeklyTrendItem(BaseModel):
@@ -208,6 +223,10 @@ class ThroughputTrendItem(BaseModel):
 
 class ProjectAnalyticsResponse(BaseModel):
     period_days: int
+    source: str = 'internal'  # 'internal' (task_records) | 'external' (Azure WIQL)
+    project: str | None = None
+    team: str | None = None
+    error: str | None = None
     kpi: ProjectKPI
     totals: ProjectTotals
     avg_cycle_time_hours: float
@@ -216,6 +235,7 @@ class ProjectAnalyticsResponse(BaseModel):
     weekly_trend: list[WeeklyTrendItem]
     time_trend: list[TimeTrendItem]
     throughput_trend: list[ThroughputTrendItem]
+    git_activity: GitActivityBlock | None = None
 
 
 class AgentPerformanceItem(BaseModel):
@@ -629,11 +649,22 @@ async def get_model_breakdown(
 async def get_project_analytics(
     days: int = Query(default=30, ge=1, le=365),
     repo_mapping_id: str | None = Query(default=None),
+    source: str = Query(default='internal', pattern='^(internal|external)$'),
+    project: str | None = Query(default=None),
+    team: str | None = Query(default=None),
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> ProjectAnalyticsResponse:
     service = AnalyticsService(db)
-    data = await service.project_analytics(tenant.organization_id, days=days, repo_mapping_id=repo_mapping_id)
+    if source == 'external':
+        data = await service.project_analytics_external(
+            tenant.organization_id, days=days, project=project, team=team,
+            repo_mapping_id=repo_mapping_id,
+        )
+    else:
+        data = await service.project_analytics(
+            tenant.organization_id, days=days, repo_mapping_id=repo_mapping_id,
+        )
     return ProjectAnalyticsResponse(**data)
 
 
