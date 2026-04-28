@@ -105,6 +105,11 @@ class GitSyncService:
         params: dict[str, str] = {'since': since, 'per_page': '100'}
         headers = self._github_headers(token)
         count = 0
+        # Commit every N pages so progress shows up in the dashboard while a
+        # long sync is still walking history. Without this users see "0
+        # commits" for the entire ~10min Agena-sized backfill.
+        commit_every_pages = 10
+        pages_since_commit = 0
 
         async with httpx.AsyncClient(timeout=30) as client:
             while url:
@@ -141,6 +146,11 @@ class GitSyncService:
                         files_changed=len(item.get('files') or []),
                     )
                     count += 1
+
+                pages_since_commit += 1
+                if pages_since_commit >= commit_every_pages:
+                    await self.db.commit()
+                    pages_since_commit = 0
 
                 url = self._next_page_url(response)
                 params = {}  # params are already in the next URL
@@ -303,6 +313,8 @@ class GitSyncService:
         skip = 0
         headers = self._azure_headers(pat)
         count = 0
+        commit_every_pages = 5
+        pages_since_commit = 0
 
         async with httpx.AsyncClient(timeout=30) as client:
             while True:
@@ -343,6 +355,11 @@ class GitSyncService:
                         files_changed=int(change_counts.get('Edit') or 0),
                     )
                     count += 1
+
+                pages_since_commit += 1
+                if pages_since_commit >= commit_every_pages:
+                    await self.db.commit()
+                    pages_since_commit = 0
 
                 if len(items) < page_size:
                     break
