@@ -10,7 +10,7 @@ echo "=== Zero-downtime frontend deploy ==="
 
 # 0) Regenerate changelog data from git history
 echo "[0/4] Generating changelog-data.json..."
-git log --oneline -100 --format="%h|%s|%ai|%an" | python3 -c "
+git log --oneline -1000 --format="%h|%s|%ai|%an" | python3 -c "
 import json, sys, re
 lines = sys.stdin.read().strip().split('\n')
 commits = []

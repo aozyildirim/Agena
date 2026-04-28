@@ -1,5 +1,13 @@
 [
   {
+    "hash": "19cb337",
+    "short": "19cb337",
+    "message": "Changelog: regenerate with full history",
+    "date": "2026-04-28",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "52afd8b",
     "short": "52afd8b",
     "message": "Changelog: collapsible days + full history",
