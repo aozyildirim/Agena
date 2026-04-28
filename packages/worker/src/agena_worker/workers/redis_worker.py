@@ -153,7 +153,7 @@ async def _poll_sentry_auto_imports() -> None:
                 org_owner_cache[org_id] = owner_row or 1
 
             try:
-                imported, skipped = await task_service.import_from_sentry(
+                imported, skipped, errors = await task_service.import_from_sentry(
                     org_id,
                     user_id=org_owner_cache[org_id],
                     project_slug=mapping.project_slug,
@@ -162,10 +162,10 @@ async def _poll_sentry_auto_imports() -> None:
                 )
                 mapping.last_import_at = now
                 await session.commit()
-                if imported > 0:
+                if imported > 0 or errors:
                     logger.info(
-                        'Sentry auto-import org=%s project=%s imported=%s skipped=%s',
-                        mapping.organization_id, mapping.project_slug, imported, skipped,
+                        'Sentry auto-import org=%s project=%s imported=%s skipped=%s errors=%s',
+                        mapping.organization_id, mapping.project_slug, imported, skipped, len(errors),
                     )
             except Exception:
                 logger.exception('Sentry auto-import failed for project %s', mapping.project_slug)
