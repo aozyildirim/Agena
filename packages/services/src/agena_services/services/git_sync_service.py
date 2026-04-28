@@ -292,21 +292,29 @@ class GitSyncService:
     ) -> int:
         since = (datetime.utcnow() - timedelta(days=since_days)).strftime('%Y-%m-%dT%H:%M:%SZ')
         base = org_url.rstrip('/')
-        url = (
-            f'{base}/{project}/_apis/git/repositories/{repo_name}/commits'
-            f'?searchCriteria.fromDate={since}&api-version=7.1'
-        )
+        # Azure git/commits API does NOT return `nextLink` in the body and
+        # ignores Link headers. Pagination is via $top + $skip; default
+        # $top is 100, max is 1000. Walk pages until a short page comes
+        # back.
+        page_size = 1000
+        skip = 0
         headers = self._azure_headers(pat)
         count = 0
 
         async with httpx.AsyncClient(timeout=30) as client:
-            while url:
+            while True:
+                url = (
+                    f'{base}/{project}/_apis/git/repositories/{repo_name}/commits'
+                    f'?searchCriteria.fromDate={since}'
+                    f'&searchCriteria.$top={page_size}&searchCriteria.$skip={skip}'
+                    '&api-version=7.1'
+                )
                 response = await self._request_with_rate_limit(client, 'GET', url, headers=headers)
                 if response is None:
                     break
                 data = response.json()
                 items = data.get('value') or []
-                if not isinstance(items, list):
+                if not isinstance(items, list) or not items:
                     break
 
                 for item in items:
@@ -333,10 +341,9 @@ class GitSyncService:
                     )
                     count += 1
 
-                # Azure pagination via nextLink
-                url = data.get('nextLink') or ''
-                if not url:
+                if len(items) < page_size:
                     break
+                skip += page_size
 
         await self.db.commit()
         logger.info('Azure commits synced: %d for %s/%s', count, project, repo_name)
@@ -352,21 +359,27 @@ class GitSyncService:
         pat: str,
     ) -> int:
         base = org_url.rstrip('/')
-        url = (
-            f'{base}/{project}/_apis/git/repositories/{repo_name}/pullrequests'
-            f'?searchCriteria.status=all&api-version=7.1'
-        )
+        # Same pagination story as commits — body has no nextLink. Use
+        # $top + $skip and walk until a short page lands.
+        page_size = 1000
+        skip = 0
         headers = self._azure_headers(pat)
         count = 0
 
         async with httpx.AsyncClient(timeout=30) as client:
-            while url:
+            while True:
+                url = (
+                    f'{base}/{project}/_apis/git/repositories/{repo_name}/pullrequests'
+                    f'?searchCriteria.status=all'
+                    f'&$top={page_size}&$skip={skip}'
+                    '&api-version=7.1'
+                )
                 response = await self._request_with_rate_limit(client, 'GET', url, headers=headers)
                 if response is None:
                     break
                 data = response.json()
                 items = data.get('value') or []
-                if not isinstance(items, list):
+                if not isinstance(items, list) or not items:
                     break
 
                 for item in items:
@@ -402,9 +415,9 @@ class GitSyncService:
                     )
                     count += 1
 
-                url = data.get('nextLink') or ''
-                if not url:
+                if len(items) < page_size:
                     break
+                skip += page_size
 
         await self.db.commit()
         logger.info('Azure PRs synced: %d for %s/%s', count, project, repo_name)

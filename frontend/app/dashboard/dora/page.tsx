@@ -179,7 +179,11 @@ function RepoCard({ repo, syncStatus, syncing, onSync }: RepoCardProps) {
             fontSize: 11, fontWeight: 700, flexShrink: 0,
           }}
         >
-          {syncing ? '⏳ Syncing…' : hasSynced ? '✓ Resync' : '↻ Sync'}
+          {syncing
+            ? '⏳ Syncing…'
+            : hasSynced
+              ? `↻ Refresh (${(syncStatus?.commits || 0).toLocaleString()}c · ${(syncStatus?.prs || 0).toLocaleString()}p)`
+              : '↻ Sync'}
         </button>
       </div>
 

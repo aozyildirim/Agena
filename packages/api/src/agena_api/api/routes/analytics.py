@@ -832,6 +832,13 @@ async def get_team_symptoms(
 # call simply overwrites the entry.
 _DORA_SYNC_IN_FLIGHT: dict[tuple[int, int], float] = {}
 
+# Hold strong references to the background sync coroutines so the GC
+# doesn't reap them mid-run. asyncio.create_task() only keeps a weakref
+# to the task, so without this set Python is free to cancel an orphan
+# task at any GC tick — which is exactly what we hit on the first
+# fire-and-forget rollout (sync stopped after one HTTP call).
+_DORA_SYNC_TASKS: set = set()
+
 
 @router.get('/dora/sync-active')
 async def get_dora_sync_active(
@@ -924,7 +931,9 @@ async def sync_dora_data(
         finally:
             _DORA_SYNC_IN_FLIGHT.pop(in_flight_key, None)
 
-    asyncio.create_task(_run())
+    bg_task = asyncio.create_task(_run())
+    _DORA_SYNC_TASKS.add(bg_task)
+    bg_task.add_done_callback(_DORA_SYNC_TASKS.discard)
 
     # Return zeros — real counts land in /analytics/dora/sync-status once
     # the background task finishes and the in-flight entry clears.
