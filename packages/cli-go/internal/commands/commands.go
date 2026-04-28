@@ -73,10 +73,16 @@ func RuntimeCmd() *cobra.Command {
 	return cmd
 }
 
-// execNodeCLI is the fallback — spawns the Node CLI bundled alongside
+// ExecNodeCLI is the fallback — spawns the Node CLI bundled alongside
 // this binary, forwarding args. The Homebrew formula lays the Node
 // CLI down at the same prefix so this works transparently for brew
-// users.
+// users. Exported so `cmd/agena/main.go` can route unknown subcommands
+// (e.g. `refinement`, `tasks`) here without first stub-registering
+// them in cobra.
+func ExecNodeCLI(sub string, args ...string) error {
+	return execNodeCLI(sub, args...)
+}
+
 func execNodeCLI(sub string, args ...string) error {
 	full := append([]string{sub}, args...)
 	candidates := []string{
