@@ -76,10 +76,9 @@ class TaskShareService:
         return True
 
     async def resolve(self, token: str) -> TaskShareToken | None:
-        """Return the token row if it exists, isn't revoked, and hasn't
-        expired. Per-org import dedupe is enforced at the import endpoint,
-        so the historical max_uses cap is no longer applied here — the
-        link stays open until it is explicitly revoked or expires."""
+        """Return the token row if it exists, isn't revoked, hasn't expired,
+        and has uses left. Does NOT increment use_count — that's the
+        import endpoint's job, since plain reads should be free."""
         if not token:
             return None
         stmt = select(TaskShareToken).where(TaskShareToken.token == token)
@@ -89,6 +88,12 @@ class TaskShareService:
         if row.revoked_at is not None:
             return None
         if row.expires_at is not None and row.expires_at < datetime.utcnow():
+            return None
+        if row.use_count >= row.max_uses:
+            # Reads are still allowed up to max_uses; the import endpoint
+            # is the one that consumes a use. Reading after exhaustion is
+            # blocked because once the token has been "spent" the link
+            # shouldn't keep dripping data.
             return None
         return row
 

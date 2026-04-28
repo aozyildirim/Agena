@@ -1,501 +1,5 @@
 [
   {
-    "hash": "e3b6044",
-    "short": "e3b6044",
-    "message": "Share import: prevent the same org importing a share twice",
-    "date": "2026-04-28",
-    "author": "root",
-    "type": "other"
-  },
-  {
-    "hash": "1039626",
-    "short": "1039626",
-    "message": "Docs: surface shareable task links in README, FEATURES and the landing page",
-    "date": "2026-04-28",
-    "author": "Ali Ozyildirim",
-    "type": "docs"
-  },
-  {
-    "hash": "4a53016",
-    "short": "4a53016",
-    "message": "Tasks: shareable links with WhatsApp / Teams / Slack / Telegram / Email / X buttons",
-    "date": "2026-04-28",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "6546a80",
-    "short": "6546a80",
-    "message": "Sprints import: link the picked repo and pull comments into the task",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "ce4c909",
-    "short": "ce4c909",
-    "message": "Orchestration: recover CLI agents that escape their worktree",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3ada11e",
-    "short": "3ada11e",
-    "message": "Refinement: surface freshly refined items at the top of the table",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "acce196",
-    "short": "acce196",
-    "message": "Integrations: clear-session button for the Claude CLI bridge",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "d5b37ba",
-    "short": "d5b37ba",
-    "message": "Refinement: persist analyze runs as jobs so the UI resumes after navigating away",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "d9cbd29",
-    "short": "d9cbd29",
-    "message": "Add Claude CLI Opus option to the agent picker",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "2f58227",
-    "short": "2f58227",
-    "message": "Raise CLI exec timeout default to 60 min (was 30)",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "4f715cc",
-    "short": "4f715cc",
-    "message": "Tighten CLI agent prompts + bump exec timeout to 30 min",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "198943f",
-    "short": "198943f",
-    "message": "Inject attachments at the TOP of the agent prompt, not the bottom",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "5ff2a3f",
-    "short": "5ff2a3f",
-    "message": "Allow attachment upload + delete in the task edit modal",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "1a0edd8",
-    "short": "1a0edd8",
-    "message": "Rewrite DEV_SYSTEM_PROMPT to push completeness, not minimalism",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "bdecd57",
-    "short": "bdecd57",
-    "message": "Push CLI agents to cover the full task instead of bare minimum",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "d380f03",
-    "short": "d380f03",
-    "message": "Make image attachments imperative in agent prompts",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "2fdcdaa",
-    "short": "2fdcdaa",
-    "message": "Read CLAUDE.md as a repo guide alongside agents.md",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "2313872",
-    "short": "2313872",
-    "message": "Fix attachment preview click + widen agent_logs.message to MEDIUMTEXT",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "fix"
-  },
-  {
-    "hash": "acf2831",
-    "short": "acf2831",
-    "message": "start.sh: run alembic upgrade head so fresh checkouts get the modules seed",
-    "date": "2026-04-27",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "ce963e0",
-    "short": "ce963e0",
-    "message": "Refinement page: repo picker + simplify the run modal and main grid",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "388fd61",
-    "short": "388fd61",
-    "message": "Refinement Faz 6: scope code-aware analysis to a user-picked repo",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "1047c4a",
-    "short": "1047c4a",
-    "message": "PM analyze: surface git authorship for the suggested file_changes",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "d338845",
-    "short": "d338845",
-    "message": "Refinement: escape literal braces in file_changes directive",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "a707f97",
-    "short": "a707f97",
-    "message": "Refinement Faz 5: Sor button per ambiguity / question",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "ce313f7",
-    "short": "ce313f7",
-    "message": "Refinement Faz 4: inline blame per touched file",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "922dc53",
-    "short": "922dc53",
-    "message": "Refinement Faz 3: match git authors to org team + one-click Assign",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "23ed296",
-    "short": "23ed296",
-    "message": "Refinement Faz 2: read-only CLI mode + extract authorship to shared helper",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "96485ad",
-    "short": "96485ad",
-    "message": "Refinement: code-aware analysis with git authorship + assignee suggestion",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "bc06e81",
-    "short": "bc06e81",
-    "message": "Picker tabs: append the active sprint label so users see what's loaded",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "b02f4ec",
-    "short": "b02f4ec",
-    "message": "Create modal: drop the redundant source-tag chip",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "46672b1",
-    "short": "46672b1",
-    "message": "Modals: narrow widths + acceptance/edge-cases on the left column",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "126321a",
-    "short": "126321a",
-    "message": "Modal layout: 2-column Create + Edit, dependencies in Edit",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "b4bede3",
-    "short": "b4bede3",
-    "message": "Edit task: load repo mappings on open (don't wait for Create)",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3242c85",
-    "short": "3242c85",
-    "message": "Edit task: rendered description, repo assignments (local + remote)",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3c3529c",
-    "short": "3c3529c",
-    "message": "Edit task: surface story_context / acceptance / edge_cases / guardrails",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "220ccbf",
-    "short": "220ccbf",
-    "message": "Rerun modal: surface Local CLI (Claude / Codex) alongside agents",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "2618eec",
-    "short": "2618eec",
-    "message": "Stop button: clearer disabled state when not stoppable",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "cf9e88b",
-    "short": "cf9e88b",
-    "message": "Revert hide-Stop: keep it visible (greyed out)",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3f3ce90",
-    "short": "3f3ce90",
-    "message": "Task detail: only show Stop button when the task can actually be stopped",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "ebf8c00",
-    "short": "ebf8c00",
-    "message": "Task detail layout + themed already-imported confirm modal",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "6eaa26a",
-    "short": "6eaa26a",
-    "message": "Picker: respect /tasks/search page_size cap so the imported-set loads",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "146c489",
-    "short": "146c489",
-    "message": "Picker: mute already-imported items + confirm before navigating",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3547eff",
-    "short": "3547eff",
-    "message": "Authenticated image proxy + send /tasks/:id through dashboard layout",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "0035c43",
-    "short": "0035c43",
-    "message": "Markdown: don't pre-strip Azure attachment images",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "6e99990",
-    "short": "6e99990",
-    "message": "Create modal: rendered description, neutralize broken Azure images",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "5025d0a",
-    "short": "5025d0a",
-    "message": "Repo assignments: sync on completion + edit/remove from task detail",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "c2043e1",
-    "short": "c2043e1",
-    "message": "New Task modal: HTML preview, already-imported badge, dedup signal",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "1677bda",
-    "short": "1677bda",
-    "message": "New Task: portaled modal with Azure/Jira sprint pull",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "b43b6f8",
-    "short": "b43b6f8",
-    "message": "Logo: light-mode SVG variant so the wordmark survives a white background",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "c43ebae",
-    "short": "c43ebae",
-    "message": "Dashboard header: + New Task quick action, mobile layout, light-mode toggles",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "feat"
-  },
-  {
-    "hash": "db5d372",
-    "short": "db5d372",
-    "message": "Dashboard: own header, hide marketing nav under /dashboard",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "297f61e",
-    "short": "297f61e",
-    "message": "Ignore data/uploads (task attachment storage)",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "02f7d55",
-    "short": "02f7d55",
-    "message": "Light mode: match the browser-normalized rgb form of #5eead4",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "bdabd17",
-    "short": "bdabd17",
-    "message": "Light mode: globally swap the bright-teal accent text color",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "bd94445",
-    "short": "bd94445",
-    "message": "Code Diff: theme-aware active file tab in light mode",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "e701597",
-    "short": "e701597",
-    "message": "Code diff: theme-aware add/remove colors for light mode",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "fbc3ed3",
-    "short": "fbc3ed3",
-    "message": "Code-diff log: ask git instead of comparing against the live working tree",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "5e44eea",
-    "short": "5e44eea",
-    "message": "Azure PR: build deterministic web URL when API omits _links.web.href",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "3312c3d",
-    "short": "3312c3d",
-    "message": "Task detail: clickable source link for Azure/Jira imports",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "a40476f",
-    "short": "a40476f",
-    "message": "Inline image prefetch: also handle Jira attachments with Basic auth",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "a034edc",
-    "short": "a034edc",
-    "message": "Attachments: prefetch description-embedded images so CLIs can Read them",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "bfadfd0",
-    "short": "bfadfd0",
-    "message": "Attachments: feed task uploads to every execution path (CLI, agents, flows, MCP)",
-    "date": "2026-04-26",
-    "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
     "hash": "13b932d",
     "short": "13b932d",
     "message": "Sprint switcher: mobile-friendly dropdown + tighter topbar",
@@ -798,5 +302,501 @@
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
     "type": "docs"
+  },
+  {
+    "hash": "81bc2b3",
+    "short": "81bc2b3",
+    "message": "Branch naming + skill log: strip '#' for Azure + surface retrieval to stdout",
+    "date": "2026-04-24",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "acb787d",
+    "short": "acb787d",
+    "message": "Skills: retrieve for every execution mode, not just classic pipeline",
+    "date": "2026-04-24",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "391c4fe",
+    "short": "391c4fe",
+    "message": "Skill extractor: fall back to Claude/Codex CLI when OpenAI unavailable",
+    "date": "2026-04-24",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b38b7d5",
+    "short": "b38b7d5",
+    "message": "Skills: catalog UI page + sidebar entry + i18n + module registration",
+    "date": "2026-04-24",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "eaa12bf",
+    "short": "eaa12bf",
+    "message": "Skills: inject retrieved skills into planner + developer prompts",
+    "date": "2026-04-24",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "0b485e2",
+    "short": "0b485e2",
+    "message": "Skills: auto-extract on task completion",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "64fe1b6",
+    "short": "64fe1b6",
+    "message": "Skills: service + schemas + HTTP API",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "511e793",
+    "short": "511e793",
+    "message": "Skills: data model + migration",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "38bd831",
+    "short": "38bd831",
+    "message": "Refinement history page: fix infinite /preview fetch loop",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "824a141",
+    "short": "824a141",
+    "message": "Refinement: relative+absolute thresholds, tier labels, parallel embedding",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "10352a8",
+    "short": "10352a8",
+    "message": "Refinement: strip HTML from description before embedding + debug endpoint",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "4f11cb2",
+    "short": "4f11cb2",
+    "message": "Refinement: index code signals (branches + PR titles) + docs + landing",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "docs"
+  },
+  {
+    "hash": "f6d7bdb",
+    "short": "f6d7bdb",
+    "message": "Refinement similarity: score threshold + type filter + visible score",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "25e3a70",
+    "short": "25e3a70",
+    "message": "Refinement: run-config modal + force similar-past grounding into prompt",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "384cf5b",
+    "short": "384cf5b",
+    "message": "Refinement: add per-row Refine button on item list",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "591b368",
+    "short": "591b368",
+    "message": "Refinement: i18n all backfill + history UI copy in 7 locales",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "07a16e0",
+    "short": "07a16e0",
+    "message": "Refinement backfill: add Jira support + expand sample preview",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "b73320e",
+    "short": "b73320e",
+    "message": "Refinement: move index preview to its own page",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "2537be2",
+    "short": "2537be2",
+    "message": "Refinement: surface what's inside the history index",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "b6e2f38",
+    "short": "b6e2f38",
+    "message": "Refinement backfill: raise max_items cap + surface when capped",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "96907f1",
+    "short": "96907f1",
+    "message": "Refinement backfill: scope by team area path + require project/team",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "f71f506",
+    "short": "f71f506",
+    "message": "Refinement backfill: chunk Azure WIQL by 90-day windows",
+    "date": "2026-04-23",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "ce635d2",
+    "short": "ce635d2",
+    "message": "Refinement backfill: skirt Azure WIQL 20k cap + clearer errors",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "89a41e2",
+    "short": "89a41e2",
+    "message": "Refinement backfill: make it async + surface progress",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "8b1e49b",
+    "short": "8b1e49b",
+    "message": "Refinement: ground SP estimates on similar past work (Qdrant backfill)",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "62150e7",
+    "short": "62150e7",
+    "message": "Task detail sidebar: fix deps poll, drop Queue Insight, clarify PR link",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "4ac1fa9",
+    "short": "4ac1fa9",
+    "message": "Task detail header: compact inline meta + flat Run tabs",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "99dd0c8",
+    "short": "99dd0c8",
+    "message": "Task detail: widen left sidebar to 440px and drop duplicate Rerun/Stop",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "a26dbd6",
+    "short": "a26dbd6",
+    "message": "Task detail: render description as formatted markdown instead of raw text",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "9ce18a7",
+    "short": "9ce18a7",
+    "message": "Task detail right pane: collapse 5 stacked sections into tabbed view",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "316d4eb",
+    "short": "316d4eb",
+    "message": "Task detail sidebar: declutter badge row and secondary actions",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "d256f87",
+    "short": "d256f87",
+    "message": "NR description: render Errors Inbox URL as [New Relic Link]() not raw URL",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "579f324",
+    "short": "579f324",
+    "message": "NR task description: use real per-error deep-link from errorsInbox graph",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "9a81060",
+    "short": "9a81060",
+    "message": "NR errors-inbox link: revert to entity-level; filter query didn't work",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "afc3a0b",
+    "short": "afc3a0b",
+    "message": "NR Errors Inbox link points to the specific error, not the whole entity",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "e28bff4",
+    "short": "e28bff4",
+    "message": "Always rebuild feature branch from fresh base on every run (no resume)",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "02c21ee",
+    "short": "02c21ee",
+    "message": "Local repo: start feature branches from freshly fetched base (not stale local)",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "aba9e59",
+    "short": "aba9e59",
+    "message": "Guard against CLI agents overwriting files with tiny fragments",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "a4696c0",
+    "short": "a4696c0",
+    "message": "Convert task description markdown to HTML before Azure work item create",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "2274992",
+    "short": "2274992",
+    "message": "Sprints detail panel: collapsible Comments section with lazy load",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "c74f47b",
+    "short": "c74f47b",
+    "message": "Tasks list: sort running tasks to the top (then queued, then others)",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "2450ff4",
+    "short": "2450ff4",
+    "message": "Sprints detail panel: portal to body + backdrop; stay fixed on scroll",
+    "date": "2026-04-22",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "f219b1f",
+    "short": "f219b1f",
+    "message": "Fix Claude CLI bridge NameError: _run_bridge missing task_id param",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "bb20e2d",
+    "short": "bb20e2d",
+    "message": "Reset SP and sprint override to defaults each time the confirm panel opens",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "6cdb507",
+    "short": "6cdb507",
+    "message": "Remove accidentally-committed .claude local state; gitignore it",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "3a8a999",
+    "short": "3a8a999",
+    "message": "Pre-import confirm step: SP + sprint override; skip popup when mirror=none",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "202fe01",
+    "short": "202fe01",
+    "message": "Cancel actually kills the CLI subprocess; set story_points=2 on Azure mirror",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "9b725a9",
+    "short": "9b725a9",
+    "message": "start.sh: switch to blue/green frontend, drop dev frontend (3010)",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "other"
+  },
+  {
+    "hash": "5617c8a",
+    "short": "5617c8a",
+    "message": "Add update.sh: smart pull + minimal-action redeploy",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "8d7235a",
+    "short": "8d7235a",
+    "message": "Theme-aware sprint switcher colors — readable in light mode",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "5e386ac",
+    "short": "5e386ac",
+    "message": "Mark already-imported items + link to linked work item in Request modals",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "af8720a",
+    "short": "af8720a",
+    "message": "Extend mirror to Sentry/Datadog/AppDynamics; link Azure work item to PR",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "3f34f07",
+    "short": "3f34f07",
+    "message": "Auto-mirror NR tasks to Azure work item + link ID; fix PR branch to use work item ID",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "6407797",
+    "short": "6407797",
+    "message": "Fix: propagate created_by_user_id into PR payload so branch template reads profile",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "66af078",
+    "short": "66af078",
+    "message": "Add Request modal, mobile + i18n polish, AI tag, host-only CLI bridge",
+    "date": "2026-04-21",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "b6a40cb",
+    "short": "b6a40cb",
+    "message": "x402: emit canonical Coinbase v1 body shape (asset as contract address)",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "other"
+  },
+  {
+    "hash": "0ffddad",
+    "short": "0ffddad",
+    "message": "x402: emit V2 (CAIP-2 network, payToAddress/assetAddress, x402Version: 2)",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "other"
+  },
+  {
+    "hash": "8f0b048",
+    "short": "8f0b048",
+    "message": "Fix agent-readiness validator failures (ACP, UCP, x402, OAPR)",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "fix"
+  },
+  {
+    "hash": "6b7fa11",
+    "short": "6b7fa11",
+    "message": "Add agent discovery: Link headers, .well-known endpoints, WebMCP, x402, markdown",
+    "date": "2026-04-20",
+    "author": "root",
+    "type": "feat"
+  },
+  {
+    "hash": "f6e403a",
+    "short": "f6e403a",
+    "message": "Move active sprint selector from profile page to global header",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "c3deb25",
+    "short": "c3deb25",
+    "message": "Raise git diff timeout and add git status fallback for large repos",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "b098abf",
+    "short": "b098abf",
+    "message": "Fix imported-state hydration to match tasks created via POST /tasks",
+    "date": "2026-04-20",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
   }
 ]
