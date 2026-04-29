@@ -488,6 +488,9 @@ export default function RefinementPage() {
   // Filter for the sprint items list: 'all' | 'unestimated' | 'estimated'.
   // Independent of maxItems (which only caps how many the analyze run takes).
   const [estimateFilter, setEstimateFilter] = useState<'all' | 'unestimated' | 'estimated'>('all');
+  // Optional secondary filter — pick a single work_item_type to narrow to.
+  // null = no narrowing, render every type group.
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   // Optional: when set, refinement asks the LLM for `file_changes` and
   // resolves git authorship against this repo's checkout. Empty string
   // = code-aware analysis off.
@@ -712,7 +715,9 @@ export default function RefinementPage() {
             ).catch(() => [] as Opt[]);
             if (!active) return;
             setAzureSprints(sprints);
-            const selected = defaultSprint(sprints, 'azure') || prefAzureSprint;
+            // Saved pref wins over the API's "current" guess — user
+            // intentionally picked one in the global SprintSwitcher.
+            const selected = prefAzureSprint || defaultSprint(sprints, 'azure');
             setAzureSprint(selected);
           }
         }
@@ -730,7 +735,7 @@ export default function RefinementPage() {
             const sprints = await cachedApiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(prefJiraBoard)).catch(() => [] as Opt[]);
             if (!active) return;
             setJiraSprints(sprints);
-            const selected = defaultSprint(sprints, 'jira') || prefJiraSprint;
+            const selected = prefJiraSprint || defaultSprint(sprints, 'jira');
             setJiraSprint(selected);
           }
         }
@@ -1250,8 +1255,9 @@ export default function RefinementPage() {
     }
     return ORDER
       .filter((k) => (buckets.get(k) || []).length > 0)
+      .filter((k) => !typeFilter || k === typeFilter)
       .map((k) => ({ type: k, items: buckets.get(k) || [] }));
-  }, [sortedItems, estimateFilter]);
+  }, [sortedItems, estimateFilter, typeFilter]);
 
   useEffect(() => {
     if (!itemsData || !results) return;
@@ -1831,20 +1837,31 @@ export default function RefinementPage() {
                   </button>
                 ))}
               </div>
-              {/* Per-type breakdown chips. Read-only summary; they're not
-                  filterable by themselves — the group headers below are the
-                  per-type interaction surface. */}
+              {/* Per-type filter chips. Click toggles the type narrow-down
+                  (single-select); clicking the active chip clears it. */}
               {(['Bug', 'Task', 'Epic', 'Story'] as const)
                 .filter((t) => (typeCounts[t] || 0) > 0)
-                .map((t) => (
-                  <span key={t} style={{
-                    padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
-                    background: 'var(--panel)', border: '1px solid var(--panel-border-2)',
-                    color: 'var(--ink-65)', textTransform: 'uppercase', letterSpacing: 0.5,
-                  }}>
-                    {t} <span style={{ opacity: 0.65, marginLeft: 2 }}>{typeCounts[t]}</span>
-                  </span>
-                ))}
+                .map((t) => {
+                  const active = typeFilter === t;
+                  return (
+                    <button
+                      key={t}
+                      type='button'
+                      onClick={() => setTypeFilter(active ? null : t)}
+                      title={active ? 'Filtreyi kaldır' : `Sadece ${t}`}
+                      style={{
+                        padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                        cursor: 'pointer',
+                        background: active ? 'rgba(94,234,212,0.15)' : 'var(--panel)',
+                        border: active ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
+                        color: active ? '#5eead4' : 'var(--ink-65)',
+                        textTransform: 'uppercase', letterSpacing: 0.5,
+                      }}
+                    >
+                      {t} <span style={{ opacity: 0.65, marginLeft: 2 }}>{typeCounts[t]}</span>
+                    </button>
+                  );
+                })}
             </div>
           )}
         </div>
