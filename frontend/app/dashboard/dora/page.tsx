@@ -258,6 +258,51 @@ export default function DoraOverviewPage() {
     repo_name: '',
     base_branch: 'main',
   });
+  const [azureProjects, setAzureProjects] = useState<{ id: string; name: string }[]>([]);
+  const [azureRepos, setAzureRepos] = useState<{ id: string; name: string }[]>([]);
+  const [githubRepos, setGithubRepos] = useState<{ name: string; full_name: string }[]>([]);
+  const [optsLoading, setOptsLoading] = useState(false);
+
+  // Pull project / repo dropdown options when the modal opens.
+  useEffect(() => {
+    if (!addRepoOpen) return;
+    let cancelled = false;
+    setOptsLoading(true);
+    void (async () => {
+      try {
+        if (addRepoForm.provider === 'azure') {
+          const ps = await apiFetch<{ id: string; name: string }[]>('/tasks/azure/projects').catch(() => []);
+          if (!cancelled) setAzureProjects(Array.isArray(ps) ? ps : []);
+        } else {
+          const rs = await apiFetch<{ name: string; full_name: string }[]>('/integrations/github/repos').catch(() => []);
+          if (!cancelled) setGithubRepos(Array.isArray(rs) ? rs : []);
+        }
+      } finally {
+        if (!cancelled) setOptsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [addRepoOpen, addRepoForm.provider]);
+
+  // When user picks an Azure project, fetch its repos.
+  useEffect(() => {
+    if (!addRepoOpen || addRepoForm.provider !== 'azure' || !addRepoForm.owner) {
+      setAzureRepos([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rs = await apiFetch<{ id: string; name: string }[]>(
+          '/tasks/azure/repos?project=' + encodeURIComponent(addRepoForm.owner),
+        ).catch(() => []);
+        if (!cancelled) setAzureRepos(Array.isArray(rs) ? rs : []);
+      } catch {
+        if (!cancelled) setAzureRepos([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [addRepoOpen, addRepoForm.provider, addRepoForm.owner]);
 
   const reloadRepos = useCallback(async () => {
     try {
@@ -534,29 +579,61 @@ export default function DoraOverviewPage() {
                 </div>
               </div>
 
-              <label style={{ display: 'grid', gap: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  {addRepoForm.provider === 'azure' ? 'Azure project' : 'GitHub owner'}
-                </span>
-                <input
-                  type='text'
-                  value={addRepoForm.owner}
-                  onChange={(e) => setAddRepoForm((f) => ({ ...f, owner: e.target.value }))}
-                  placeholder={addRepoForm.provider === 'azure' ? 'EcomBackend' : 'octocat'}
-                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 13 }}
-                />
-              </label>
-
-              <label style={{ display: 'grid', gap: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Repo adı</span>
-                <input
-                  type='text'
-                  value={addRepoForm.repo_name}
-                  onChange={(e) => setAddRepoForm((f) => ({ ...f, repo_name: e.target.value }))}
-                  placeholder='webservice'
-                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 13 }}
-                />
-              </label>
+              {addRepoForm.provider === 'azure' ? (
+                <>
+                  <label style={{ display: 'grid', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      Azure project
+                    </span>
+                    <select
+                      value={addRepoForm.owner}
+                      onChange={(e) => setAddRepoForm((f) => ({ ...f, owner: e.target.value, repo_name: '' }))}
+                      style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 13 }}
+                    >
+                      <option value=''>{optsLoading ? 'Yükleniyor…' : '— Project seç —'}</option>
+                      {azureProjects.map((p) => (
+                        <option key={p.id} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Azure repo</span>
+                    <select
+                      value={addRepoForm.repo_name}
+                      onChange={(e) => setAddRepoForm((f) => ({ ...f, repo_name: e.target.value }))}
+                      disabled={!addRepoForm.owner}
+                      style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 13, opacity: !addRepoForm.owner ? 0.5 : 1 }}
+                    >
+                      <option value=''>{!addRepoForm.owner ? 'Önce project seç' : (azureRepos.length === 0 ? 'Yükleniyor…' : '— Repo seç —')}</option>
+                      {azureRepos.map((r) => (
+                        <option key={r.id} value={r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>GitHub repo</span>
+                  <select
+                    value={`${addRepoForm.owner}/${addRepoForm.repo_name}`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const slash = v.indexOf('/');
+                      if (slash > 0) {
+                        setAddRepoForm((f) => ({ ...f, owner: v.slice(0, slash), repo_name: v.slice(slash + 1) }));
+                      } else {
+                        setAddRepoForm((f) => ({ ...f, owner: '', repo_name: '' }));
+                      }
+                    }}
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 13 }}
+                  >
+                    <option value='/'>{optsLoading ? 'Yükleniyor…' : '— Repo seç —'}</option>
+                    {githubRepos.map((r) => (
+                      <option key={r.full_name} value={r.full_name}>{r.full_name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               <label style={{ display: 'grid', gap: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Base branch</span>
