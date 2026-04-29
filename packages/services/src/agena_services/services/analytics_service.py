@@ -388,14 +388,22 @@ class AnalyticsService:
     ) -> dict:
         """Period-scoped PR/commit/deploy counters + lead time. Pulled from
         the synced `git_*` tables — same source the DORA hub already uses."""
-        # PRs opened / merged / still-open in period
+        # PRs opened / merged / still-open in period.
+        #
+        # We have two timestamp columns: ``created_at`` (when WE upserted
+        # the row) and ``created_at_ext`` (when the PR was opened on
+        # Azure / GitHub). Filtering on the former made the strip read
+        # the same total no matter what period the user picked — every
+        # PR synced after the first run passed the cutoff. Use the
+        # external timestamp so "PRs in last 30 days" actually means PRs
+        # that were OPENED in the last 30 days.
         pr_counts_q = select(
             func.count(GitPullRequest.id).label('total'),
             func.sum(case((GitPullRequest.merged_at.isnot(None), 1), else_=0)).label('merged'),
             func.sum(case((GitPullRequest.merged_at.is_(None), 1), else_=0)).label('open'),
         ).where(
             GitPullRequest.organization_id == organization_id,
-            GitPullRequest.created_at >= since,
+            GitPullRequest.created_at_ext >= since,
         )
         if repo_mapping_id:
             pr_counts_q = pr_counts_q.where(GitPullRequest.repo_mapping_id == repo_mapping_id)
