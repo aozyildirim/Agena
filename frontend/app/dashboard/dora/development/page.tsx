@@ -135,7 +135,7 @@ export default function DoraDevelopmentPage() {
       )}
 
       {!loading && !error && tab === 'git' && gitData && (
-        <GitAnalyticsTab data={gitData} t={t} />
+        <GitAnalyticsTab data={gitData} t={t} periodDays={periodDays} />
       )}
 
       {!loading && !error && tab === 'team' && devData && (
@@ -157,7 +157,7 @@ export default function DoraDevelopmentPage() {
    GIT ANALYTICS TAB
    ========================================================================= */
 
-function GitAnalyticsTab({ data, t }: { data: GitAnalyticsResponse; t: TFn }) {
+function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; t: TFn; periodDays: number }) {
   return (
     <>
       {/* KPI Cards */}
@@ -165,7 +165,7 @@ function GitAnalyticsTab({ data, t }: { data: GitAnalyticsResponse; t: TFn }) {
         <KpiCard
           label={t('dora.git.activeDays')}
           value={String(data.kpi.active_days)}
-          sub={`/ 30 ${t('dora.git.date').toLowerCase()}`}
+          sub={`/ ${periodDays} ${t('dora.git.date').toLowerCase()}`}
           color="#3b82f6"
         />
         <KpiCard
