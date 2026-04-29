@@ -412,6 +412,7 @@
   "sprints.importSuccess": "{state}: 导入 {imported}，跳过 {skipped}",
   "sprints.importedSingle": "任务已导入 — 可在右侧分配代理",
   "sprints.alreadyImported": "该任务已导入",
+  "sprints.noRepoMapping": "尚无仓库映射 — 请在 Mappings 中添加",
   "sprints.noDescription": "无描述",
   "sprints.aiAssigned": "AI 分配已完成，可在任务详情跟踪。",
   "sprints.aiAssignFailed": "AI 分配失败: ",

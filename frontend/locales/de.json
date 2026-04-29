@@ -412,6 +412,7 @@
   "sprints.importSuccess": "{state}: {imported} importiert, {skipped} übersprungen",
   "sprints.importedSingle": "Task importiert — Agent im rechten Panel zuweisen",
   "sprints.alreadyImported": "Dieser Task wurde bereits importiert",
+  "sprints.noRepoMapping": "Noch keine Repo-Zuordnungen — füge eine in Mappings hinzu",
   "sprints.noDescription": "Keine Beschreibung",
   "sprints.aiAssigned": "KI-Zuweisung abgeschlossen. Im Task-Detail verfolgbar.",
   "sprints.aiAssignFailed": "KI-Zuweisung fehlgeschlagen: ",

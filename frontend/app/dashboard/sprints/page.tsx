@@ -320,6 +320,54 @@ export default function SprintsPage() {
         }
         setRepoMappings(prefs.repo_mappings ?? []);
       } catch { /* localStorage fallback */ }
+      // Reconcile with the canonical /repo-mappings table — user-pref
+      // JSON can drift behind when mappings are created via the DORA
+      // hub or by a teammate, and an empty list here means
+      // ``importSingleItem`` would silently drop the picked repo.
+      try {
+        type ServerMapping = {
+          id: number;
+          name?: string;
+          provider: string;
+          owner: string;
+          repo_name: string;
+          base_branch?: string;
+          local_repo_path?: string | null;
+          playbook?: string | null;
+        };
+        const rows = await apiFetch<ServerMapping[]>('/repo-mappings');
+        if (Array.isArray(rows) && rows.length > 0) {
+          const mapped: RepoMapping[] = rows.map((r) => {
+            const provider: 'azure' | 'github' = r.provider === 'github' ? 'github' : 'azure';
+            if (provider === 'github') {
+              return {
+                id: String(r.id),
+                name: r.name || `${r.owner}/${r.repo_name}`,
+                local_path: r.local_repo_path || '',
+                provider,
+                github_owner: r.owner,
+                github_repo: r.repo_name,
+                github_repo_full_name: `${r.owner}/${r.repo_name}`,
+                default_branch: r.base_branch || 'main',
+                repo_playbook: r.playbook || '',
+              };
+            }
+            return {
+              id: String(r.id),
+              name: r.name || r.repo_name,
+              local_path: r.local_repo_path || '',
+              provider,
+              azure_project: r.owner,
+              azure_repo_name: r.repo_name,
+              default_branch: r.base_branch || 'main',
+              repo_playbook: r.playbook || '',
+            };
+          });
+          setRepoMappings(mapped);
+        }
+      } catch {
+        // Network blip — keep whatever prefs gave us.
+      }
       try {
         const cfgs = await apiFetch<IntegrationConfig[]>('/integrations');
         setIntegrations(cfgs ?? []);
@@ -708,12 +756,16 @@ export default function SprintsPage() {
       setMsg(t('sprints.alreadyImported'));
       return;
     }
-    if (repoMappings.length <= 1) {
-      void importSingleItem(item, repoMappings[0]);
+    // Always pop the picker when there's at least one mapping. The
+    // previous shortcut (``length <= 1``) was a foot-gun: if the
+    // mappings list hadn't loaded yet (length 0) we'd call
+    // ``importSingleItem(item, undefined)`` and silently create a task
+    // with no repo wired up. With the picker we either get a real
+    // mapping or no import at all.
+    if (repoMappings.length === 0) {
+      setErr(t('sprints.noRepoMapping' as never) || 'Henüz repo eşleşmesi yok — Mappings sayfasından ekle');
       return;
     }
-    // 2+ mappings → ask which repo this work item should target. Preselect
-    // the last choice so multi-item imports don't force a re-pick each time.
     if (!importPickerRepoId && repoMappings[0]) {
       setImportPickerRepoId(String(repoMappings[0].id));
     }
@@ -723,6 +775,12 @@ export default function SprintsPage() {
   async function importSingleItem(item: WorkItem, mapping: RepoMapping | undefined) {
     if (taskMapByExternalId[item.id]) {
       setMsg(t('sprints.alreadyImported'));
+      return;
+    }
+    if (!mapping?.id) {
+      // Defensive — caller should have run the picker. Refuse instead
+      // of creating an orphan task with no repo wired up.
+      setErr(t('sprints.noRepoMapping' as never) || 'Önce bir repo seç');
       return;
     }
     try {

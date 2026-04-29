@@ -412,6 +412,7 @@
   "sprints.importSuccess": "{state}: importati {imported}, saltati {skipped}",
   "sprints.importedSingle": "Task importato — assegna agente dal pannello destro",
   "sprints.alreadyImported": "Questo task è già importato",
+  "sprints.noRepoMapping": "Nessun mapping repo ancora — aggiungine uno in Mappings",
   "sprints.noDescription": "Nessuna descrizione",
   "sprints.aiAssigned": "Assegnazione AI completata. Seguila dal dettaglio task.",
   "sprints.aiAssignFailed": "Assegnazione AI fallita: ",

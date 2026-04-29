@@ -412,6 +412,7 @@
   "sprints.importSuccess": "{state}: {imported} 件取り込み、{skipped} 件スキップ",
   "sprints.importedSingle": "タスクをインポートしました — 右側でエージェントを割り当て可能",
   "sprints.alreadyImported": "このタスクはすでにインポート済みです",
+  "sprints.noRepoMapping": "リポジトリマッピングがありません — Mappings で追加してください",
   "sprints.noDescription": "説明なし",
   "sprints.aiAssigned": "AI 割り当てが完了しました。Task 詳細で追跡できます。",
   "sprints.aiAssignFailed": "AI 割り当て失敗: ",

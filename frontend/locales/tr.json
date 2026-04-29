@@ -820,6 +820,7 @@
   "sprints.importSuccess": "{state}: {imported} eklendi, {skipped} atlandı",
   "sprints.importedSingle": "Görev içe aktarıldı — sağ panelden agent atayabilirsiniz",
   "sprints.alreadyImported": "Bu görev zaten içe aktarılmış",
+  "sprints.noRepoMapping": "Henüz repo eşleşmesi yok — Mappings sayfasından ekle",
   "sprints.aiAssigned": "AI atandı",
   "sprints.aiAssignFailed": "AI atama başarısız: ",
   "sprints.errorDefault": "Hata",

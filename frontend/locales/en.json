@@ -820,6 +820,7 @@
   "sprints.importSuccess": "{state}: {imported} imported, {skipped} skipped",
   "sprints.importedSingle": "Task imported — assign an agent from the right panel",
   "sprints.alreadyImported": "This task has already been imported",
+  "sprints.noRepoMapping": "No repo mappings yet — add one in Mappings",
   "sprints.aiAssigned": "AI assigned",
   "sprints.aiAssignFailed": "AI assignment failed: ",
   "sprints.errorDefault": "Error",
