@@ -3072,5 +3072,12 @@
   "dora.repoCard.commits": "提交",
   "dora.repoCard.prs": "公关",
   "dora.repoCard.deploys": "部署",
-  "dora.repoCard.details": "细节"
+  "dora.repoCard.details": "细节",
+  "landing.skillsExample.label": "它在实践中是如何运作的",
+  "landing.skillsExample.pastTitle": "昨天的任务",
+  "landing.skillsExample.pastBody": "#61981 — 颜色变体链接路由到错误的产品。高级开发人员通过在 ColorVariantResolver 中添加后备并收紧 slug 正则表达式来修复此问题。",
+  "landing.skillsExample.skillTitle": "自动提取技能",
+  "landing.skillsExample.skillBody": "名称：颜色变体路由后备 · 标签：路由、slug、电子商务 · 方法：通过 ColorVariantResolver 进行路由，从不内联 slug 解析。",
+  "landing.skillsExample.futureTitle": "今天的任务",
+  "landing.skillsExample.futureBody": "#64044 — 类别过滤器丢失分页变体。顶级技能匹配（81%）是上面的路由后备。它的提示片段被注入：代理跳过内联 slug 解析，重用解析器，发布与团队先例一致的修复。"
 }

@@ -3072,5 +3072,12 @@
   "dora.repoCard.commits": "se compromete",
   "dora.repoCard.prs": "relaciones públicas",
   "dora.repoCard.deploys": "despliega",
-  "dora.repoCard.details": "Detalles"
+  "dora.repoCard.details": "Detalles",
+  "landing.skillsExample.label": "Cómo funciona en la práctica",
+  "landing.skillsExample.pastTitle": "La tarea de ayer",
+  "landing.skillsExample.pastBody": "#61981 — El enlace de variante de color dirige al producto incorrecto. El desarrollador senior lo soluciona agregando un respaldo en ColorVariantResolver y ajustando la expresión regular de slug.",
+  "landing.skillsExample.skillTitle": "Habilidad extraída automáticamente",
+  "landing.skillsExample.skillBody": "nombre: alternativa de enrutamiento de variantes de color · etiquetas: enrutamiento, slug, comercio electrónico · enfoque: ruta a través de ColorVariantResolver, nunca inserte el análisis de slug.",
+  "landing.skillsExample.futureTitle": "la tarea de hoy",
+  "landing.skillsExample.futureBody": "#64044 — El filtro de categorías pierde variante en la paginación. La mejor combinación de habilidades (81%) es el método alternativo de enrutamiento mencionado anteriormente. Se inyecta su fragmento de aviso: el agente omite el análisis de slug en línea, reutiliza el solucionador y envía una solución consistente con el precedente del equipo."
 }

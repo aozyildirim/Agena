@@ -51,16 +51,60 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
   tuning knobs
 
 **Team Skill Catalog**
-- Completed tasks are automatically distilled into reusable skills
-  (name + approach + prompt fragment + touched files + tags) via
-  the LLM — Claude CLI, Codex CLI or API, whichever you're using
-- When a new task matches an existing skill, the relevant entries are
-  prepended to the agent's system prompt so past solutions compound
-  instead of being rediscovered ad-hoc
-- `/dashboard/skills` catalog page: list with pattern-type badges,
-  usage counters, search / filter / manual create + edit
+
+Skills are AGENA's compounding-knowledge layer. Every completed task gets
+distilled into a reusable pattern; every new task pulls the closest
+patterns into its agent prompt. Past solutions are not re-discovered —
+they get re-applied.
+
+- **Auto extraction.** When a task completes, the Skill Librarian asks
+  the LLM (Claude CLI / Codex CLI / OpenAI / Gemini, whichever you're
+  using) to summarise the task's title + description + reviewed code
+  into `{ name, pattern_type, tags, touched_files, approach_summary,
+  prompt_fragment }`. Skipped automatically when the LLM's confidence
+  is < 50%, so one-off oddities don't pollute the catalog.
+
+- **Vector retrieval.** Each skill is embedded into Qdrant
+  (org-scoped, `kind='skill'`) alongside a MySQL row that drives the
+  catalog UI and usage counters.
+
+- **Prompt injection.** Before any agent runs, the top-3 skills above
+  the relevance threshold are prepended to the system prompt as a
+  `RELEVANT TEAM SKILLS` block. Works in Claude CLI, Codex CLI,
+  Gemini, OpenAI, and the classic CrewAI pipeline — same retrieval,
+  four transports.
+
+- **Concrete payoff.** After ~50 tasks, a Flo-sized team's catalog
+  carries 20+ codebase-specific patterns:
+
+  ```
+  ┌─ "Stock allocator pattern" ──────────────────────────────────┐
+  │  pattern_type: refactor                                       │
+  │  tags: [stock, multi-site, allocation]                        │
+  │  touched_files:                                               │
+  │    app/Library/Stock/SiteBasedAllocator.php                   │
+  │    app/Services/V1/StockService.php                           │
+  │  prompt_fragment:                                             │
+  │    "When site-based stock allocation is needed, use the       │
+  │     SiteBasedAllocator class. Don't compute it inline — the   │
+  │     allocator already handles overflow, fallback sites, and   │
+  │     the per-SKU lock."                                        │
+  └───────────────────────────────────────────────────────────────┘
+  ```
+
+  Next time someone files a stock-related task, the agent gets that
+  fragment in its prompt — no senior tap on the shoulder needed.
+
+- **Manual edits welcome.** Hit `/dashboard/skills` and the "Yeni Skill"
+  button to seed your team's pattern library directly. Useful for
+  encoding "don't do this again" lessons (e.g. *"httpx `params={}`
+  silently strips the URL's query string — always pass `None`"*) before
+  AGENA has accumulated enough completed tasks to extract them on its
+  own.
+
 - See [`docs/SKILLS.md`](docs/SKILLS.md) for the extraction + retrieval
-  flow, tuning knobs, and comparisons vs agents / refinement items
+  flow, tuning knobs, and the comparison vs Refinement's similar-past
+  index.
 
 **Runtimes Registry**
 - Every compute environment that can execute agent tasks (host CLI

@@ -677,6 +677,40 @@ export default function HomePage() {
             ))}
           </div>
 
+          {/* Concrete input → skill → reuse walk-through, three pinned cards
+              with arrows so the abstract 4-step grid above lands as a real
+              workflow rather than buzzword soup. */}
+          <div style={{ marginTop: 28, marginBottom: 18 }}>
+            <div className='section-label' style={{ marginBottom: 10 }}>
+              {t('landing.skillsExample.label' as Parameters<typeof t>[0])}
+            </div>
+            <div style={{
+              display: 'grid', gap: 12,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            }}>
+              {([
+                { icon: '📋', tone: 'rgba(99,102,241,0.35)', bg: 'rgba(99,102,241,0.05)', titleKey: 'landing.skillsExample.pastTitle', bodyKey: 'landing.skillsExample.pastBody' },
+                { icon: '🧠', tone: 'rgba(167,139,250,0.4)', bg: 'rgba(167,139,250,0.06)', titleKey: 'landing.skillsExample.skillTitle', bodyKey: 'landing.skillsExample.skillBody' },
+                { icon: '⚡', tone: 'rgba(34,197,94,0.35)', bg: 'rgba(34,197,94,0.05)', titleKey: 'landing.skillsExample.futureTitle', bodyKey: 'landing.skillsExample.futureBody' },
+              ] as const).map((card) => (
+                <div key={card.titleKey} style={{
+                  padding: 16, borderRadius: 14,
+                  border: `1px solid ${card.tone}`,
+                  background: card.bg,
+                  display: 'grid', gap: 8,
+                }}>
+                  <div style={{ fontSize: 22 }}>{card.icon}</div>
+                  <h4 style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-90)', margin: 0, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                    {t(card.titleKey as Parameters<typeof t>[0])}
+                  </h4>
+                  <p style={{ fontSize: 12, color: 'var(--ink-65)', margin: 0, lineHeight: 1.6 }}>
+                    {t(card.bodyKey as Parameters<typeof t>[0])}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{
             marginTop: 18, padding: '14px 18px', borderRadius: 14,
             border: '1px dashed rgba(167,139,250,0.3)',

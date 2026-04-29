@@ -3072,5 +3072,12 @@
   "dora.repoCard.commits": "commit",
   "dora.repoCard.prs": "PR",
   "dora.repoCard.deploys": "deployment",
-  "dora.repoCard.details": "Detaylar"
+  "dora.repoCard.details": "Detaylar",
+  "landing.skillsExample.label": "Uygulamada nasıl çalışır?",
+  "landing.skillsExample.pastTitle": "Dünkü görev",
+  "landing.skillsExample.pastBody": "#61981 — Renk çeşidi bağlantısı yanlış ürüne yönlendiriyor. Kıdemli geliştirici, ColorVariantResolver'a bir geri dönüş ekleyerek ve slug regex'ini sıkılaştırarak sorunu düzeltiyor.",
+  "landing.skillsExample.skillTitle": "Beceri otomatik olarak çıkarıldı",
+  "landing.skillsExample.skillBody": "ad: Renk değişkenli yönlendirme geri dönüşü · etiketler: yönlendirme, bilgi, e-ticaret · yaklaşım: ColorVariantResolver üzerinden yönlendir, hiçbir zaman bilgi ayrıştırma satır içi değil.",
+  "landing.skillsExample.futureTitle": "Bugünkü görev",
+  "landing.skillsExample.futureBody": "#64044 — Kategori filtresi sayfalandırmada değişkeni kaybediyor. En iyi beceri eşleşmesi (%81) yukarıdaki yönlendirme geri dönüşüdür. İstemi parçası enjekte edilir: aracı satır içi bilgi ayrıştırmayı atlar, çözümleyiciyi yeniden kullanır, ekibin emsali ile tutarlı bir düzeltme gönderir."
 }

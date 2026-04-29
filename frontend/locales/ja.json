@@ -3072,5 +3072,12 @@
   "dora.repoCard.commits": "コミットする",
   "dora.repoCard.prs": "PR",
   "dora.repoCard.deploys": "配備する",
-  "dora.repoCard.details": "詳細"
+  "dora.repoCard.details": "詳細",
+  "landing.skillsExample.label": "実際にどのように機能するか",
+  "landing.skillsExample.pastTitle": "昨日のタスク",
+  "landing.skillsExample.pastBody": "#61981 — カラー バリエーション リンクは間違った製品にルーティングされます。上級開発者は、ColorVariantResolver にフォールバックを追加し、スラッグ正規表現を強化することでこの問題を修正しました。",
+  "landing.skillsExample.skillTitle": "スキル自動抽出",
+  "landing.skillsExample.skillBody": "名前: カラーバリアント ルーティング フォールバック · タグ: ルーティング、スラッグ、電子商取引 · アプローチ: ColorVariantResolver を介してルートし、スラッグ解析をインライン化しないでください。",
+  "landing.skillsExample.futureTitle": "今日のタスク",
+  "landing.skillsExample.futureBody": "#64044 — カテゴリ フィルターはページネーションでバリアントを失います。上位のスキル一致 (81%) は、上記のルーティング フォールバックです。そのプロンプトフラグメントが挿入されます。エージェントはインラインスラッグ解析をスキップし、リゾルバーを再利用し、チームの前例と一致する修正を出荷します。"
 }
