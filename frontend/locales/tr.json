@@ -3079,5 +3079,8 @@
   "landing.skillsExample.skillTitle": "Beceri otomatik olarak çıkarıldı",
   "landing.skillsExample.skillBody": "ad: Renk değişkenli yönlendirme geri dönüşü · etiketler: yönlendirme, bilgi, e-ticaret · yaklaşım: ColorVariantResolver üzerinden yönlendir, hiçbir zaman bilgi ayrıştırma satır içi değil.",
   "landing.skillsExample.futureTitle": "Bugünkü görev",
-  "landing.skillsExample.futureBody": "#64044 — Kategori filtresi sayfalandırmada değişkeni kaybediyor. En iyi beceri eşleşmesi (%81) yukarıdaki yönlendirme geri dönüşüdür. İstemi parçası enjekte edilir: aracı satır içi bilgi ayrıştırmayı atlar, çözümleyiciyi yeniden kullanır, ekibin emsali ile tutarlı bir düzeltme gönderir."
+  "landing.skillsExample.futureBody": "#64044 — Kategori filtresi sayfalandırmada değişkeni kaybediyor. En iyi beceri eşleşmesi (%81) yukarıdaki yönlendirme geri dönüşüdür. İstemi parçası enjekte edilir: aracı satır içi bilgi ayrıştırmayı atlar, çözümleyiciyi yeniden kullanır, ekibin emsali ile tutarlı bir düzeltme gönderir.",
+  "skills.importDefaults": "Varsayılanları içe aktar",
+  "skills.importDefaultsConfirm": "Seçilen varsayılan beceriler bu kuruluşa eklensin mi? Aynı ada sahip mevcut girişler atlanacaktır.",
+  "skills.importDefaultsResult": "İçe aktarıldı: {inserted} yeni, {skipped} zaten mevcut, pakette toplam {total}."
 }

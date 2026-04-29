@@ -135,6 +135,29 @@ export default function SkillsPage() {
           </p>
         </div>
         <button
+          onClick={async () => {
+            if (!window.confirm(tr('skills.importDefaultsConfirm' as Parameters<typeof tr>[0]))) return;
+            try {
+              const r = await apiFetch<{ inserted: number; skipped: number; total: number }>('/skills/import-defaults', { method: 'POST' });
+              alert(tr('skills.importDefaultsResult' as Parameters<typeof tr>[0])
+                .replace('{inserted}', String(r.inserted))
+                .replace('{skipped}', String(r.skipped))
+                .replace('{total}', String(r.total)));
+              void load();
+            } catch (e) {
+              alert(e instanceof Error ? e.message : 'Import failed');
+            }
+          }}
+          style={{
+            fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10,
+            border: '1px solid rgba(167,139,250,0.5)',
+            background: 'rgba(167,139,250,0.12)',
+            color: '#a78bfa', cursor: 'pointer',
+          }}
+        >
+          ✨ {tr('skills.importDefaults' as Parameters<typeof tr>[0])}
+        </button>
+        <button
           onClick={() => setCreateOpen(true)}
           style={{
             fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10,

@@ -135,6 +135,15 @@ class SkillService:
     async def get(self, organization_id: int, skill_id: int) -> Skill | None:
         return await self._get_owned(organization_id, skill_id)
 
+    async def list_all_for_org(self, organization_id: int) -> list[Skill]:
+        """Unpaginated list — used by import-defaults to dedupe by name.
+        Per-org volume stays modest (typically < 100 rows), so a full
+        scan is fine."""
+        rows = (await self.db.execute(
+            select(Skill).where(Skill.organization_id == organization_id)
+        )).scalars().all()
+        return list(rows)
+
     # ----- Retrieval -----
 
     async def find_relevant(

@@ -3079,5 +3079,8 @@
   "landing.skillsExample.skillTitle": "自动提取技能",
   "landing.skillsExample.skillBody": "名称：颜色变体路由后备 · 标签：路由、slug、电子商务 · 方法：通过 ColorVariantResolver 进行路由，从不内联 slug 解析。",
   "landing.skillsExample.futureTitle": "今天的任务",
-  "landing.skillsExample.futureBody": "#64044 — 类别过滤器丢失分页变体。顶级技能匹配（81%）是上面的路由后备。它的提示片段被注入：代理跳过内联 slug 解析，重用解析器，发布与团队先例一致的修复。"
+  "landing.skillsExample.futureBody": "#64044 — 类别过滤器丢失分页变体。顶级技能匹配（81%）是上面的路由后备。它的提示片段被注入：代理跳过内联 slug 解析，重用解析器，发布与团队先例一致的修复。",
+  "skills.importDefaults": "导入默认值",
+  "skills.importDefaultsConfirm": "向该组织添加精选的默认技能？将跳过具有相同名称的现有条目。",
+  "skills.importDefaultsResult": "已导入：{已插入} 个新的，{已跳过} 已存在，捆绑包中总计为 {total}。"
 }

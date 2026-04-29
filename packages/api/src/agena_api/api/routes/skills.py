@@ -108,6 +108,36 @@ async def delete_skill(
     return {'deleted': True, 'id': skill_id}
 
 
+@router.post('/import-defaults')
+async def import_default_skills(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Seed the catalog with curated patterns. Idempotent: a Skill is
+    only inserted when no existing row in this org has the same name —
+    re-clicks just skip duplicates instead of stacking copies."""
+    from agena_services.services.default_skills import DEFAULT_SKILLS
+    from agena_models.schemas.skill import SkillCreate
+
+    service = SkillService(db)
+    existing_names = {
+        s.name.strip().lower() for s in await service.list_all_for_org(tenant.organization_id)
+    }
+    inserted = 0
+    skipped = 0
+    for spec in DEFAULT_SKILLS:
+        if spec['name'].strip().lower() in existing_names:
+            skipped += 1
+            continue
+        await service.create(
+            tenant.organization_id,
+            SkillCreate(**spec),
+            user_id=tenant.user_id,
+        )
+        inserted += 1
+    return {'inserted': inserted, 'skipped': skipped, 'total': len(DEFAULT_SKILLS)}
+
+
 @router.post('/search')
 async def search_skills(
     payload: dict,

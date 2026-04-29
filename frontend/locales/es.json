@@ -3079,5 +3079,8 @@
   "landing.skillsExample.skillTitle": "Habilidad extraída automáticamente",
   "landing.skillsExample.skillBody": "nombre: alternativa de enrutamiento de variantes de color · etiquetas: enrutamiento, slug, comercio electrónico · enfoque: ruta a través de ColorVariantResolver, nunca inserte el análisis de slug.",
   "landing.skillsExample.futureTitle": "la tarea de hoy",
-  "landing.skillsExample.futureBody": "#64044 — El filtro de categorías pierde variante en la paginación. La mejor combinación de habilidades (81%) es el método alternativo de enrutamiento mencionado anteriormente. Se inyecta su fragmento de aviso: el agente omite el análisis de slug en línea, reutiliza el solucionador y envía una solución consistente con el precedente del equipo."
+  "landing.skillsExample.futureBody": "#64044 — El filtro de categorías pierde variante en la paginación. La mejor combinación de habilidades (81%) es el método alternativo de enrutamiento mencionado anteriormente. Se inyecta su fragmento de aviso: el agente omite el análisis de slug en línea, reutiliza el solucionador y envía una solución consistente con el precedente del equipo.",
+  "skills.importDefaults": "Importar valores predeterminados",
+  "skills.importDefaultsConfirm": "¿Agregar las habilidades predeterminadas seleccionadas a esta organización? Se omitirán las entradas existentes con el mismo nombre.",
+  "skills.importDefaultsResult": "Importado: {insertado} nuevo, {omitido} ya existía, {total} total en el paquete."
 }

@@ -3079,5 +3079,8 @@
   "landing.skillsExample.skillTitle": "スキル自動抽出",
   "landing.skillsExample.skillBody": "名前: カラーバリアント ルーティング フォールバック · タグ: ルーティング、スラッグ、電子商取引 · アプローチ: ColorVariantResolver を介してルートし、スラッグ解析をインライン化しないでください。",
   "landing.skillsExample.futureTitle": "今日のタスク",
-  "landing.skillsExample.futureBody": "#64044 — カテゴリ フィルターはページネーションでバリアントを失います。上位のスキル一致 (81%) は、上記のルーティング フォールバックです。そのプロンプトフラグメントが挿入されます。エージェントはインラインスラッグ解析をスキップし、リゾルバーを再利用し、チームの前例と一致する修正を出荷します。"
+  "landing.skillsExample.futureBody": "#64044 — カテゴリ フィルターはページネーションでバリアントを失います。上位のスキル一致 (81%) は、上記のルーティング フォールバックです。そのプロンプトフラグメントが挿入されます。エージェントはインラインスラッグ解析をスキップし、リゾルバーを再利用し、チームの前例と一致する修正を出荷します。",
+  "skills.importDefaults": "デフォルトをインポートする",
+  "skills.importDefaultsConfirm": "厳選されたデフォルトのスキルをこの組織に追加しますか?同じ名前の既存のエントリはスキップされます。",
+  "skills.importDefaultsResult": "インポート済み: 新規 {inserted}、{skipped} すでに存在、バンドル内の合計は {total} 個です。"
 }
