@@ -2649,7 +2649,23 @@ export default function RefinementPage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
                       {isItemWritten ? (
-                        <span style={writtenButtonDone}>{copy.writtenBack}</span>
+                        <>
+                          <span style={writtenButtonDone}>{copy.writtenBack}</span>
+                          <button
+                            type='button'
+                            disabled={deletingWritebackId === item.item_id}
+                            onClick={() => void deleteWritebackForItem(item.item_id)}
+                            title={lang === 'tr' ? `${providerLabel}'dan [${commentSignature}] yorumlarını sil` : `Delete [${commentSignature}] comments from ${providerLabel}`}
+                            style={{
+                              padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                              border: '1px solid rgba(239,68,68,0.35)',
+                              background: 'rgba(239,68,68,0.08)', color: '#fca5a5',
+                              cursor: deletingWritebackId === item.item_id ? 'wait' : 'pointer',
+                            }}
+                          >
+                            {deletingWritebackId === item.item_id ? '...' : (lang === 'tr' ? '🗑 Sil' : '🗑 Delete')}
+                          </button>
+                        </>
                       ) : (
                         <button
                           type='button'
