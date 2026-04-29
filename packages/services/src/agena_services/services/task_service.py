@@ -56,6 +56,7 @@ class TaskService:
         max_cost_usd: float | None = None,
         source: str | None = None,
         external_id: str | None = None,
+        assigned_to: str | None = None,
     ) -> TaskRecord:
         if self.db is None:
             raise ValueError('DB session required')
@@ -98,6 +99,7 @@ class TaskService:
             max_tokens=max(1, int(max_tokens)) if max_tokens is not None else None,
             max_cost_usd=max(0.0, float(max_cost_usd)) if max_cost_usd is not None else None,
             status='new',
+            assigned_to=(assigned_to.strip() if assigned_to else None) or None,
         )
         self.db.add(task)
         await self.db.commit()
@@ -123,6 +125,7 @@ class TaskService:
         first_seen_at: str | None = None,
         last_seen_at: str | None = None,
         occurrences: int | None = None,
+        assigned_to: str | None = None,
     ) -> TaskRecord:
         if self.db is None:
             raise ValueError('DB session required')
@@ -176,6 +179,7 @@ class TaskService:
             occurrences=occurrences,
             sprint_name=sprint_name or None,
             sprint_path=sprint_path or None,
+            assigned_to=(assigned_to.strip() if assigned_to else None) or None,
         )
         self.db.add(task)
         await self.db.commit()
@@ -238,6 +242,7 @@ class TaskService:
                     external_id=item.id,
                     title=item.title,
                     description=description,
+                    assigned_to=getattr(item, 'assigned_to', None),
                 )
                 imported += 1
             except PermissionError as pe:
@@ -351,6 +356,7 @@ class TaskService:
                     external_id=item.id,
                     title=item.title,
                     description=item.description,
+                    assigned_to=getattr(item, 'assigned_to', None),
                 )
                 imported += 1
             except PermissionError as pe:

@@ -151,6 +151,7 @@ async def create_task(
             max_cost_usd=request.max_cost_usd,
             source=request.source,
             external_id=request.external_id,
+            assigned_to=request.assigned_to,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc

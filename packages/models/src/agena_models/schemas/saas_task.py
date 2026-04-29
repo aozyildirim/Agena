@@ -15,6 +15,7 @@ class TaskCreateRequest(BaseModel):
     repo_mapping_ids: list[int] | None = None  # pre-select target repos at creation time
     source: str | None = None  # tag with external system (azure|jira|…) for dedup
     external_id: str | None = None  # e.g. Azure/Jira work item id — used with source
+    assigned_to: str | None = None  # original assignee on the source platform (Azure displayName / Jira name)
 
 
 class TaskUpdateRequest(BaseModel):

@@ -779,6 +779,7 @@ export default function SprintsPage() {
           description: `${desc}${commentsBlock}\n\n---\n${ctxParts.join('\n')}`,
           source: provider,
           external_id: String(item.id),
+          ...(item.assigned_to ? { assigned_to: item.assigned_to } : {}),
           ...(mapping?.id ? { repo_mapping_ids: [mapping.id] } : {}),
         }),
       });

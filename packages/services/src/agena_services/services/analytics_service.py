@@ -1103,6 +1103,7 @@ class AnalyticsService:
                 TaskRecord.created_at,
                 TaskRecord.updated_at,
                 TaskRecord.source,
+                TaskRecord.assigned_to,
             ).where(
                 TaskRecord.organization_id == organization_id,
                 TaskRecord.created_at >= since,
@@ -1110,7 +1111,10 @@ class AnalyticsService:
         )
         all_tasks = all_tasks_q.all()
 
-        # Collect user ids for name lookup
+        # Names for the importer fallback. Sprint detail prefers the real
+        # source-platform assignee saved in TaskRecord.assigned_to; the
+        # Agena importer is only used as a fallback when the source row
+        # didn't carry an AssignedTo (older rows, internal-source tasks).
         user_ids = list({t.created_by_user_id for t in all_tasks if t.created_by_user_id})
         user_map: dict[int, str] = {}
         if user_ids:
@@ -1119,6 +1123,12 @@ class AnalyticsService:
             )
             for u in user_q.all():
                 user_map[u.id] = u.full_name or f'User #{u.id}'
+
+        def _resolve_assignee(t) -> str:
+            real = (t.assigned_to or '').strip() if hasattr(t, 'assigned_to') else ''
+            if real:
+                return real
+            return user_map.get(t.created_by_user_id, f'User #{t.created_by_user_id}')
 
         # ── 2) Categorise tasks ───────────────────────────────────────────
         completed_items: list[dict] = []
@@ -1130,7 +1140,7 @@ class AnalyticsService:
             item = {
                 'id': t.id,
                 'key': t.external_id or f'T-{t.id}',
-                'assignee': user_map.get(t.created_by_user_id, f'User #{t.created_by_user_id}'),
+                'assignee': _resolve_assignee(t),
                 'assignee_id': t.created_by_user_id,
                 'summary': t.title or '',
                 'work_item_type': 'Bug' if is_bug else 'Task',
@@ -1151,28 +1161,32 @@ class AnalyticsService:
                 incomplete_items.append(item)
 
         # ── 3) Assignee breakdown ─────────────────────────────────────────
-        assignee_stats: dict[int, dict] = {}
+        # Bucket by the real platform assignee name when we have it.
+        # Tasks with no source assignee bucket under the importer's name
+        # (or "Unassigned" if even that's missing) so the sum still
+        # equals the period totals.
+        assignee_stats: dict[str, dict] = {}
         for t in all_tasks:
-            uid = t.created_by_user_id
-            if uid not in assignee_stats:
-                assignee_stats[uid] = {
-                    'name': user_map.get(uid, f'User #{uid}'),
+            key = _resolve_assignee(t) or 'Unassigned'
+            if key not in assignee_stats:
+                assignee_stats[key] = {
+                    'name': key,
                     'assigned': 0,
                     'delivered_count': 0,
                     'total_effort': 0.0,
                     'delivered_effort': 0.0,
                 }
-            assignee_stats[uid]['assigned'] += 1
+            assignee_stats[key]['assigned'] += 1
             effort = round(
                 (t.updated_at - t.created_at).total_seconds() / 3600, 1
             ) if t.updated_at and t.created_at else 0
-            assignee_stats[uid]['total_effort'] += effort
+            assignee_stats[key]['total_effort'] += effort
             if t.status == 'completed':
-                assignee_stats[uid]['delivered_count'] += 1
-                assignee_stats[uid]['delivered_effort'] += effort
+                assignee_stats[key]['delivered_count'] += 1
+                assignee_stats[key]['delivered_effort'] += effort
 
         assignees = []
-        for uid, s in assignee_stats.items():
+        for _key, s in assignee_stats.items():
             assignees.append({
                 'name': s['name'],
                 'assigned_count': s['assigned'],
