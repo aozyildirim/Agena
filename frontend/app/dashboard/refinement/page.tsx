@@ -1205,6 +1205,9 @@ export default function RefinementPage() {
   // Backend's /refinement/delete-comment fetches every comment, finds
   // ones starting with [signature] in plain text, deletes each.
   const [deletingWritebackId, setDeletingWritebackId] = useState('');
+  // Confirm modal state for the Sil action — same backdrop modal pattern
+  // as writeback / assign rather than a native window.confirm.
+  const [deleteConfirm, setDeleteConfirm] = useState<{ itemId: string; itemTitle: string } | null>(null);
   // Modal state for "assign suggested author" — replaces the native
   // window.confirm with the same styled modal pattern the writeback
   // flow already uses.
@@ -1218,14 +1221,11 @@ export default function RefinementPage() {
     filesTouched: number;
   } | null>(null);
   const [assigning, setAssigning] = useState(false);
+  // The actual delete call (no confirm — modal already confirmed before
+  // calling). Kept as its own callback so both the modal "Sil" button
+  // and any programmatic caller can hit the same path.
   const deleteWritebackForItem = useCallback(async (itemId: string) => {
     const sig = (commentSignature || 'AGENA AI').trim() || 'AGENA AI';
-    const ok = window.confirm(
-      lang === 'tr'
-        ? `#${itemId} — Azure'daki [${sig}] yorumları silinsin mi?`
-        : `Delete [${sig}] comments from work item #${itemId}?`,
-    );
-    if (!ok) return;
     setDeletingWritebackId(itemId);
     setError('');
     setRunMessage(null);
@@ -2137,7 +2137,7 @@ export default function RefinementPage() {
                                       <button
                                         type='button'
                                         disabled={deletingWritebackId === item.id}
-                                        onClick={() => void deleteWritebackForItem(item.id)}
+                                        onClick={() => setDeleteConfirm({ itemId: item.id, itemTitle: item.title || '' })}
                                         title={lang === 'tr' ? `${providerLabel}'dan [${commentSignature}] yorumlarını sil` : `Delete [${commentSignature}] comments from ${providerLabel}`}
                                         style={{
                                           padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
@@ -2687,7 +2687,7 @@ export default function RefinementPage() {
                           <button
                             type='button'
                             disabled={deletingWritebackId === item.item_id}
-                            onClick={() => void deleteWritebackForItem(item.item_id)}
+                            onClick={() => setDeleteConfirm({ itemId: item.item_id, itemTitle: item.title || '' })}
                             title={lang === 'tr' ? `${providerLabel}'dan [${commentSignature}] yorumlarını sil` : `Delete [${commentSignature}] comments from ${providerLabel}`}
                             style={{
                               padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
@@ -2955,6 +2955,79 @@ export default function RefinementPage() {
                 }}
               >
                 {bulkWritebackRunning ? copy.writebackRunning : (copy.writeShort || 'Write')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {deleteConfirm && typeof document !== 'undefined' && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }} onClick={() => deletingWritebackId !== deleteConfirm.itemId && setDeleteConfirm(null)}>
+          <div style={{
+            width: 'min(420px, 92vw)', borderRadius: 16, padding: '20px 22px',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            display: 'grid', gap: 14,
+          }} onClick={(e) => e.stopPropagation()}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--ink-42)', fontFamily: 'monospace' }}>#{deleteConfirm.itemId}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginTop: 2, lineHeight: 1.3 }}>
+                {deleteConfirm.itemTitle}
+              </div>
+            </div>
+            <div style={{
+              padding: '12px 14px', borderRadius: 12,
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
+              fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5,
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
+                {lang === 'tr' ? 'Yorum silme' : 'Delete comment'}
+              </div>
+              {lang === 'tr'
+                ? <>{providerLabel}'da bu work item'a yazılmış{' '}
+                    <strong style={{ color: 'var(--ink)' }}>[{commentSignature}]</strong>{' '}
+                    önekli tüm yorumlar silinecek. Geri alınamaz.</>
+                : <>All comments prefixed with{' '}
+                    <strong style={{ color: 'var(--ink)' }}>[{commentSignature}]</strong>{' '}
+                    will be deleted from this work item on {providerLabel}. This cannot be undone.</>}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type='button'
+                disabled={deletingWritebackId === deleteConfirm.itemId}
+                onClick={() => setDeleteConfirm(null)}
+                style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 10,
+                  border: '1px solid var(--panel-border-2)', background: 'transparent',
+                  color: 'var(--ink-50)', fontSize: 13, fontWeight: 600,
+                  cursor: deletingWritebackId === deleteConfirm.itemId ? 'wait' : 'pointer',
+                }}
+              >
+                {copy.close}
+              </button>
+              <button
+                type='button'
+                disabled={deletingWritebackId === deleteConfirm.itemId}
+                onClick={async () => {
+                  const id = deleteConfirm.itemId;
+                  await deleteWritebackForItem(id);
+                  setDeleteConfirm(null);
+                }}
+                style={{
+                  flex: 2, padding: '10px 16px', borderRadius: 10,
+                  border: '1px solid rgba(239,68,68,0.5)',
+                  background: 'rgba(239,68,68,0.15)', color: '#fca5a5',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: deletingWritebackId === deleteConfirm.itemId ? 'wait' : 'pointer',
+                }}
+              >
+                {deletingWritebackId === deleteConfirm.itemId
+                  ? '...'
+                  : (lang === 'tr' ? '🗑 Sil' : '🗑 Delete')}
               </button>
             </div>
           </div>
