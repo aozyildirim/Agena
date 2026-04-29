@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRepoIdParam } from '@/lib/useRepoIdParam';
+import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
+import DoraPeriodTabs from '@/components/DoraPeriodTabs';
 import {
   fetchDoraDevelopment,
   fetchGitAnalytics,
@@ -32,6 +34,7 @@ export default function DoraDevelopmentPage() {
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>('git');
   const [repoId, setRepoId] = useRepoIdParam();
+  const [periodDays, setPeriodDays] = useDoraPeriodDays();
   const [gitData, setGitData] = useState<GitAnalyticsResponse | null>(null);
   const [devData, setDevData] = useState<DoraDevelopmentResponse | null>(null);
   const [prData, setPrData] = useState<PrAnalyticsResponse | null>(null);
@@ -46,10 +49,10 @@ export default function DoraDevelopmentPage() {
     (async () => {
       try {
         const [git, dev, pr, dep] = await Promise.all([
-          fetchGitAnalytics(30, repoId),
-          fetchDoraDevelopment(30, repoId),
-          fetchPrAnalytics(30, repoId),
-          fetchDeploymentsAnalytics(30, repoId),
+          fetchGitAnalytics(periodDays, repoId),
+          fetchDoraDevelopment(periodDays, repoId),
+          fetchPrAnalytics(periodDays, repoId),
+          fetchDeploymentsAnalytics(periodDays, repoId),
         ]);
         if (active) {
           setGitData(git);
@@ -64,7 +67,7 @@ export default function DoraDevelopmentPage() {
       }
     })();
     return () => { active = false; };
-  }, [repoId]);
+  }, [repoId, periodDays]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'team', label: t('dora.dev.tab.team') },
@@ -86,14 +89,10 @@ export default function DoraDevelopmentPage() {
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
           {t('dora.dev.subtitle')}
         </p>
-        <RepoSelector value={repoId} onSelect={setRepoId} />
-        <span style={{
-          display: 'inline-block', marginTop: 8, fontSize: 11,
-          color: 'var(--muted)', background: 'var(--glass)',
-          border: '1px solid var(--panel-border)', borderRadius: 999, padding: '3px 10px',
-        }}>
-          {t('dora.dev.last30days')}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+          <RepoSelector value={repoId} onSelect={setRepoId} />
+          <DoraPeriodTabs value={periodDays} onChange={setPeriodDays} />
+        </div>
       </div>
 
       {/* Tab bar */}

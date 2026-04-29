@@ -8,6 +8,8 @@ import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
 import RepoSelector from '@/components/RepoSelector';
 import { useRepoIdParam } from '@/lib/useRepoIdParam';
+import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
+import DoraPeriodTabs from '@/components/DoraPeriodTabs';
 
 const box: React.CSSProperties = {
   borderRadius: 14,
@@ -28,6 +30,7 @@ export default function DoraBugsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [repoId, setRepoId] = useRepoIdParam();
+  const [periodDays, setPeriodDays] = useDoraPeriodDays();
 
   useEffect(() => {
     let active = true;
@@ -35,7 +38,7 @@ export default function DoraBugsPage() {
     setError('');
     (async () => {
       try {
-        const res = await fetchDoraBugs(30, repoId);
+        const res = await fetchDoraBugs(periodDays, repoId);
         if (active) setData(res);
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Failed');
@@ -44,7 +47,7 @@ export default function DoraBugsPage() {
       }
     })();
     return () => { active = false; };
-  }, [repoId]);
+  }, [repoId, periodDays]);
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
@@ -59,14 +62,10 @@ export default function DoraBugsPage() {
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
           {t('dora.bugs.subtitle')}
         </p>
-        <RepoSelector value={repoId} onSelect={setRepoId} />
-        <span style={{
-          display: 'inline-block', marginTop: 8, fontSize: 11,
-          color: 'var(--muted)', background: 'var(--glass)',
-          border: '1px solid var(--panel-border)', borderRadius: 999, padding: '3px 10px',
-        }}>
-          {t('dora.bugs.last30days')}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+          <RepoSelector value={repoId} onSelect={setRepoId} />
+          <DoraPeriodTabs value={periodDays} onChange={setPeriodDays} />
+        </div>
       </div>
 
       {error && (

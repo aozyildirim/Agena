@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { apiFetch, fetchDoraOverview, syncDoraRepo } from '@/lib/api';
+import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
+import DoraPeriodTabs from '@/components/DoraPeriodTabs';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -235,16 +237,7 @@ export default function DoraOverviewPage() {
   const { t } = useLocale();
   const [repos, setRepos] = useState<RepoMappingRow[]>([]);
   const [reposLoading, setReposLoading] = useState(true);
-  const [periodDays, setPeriodDays] = useState<number>(() => {
-    if (typeof window === 'undefined') return 90;
-    const saved = Number(window.localStorage.getItem('agena_dora_period_days') || 0);
-    return saved && saved >= 1 && saved <= 365 ? saved : 90;
-  });
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('agena_dora_period_days', String(periodDays));
-    }
-  }, [periodDays]);
+  const [periodDays, setPeriodDays] = useDoraPeriodDays();
   const [reposError, setReposError] = useState('');
   const [syncStatus, setSyncStatus] = useState<Record<string, SyncStatusItem>>({});
   const [syncingIds, setSyncingIds] = useState<Set<number>>(new Set());
@@ -339,42 +332,7 @@ export default function DoraOverviewPage() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div
-            role='tablist'
-            aria-label='DORA period'
-            style={{
-              display: 'inline-flex', padding: 3,
-              borderRadius: 999, border: '1px solid var(--panel-border-2)',
-              background: 'var(--panel-alt)',
-            }}
-          >
-            {[
-              { d: 30,  label: '30g' },
-              { d: 90,  label: '3 ay' },
-              { d: 180, label: '6 ay' },
-              { d: 365, label: '1 yıl' },
-            ].map((opt) => {
-              const active = periodDays === opt.d;
-              return (
-                <button
-                  key={opt.d}
-                  role='tab'
-                  aria-selected={active}
-                  onClick={() => setPeriodDays(opt.d)}
-                  style={{
-                    padding: '5px 12px', borderRadius: 999, border: 'none',
-                    background: active ? 'var(--surface)' : 'transparent',
-                    color: active ? 'var(--ink)' : 'var(--ink-50)',
-                    fontSize: 12, fontWeight: active ? 700 : 600, cursor: 'pointer',
-                    boxShadow: active ? '0 1px 2px rgba(0,0,0,0.2)' : 'none',
-                    transition: 'background 0.12s, color 0.12s',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
+          <DoraPeriodTabs value={periodDays} onChange={setPeriodDays} />
           <button
             onClick={handleSyncAll}
             disabled={bulkSyncing || repos.length === 0}

@@ -15,6 +15,7 @@ import BarChart from '@/components/charts/BarChart';
 import LineChart from '@/components/charts/LineChart';
 import RepoSelector from '@/components/RepoSelector';
 import { useRepoIdParam } from '@/lib/useRepoIdParam';
+import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
 
 const box: React.CSSProperties = {
   borderRadius: 14,
@@ -408,7 +409,7 @@ export default function DoraProjectPage() {
   const [sprint, setSprint] = useState<SprintDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useDoraPeriodDays();
   const [repoId, setRepoId] = useRepoIdParam();
   const [workItemTab, setWorkItemTab] = useState<'completed' | 'incomplete' | 'removed'>('completed');
   const [velocityTab, setVelocityTab] = useState<'count' | 'effort'>('count');
