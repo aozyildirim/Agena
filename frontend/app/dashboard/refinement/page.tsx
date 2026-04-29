@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 
 import { apiFetch, cachedApiFetch, loadPrefs, loadPromptCatalog } from '@/lib/api';
@@ -1184,6 +1185,49 @@ export default function RefinementPage() {
     setConfirmWritebackItemId(itemId);
   }, [results]);
 
+  // Delete the [SIG]-prefixed comment(s) from the work item AND remove
+  // the local writtenBack mark so the row goes back to "needs writing".
+  // Backend's /refinement/delete-comment fetches every comment, finds
+  // ones starting with [signature] in plain text, deletes each.
+  const [deletingWritebackId, setDeletingWritebackId] = useState('');
+  const deleteWritebackForItem = useCallback(async (itemId: string) => {
+    const sig = (commentSignature || 'AGENA AI').trim() || 'AGENA AI';
+    const ok = window.confirm(
+      lang === 'tr'
+        ? `#${itemId} — Azure'daki [${sig}] yorumları silinsin mi?`
+        : `Delete [${sig}] comments from work item #${itemId}?`,
+    );
+    if (!ok) return;
+    setDeletingWritebackId(itemId);
+    setError('');
+    setRunMessage(null);
+    try {
+      const payload = provider === 'azure'
+        ? { provider, work_item_id: itemId, signature: sig, project: azureProject }
+        : { provider, work_item_id: itemId, signature: sig };
+      const resp = await apiFetch<{ deleted: number }>('/refinement/delete-comment', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      // Local state: drop the "written back" mark so the row offers Yaz again.
+      setWrittenBackIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+      setRunMessage({
+        kind: 'success',
+        text: `${itemId}: ${resp.deleted} ${lang === 'tr' ? 'yorum silindi' : 'comments deleted'}`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Delete failed';
+      setError(msg);
+      setRunMessage({ kind: 'error', text: msg });
+    } finally {
+      setDeletingWritebackId('');
+    }
+  }, [provider, azureProject, commentSignature, lang]);
+
   const copyToClipboard = useCallback((text: string, itemId: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedCommentId(itemId);
@@ -1470,10 +1514,24 @@ export default function RefinementPage() {
         </div>,
         document.body,
       )}
-      <div>
-        <div className='section-label'>{copy.section}</div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>{copy.title}</h1>
-        <p style={{ fontSize: 12, color: 'var(--ink-30)', margin: 0 }}>{copy.subtitle}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div className='section-label'>{copy.section}</div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>{copy.title}</h1>
+          <p style={{ fontSize: 12, color: 'var(--ink-30)', margin: 0 }}>{copy.subtitle}</p>
+        </div>
+        <Link
+          href='/dashboard/refinement/runs'
+          style={{
+            padding: '8px 14px', borderRadius: 10,
+            border: '1px solid var(--panel-border-2)',
+            background: 'var(--panel)', color: 'var(--ink-85)',
+            fontSize: 12, fontWeight: 700, textDecoration: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          📚 {lang === 'tr' ? 'Refinementlarım' : 'My runs'}
+        </Link>
       </div>
 
       <div className="refinement-top-grid" style={{ display: 'grid', gap: 16 }}>
@@ -2044,9 +2102,25 @@ export default function RefinementPage() {
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                                   {isWrittenBack ? (
-                                    <span style={writtenButtonDone}>
-                                      {copy.writtenBack}
-                                    </span>
+                                    <>
+                                      <span style={writtenButtonDone}>
+                                        {copy.writtenBack}
+                                      </span>
+                                      <button
+                                        type='button'
+                                        disabled={deletingWritebackId === item.id}
+                                        onClick={() => void deleteWritebackForItem(item.id)}
+                                        title={lang === 'tr' ? `${providerLabel}'dan [${commentSignature}] yorumlarını sil` : `Delete [${commentSignature}] comments from ${providerLabel}`}
+                                        style={{
+                                          padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                                          border: '1px solid rgba(239,68,68,0.35)',
+                                          background: 'rgba(239,68,68,0.08)', color: '#fca5a5',
+                                          cursor: deletingWritebackId === item.id ? 'wait' : 'pointer',
+                                        }}
+                                      >
+                                        {deletingWritebackId === item.id ? '...' : (lang === 'tr' ? '🗑 Sil' : '🗑 Delete')}
+                                      </button>
+                                    </>
                                   ) : (
                                     <button
                                       type='button'
