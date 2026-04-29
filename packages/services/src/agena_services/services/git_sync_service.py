@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from datetime import datetime, timedelta
@@ -445,8 +446,119 @@ class GitSyncService:
                 skip += page_size
 
         await self.db.commit()
+        # Backfill additions/deletions/commits_count for merged PRs that
+        # are still 0/0 — Azure's PR list endpoint doesn't include diff
+        # stats so the rows above land empty. We resolve them by asking
+        # `/pullrequests/{id}/commits` (one call per PR) and summing the
+        # additions/deletions of the matching SHAs in our git_commits
+        # table. Concurrency-capped so we don't get rate-limited.
+        await self._backfill_azure_pr_line_stats(
+            org_id, repo_mapping_id, base, project, repo_name, headers,
+        )
         logger.info('Azure PRs synced: %d for %s/%s', count, project, repo_name)
         return count
+
+    async def _backfill_azure_pr_line_stats(
+        self,
+        org_id: int,
+        repo_mapping_id: str,
+        base: str,
+        project: str,
+        repo_name: str,
+        headers: dict[str, str],
+    ) -> None:
+        from agena_models.models.git_pull_request import GitPullRequest as PR
+        # Pick merged PRs in this repo with empty stats. Cap the batch so
+        # a freshly-synced repo doesn't punish the user with a 30-min
+        # backfill on first sync — subsequent syncs whittle the backlog
+        # down. 200 per sync cycle ≈ ~30s with 10 concurrent calls.
+        rows = (await self.db.execute(
+            select(PR.id, PR.external_id)
+            .where(
+                PR.organization_id == org_id,
+                PR.repo_mapping_id == repo_mapping_id,
+                PR.merged_at.isnot(None),
+                PR.additions == 0,
+                PR.deletions == 0,
+            )
+            .order_by(PR.merged_at.desc())
+            .limit(200)
+        )).all()
+        if not rows:
+            return
+
+        # Pull every relevant SHA → (additions, deletions) into memory
+        # once so each PR resolves with no extra DB round-trips.
+        commit_rows = (await self.db.execute(
+            select(GitCommit.sha, GitCommit.additions, GitCommit.deletions)
+            .where(
+                GitCommit.organization_id == org_id,
+                GitCommit.repo_mapping_id == repo_mapping_id,
+            )
+        )).all()
+        sha_stats = {r.sha: (int(r.additions or 0), int(r.deletions or 0)) for r in commit_rows}
+
+        sem = asyncio.Semaphore(10)
+        async with httpx.AsyncClient(timeout=20) as client:
+            async def _one(pr_id: int, ext_id: str) -> tuple[int, int, int, int] | None:
+                async with sem:
+                    url = (
+                        f'{base}/{project}/_apis/git/repositories/{repo_name}'
+                        f'/pullrequests/{ext_id}/commits?api-version=7.1'
+                    )
+                    resp = await self._request_with_rate_limit(client, 'GET', url, headers=headers)
+                    if resp is None:
+                        return None
+                    try:
+                        data = resp.json() or {}
+                    except Exception:
+                        return None
+                    shas = [(c.get('commitId') or '') for c in (data.get('value') or [])]
+                    add = 0
+                    deletes = 0
+                    matched = 0
+                    for sha in shas:
+                        if not sha:
+                            continue
+                        if sha in sha_stats:
+                            a, d = sha_stats[sha]
+                            add += a
+                            deletes += d
+                            matched += 1
+                    return pr_id, add, deletes, len(shas)
+
+            results = await asyncio.gather(
+                *[_one(r.id, r.external_id) for r in rows],
+                return_exceptions=True,
+            )
+
+        # Apply updates in a single tight loop. Skip rows where every
+        # commit was an unsynced SHA (matched 0 of N) — leaving the row
+        # at 0/0 lets a later sync retry once those commits are in the
+        # local table.
+        from sqlalchemy import update as sa_update
+        applied = 0
+        for r in results:
+            if isinstance(r, Exception) or r is None:
+                continue
+            pr_id, add, deletes, n_commits = r
+            if add == 0 and deletes == 0:
+                # Either the PR really had 0 lines changed (rename-only,
+                # binary, etc.) or none of its commits were in our local
+                # mirror yet. Either way, leave the next sync to confirm.
+                continue
+            await self.db.execute(
+                sa_update(PR)
+                .where(PR.id == pr_id)
+                .values(additions=add, deletions=deletes, commits_count=n_commits)
+            )
+            applied += 1
+        if applied:
+            await self.db.commit()
+            logger.info(
+                'Azure PR line-stats backfill: %d/%d for %s/%s',
+                applied, len(rows), project, repo_name,
+            )
 
     async def _sync_azure_deployments(
         self,

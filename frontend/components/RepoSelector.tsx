@@ -38,14 +38,70 @@ export default function RepoSelector({ value, onSelect }: RepoSelectorProps) {
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load from localStorage cache first
+    // Load from localStorage cache first so the dropdown renders
+    // instantly on subsequent visits…
     try {
       const cached = localStorage.getItem(LS_REPO_MAPPINGS);
       if (cached) {
         const parsed = JSON.parse(cached) as RepoMapping[];
-        if (Array.isArray(parsed)) setRepos(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) setRepos(parsed);
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
+    // …and always reconcile with the server. The cache used to be the
+    // sole source, which left the dropdown stuck on "All repos" on a
+    // fresh browser. Canonical list lives in `repo_mappings`, so fetch
+    // it and refresh the cache so subsequent loads stay fast.
+    type ServerMapping = {
+      id: number;
+      name?: string;
+      provider: string;
+      owner: string;
+      repo_name: string;
+      base_branch?: string;
+      local_repo_path?: string | null;
+      playbook?: string | null;
+    };
+    void apiFetch<ServerMapping[]>('/repo-mappings')
+      .then((rows) => {
+        if (!Array.isArray(rows)) return;
+        const mapped: RepoMapping[] = rows.map((r) => {
+          const provider: 'azure' | 'github' = (r.provider === 'github') ? 'github' : 'azure';
+          if (provider === 'github') {
+            return {
+              id: String(r.id),
+              name: r.name || `${r.owner}/${r.repo_name}`,
+              local_path: r.local_repo_path || '',
+              provider,
+              github_owner: r.owner,
+              github_repo: r.repo_name,
+              github_repo_full_name: `${r.owner}/${r.repo_name}`,
+              default_branch: r.base_branch || 'main',
+              repo_playbook: r.playbook || '',
+            };
+          }
+          return {
+            id: String(r.id),
+            name: r.name || r.repo_name,
+            local_path: r.local_repo_path || '',
+            provider,
+            azure_project: r.owner,
+            azure_repo_name: r.repo_name,
+            default_branch: r.base_branch || 'main',
+            repo_playbook: r.playbook || '',
+          };
+        });
+        setRepos(mapped);
+        try {
+          localStorage.setItem(LS_REPO_MAPPINGS, JSON.stringify(mapped));
+        } catch {
+          // localStorage quota or disabled — non-fatal
+        }
+      })
+      .catch(() => {
+        // Network blip — keep whatever the cache gave us.
+      });
   }, []);
 
   const handleSync = useCallback(async () => {
