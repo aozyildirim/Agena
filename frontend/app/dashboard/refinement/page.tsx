@@ -2281,7 +2281,25 @@ export default function RefinementPage() {
                                     </div>
                                   )}
 
-                                  {/* Recommended assignee from git authorship */}
+                                  {/* Recommended assignee — when empty we still render an
+                                      empty-state explaining why so the user knows whether to
+                                      pick a repo or to add the team member to my_team. */}
+                                  {(!suggestion.recommended_authors || suggestion.recommended_authors.length === 0) && (
+                                    <div style={expandedSection}>
+                                      <div style={expandedSectionLabel}>Önerilen Kişi</div>
+                                      <div style={{
+                                        fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5,
+                                        padding: '10px 12px', borderRadius: 10,
+                                        background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)',
+                                      }}>
+                                        {!repoMappingId
+                                          ? <>Kod yazarına göre öneri için sağ üstte <strong style={{ color: 'var(--ink)' }}>Gelişmiş ▾ → Repo</strong>'dan bu işin geçtiği repo'yu seç ve refine'i tekrar çalıştır.</>
+                                          : (suggestion.touched_files && suggestion.touched_files.length > 0)
+                                            ? <>Bu repoda etkilenen dosyalara son 6 ayda commit atan eşleşen takım üyesi bulunamadı. Doğru repo mu? Veya takımındaki kişilerin email'i Azure/Jira'da farklı olabilir.</>
+                                            : <>LLM bu iş için somut dosya listesi üretemedi (açıklama belirsiz olabilir). Açıklamayı zenginleştir, repo seçimini kontrol et, tekrar dene.</>}
+                                      </div>
+                                    </div>
+                                  )}
                                   {suggestion.recommended_authors && suggestion.recommended_authors.length > 0 && (
                                     <div style={expandedSection}>
                                       <div style={expandedSectionLabel}>Önerilen Kişi (kodu son 6 ayda yazan)</div>
