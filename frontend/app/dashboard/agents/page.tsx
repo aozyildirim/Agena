@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { loadPrefs, savePrefs, getAgentAnalytics, loadPromptCatalog, type PromptCatalog } from '@/lib/api';
+import { apiFetch, loadPrefs, savePrefs, getAgentAnalytics, loadPromptCatalog, type PromptCatalog } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -351,6 +351,7 @@ export default function AgentsPage() {
     palette: 0,
   });
   const [promptSlugs, setPromptSlugs] = useState<string[]>([]);
+  const [reviewStats, setReviewStats] = useState<Record<string, { count: number; lastSeverity: string | null; avgScore: number | null }>>({});
   const defaults = useMemo(() => defaultAgents(t), [t]);
 
   useEffect(() => {
@@ -371,6 +372,30 @@ export default function AgentsPage() {
         const catalog = await loadPromptCatalog();
         setPromptSlugs(Object.keys(catalog.defaults));
       } catch { /* prompt catalog optional */ }
+      try {
+        type ReviewRow = { reviewer_agent_role: string; severity: string | null; score: number | null; created_at: string };
+        const reviews = await apiFetch<ReviewRow[]>('/reviews?limit=200');
+        if (Array.isArray(reviews)) {
+          const stats: Record<string, { count: number; lastSeverity: string | null; avgScore: number | null }> = {};
+          const scores: Record<string, number[]> = {};
+          // reviews come back DESC by created_at, so first occurrence per role is the most recent.
+          for (const r of reviews) {
+            const role = r.reviewer_agent_role;
+            if (!stats[role]) {
+              stats[role] = { count: 0, lastSeverity: r.severity, avgScore: null };
+              scores[role] = [];
+            }
+            stats[role].count += 1;
+            if (r.score != null) scores[role].push(r.score);
+          }
+          for (const role of Object.keys(stats)) {
+            if (scores[role].length > 0) {
+              stats[role].avgScore = Math.round(scores[role].reduce((s, v) => s + v, 0) / scores[role].length);
+            }
+          }
+          setReviewStats(stats);
+        }
+      } catch { /* review stats optional */ }
       try {
         const analyticsRes = await getAgentAnalytics(true);
         const map = {} as Record<string, AgentAnalytics>;
@@ -500,6 +525,7 @@ export default function AgentsPage() {
               onEdit={() => setEditModalAgent(agent)}
               onUpdate={(patch) => updateAgent(agent.role, patch)}
               promptSlugs={promptSlugs}
+              reviewStat={reviewStats[agent.role]}
             />
           </div>
         ))}
@@ -803,12 +829,13 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t, promp
 }
 
 // ── AgentCard ─────────────────────────────────────────────────────────────────
-function AgentCard({ agent, isEditing, onEdit, onUpdate, promptSlugs }: {
+function AgentCard({ agent, isEditing, onEdit, onUpdate, promptSlugs, reviewStat }: {
   agent: AgentConfig;
   isEditing: boolean;
   onEdit: () => void;
   promptSlugs: string[];
   onUpdate: (patch: Partial<AgentConfig>) => void;
+  reviewStat?: { count: number; lastSeverity: string | null; avgScore: number | null };
 }) {
   const { t } = useLocale();
   const models = agent.provider === 'openai' ? OPENAI_MODELS : agent.provider === 'gemini' ? GEMINI_MODELS : [];
@@ -840,6 +867,35 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate, promptSlugs }: {
           <div style={{ position: 'absolute', top: 2, left: agent.enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
         </div>
       </div>
+
+      {/* Review history mini stat — visible when this agent has been used as a reviewer at least once. */}
+      {reviewStat && reviewStat.count > 0 && !isEditing && (() => {
+        const sevColors: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#60a5fa', clean: '#22c55e' };
+        const sevColor = reviewStat.lastSeverity ? (sevColors[reviewStat.lastSeverity] || 'var(--ink-35)') : 'var(--ink-35)';
+        return (
+          <a href={`/dashboard/reviews?agent_role=${encodeURIComponent(agent.role)}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 12px', borderTop: '1px dashed var(--panel-border)',
+              background: 'var(--glass)', textDecoration: 'none', fontSize: 11, color: 'var(--ink-50)',
+            }}>
+            <span style={{ fontSize: 13 }}>🔎</span>
+            <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{reviewStat.count}</span>
+            <span>review{reviewStat.count > 1 ? 's' : ''}</span>
+            {reviewStat.lastSeverity && (
+              <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: `${sevColor}1f`, color: sevColor, textTransform: 'uppercase' }}>
+                {reviewStat.lastSeverity}
+              </span>
+            )}
+            {reviewStat.avgScore != null && (
+              <span style={{ marginLeft: 'auto' }}>
+                avg <strong style={{ color: 'var(--ink)' }}>{reviewStat.avgScore}</strong>
+              </span>
+            )}
+          </a>
+        );
+      })()}
 
       {/* Expanded editor */}
       {isEditing && (

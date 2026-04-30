@@ -104,6 +104,31 @@ def _parse_findings(output: str) -> tuple[int, int | None, str | None]:
     return count, score, severity
 
 
+def _resolve_reviewer_role_from_task(task: TaskRecord, requested: str | None) -> str:
+    """Decide which reviewer persona handles this task.
+
+    Priority:
+      1. Caller's explicit role (anything other than empty / 'auto').
+      2. Task's stamped 'Preferred Agent Role' from description metadata
+         (set by an IntegrationRule on import — e.g. security_developer for
+         tickets reported by the security team).
+      3. Generic 'reviewer'.
+
+    No tag-based if/else: the routing is entirely declarative — the caller
+    or the rule engine decided which persona; we just honour it."""
+    requested_norm = (requested or '').strip().lower()
+    if requested_norm and requested_norm != 'auto':
+        return requested_norm
+
+    desc = task.description or ''
+    for line in desc.splitlines():
+        if line.strip().lower().startswith('preferred agent role:'):
+            value = line.split(':', 1)[1].strip().lower()
+            if value:
+                return value
+    return 'reviewer'
+
+
 async def trigger_review(
     db: AsyncSession,
     *,
@@ -121,7 +146,7 @@ async def trigger_review(
     if task is None or task.organization_id != organization_id:
         raise ValueError('Task not found')
 
-    role_norm = (reviewer_agent_role or 'reviewer').strip().lower() or 'reviewer'
+    role_norm = _resolve_reviewer_role_from_task(task, reviewer_agent_role)
 
     # Snapshot what the reviewer is looking at.
     snapshot_lines = [

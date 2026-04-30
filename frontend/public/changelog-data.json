@@ -1,5 +1,13 @@
 [
   {
+    "hash": "9d7cf6f",
+    "short": "9d7cf6f",
+    "message": "Reviews: AI code-review history surface, separate from refinement",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "5d98200",
     "short": "5d98200",
     "message": "Agents: validate before closing the modal — show inline error instead of silent close",

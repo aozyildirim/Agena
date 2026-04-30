@@ -1506,7 +1506,7 @@ export default function DashboardTasksPage() {
                   </span>
                 ) : (
                   <>
-                    <button onClick={() => void triggerReview(task.id, (task.tags || []).includes('security_review') ? 'security_developer' : 'reviewer')}
+                    <button onClick={() => void triggerReview(task.id, 'auto')}
                       title={t('reviews.runReview' as TranslationKey) || 'Run review'}
                       style={{ padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.4)', background: 'rgba(168,85,247,0.10)', color: '#c084fc', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       🔎 Review
@@ -1627,7 +1627,7 @@ export default function DashboardTasksPage() {
                         <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(task.status) }}>{statusLabel(task.status, t)}</span>
                       ) : (
                         <>
-                          <button onClick={() => void triggerReview(task.id, (task.tags || []).includes('security_review') ? 'security_developer' : 'reviewer')}
+                          <button onClick={() => void triggerReview(task.id, 'auto')}
                             style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.4)', background: 'rgba(168,85,247,0.10)', color: '#c084fc', cursor: 'pointer' }}>
                             🔎 Review
                           </button>
