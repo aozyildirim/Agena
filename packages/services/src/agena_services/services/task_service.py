@@ -108,6 +108,54 @@ class TaskService:
         await self.add_log(task.id, organization_id, 'created', 'Task created')
         return task
 
+    async def _apply_integration_rules(
+        self,
+        task: TaskRecord,
+        *,
+        provider: str,
+        payload: dict,
+    ) -> None:
+        """Run the IntegrationRule engine for the given Jira/Azure payload and
+        merge the resulting action onto the task (tags, priority override,
+        repo_mapping override). Best-effort — failures are swallowed so a bad
+        rule can't break the whole import."""
+        if self.db is None:
+            return
+        try:
+            from agena_services.services.rule_engine import evaluate_rules
+            action = await evaluate_rules(
+                self.db,
+                organization_id=task.organization_id,
+                provider=provider,
+                payload=payload,
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            import logging
+            logging.getLogger(__name__).exception('rule engine failed: %s', exc)
+            return
+
+        changed = False
+        if action.tags:
+            task.tags_json = json.dumps(action.tags, ensure_ascii=False)
+            changed = True
+        if action.priority and not task.priority:
+            task.priority = action.priority
+            changed = True
+        if action.repo_mapping_id and not task.repo_mapping_id:
+            task.repo_mapping_id = action.repo_mapping_id
+            changed = True
+        if changed:
+            await self.db.commit()
+            try:
+                await self.add_log(
+                    task.id,
+                    task.organization_id,
+                    'rules',
+                    f'IntegrationRule matched (rules={action.matched_rule_ids}, tags={action.tags})',
+                )
+            except Exception:
+                pass
+
     async def create_task_from_external(
         self,
         organization_id: int,
@@ -235,7 +283,7 @@ class TaskService:
                     cfg, item.description, item.id,
                 )
 
-                await self.create_task_from_external(
+                task = await self.create_task_from_external(
                     organization_id=organization_id,
                     user_id=user_id,
                     source='azure',
@@ -244,6 +292,18 @@ class TaskService:
                     description=description,
                     assigned_to=getattr(item, 'assigned_to', None),
                 )
+                await self._apply_integration_rules(task, provider='azure', payload={
+                    'reporter_email': getattr(item, 'reporter_email', None),
+                    'reporter_name': getattr(item, 'reporter_name', None),
+                    'created_by_email': getattr(item, 'reporter_email', None),
+                    'created_by_name': getattr(item, 'reporter_name', None),
+                    'created_by': getattr(item, 'reporter_name', None),
+                    'work_item_type': getattr(item, 'work_item_type', None),
+                    'issue_type': getattr(item, 'work_item_type', None),
+                    'project': getattr(item, 'project_key', None),
+                    'project_key': getattr(item, 'project_key', None),
+                    'labels': getattr(item, 'labels', []) or [],
+                })
                 imported += 1
             except PermissionError as pe:
                 raise ValueError(f'Task quota exceeded: {pe}') from pe
@@ -349,7 +409,7 @@ class TaskService:
                     skipped += 1
                     continue
 
-                await self.create_task_from_external(
+                task = await self.create_task_from_external(
                     organization_id=organization_id,
                     user_id=user_id,
                     source='jira',
@@ -358,6 +418,14 @@ class TaskService:
                     description=item.description,
                     assigned_to=getattr(item, 'assigned_to', None),
                 )
+                await self._apply_integration_rules(task, provider='jira', payload={
+                    'reporter_email': getattr(item, 'reporter_email', None),
+                    'reporter_name': getattr(item, 'reporter_name', None),
+                    'issue_type': getattr(item, 'issue_type', None),
+                    'project_key': getattr(item, 'project_key', None),
+                    'project': getattr(item, 'project_key', None),
+                    'labels': getattr(item, 'labels', []) or [],
+                })
                 imported += 1
             except PermissionError as pe:
                 raise ValueError(f'Task quota exceeded: {pe}') from pe

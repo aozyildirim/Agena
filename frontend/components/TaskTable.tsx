@@ -45,6 +45,9 @@ export type TaskItem = {
   first_seen_at?: string | null;
   last_seen_at?: string | null;
   occurrences?: number | null;
+  tags?: string[];
+  priority?: string | null;
+  assigned_to?: string | null;
 };
 
 type Props = {

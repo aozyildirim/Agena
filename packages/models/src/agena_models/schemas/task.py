@@ -44,6 +44,13 @@ class ExternalTask(BaseModel):
     # recorded for this item. Lets the UI render "Yazıldı + Sil" instead
     # of "Yaz" after a page reload.
     last_writeback_at: str | None = None
+    # Source-platform metadata used by IntegrationRule engine to auto-tag /
+    # auto-route imported tasks. Not all are populated for every provider.
+    reporter_email: str | None = None
+    reporter_name: str | None = None
+    issue_type: str | None = None  # Jira: issuetype.name. Falls back to work_item_type for Azure.
+    project_key: str | None = None
+    labels: list[str] = Field(default_factory=list)
 
 
 class TaskListResponse(BaseModel):

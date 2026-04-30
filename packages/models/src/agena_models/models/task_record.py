@@ -46,6 +46,10 @@ class TaskRecord(Base):
     # ``created_by_user_id`` which is the Agena user that imported the
     # task — they can be different humans entirely.
     assigned_to: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    # JSON-encoded list of tag strings; populated by the IntegrationRule
+    # engine on import (e.g. ['security_review']) and surfaced as pills /
+    # filters in the UI.
+    tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

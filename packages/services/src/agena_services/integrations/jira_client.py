@@ -28,7 +28,7 @@ class JiraClient:
         url = f"{base_url.rstrip('/')}/rest/api/3/search"
         params = {
             'jql': 'status = "To Do"',
-            'fields': 'summary,description',
+            'fields': 'summary,description,reporter,issuetype,project,labels,assignee,status',
             'maxResults': 50,
         }
 
@@ -153,7 +153,7 @@ class JiraClient:
         url = f"{base_url.rstrip('/')}/rest/agile/1.0/board/{board_id}/issue"
         params: dict[str, str | int] = {
             'maxResults': 100,
-            'fields': 'summary,description,status,assignee,created',
+            'fields': 'summary,description,status,assignee,created,reporter,issuetype,project,labels',
         }
         if sprint_id:
             params['sprint'] = sprint_id
@@ -648,6 +648,18 @@ class JiraClient:
                     sprint_name = picked.get('name')
                     sprint_id = str(picked.get('id')) if picked.get('id') is not None else None
                 break
+        # Reporter / issue type / project / labels — used by the rule engine
+        # to auto-tag and auto-route imported tasks.
+        reporter = fields.get('reporter') if isinstance(fields.get('reporter'), dict) else None
+        reporter_email = str((reporter or {}).get('emailAddress') or '').strip() or None
+        reporter_name = str((reporter or {}).get('displayName') or '').strip() or None
+        issuetype = fields.get('issuetype') if isinstance(fields.get('issuetype'), dict) else None
+        issue_type = str((issuetype or {}).get('name') or '').strip() or None
+        project = fields.get('project') if isinstance(fields.get('project'), dict) else None
+        project_key = str((project or {}).get('key') or '').strip() or None
+        labels_raw = fields.get('labels') or []
+        labels = [str(x) for x in labels_raw if isinstance(x, str)] if isinstance(labels_raw, list) else []
+
         return ExternalTask(
             id=issue.get('key', '') or issue.get('id', ''),
             internal_id=str(issue.get('id')) if issue.get('id') is not None else None,
@@ -661,6 +673,11 @@ class JiraClient:
             story_points=story_points,
             sprint_id=sprint_id,
             sprint_name=sprint_name,
+            reporter_email=reporter_email,
+            reporter_name=reporter_name,
+            issue_type=issue_type,
+            project_key=project_key,
+            labels=labels,
         )
 
     def _parse_jira_description(self, payload: Any) -> str:

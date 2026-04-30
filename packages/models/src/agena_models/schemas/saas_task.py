@@ -75,6 +75,7 @@ class TaskResponse(BaseModel):
     repo_mapping_id: int | None = None
     repo_mapping_name: str | None = None
     repo_assignments: list['RepoAssignmentResponse'] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     was_existing: bool = False  # set by POST /tasks when source+external_id matched a pre-existing task
 
 

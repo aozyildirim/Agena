@@ -60,7 +60,8 @@ class AzureDevOpsClient:
                 fields_param=(
                     'System.Id,System.Title,System.Description,System.State,'
                     'System.AssignedTo,System.CreatedDate,Microsoft.VSTS.Common.ActivatedDate,'
-                    'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
+                    'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps,'
+                    'System.CreatedBy,System.WorkItemType,System.Tags,System.TeamProject,System.IterationPath'
                 ),
             )
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
@@ -145,7 +146,8 @@ class AzureDevOpsClient:
             'System.WorkItemType,System.IterationPath,'
             'Microsoft.VSTS.Scheduling.StoryPoints,Microsoft.VSTS.Scheduling.Effort,'
             'Microsoft.VSTS.Scheduling.Size,'
-            'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
+            'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps,'
+            'System.CreatedBy,System.Tags,System.TeamProject'
         )
         headers = self._headers(pat)
 
@@ -1175,6 +1177,19 @@ class AzureDevOpsClient:
         # relations array when $expand=relations was requested.
         rel_info = self._parse_relations(item.get('relations'))
 
+        # Reporter / created-by + tags + project, used by IntegrationRule
+        # engine for auto-tagging on import.
+        created_by_raw = fields.get('System.CreatedBy')
+        if isinstance(created_by_raw, dict):
+            reporter_email = str(created_by_raw.get('uniqueName') or '').strip() or None
+            reporter_name = str(created_by_raw.get('displayName') or reporter_email or '').strip() or None
+        else:
+            reporter_email = None
+            reporter_name = str(created_by_raw or '').strip() or None
+        tags_raw = str(fields.get('System.Tags') or '').strip()
+        labels = [t.strip() for t in tags_raw.split(';') if t.strip()] if tags_raw else []
+        project_key = str(fields.get('System.TeamProject') or project or '').strip() or None
+
         return ExternalTask(
             id=item_id,
             title=fields.get('System.Title', ''),
@@ -1193,6 +1208,11 @@ class AzureDevOpsClient:
             branch_names=rel_info.get('branches') or [],
             linked_pr_refs=rel_info.get('pr_refs') or [],
             linked_commit_shas=rel_info.get('commit_shas') or [],
+            reporter_email=reporter_email,
+            reporter_name=reporter_name,
+            issue_type=fields.get('System.WorkItemType'),
+            project_key=project_key,
+            labels=labels,
         )
 
     def _build_work_item_web_url(self, *, org_url: str, project: str, item_id: str) -> str:

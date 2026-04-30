@@ -1371,6 +1371,12 @@ export default function DashboardTasksPage() {
                       &rarr;{task.dependent_task_ids.length}
                     </span>
                   )}
+                  {(task.tags || []).map((tg) => (
+                    <span key={tg} title={`Tag: ${tg}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)', color: '#c084fc', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {tg}
+                    </span>
+                  ))}
                 </div>
                 <div style={{
                   fontSize: 12,
@@ -1581,6 +1587,11 @@ export default function DashboardTasksPage() {
                           &rarr;{task.dependent_task_ids.length}
                         </span>
                       )}
+                      {(task.tags || []).map((tg) => (
+                        <span key={tg} style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)', color: '#c084fc' }}>
+                          {tg}
+                        </span>
+                      ))}
                     </div>
                     {/* Row 4: stats */}
                     <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--ink-45)', marginBottom: 8 }}>

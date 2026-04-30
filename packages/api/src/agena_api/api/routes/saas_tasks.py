@@ -128,7 +128,21 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         repo_mapping_id=getattr(task, 'repo_mapping_id', None),
         repo_mapping_name=await _get_repo_mapping_name(service.db, getattr(task, 'repo_mapping_id', None)),
         repo_assignments=repo_assignments,
+        tags=_parse_tags(getattr(task, 'tags_json', None)),
     )
+
+
+def _parse_tags(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        import json as _json
+        v = _json.loads(raw)
+        if isinstance(v, list):
+            return [str(x) for x in v if str(x).strip()]
+    except (ValueError, TypeError):
+        pass
+    return []
 
 
 @router.post('', response_model=TaskResponse)

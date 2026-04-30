@@ -71,6 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, module: 'core', children: [
         { href: '/dashboard/integrations', key: 'nav.integrationsOverview', icon: '⚙️', permission: 'integrations:manage' as const },
+        { href: '/dashboard/integrations/rules', key: 'nav.integrationRules', icon: '📐', permission: 'integrations:manage' as const },
         { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: '📡', permission: 'integrations:manage' as const, module: 'newrelic' },
         { href: '/dashboard/integrations/sentry', key: 'nav.sentry', icon: '🚨', permission: 'integrations:manage' as const, module: 'sentry' },
         { href: '/dashboard/integrations/datadog', key: 'nav.datadog', icon: '🐶', permission: 'integrations:manage' as const, module: 'datadog' },

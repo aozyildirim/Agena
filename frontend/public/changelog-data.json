@@ -1,5 +1,13 @@
 [
   {
+    "hash": "e57e9b5",
+    "short": "e57e9b5",
+    "message": "Onboarding: PAT / Jira token treats existing secret as \"keep existing\"",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "9ac3dba",
     "short": "9ac3dba",
     "message": "Command Center + Onboarding: send \"default repo\" to Mappings, pre-fill Azure / Jira from existing configs",

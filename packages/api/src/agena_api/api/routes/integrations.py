@@ -382,3 +382,188 @@ async def list_azure_branches(
 
     branches.sort(key=lambda b: (not b.is_default, b.name))
     return branches
+
+
+# ── Jira metadata for IntegrationRule UI ────────────────────────────────────
+
+class JiraReporterItem(BaseModel):
+    email: str
+    display_name: str
+
+
+class JiraIssueTypeItem(BaseModel):
+    name: str
+    icon_url: str | None = None
+
+
+@router.get('/jira/reporters', response_model=list[JiraReporterItem])
+async def list_jira_reporters(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[JiraReporterItem]:
+    """Return distinct reporters seen on the org's Jira instance. We query
+    /rest/api/3/users/search for active accounts so the rule editor can offer
+    a dropdown without requiring the user to memorize email addresses."""
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'jira')
+    if cfg is None or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    import base64
+    email = (cfg.username or '').strip()
+    auth = base64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[JiraReporterItem] = []
+    seen: set[str] = set()
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(f'{base_url}/rest/api/3/users/search?maxResults=200', headers=headers)
+        if resp.status_code != 200:
+            return []
+        for u in resp.json():
+            if not isinstance(u, dict):
+                continue
+            if u.get('accountType') and u.get('accountType') != 'atlassian':
+                continue
+            if u.get('active') is False:
+                continue
+            mail = str(u.get('emailAddress') or '').strip()
+            display = str(u.get('displayName') or mail).strip()
+            key = mail or display
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(JiraReporterItem(email=mail, display_name=display))
+    out.sort(key=lambda i: i.display_name.lower())
+    return out
+
+
+@router.get('/jira/issuetypes', response_model=list[JiraIssueTypeItem])
+async def list_jira_issuetypes(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[JiraIssueTypeItem]:
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'jira')
+    if cfg is None or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    import base64
+    email = (cfg.username or '').strip()
+    auth = base64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[JiraIssueTypeItem] = []
+    seen: set[str] = set()
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(f'{base_url}/rest/api/3/issuetype', headers=headers)
+        if resp.status_code != 200:
+            return []
+        for it in resp.json():
+            if not isinstance(it, dict):
+                continue
+            name = str(it.get('name') or '').strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out.append(JiraIssueTypeItem(name=name, icon_url=it.get('iconUrl')))
+    out.sort(key=lambda i: i.name.lower())
+    return out
+
+
+# ── Azure DevOps metadata for IntegrationRule UI ────────────────────────────
+
+class AzureUserItem(BaseModel):
+    email: str
+    display_name: str
+
+
+class AzureWorkItemTypeItem(BaseModel):
+    name: str
+    color: str | None = None
+
+
+@router.get('/azure/users', response_model=list[AzureUserItem])
+async def list_azure_users(
+    project: str = Query(..., description='Azure DevOps project name or ID'),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[AzureUserItem]:
+    """Return team members for the project — used as the candidate list for
+    'created by' rule matching."""
+    import base64
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'azure')
+    if not cfg or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    auth = base64.b64encode(f':{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[AzureUserItem] = []
+    seen: set[str] = set()
+    async with httpx.AsyncClient(timeout=20) as client:
+        # Fetch all teams in the project, then their members.
+        teams_resp = await client.get(
+            f'{base_url}/_apis/projects/{quote(project)}/teams?api-version=7.1',
+            headers=headers,
+        )
+        if teams_resp.status_code != 200:
+            return []
+        for team in teams_resp.json().get('value', []):
+            team_id = team.get('id')
+            if not team_id:
+                continue
+            members_resp = await client.get(
+                f'{base_url}/_apis/projects/{quote(project)}/teams/{team_id}/members?api-version=7.1',
+                headers=headers,
+            )
+            if members_resp.status_code != 200:
+                continue
+            for m in members_resp.json().get('value', []):
+                ident = m.get('identity') or {}
+                mail = str(ident.get('uniqueName') or '').strip()
+                display = str(ident.get('displayName') or mail).strip()
+                key = mail or display
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                out.append(AzureUserItem(email=mail, display_name=display))
+    out.sort(key=lambda i: i.display_name.lower())
+    return out
+
+
+@router.get('/azure/work-item-types', response_model=list[AzureWorkItemTypeItem])
+async def list_azure_work_item_types(
+    project: str = Query(...),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[AzureWorkItemTypeItem]:
+    import base64
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'azure')
+    if not cfg or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    auth = base64.b64encode(f':{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[AzureWorkItemTypeItem] = []
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(
+            f'{base_url}/{quote(project)}/_apis/wit/workitemtypes?api-version=7.1',
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            return []
+        for it in resp.json().get('value', []):
+            name = str(it.get('name') or '').strip()
+            if not name:
+                continue
+            out.append(AzureWorkItemTypeItem(name=name, color=it.get('color')))
+    out.sort(key=lambda i: i.name.lower())
+    return out
