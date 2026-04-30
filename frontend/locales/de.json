@@ -3110,5 +3110,10 @@
   "integrations.sentry.aiResolved": "KI BEHOBEN",
   "integrations.sentry.aiRunning": "KI ARBEITET",
   "integrations.sentry.aiFailed": "KI FEHLGESCHLAGEN",
-  "integrations.sentry.openInRepo": "im Repo öffnen"
+  "integrations.sentry.openInRepo": "im Repo öffnen",
+  "integrations.sentry.heroSubtitle": "KI-gestützte Fehlerbehandlung. Produktionsfehler importieren, mit einem Klick Ursachenanalyse erhalten, Fixes über das Repo ausliefern.",
+  "integrations.sentry.statMapped": "Verknüpfte Projekte",
+  "integrations.sentry.statWithRepo": "Mit Repo verbunden",
+  "integrations.sentry.statAuto": "Auto-Import an",
+  "integrations.sentry.findProjectsLabel": "Projekt zum Verknüpfen finden"
 }

@@ -1,5 +1,13 @@
 [
   {
+    "hash": "5ec8758",
+    "short": "5ec8758",
+    "message": "Sentry: cap statsPeriod to 24h/14d for issues list (Sentry API rejects 30d/7d)",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "45fcab5",
     "short": "45fcab5",
     "message": "Sentry: project health header, bulk filtered import, repo deeplinks, AI status badges",

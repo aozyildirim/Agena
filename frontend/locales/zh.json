@@ -3110,5 +3110,10 @@
   "integrations.sentry.aiResolved": "AI 已解决",
   "integrations.sentry.aiRunning": "AI 处理中",
   "integrations.sentry.aiFailed": "AI 失败",
-  "integrations.sentry.openInRepo": "在仓库中打开"
+  "integrations.sentry.openInRepo": "在仓库中打开",
+  "integrations.sentry.heroSubtitle": "AI 驱动的错误分诊。一键导入生产错误并获取根因分析,通过仓库交付修复。",
+  "integrations.sentry.statMapped": "已映射项目",
+  "integrations.sentry.statWithRepo": "已关联仓库",
+  "integrations.sentry.statAuto": "自动导入开启",
+  "integrations.sentry.findProjectsLabel": "查找要映射的项目"
 }

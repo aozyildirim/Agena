@@ -3110,5 +3110,10 @@
   "integrations.sentry.aiResolved": "AI 解決済み",
   "integrations.sentry.aiRunning": "AI 作業中",
   "integrations.sentry.aiFailed": "AI 失敗",
-  "integrations.sentry.openInRepo": "リポジトリで開く"
+  "integrations.sentry.openInRepo": "リポジトリで開く",
+  "integrations.sentry.heroSubtitle": "AI による障害トリアージ。本番エラーを取り込み、ワンクリックで根本原因分析を取得、リポジトリ経由で修正をデプロイ。",
+  "integrations.sentry.statMapped": "マッピング済みプロジェクト",
+  "integrations.sentry.statWithRepo": "リポジトリ紐付け",
+  "integrations.sentry.statAuto": "オート取り込み ON",
+  "integrations.sentry.findProjectsLabel": "マッピングするプロジェクトを検索"
 }

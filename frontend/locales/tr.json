@@ -3110,5 +3110,10 @@
   "integrations.sentry.aiResolved": "AI ÇÖZDÜ",
   "integrations.sentry.aiRunning": "AI ÇALIŞIYOR",
   "integrations.sentry.aiFailed": "AI BAŞARISIZ",
-  "integrations.sentry.openInRepo": "repo'da aç"
+  "integrations.sentry.openInRepo": "repo'da aç",
+  "integrations.sentry.heroSubtitle": "AI destekli hata triyajı. Production hatalarını içe aktar, tek tıkla kök neden analizi al, repo üzerinden çözüm gönder.",
+  "integrations.sentry.statMapped": "Eşlenen proje",
+  "integrations.sentry.statWithRepo": "Repo bağlı",
+  "integrations.sentry.statAuto": "Auto-import açık",
+  "integrations.sentry.findProjectsLabel": "Eşlenecek proje bul"
 }

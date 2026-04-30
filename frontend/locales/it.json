@@ -3110,5 +3110,10 @@
   "integrations.sentry.aiResolved": "IA RISOLTO",
   "integrations.sentry.aiRunning": "IA AL LAVORO",
   "integrations.sentry.aiFailed": "IA FALLITO",
-  "integrations.sentry.openInRepo": "apri nel repo"
+  "integrations.sentry.openInRepo": "apri nel repo",
+  "integrations.sentry.heroSubtitle": "Triage degli errori con IA. Importa errori in produzione, ottieni analisi della causa con un clic, distribuisci i fix tramite il tuo repo.",
+  "integrations.sentry.statMapped": "Progetti mappati",
+  "integrations.sentry.statWithRepo": "Collegati al repo",
+  "integrations.sentry.statAuto": "Auto-import attivo",
+  "integrations.sentry.findProjectsLabel": "Trova un progetto da mappare"
 }

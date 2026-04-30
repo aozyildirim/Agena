@@ -195,6 +195,8 @@ export default function SentryPage() {
   useEffect(() => {
     void loadMappings();
     void loadRepos();
+    // Auto-load projects on first paint so landing isn't an empty form.
+    void searchProjects();
   }, []);
 
   useEffect(() => {
@@ -487,27 +489,83 @@ export default function SentryPage() {
     background: 'transparent', color: 'var(--ink-58)', fontSize: 11, cursor: 'pointer',
   };
 
+  const totalMappings = mappings.length;
+  const autoMappings = mappings.filter((m) => m.auto_import).length;
+  const repoMappings = mappings.filter((m) => m.repo_mapping_id != null).length;
+
   return (
-    <div className='integrations-page' style={{ display: 'grid', gap: 16, maxWidth: 900, margin: '0 auto' }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>
-        {t('integrations.providerSentry')} — {t('integrations.sentry.projectBrowser')}
-      </h2>
-      {orgSlug && <div style={{ fontSize: 12, color: 'var(--ink-35)' }}>{t('integrations.sentry.organization')}: <strong>{orgSlug}</strong></div>}
+    <div className='integrations-page' style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto' }}>
+      {/* Hero header */}
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        borderRadius: 16,
+        border: '1px solid var(--panel-border)',
+        background: 'linear-gradient(135deg, rgba(75,46,131,0.18), rgba(249,115,22,0.10) 60%, rgba(28,231,131,0.08))',
+        padding: '20px 22px',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #4b2e83, #f97316, #1CE783)' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(75,46,131,0.18)', border: '1px solid rgba(75,46,131,0.4)',
+            fontSize: 22,
+          }}>🛡️</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: -0.3 }}>
+              {t('integrations.providerSentry')}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-58)', marginTop: 3, lineHeight: 1.5 }}>
+              {t('integrations.sentry.heroSubtitle') || 'AI-powered error triage. Import production errors, get root-cause analysis with one click, ship fixes through your repo.'}
+            </div>
+            {orgSlug && (
+              <div style={{ fontSize: 11, color: 'var(--ink-45)', marginTop: 6, fontFamily: 'monospace' }}>
+                <span style={{ color: 'var(--ink-30)' }}>org:</span> <strong style={{ color: 'var(--ink)' }}>{orgSlug}</strong>
+                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e', marginLeft: 8, verticalAlign: 'middle' }} />
+                <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 4, fontFamily: 'inherit' }}>connected</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stat tiles */}
+        {totalMappings > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            {[
+              { label: t('integrations.sentry.statMapped') || 'Mapped projects', value: totalMappings, color: 'var(--ink)' },
+              { label: t('integrations.sentry.statWithRepo') || 'Linked to a repo', value: `${repoMappings}/${totalMappings}`, color: '#60a5fa' },
+              { label: t('integrations.sentry.statAuto') || 'Auto-import on', value: autoMappings, color: '#1CE783' },
+            ].map((tile) => (
+              <div key={tile.label} style={{
+                flex: 1, minWidth: 130,
+                padding: '10px 14px', borderRadius: 10,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--panel-border)',
+              }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{tile.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: tile.color, marginTop: 4 }}>{tile.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {msg && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.1)', color: '#22c55e', fontSize: 12, fontWeight: 600 }}>{msg}</div>}
       {error && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(248,113,113,0.1)', color: '#f87171', fontSize: 12, fontWeight: 600 }}>{error}</div>}
 
       <div style={cardStyle}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 8 }}>
+          {t('integrations.sentry.findProjectsLabel') || 'Find a project to map'}
+        </div>
         <div className='int-row' style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('integrations.sentry.searchPlaceholder')}
-            style={{ ...inputStyle, flex: 1, minWidth: 200 }}
+            style={{ ...inputStyle, flex: 1, minWidth: 200, height: 38 }}
             onKeyDown={(e) => e.key === 'Enter' && void searchProjects()}
           />
-          <button onClick={() => void searchProjects()} disabled={loading} style={btnPrimary}>
-            {loading ? '...' : t('integrations.common.search')}
+          <button onClick={() => void searchProjects()} disabled={loading} style={{ ...btnPrimary, padding: '10px 18px' }}>
+            {loading ? '…' : t('integrations.common.search')}
           </button>
         </div>
       </div>
