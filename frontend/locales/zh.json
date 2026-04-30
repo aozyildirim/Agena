@@ -3142,5 +3142,7 @@
   "integrations.datadog.emptyHint": "调整查询或扩大时间范围,然后点击 Fetch。",
   "integrations.appdynamics.heroSubtitle": "从 AppDynamics 拉取 APM 错误到 Agena,AI 通过仓库修复。",
   "integrations.appdynamics.lastImportFromBatch": "上次批次",
-  "integrations.appdynamics.viewImportedTasks": "查看导入任务 ↗"
+  "integrations.appdynamics.viewImportedTasks": "查看导入任务 ↗",
+  "integrations.keepExistingSecret": "•••• (保留现有)",
+  "integrations.secretSavedHint": "密钥已保存——留空以保留现有密钥。"
 }

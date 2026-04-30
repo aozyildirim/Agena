@@ -3142,5 +3142,7 @@
   "integrations.datadog.emptyHint": "クエリを変更するか時間範囲を広げて Fetch をクリック。",
   "integrations.appdynamics.heroSubtitle": "AppDynamics の APM エラーを Agena に取込、AI がリポジトリ経由で修正。",
   "integrations.appdynamics.lastImportFromBatch": "最終バッチ",
-  "integrations.appdynamics.viewImportedTasks": "取込済みタスクを表示 ↗"
+  "integrations.appdynamics.viewImportedTasks": "取込済みタスクを表示 ↗",
+  "integrations.keepExistingSecret": "•••• (既存を維持)",
+  "integrations.secretSavedHint": "秘密鍵は保存済み — 維持する場合は空のままにしてください。"
 }

@@ -3142,5 +3142,7 @@
   "integrations.datadog.emptyHint": "Ajusta la query o elige un rango más amplio y pulsa Fetch.",
   "integrations.appdynamics.heroSubtitle": "Trae errores APM de AppDynamics a Agena, IA los arregla por tu repo.",
   "integrations.appdynamics.lastImportFromBatch": "Último lote",
-  "integrations.appdynamics.viewImportedTasks": "Ver tareas importadas ↗"
+  "integrations.appdynamics.viewImportedTasks": "Ver tareas importadas ↗",
+  "integrations.keepExistingSecret": "•••• (mantener actual)",
+  "integrations.secretSavedHint": "Secret ya guardado — déjalo en blanco para mantenerlo."
 }

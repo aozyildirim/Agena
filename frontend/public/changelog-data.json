@@ -1,5 +1,13 @@
 [
   {
+    "hash": "9ac3dba",
+    "short": "9ac3dba",
+    "message": "Command Center + Onboarding: send \"default repo\" to Mappings, pre-fill Azure / Jira from existing configs",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "7fadcdc",
     "short": "7fadcdc",
     "message": "Sidebar: remove Webhooks nav entry",

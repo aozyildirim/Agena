@@ -3142,5 +3142,7 @@
   "integrations.datadog.emptyHint": "Query anpassen oder Zeitraum erweitern und Fetch klicken.",
   "integrations.appdynamics.heroSubtitle": "APM-Fehler aus AppDynamics in Agena ziehen, KI fixt sie über dein Repo.",
   "integrations.appdynamics.lastImportFromBatch": "Letzter Batch",
-  "integrations.appdynamics.viewImportedTasks": "Importierte Tasks ansehen ↗"
+  "integrations.appdynamics.viewImportedTasks": "Importierte Tasks ansehen ↗",
+  "integrations.keepExistingSecret": "•••• (bestehend behalten)",
+  "integrations.secretSavedHint": "Secret bereits gespeichert — leer lassen, um es zu behalten."
 }

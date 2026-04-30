@@ -127,6 +127,8 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [azureHasSecret, setAzureHasSecret] = useState(false);
+  const [jiraHasSecret, setJiraHasSecret] = useState(false);
 
   // Pre-fill Azure / Jira fields from already-saved integration configs so
   // onboarding doesn't ask the user to re-enter values they've already given.
@@ -137,13 +139,19 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
         if (azure) {
           if (azure.base_url) setAzureOrg(azure.base_url);
           if (azure.project) setAzureProject(azure.project);
-          if (azure.has_secret) setProvider('azure');
+          if (azure.has_secret) {
+            setAzureHasSecret(true);
+            setProvider('azure');
+          }
         }
         const jira = items.find((c) => c.provider === 'jira');
         if (jira) {
           if (jira.base_url) setJiraUrl(jira.base_url);
           if (jira.username) setJiraEmail(jira.username);
-          if (jira.has_secret && !azure?.has_secret) setProvider('jira');
+          if (jira.has_secret) {
+            setJiraHasSecret(true);
+            if (!azure?.has_secret) setProvider('jira');
+          }
         }
       })
       .catch(() => { /* silent — onboarding still works empty */ });
@@ -155,15 +163,15 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
     setSuccess('');
     try {
       if (provider === 'azure') {
-        await apiFetch('/integrations/azure', {
-          method: 'PUT',
-          body: JSON.stringify({ base_url: azureOrg, project: azureProject, secret: azurePat }),
-        });
+        // Don't send the secret if the user left the field blank — backend
+        // keeps the existing PAT in that case. Only submit a new one if typed.
+        const body: Record<string, unknown> = { base_url: azureOrg, project: azureProject };
+        if (azurePat.trim()) body.secret = azurePat;
+        await apiFetch('/integrations/azure', { method: 'PUT', body: JSON.stringify(body) });
       } else if (provider === 'jira') {
-        await apiFetch('/integrations/jira', {
-          method: 'PUT',
-          body: JSON.stringify({ base_url: jiraUrl, username: jiraEmail, secret: jiraToken }),
-        });
+        const body: Record<string, unknown> = { base_url: jiraUrl, username: jiraEmail };
+        if (jiraToken.trim()) body.secret = jiraToken;
+        await apiFetch('/integrations/jira', { method: 'PUT', body: JSON.stringify(body) });
       }
       setSuccess(t('onboarding.integration.saved'));
       const connectedProvider = provider;
@@ -175,10 +183,12 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
     }
   }
 
+  // Allow save when the secret already exists (keep-existing mode), even if
+  // the input is blank.
   const canSave = provider === 'azure'
-    ? azureOrg.trim() && azurePat.trim()
+    ? !!azureOrg.trim() && (!!azurePat.trim() || azureHasSecret)
     : provider === 'jira'
-      ? jiraUrl.trim() && jiraToken.trim()
+      ? !!jiraUrl.trim() && (!!jiraToken.trim() || jiraHasSecret)
       : false;
 
   return (
@@ -251,10 +261,15 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
               <input
                 style={inputStyle}
                 type="password"
-                placeholder={t('onboarding.integration.patPlaceholder')}
+                placeholder={azureHasSecret ? (t('integrations.keepExistingSecret') || '•••• (keep existing)') : t('onboarding.integration.patPlaceholder')}
                 value={azurePat}
                 onChange={(e) => setAzurePat(e.target.value)}
               />
+              {azureHasSecret && (
+                <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4 }}>
+                  {t('integrations.secretSavedHint') || 'Secret already saved — leave blank to keep existing.'}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -292,10 +307,15 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
               <input
                 style={inputStyle}
                 type="password"
-                placeholder={t('onboarding.integration.jiraTokenPlaceholder')}
+                placeholder={jiraHasSecret ? (t('integrations.keepExistingSecret') || '•••• (keep existing)') : t('onboarding.integration.jiraTokenPlaceholder')}
                 value={jiraToken}
                 onChange={(e) => setJiraToken(e.target.value)}
               />
+              {jiraHasSecret && (
+                <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4 }}>
+                  {t('integrations.secretSavedHint') || 'Secret already saved — leave blank to keep existing.'}
+                </div>
+              )}
             </div>
           </div>
         )}

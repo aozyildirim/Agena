@@ -3142,5 +3142,7 @@
   "integrations.datadog.emptyHint": "Sorguyu değiştir veya daha geniş zaman aralığı seç, sonra Fetch'e bas.",
   "integrations.appdynamics.heroSubtitle": "AppDynamics APM hatalarını Agena'ya çek, AI repo üzerinden düzeltsin.",
   "integrations.appdynamics.lastImportFromBatch": "Son parti",
-  "integrations.appdynamics.viewImportedTasks": "İçeri alınan görevleri gör ↗"
+  "integrations.appdynamics.viewImportedTasks": "İçeri alınan görevleri gör ↗",
+  "integrations.keepExistingSecret": "•••• (mevcut kalsın)",
+  "integrations.secretSavedHint": "Token kayıtlı — değiştirmek istemiyorsan boş bırak."
 }
