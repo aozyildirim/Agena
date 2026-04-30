@@ -1,5 +1,13 @@
 [
   {
+    "hash": "83abe48",
+    "short": "83abe48",
+    "message": "Reviews: 🔎 Review button opens a reviewer picker instead of firing instantly",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "1beb850",
     "short": "1beb850",
     "message": "Reviews: any agent can be a reviewer — declare it on the agent itself",

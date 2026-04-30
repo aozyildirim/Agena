@@ -275,8 +275,12 @@ export default function ReviewsPage() {
     <div style={{ display: 'grid', gap: 16, maxWidth: 1080, margin: '0 auto' }}>
       <style>{`
         @media (max-width: 700px) {
-          .reviews-filters { flex-direction: column !important; }
-          .reviews-filters > * { width: 100% !important; }
+          /* On mobile: search takes the full first row, the four dropdowns
+             pack into a 2-column grid below it. Flex shorthand from desktop
+             would otherwise hand the dropdowns absurd 220px heights. */
+          .reviews-filters { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .reviews-filters > input { grid-column: 1 / -1; height: 36px !important; flex: none !important; }
+          .reviews-filters > select { width: 100% !important; flex: none !important; height: 36px !important; }
           .reviews-row-actions { width: 100%; justify-content: flex-end; padding-top: 6px; }
         }
       `}</style>
