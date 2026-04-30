@@ -483,8 +483,8 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {/* Agent Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 8, alignItems: 'stretch' }}>
+      {/* Agent Cards — minmax 165px so mobile fits 2 columns and desktop scales up cleanly */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))', gap: 8, alignItems: 'stretch' }}>
         {agents.map((agent) => (
           <div key={agent.role}>
             <AgentCard

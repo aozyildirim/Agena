@@ -1,5 +1,13 @@
 [
   {
+    "hash": "8576267",
+    "short": "8576267",
+    "message": "Agents: portal-mount the new/edit agent modal so it actually centers",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "a38c920",
     "short": "a38c920",
     "message": "Agents: add Security Developer role end-to-end (DB prompt + UI + i18n)",
