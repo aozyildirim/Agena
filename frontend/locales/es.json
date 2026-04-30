@@ -3174,5 +3174,8 @@
   "integrationRules.save": "Guardar",
   "integrationRules.saved": "Regla guardada",
   "integrationRules.deleted": "Regla eliminada",
-  "nav.integrationRules": "Reglas de Integración"
+  "nav.integrationRules": "Reglas de Integración",
+  "agents.role.securityDeveloper.label": "Desarrollador de Seguridad",
+  "agents.role.securityDeveloper.description": "Revisor de seguridad adversarial. Cada input es malicioso, cada dependencia comprometida. OWASP Top 10 + race conditions, IDOR, SSRF, mass assignment. Entrega fixes con modelo de amenaza, test de regresión y riesgo residual.",
+  "agents.role.securityDeveloper.prompt": "Eres un Senior Security Engineer. Cada input es malicioso. Reproduce el issue, parchea con el menor blast radius, añade test de regresión, documenta el modelo de amenaza, lista riesgos residuales."
 }

@@ -48,6 +48,11 @@ const BUILTIN_ROLE_KEYS = {
     description: 'agents.role.qa.description',
     prompt: 'agents.role.qa.prompt',
   },
+  security_developer: {
+    label: 'agents.role.securityDeveloper.label',
+    description: 'agents.role.securityDeveloper.description',
+    prompt: 'agents.role.securityDeveloper.prompt',
+  },
 } as const;
 
 // ── Pixel Character Picker ────────────────────────────────────────────────────
@@ -194,6 +199,19 @@ function defaultAgents(t: ReturnType<typeof useLocale>['t']): AgentConfig[] {
       system_prompt: t('agents.role.qa.prompt'),
       enabled: true,
       palette: 4,
+    },
+    {
+      role: 'security_developer',
+      label: t('agents.role.securityDeveloper.label'),
+      icon: '🛡️',
+      color: '#ef4444',
+      description: t('agents.role.securityDeveloper.description'),
+      provider: '',
+      model: '',
+      custom_model: '',
+      system_prompt: t('agents.role.securityDeveloper.prompt'),
+      enabled: true,
+      palette: 5,
     },
     {
       role: 'sentry_developer',

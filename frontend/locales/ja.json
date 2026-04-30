@@ -3174,5 +3174,8 @@
   "integrationRules.save": "保存",
   "integrationRules.saved": "ルールを保存しました",
   "integrationRules.deleted": "ルールを削除しました",
-  "nav.integrationRules": "連携ルール"
+  "nav.integrationRules": "連携ルール",
+  "agents.role.securityDeveloper.label": "セキュリティ開発者",
+  "agents.role.securityDeveloper.description": "敵対的セキュリティレビュアー。すべての入力は悪意あり、すべての依存は侵害済みとして扱う。OWASP Top 10 + 競合状態、IDOR、SSRF、Mass Assignment。脅威モデル・リグレッションテスト・残余リスク付きで修正を提供。",
+  "agents.role.securityDeveloper.prompt": "あなたはシニアセキュリティエンジニアです。すべての入力は悪意あるものとして扱います。問題を再現し、最小限の影響範囲でパッチを適用し、リグレッションテストを追加し、脅威モデルを記述し、残余リスクを列挙してください。"
 }

@@ -1,5 +1,13 @@
 [
   {
+    "hash": "5aebe08",
+    "short": "5aebe08",
+    "message": "Integration Rules: wire agent_role end-to-end + replace text input with dropdown",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "4ed9139",
     "short": "4ed9139",
     "message": "Integration Rules: cross-provider auto-tag + auto-route engine for Jira and Azure DevOps",

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch, loadPrefs } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
-const FALLBACK_AGENT_ROLES = ['manager', 'pm', 'analyzer', 'planner', 'developer', 'lead_developer', 'reviewer', 'qa'];
+const FALLBACK_AGENT_ROLES = ['manager', 'pm', 'analyzer', 'planner', 'developer', 'lead_developer', 'reviewer', 'qa', 'security_developer'];
 
 type Provider = 'jira' | 'azure';
 

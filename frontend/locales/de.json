@@ -3174,5 +3174,8 @@
   "integrationRules.save": "Speichern",
   "integrationRules.saved": "Regel gespeichert",
   "integrationRules.deleted": "Regel gelöscht",
-  "nav.integrationRules": "Integrationsregeln"
+  "nav.integrationRules": "Integrationsregeln",
+  "agents.role.securityDeveloper.label": "Security Developer",
+  "agents.role.securityDeveloper.description": "Adversarialer Security-Reviewer. Jeder Input gilt als bösartig, jede Dependency als kompromittiert. OWASP Top 10 + Race Conditions, IDOR, SSRF, Mass Assignment. Liefert Fixes mit Threat-Model, Regressions-Test und Restrisiko-Notiz.",
+  "agents.role.securityDeveloper.prompt": "Du bist Senior Security Engineer. Jeder Input ist bösartig. Issue reproduzieren, kleinster Blast Radius patchen, Regressionstest hinzufügen, Bedrohungsmodell dokumentieren, Restrisiken auflisten."
 }

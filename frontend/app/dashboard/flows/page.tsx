@@ -121,6 +121,7 @@ const AGENT_PRESETS: { role: AgentRole; icon: string; color: string }[] = [
   { role: 'developer', icon: '⚡', color: '#22c55e' },
   { role: 'reviewer', icon: '🔎', color: '#f97316' },
   { role: 'qa', icon: '🔍', color: '#f472b6' },
+  { role: 'security_developer', icon: '🛡️', color: '#ef4444' },
 ];
 
 const NODE_TYPE_PRESETS: { type: NodeType; icon: string; color: string }[] = [
@@ -144,6 +145,7 @@ function agentRoleLabel(role: AgentRole, t: ReturnType<typeof useLocale>['t']) {
   if (role === 'developer') return t('agents.role.developer.label');
   if (role === 'reviewer') return 'Code Reviewer';
   if (role === 'qa') return t('agents.role.qa.label');
+  if (role === 'security_developer') return t('agents.role.securityDeveloper.label');
   return role;
 }
 
