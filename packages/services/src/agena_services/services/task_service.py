@@ -682,6 +682,8 @@ class TaskService:
         limit: int = 50,
         issue_ids: list[str] | None = None,
         stats_period: str | None = None,
+        environment: str | None = None,
+        release: str | None = None,
         mirror_target: str | None = None,
         story_points: int | None = 2,
         iteration_path: str | None = None,
@@ -751,6 +753,8 @@ class TaskService:
                 query=query,
                 limit=limit,
                 stats_period=stats_period,
+                environment=environment,
+                release=release,
             )
             project = str(mapping.project_slug)
             for issue in issues:

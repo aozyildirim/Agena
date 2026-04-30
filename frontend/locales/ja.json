@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "該当する可能性が高いファイル",
   "integrations.sentry.aiFixConfidence": "信頼度",
   "integrations.sentry.aiFixImport": "タスクとして取り込む → AI に修正させる",
-  "integrations.sentry.aiFixOpenTask": "タスク #{id} を開く"
+  "integrations.sentry.aiFixOpenTask": "タスク #{id} を開く",
+  "integrations.sentry.importFiltered": "フィルタを取り込み ({n})",
+  "integrations.sentry.healthIssues": "問題",
+  "integrations.sentry.healthEvents": "イベント",
+  "integrations.sentry.healthUsers": "ユーザー",
+  "integrations.sentry.healthRegressed": "再発",
+  "integrations.sentry.healthNew": "新規",
+  "integrations.sentry.healthUnhandled": "未処理",
+  "integrations.sentry.healthFixed": "AI 修正済み",
+  "integrations.sentry.aiResolved": "AI 解決済み",
+  "integrations.sentry.aiRunning": "AI 作業中",
+  "integrations.sentry.aiFailed": "AI 失敗",
+  "integrations.sentry.openInRepo": "リポジトリで開く"
 }

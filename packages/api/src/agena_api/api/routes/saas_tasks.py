@@ -385,6 +385,8 @@ async def import_sentry_issues(
             limit=request.limit,
             issue_ids=request.issue_ids,
             stats_period=request.stats_period,
+            environment=request.environment,
+            release=request.release,
             mirror_target=request.mirror_target,
             story_points=request.story_points,
             iteration_path=request.iteration_path,

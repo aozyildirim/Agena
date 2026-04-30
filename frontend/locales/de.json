@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "Wahrscheinliche Dateien",
   "integrations.sentry.aiFixConfidence": "Zuversicht",
   "integrations.sentry.aiFixImport": "Als Task importieren → KI behebt es",
-  "integrations.sentry.aiFixOpenTask": "Task #{id} öffnen"
+  "integrations.sentry.aiFixOpenTask": "Task #{id} öffnen",
+  "integrations.sentry.importFiltered": "Gefilterte importieren ({n})",
+  "integrations.sentry.healthIssues": "Fehler",
+  "integrations.sentry.healthEvents": "Ereignisse",
+  "integrations.sentry.healthUsers": "Nutzer",
+  "integrations.sentry.healthRegressed": "Regression",
+  "integrations.sentry.healthNew": "Neu",
+  "integrations.sentry.healthUnhandled": "Unbehandelt",
+  "integrations.sentry.healthFixed": "KI-behoben",
+  "integrations.sentry.aiResolved": "KI BEHOBEN",
+  "integrations.sentry.aiRunning": "KI ARBEITET",
+  "integrations.sentry.aiFailed": "KI FEHLGESCHLAGEN",
+  "integrations.sentry.openInRepo": "im Repo öffnen"
 }

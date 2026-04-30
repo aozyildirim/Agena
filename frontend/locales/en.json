@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "Likely files",
   "integrations.sentry.aiFixConfidence": "Confidence",
   "integrations.sentry.aiFixImport": "Import as task → Let AI fix it",
-  "integrations.sentry.aiFixOpenTask": "Open task #{id}"
+  "integrations.sentry.aiFixOpenTask": "Open task #{id}",
+  "integrations.sentry.importFiltered": "Import filtered ({n})",
+  "integrations.sentry.healthIssues": "Issues",
+  "integrations.sentry.healthEvents": "Events",
+  "integrations.sentry.healthUsers": "Users",
+  "integrations.sentry.healthRegressed": "Regressed",
+  "integrations.sentry.healthNew": "New",
+  "integrations.sentry.healthUnhandled": "Unhandled",
+  "integrations.sentry.healthFixed": "AI-fixed",
+  "integrations.sentry.aiResolved": "AI RESOLVED",
+  "integrations.sentry.aiRunning": "AI WORKING",
+  "integrations.sentry.aiFailed": "AI FAILED",
+  "integrations.sentry.openInRepo": "open in repo"
 }

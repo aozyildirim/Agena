@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "可能的文件",
   "integrations.sentry.aiFixConfidence": "置信度",
   "integrations.sentry.aiFixImport": "导入任务 → AI 修复",
-  "integrations.sentry.aiFixOpenTask": "打开任务 #{id}"
+  "integrations.sentry.aiFixOpenTask": "打开任务 #{id}",
+  "integrations.sentry.importFiltered": "导入筛选项 ({n})",
+  "integrations.sentry.healthIssues": "问题",
+  "integrations.sentry.healthEvents": "事件",
+  "integrations.sentry.healthUsers": "用户",
+  "integrations.sentry.healthRegressed": "回归",
+  "integrations.sentry.healthNew": "新增",
+  "integrations.sentry.healthUnhandled": "未处理",
+  "integrations.sentry.healthFixed": "AI 修复",
+  "integrations.sentry.aiResolved": "AI 已解决",
+  "integrations.sentry.aiRunning": "AI 处理中",
+  "integrations.sentry.aiFailed": "AI 失败",
+  "integrations.sentry.openInRepo": "在仓库中打开"
 }

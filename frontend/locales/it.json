@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "File probabili",
   "integrations.sentry.aiFixConfidence": "Affidabilità",
   "integrations.sentry.aiFixImport": "Importa come task → IA lo risolve",
-  "integrations.sentry.aiFixOpenTask": "Apri task #{id}"
+  "integrations.sentry.aiFixOpenTask": "Apri task #{id}",
+  "integrations.sentry.importFiltered": "Importa filtrati ({n})",
+  "integrations.sentry.healthIssues": "Problemi",
+  "integrations.sentry.healthEvents": "Eventi",
+  "integrations.sentry.healthUsers": "Utenti",
+  "integrations.sentry.healthRegressed": "Regressione",
+  "integrations.sentry.healthNew": "Nuovi",
+  "integrations.sentry.healthUnhandled": "Non gestiti",
+  "integrations.sentry.healthFixed": "IA-risolti",
+  "integrations.sentry.aiResolved": "IA RISOLTO",
+  "integrations.sentry.aiRunning": "IA AL LAVORO",
+  "integrations.sentry.aiFailed": "IA FALLITO",
+  "integrations.sentry.openInRepo": "apri nel repo"
 }

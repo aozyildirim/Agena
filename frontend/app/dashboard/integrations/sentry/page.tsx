@@ -28,6 +28,7 @@ interface SentryIssue {
   platform: string | null;
   stats_24h: number[];
   imported_task_id?: number | null;
+  imported_task_status?: string | null;
   imported_work_item_url?: string | null;
 }
 
@@ -43,6 +44,7 @@ interface SentryStackFrame {
   context_line: string | null;
   pre_context: string[];
   post_context: string[];
+  repo_url: string | null;
 }
 
 interface SentryPreview {
@@ -347,6 +349,28 @@ export default function SentryPage() {
     }
   }
 
+  async function importFiltered() {
+    if (!selectedProject) return;
+    setError('');
+    setMsg('');
+    try {
+      const res = await apiFetch<{ imported: number; skipped: number }>('/tasks/import/sentry', {
+        method: 'POST',
+        body: JSON.stringify({
+          project_slug: selectedProject,
+          stats_period: filterPeriod || undefined,
+          environment: filterEnvironment || undefined,
+          release: filterRelease || undefined,
+          limit: 100,
+        }),
+      });
+      setMsg(`${res.imported} imported, ${res.skipped} skipped`);
+      void fetchIssues(selectedProject);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed');
+    }
+  }
+
   async function importIssues(projectSlug?: string) {
     setError('');
     setMsg('');
@@ -527,8 +551,41 @@ export default function SentryPage() {
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-58)' }}>{t('integrations.sentry.issuesFor').replace('{name}', selectedProject)}</h3>
-            <button onClick={() => void importIssues(selectedProject)} style={btnPrimary}>{t('integrations.common.importAsTasks')}</button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => void importFiltered()} disabled={issues.length === 0}
+                style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.4)', opacity: issues.length === 0 ? 0.5 : 1 }}>
+                {(t('integrations.sentry.importFiltered') || 'Import filtered ({n})').replace('{n}', String(issues.length))}
+              </button>
+              <button onClick={() => void importIssues(selectedProject)} style={btnPrimary}>{t('integrations.common.importAsTasks')}</button>
+            </div>
           </div>
+
+          {/* Health header */}
+          {issues.length > 0 && (() => {
+            const totalEvents = issues.reduce((s, i) => s + (i.count || 0), 0);
+            const totalUsers = issues.reduce((s, i) => s + (i.user_count || 0), 0);
+            const regressed = issues.filter((i) => (i.substatus || '').toLowerCase() === 'regressed').length;
+            const newCount = issues.filter((i) => (i.substatus || '').toLowerCase() === 'new').length;
+            const unhandled = issues.filter((i) => i.is_unhandled).length;
+            const importedDone = issues.filter((i) => i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'completed').length;
+            const tile = (label: string, value: string | number, color = 'var(--ink)') => (
+              <div style={{ flex: 1, minWidth: 110, padding: '8px 10px', borderRadius: 8, background: 'var(--glass)' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{label}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color, marginTop: 2 }}>{value}</div>
+              </div>
+            );
+            return (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {tile(t('integrations.sentry.healthIssues') || 'Issues', issues.length)}
+                {tile(t('integrations.sentry.healthEvents') || 'Events', totalEvents.toLocaleString(), '#f87171')}
+                {tile(t('integrations.sentry.healthUsers') || 'Users', totalUsers.toLocaleString(), '#fbbf24')}
+                {regressed > 0 && tile(t('integrations.sentry.healthRegressed') || 'Regressed', regressed, '#ef4444')}
+                {newCount > 0 && tile(t('integrations.sentry.healthNew') || 'New', newCount, '#3b82f6')}
+                {unhandled > 0 && tile(t('integrations.sentry.healthUnhandled') || 'Unhandled', unhandled, '#ef4444')}
+                {importedDone > 0 && tile(t('integrations.sentry.healthFixed') || 'AI-fixed', importedDone, '#22c55e')}
+              </div>
+            );
+          })()}
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
             <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); void fetchIssues(selectedProject); }}
@@ -579,6 +636,15 @@ export default function SentryPage() {
                             <a href={`/tasks/${i.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}>
                               TASK #{i.imported_task_id}
                             </a>
+                          )}
+                          {i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'completed' && (
+                            <Pill color='#22c55e'>✓ {t('integrations.sentry.aiResolved') || 'AI RESOLVED'}</Pill>
+                          )}
+                          {i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'running' && (
+                            <Pill color='#3b82f6'>⏵ {t('integrations.sentry.aiRunning') || 'AI WORKING'}</Pill>
+                          )}
+                          {i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'failed' && (
+                            <Pill color='#ef4444'>✗ {t('integrations.sentry.aiFailed') || 'AI FAILED'}</Pill>
                           )}
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -638,11 +704,16 @@ export default function SentryPage() {
                               <div style={{ display: 'grid', gap: 6 }}>
                                 {preview.frames.slice(0, 3).map((fr, idx) => (
                                   <div key={idx} style={{ background: 'var(--panel)', borderRadius: 6, padding: '6px 10px', fontFamily: 'monospace', fontSize: 11, border: fr.in_app ? '1px solid rgba(28,231,131,0.3)' : '1px solid var(--panel-border)' }}>
-                                    <div style={{ color: 'var(--ink-58)', marginBottom: 4 }}>
+                                    <div style={{ color: 'var(--ink-58)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                                       <span style={{ color: fr.in_app ? '#1CE783' : 'var(--ink-35)' }}>{fr.in_app ? '★ ' : ''}</span>
                                       <span style={{ color: 'var(--ink)' }}>{fr.filename || fr.abs_path || '<unknown>'}</span>
                                       {fr.lineno != null && <span style={{ color: '#f59e0b' }}>:{fr.lineno}</span>}
                                       {fr.function && <span style={{ color: 'var(--ink-50)' }}> in {fr.function}</span>}
+                                      {fr.repo_url && (
+                                        <a href={fr.repo_url} target='_blank' rel='noreferrer' style={{ marginLeft: 'auto', fontSize: 10, color: '#60a5fa', textDecoration: 'none', padding: '1px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.12)' }}>
+                                          {t('integrations.sentry.openInRepo') || 'open in repo'} ↗
+                                        </a>
+                                      )}
                                     </div>
                                     {fr.context_line && (
                                       <pre style={{ margin: 0, fontSize: 10, lineHeight: 1.6, color: 'var(--ink-78)', whiteSpace: 'pre', overflowX: 'auto' }}>

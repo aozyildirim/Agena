@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "Archivos probables",
   "integrations.sentry.aiFixConfidence": "Confianza",
   "integrations.sentry.aiFixImport": "Importar como tarea → Que la IA lo arregle",
-  "integrations.sentry.aiFixOpenTask": "Abrir tarea #{id}"
+  "integrations.sentry.aiFixOpenTask": "Abrir tarea #{id}",
+  "integrations.sentry.importFiltered": "Importar filtrados ({n})",
+  "integrations.sentry.healthIssues": "Issues",
+  "integrations.sentry.healthEvents": "Eventos",
+  "integrations.sentry.healthUsers": "Usuarios",
+  "integrations.sentry.healthRegressed": "Regresión",
+  "integrations.sentry.healthNew": "Nuevos",
+  "integrations.sentry.healthUnhandled": "No manejados",
+  "integrations.sentry.healthFixed": "IA-arreglados",
+  "integrations.sentry.aiResolved": "IA RESUELTO",
+  "integrations.sentry.aiRunning": "IA TRABAJANDO",
+  "integrations.sentry.aiFailed": "IA FALLÓ",
+  "integrations.sentry.openInRepo": "abrir en repo"
 }

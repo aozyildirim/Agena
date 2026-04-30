@@ -148,16 +148,16 @@ async def list_sentry_project_issues(
 
     project_key = project_slug.strip()
     external_ids = [f"{project_key}:{i.get('id')}" for i in issues if i.get('id')]
-    imported_map: dict[str, tuple[int, str | None]] = {}
+    imported_map: dict[str, tuple[int, str | None, str | None]] = {}
     if external_ids:
         rows = (await db.execute(
-            select(TaskRecord.id, TaskRecord.external_id, TaskRecord.external_work_item_id).where(
+            select(TaskRecord.id, TaskRecord.external_id, TaskRecord.external_work_item_id, TaskRecord.status).where(
                 TaskRecord.organization_id == tenant.organization_id,
                 TaskRecord.source == 'sentry',
                 TaskRecord.external_id.in_(external_ids),
             )
         )).all()
-        imported_map = {ext_id: (task_id, wi_id) for task_id, ext_id, wi_id in rows}
+        imported_map = {ext_id: (task_id, wi_id, status) for task_id, ext_id, wi_id, status in rows}
 
     from agena_api.api.routes._work_item_url import build_work_item_url_resolver
     wi_resolver = await build_work_item_url_resolver(db, tenant.organization_id)
@@ -165,7 +165,7 @@ async def list_sentry_project_issues(
     parsed: list[SentryIssueItem] = []
     for i in issues:
         issue_id = str(i.get('id') or '')
-        task_id, wi_id = imported_map.get(f'{project_key}:{issue_id}', (None, None))
+        task_id, wi_id, task_status = imported_map.get(f'{project_key}:{issue_id}', (None, None, None))
 
         fixability_score: float | None = None
         raw_score = i.get('seerFixabilityScore')
@@ -208,6 +208,7 @@ async def list_sentry_project_issues(
                 platform=str(i.get('platform') or '') or None,
                 stats_24h=stats_24h,
                 imported_task_id=task_id,
+                imported_task_status=task_status,
                 imported_work_item_url=wi_resolver(wi_id) if wi_id else None,
             )
         )
@@ -267,6 +268,44 @@ async def list_sentry_releases(
     return out
 
 
+def _build_repo_deeplink(repo: RepoMapping | None, filename: str | None, lineno: int | None) -> str | None:
+    if repo is None or not filename:
+        return None
+    fn = filename.lstrip('/').lstrip('./')
+    branch = (repo.base_branch or 'main').strip() or 'main'
+    line_anchor = f'#L{lineno}' if lineno else ''
+    if (repo.provider or '').lower() == 'github':
+        return f'https://github.com/{repo.owner}/{repo.repo_name}/blob/{branch}/{fn}{line_anchor}'
+    if (repo.provider or '').lower() == 'azure':
+        # Azure DevOps: https://dev.azure.com/{org}/{project}/_git/{repo}?path=/{file}&version=GB{branch}&line=N
+        line_q = f'&line={lineno}&lineEnd={lineno}&lineStartColumn=1&lineEndColumn=1' if lineno else ''
+        return (
+            f'https://dev.azure.com/{repo.owner}/{repo.owner}/_git/{repo.repo_name}'
+            f'?path=/{fn}&version=GB{branch}{line_q}'
+        )
+    return None
+
+
+async def _resolve_project_repo(db: AsyncSession, organization_id: int, issue_id: str) -> RepoMapping | None:
+    """Best-effort: find the RepoMapping for the Sentry issue's project via SentryProjectMapping."""
+    from agena_models.models.task_record import TaskRecord as _TaskRecord
+    # First try: find an imported task for this issue → repo_mapping_id
+    rows = (await db.execute(
+        select(_TaskRecord.repo_mapping_id, _TaskRecord.external_id).where(
+            _TaskRecord.organization_id == organization_id,
+            _TaskRecord.source == 'sentry',
+            _TaskRecord.external_id.like(f'%:{issue_id}'),
+        ).limit(1)
+    )).first()
+    if rows and rows[0]:
+        repo = (await db.execute(
+            select(RepoMapping).where(RepoMapping.id == rows[0], RepoMapping.is_active.is_(True))
+        )).scalar_one_or_none()
+        if repo:
+            return repo
+    return None
+
+
 @router.get('/issues/{issue_id}/preview', response_model=SentryIssuePreview)
 async def get_sentry_issue_preview(
     issue_id: str,
@@ -282,6 +321,8 @@ async def get_sentry_issue_preview(
 
     if not event:
         return SentryIssuePreview(issue_id=issue_id)
+
+    repo = await _resolve_project_repo(db, tenant.organization_id, issue_id.strip())
 
     # Extract exception + frames
     exc_type: str | None = None
@@ -307,15 +348,18 @@ async def get_sentry_issue_preview(
                 for fr in preferred[:6]:
                     if not isinstance(fr, dict):
                         continue
+                    fn = str(fr.get('filename') or '') or None
+                    ln = int(fr.get('lineNo') or fr.get('lineno') or 0) or None
                     frames.append(SentryStackFrame(
-                        filename=str(fr.get('filename') or '') or None,
+                        filename=fn,
                         function=str(fr.get('function') or '') or None,
-                        lineno=int(fr.get('lineNo') or fr.get('lineno') or 0) or None,
+                        lineno=ln,
                         abs_path=str(fr.get('absPath') or '') or None,
                         in_app=bool(fr.get('inApp')),
                         context_line=str(fr.get('context_line') or fr.get('contextLine') or '') or None,
                         pre_context=[str(x) for x in (fr.get('pre_context') or fr.get('preContext') or []) if x is not None][-5:],
                         post_context=[str(x) for x in (fr.get('post_context') or fr.get('postContext') or []) if x is not None][:5],
+                        repo_url=_build_repo_deeplink(repo, fn, ln) if bool(fr.get('inApp')) else None,
                     ))
             break
 

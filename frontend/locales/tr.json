@@ -3098,5 +3098,17 @@
   "integrations.sentry.aiFixFiles": "Olası dosyalar",
   "integrations.sentry.aiFixConfidence": "Güven",
   "integrations.sentry.aiFixImport": "Görev olarak al → AI düzeltsin",
-  "integrations.sentry.aiFixOpenTask": "Görev #{id}'i aç"
+  "integrations.sentry.aiFixOpenTask": "Görev #{id}'i aç",
+  "integrations.sentry.importFiltered": "Filtreliyi al ({n})",
+  "integrations.sentry.healthIssues": "Hatalar",
+  "integrations.sentry.healthEvents": "Olay",
+  "integrations.sentry.healthUsers": "Kullanıcı",
+  "integrations.sentry.healthRegressed": "Tekrar Açılan",
+  "integrations.sentry.healthNew": "Yeni",
+  "integrations.sentry.healthUnhandled": "Yakalanmayan",
+  "integrations.sentry.healthFixed": "AI Çözdü",
+  "integrations.sentry.aiResolved": "AI ÇÖZDÜ",
+  "integrations.sentry.aiRunning": "AI ÇALIŞIYOR",
+  "integrations.sentry.aiFailed": "AI BAŞARISIZ",
+  "integrations.sentry.openInRepo": "repo'da aç"
 }

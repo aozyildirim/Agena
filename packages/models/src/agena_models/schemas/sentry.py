@@ -21,6 +21,7 @@ class SentryIssueItem(BaseModel):
     platform: str | None = None
     stats_24h: list[int] = []
     imported_task_id: int | None = None
+    imported_task_status: str | None = None
     imported_work_item_url: str | None = None
 
 
@@ -39,6 +40,7 @@ class SentryStackFrame(BaseModel):
     context_line: str | None = None
     pre_context: list[str] = []
     post_context: list[str] = []
+    repo_url: str | None = None  # GitHub/Azure deeplink to file:line, when project has a RepoMapping
 
 
 class SentryIssuePreview(BaseModel):
