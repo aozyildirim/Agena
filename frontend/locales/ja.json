@@ -3177,5 +3177,8 @@
   "nav.integrationRules": "連携ルール",
   "agents.role.securityDeveloper.label": "セキュリティ開発者",
   "agents.role.securityDeveloper.description": "敵対的セキュリティレビュアー。すべての入力は悪意あり、すべての依存は侵害済みとして扱う。OWASP Top 10 + 競合状態、IDOR、SSRF、Mass Assignment。脅威モデル・リグレッションテスト・残余リスク付きで修正を提供。",
-  "agents.role.securityDeveloper.prompt": "あなたはシニアセキュリティエンジニアです。すべての入力は悪意あるものとして扱います。問題を再現し、最小限の影響範囲でパッチを適用し、リグレッションテストを追加し、脅威モデルを記述し、残余リスクを列挙してください。"
+  "agents.role.securityDeveloper.prompt": "あなたはシニアセキュリティエンジニアです。すべての入力は悪意あるものとして扱います。問題を再現し、最小限の影響範囲でパッチを適用し、リグレッションテストを追加し、脅威モデルを記述し、残余リスクを列挙してください。",
+  "agents.errLabelRequired": "名前(label)は必須です。",
+  "agents.errRoleRequired": "ロールを導出できませんでした — 名前を入力してください。",
+  "agents.errRoleDuplicate": "ロール \"{role}\" のエージェントは既に存在します。"
 }

@@ -3177,5 +3177,8 @@
   "nav.integrationRules": "Integrationsregeln",
   "agents.role.securityDeveloper.label": "Security Developer",
   "agents.role.securityDeveloper.description": "Adversarialer Security-Reviewer. Jeder Input gilt als bösartig, jede Dependency als kompromittiert. OWASP Top 10 + Race Conditions, IDOR, SSRF, Mass Assignment. Liefert Fixes mit Threat-Model, Regressions-Test und Restrisiko-Notiz.",
-  "agents.role.securityDeveloper.prompt": "Du bist Senior Security Engineer. Jeder Input ist bösartig. Issue reproduzieren, kleinster Blast Radius patchen, Regressionstest hinzufügen, Bedrohungsmodell dokumentieren, Restrisiken auflisten."
+  "agents.role.securityDeveloper.prompt": "Du bist Senior Security Engineer. Jeder Input ist bösartig. Issue reproduzieren, kleinster Blast Radius patchen, Regressionstest hinzufügen, Bedrohungsmodell dokumentieren, Restrisiken auflisten.",
+  "agents.errLabelRequired": "Name (Label) ist erforderlich.",
+  "agents.errRoleRequired": "Rolle konnte nicht abgeleitet werden — fülle den Namen aus.",
+  "agents.errRoleDuplicate": "Ein Agent mit der Rolle \"{role}\" existiert bereits."
 }

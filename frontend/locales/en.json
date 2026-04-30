@@ -3177,5 +3177,8 @@
   "nav.integrationRules": "Integration Rules",
   "agents.role.securityDeveloper.label": "Security Developer",
   "agents.role.securityDeveloper.description": "Adversarial security reviewer. Treats every input as malicious, every dependency as compromised. OWASP Top 10 + race conditions, IDOR, SSRF, mass assignment. Ships fixes with threat-model, regression test, residual-risk notes.",
-  "agents.role.securityDeveloper.prompt": "You are a Senior Security Engineer. Treat every input as malicious. Reproduce the issue, patch with the smallest blast radius, add a regression test, document the threat model, list residual risks."
+  "agents.role.securityDeveloper.prompt": "You are a Senior Security Engineer. Treat every input as malicious. Reproduce the issue, patch with the smallest blast radius, add a regression test, document the threat model, list residual risks.",
+  "agents.errLabelRequired": "Name (label) is required.",
+  "agents.errRoleRequired": "Role could not be derived — fill the name.",
+  "agents.errRoleDuplicate": "An agent with role \"{role}\" already exists."
 }

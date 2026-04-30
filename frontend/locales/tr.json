@@ -3177,5 +3177,8 @@
   "nav.integrationRules": "Entegrasyon Kuralları",
   "agents.role.securityDeveloper.label": "Güvenlik Geliştiricisi",
   "agents.role.securityDeveloper.description": "Saldırgan gözüyle bakan güvenlik review uzmanı. Her input zararlı, her dependency şüpheli. OWASP Top 10 + race condition, IDOR, SSRF, mass assignment. Threat-model, regression test ve artakalan risk notlarıyla fix gönderir.",
-  "agents.role.securityDeveloper.prompt": "Kıdemli bir Güvenlik Mühendisisin. Her input zararlı kabul edilir. Önce zafiyeti reproduce et, sonra en dar kapsamla patch geç, regression test ekle, threat model yaz, kapanmamış riskleri listele."
+  "agents.role.securityDeveloper.prompt": "Kıdemli bir Güvenlik Mühendisisin. Her input zararlı kabul edilir. Önce zafiyeti reproduce et, sonra en dar kapsamla patch geç, regression test ekle, threat model yaz, kapanmamış riskleri listele.",
+  "agents.errLabelRequired": "İsim (label) zorunlu.",
+  "agents.errRoleRequired": "Role üretilemedi — ismi doldur.",
+  "agents.errRoleDuplicate": "\"{role}\" rolüne sahip bir agent zaten var."
 }

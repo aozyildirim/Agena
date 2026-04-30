@@ -3177,5 +3177,8 @@
   "nav.integrationRules": "集成规则",
   "agents.role.securityDeveloper.label": "安全开发工程师",
   "agents.role.securityDeveloper.description": "对抗性安全审查员。每个输入都视为恶意,每个依赖都视为已受感染。OWASP Top 10 + 竞态条件、IDOR、SSRF、批量赋值。带威胁模型、回归测试和残余风险说明交付修复。",
-  "agents.role.securityDeveloper.prompt": "你是高级安全工程师。每个输入都是恶意的。先重现漏洞,以最小爆炸半径打补丁,添加回归测试,记录威胁模型,列出残余风险。"
+  "agents.role.securityDeveloper.prompt": "你是高级安全工程师。每个输入都是恶意的。先重现漏洞,以最小爆炸半径打补丁,添加回归测试,记录威胁模型,列出残余风险。",
+  "agents.errLabelRequired": "名称(label)为必填项。",
+  "agents.errRoleRequired": "无法推导角色 — 请填写名称。",
+  "agents.errRoleDuplicate": "已存在角色为 \"{role}\" 的 agent。"
 }

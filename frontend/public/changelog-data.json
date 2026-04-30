@@ -1,5 +1,13 @@
 [
   {
+    "hash": "32160a0",
+    "short": "32160a0",
+    "message": "Prompts: register SECURITY_DEV_SYSTEM_PROMPT in PROMPT_DEFAULTS",
+    "date": "2026-04-30",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "729a28e",
     "short": "729a28e",
     "message": "Agents: drop card grid min-col to 165px so mobile fits 2 columns",

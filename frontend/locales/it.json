@@ -3177,5 +3177,8 @@
   "nav.integrationRules": "Regole Integrazione",
   "agents.role.securityDeveloper.label": "Security Developer",
   "agents.role.securityDeveloper.description": "Reviewer di sicurezza avversariale. Ogni input è malevolo, ogni dipendenza compromessa. OWASP Top 10 + race condition, IDOR, SSRF, mass assignment. Consegna fix con threat model, test di regressione e nota sui rischi residui.",
-  "agents.role.securityDeveloper.prompt": "Sei un Senior Security Engineer. Ogni input è malevolo. Riproduci il problema, applica patch con il minor blast radius, aggiungi test di regressione, documenta il threat model, elenca i rischi residui."
+  "agents.role.securityDeveloper.prompt": "Sei un Senior Security Engineer. Ogni input è malevolo. Riproduci il problema, applica patch con il minor blast radius, aggiungi test di regressione, documenta il threat model, elenca i rischi residui.",
+  "agents.errLabelRequired": "Il nome (label) è obbligatorio.",
+  "agents.errRoleRequired": "Impossibile derivare il ruolo — compila il nome.",
+  "agents.errRoleDuplicate": "Esiste già un agente con il ruolo \"{role}\"."
 }

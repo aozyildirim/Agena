@@ -426,11 +426,18 @@ export default function AgentsPage() {
     setShowNewAgent(true);
   }
 
-  function createNewAgent(src?: AgentConfig) {
+  function createNewAgent(src?: AgentConfig): { ok: true } | { ok: false; error: string } {
     const d = src || draft;
-    if (!d.label.trim()) return;
+    if (!d.label.trim()) {
+      return { ok: false, error: t('agents.errLabelRequired') || 'Name (label) is required.' };
+    }
     const role = toRoleId(d.role || d.label);
-    if (agents.some((a) => a.role === role)) return;
+    if (!role) {
+      return { ok: false, error: t('agents.errRoleRequired') || 'Role could not be derived — fill the name.' };
+    }
+    if (agents.some((a) => a.role === role)) {
+      return { ok: false, error: (t('agents.errRoleDuplicate') || 'An agent with role "{role}" already exists.').replace('{role}', role) };
+    }
     const model = (d.model || d.custom_model).trim();
     const next: AgentConfig[] = [
       ...agents,
@@ -454,7 +461,7 @@ export default function AgentsPage() {
       .then(() => { setNotice({ type: 'success', msg: t('agents.createSuccess') }); setTimeout(() => setNotice(null), 3000); })
       .catch(() => { setNotice({ type: 'error', msg: t('agents.createError') }); setTimeout(() => setNotice(null), 3000); });
     setEditing(role);
-    setShowNewAgent(false);
+    return { ok: true };
   }
 
   return (
@@ -555,6 +562,9 @@ export default function AgentsPage() {
           onClose={() => { setShowNewAgent(false); setEditModalAgent(null); }}
           onSave={(updated) => {
             if (editModalAgent) {
+              if (!updated.label.trim()) {
+                return { ok: false, error: t('agents.errLabelRequired') || 'Name (label) is required.' };
+              }
               const next = agents.map((a) => a.role === editModalAgent.role ? { ...a, ...updated } : a);
               setAgents(next);
               saveAgents(next);
@@ -562,10 +572,12 @@ export default function AgentsPage() {
                 .then(() => { setNotice({ type: 'success', msg: t('agents.updateSuccess') }); setTimeout(() => setNotice(null), 3000); })
                 .catch(() => { setNotice({ type: 'error', msg: t('agents.updateError') }); setTimeout(() => setNotice(null), 3000); });
             } else {
-              createNewAgent(updated);
+              const result = createNewAgent(updated);
+              if (!result.ok) return result;
             }
             setShowNewAgent(false);
             setEditModalAgent(null);
+            return { ok: true };
           }}
           onDelete={editModalAgent ? () => {
             const next = agents.filter((a) => a.role !== editModalAgent.role);
@@ -589,14 +601,22 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t, promp
   isNew: boolean;
   promptSlugs: string[];
   onClose: () => void;
-  onSave: (agent: AgentConfig) => void;
+  onSave: (agent: AgentConfig) => { ok: true } | { ok: false; error: string };
   onDelete?: () => void;
   t: ReturnType<typeof useLocale>['t'];
 }) {
   const [a, setA] = useState<AgentConfig>({ ...initial });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saveError, setSaveError] = useState<string>('');
   const models = a.provider === 'openai' ? OPENAI_MODELS : a.provider === 'gemini' ? GEMINI_MODELS : [];
   const color = a.color || '#38bdf8';
+
+  function handleSave() {
+    setSaveError('');
+    const result = onSave(a);
+    if (!result.ok) setSaveError(result.error);
+    // success → parent closes the modal, no further action here
+  }
 
   if (typeof document === 'undefined') return null;
   return createPortal(
@@ -745,6 +765,19 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t, promp
             </div>
           )}
 
+          {/* Inline validation error — shown when save was blocked by validation */}
+          {saveError && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 10, marginTop: 4,
+              background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)',
+              color: '#fca5a5', fontSize: 12, fontWeight: 600,
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+            }}>
+              <span>⚠️</span>
+              <span style={{ flex: 1 }}>{saveError}</span>
+            </div>
+          )}
+
           {/* Save / Delete buttons */}
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             {onDelete && !confirmDelete && (
@@ -757,7 +790,7 @@ function AgentModal({ agent: initial, isNew, onClose, onSave, onDelete, t, promp
               style={{ flex: 1, padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
               {t('agents.cancel')}
             </button>
-            <button onClick={() => onSave(a)} disabled={!a.label.trim()}
+            <button onClick={handleSave} disabled={!a.label.trim()}
               style={{ flex: 2, padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: a.label.trim() ? 'pointer' : 'not-allowed', background: a.label.trim() ? `linear-gradient(135deg, ${color}, ${color}cc)` : 'var(--panel-alt)', border: 'none', color: a.label.trim() ? '#000' : 'var(--ink-25)' }}>
               {isNew ? t('agents.create') : t('agents.save')}
             </button>
