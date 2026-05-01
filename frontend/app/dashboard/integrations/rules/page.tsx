@@ -37,8 +37,94 @@ interface IntegrationRule {
 interface RepoMapping { id: number; provider: string; owner: string; repo_name: string }
 interface JiraReporter { email: string; display_name: string }
 interface JiraIssueType { name: string; icon_url: string | null }
+interface JiraLabel { name: string }
+interface JiraProject { key: string; name: string }
 interface AzureUser { email: string; display_name: string }
 interface AzureWorkItemType { name: string; color: string | null }
+
+function ChipInput({
+  values,
+  onChange,
+  suggestions,
+  placeholder,
+  inputStyle,
+}: {
+  values: string[];
+  onChange: (next: string[]) => void;
+  suggestions: string[];
+  placeholder?: string;
+  inputStyle: React.CSSProperties;
+}) {
+  const [draft, setDraft] = useState('');
+  const datalistId = `chip-suggest-${Math.abs(values.join(',').length + suggestions.length)}-${suggestions.length}`;
+
+  const add = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    if (values.some((x) => x.toLowerCase() === v.toLowerCase())) {
+      setDraft('');
+      return;
+    }
+    onChange([...values, v]);
+    setDraft('');
+  };
+
+  const remove = (v: string) => {
+    onChange(values.filter((x) => x !== v));
+  };
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+      padding: '4px 6px', minHeight: 36,
+      borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--glass)',
+    }}>
+      {values.map((v) => (
+        <span key={v} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '3px 8px', borderRadius: 6,
+          background: 'rgba(28,231,131,0.12)', border: '1px solid rgba(28,231,131,0.30)',
+          color: '#bbf7d0', fontSize: 12, fontWeight: 600,
+        }}>
+          {v}
+          <button
+            type='button'
+            onClick={() => remove(v)}
+            style={{ background: 'transparent', border: 'none', color: '#86efac', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1 }}
+          >×</button>
+        </span>
+      ))}
+      <input
+        list={suggestions.length > 0 ? datalistId : undefined}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+            if (draft.trim()) {
+              e.preventDefault();
+              add(draft);
+            }
+          } else if (e.key === 'Backspace' && !draft && values.length > 0) {
+            remove(values[values.length - 1]);
+          }
+        }}
+        onBlur={() => { if (draft.trim()) add(draft); }}
+        placeholder={values.length === 0 ? placeholder : ''}
+        style={{
+          ...inputStyle,
+          flex: 1, minWidth: 120, border: 'none', background: 'transparent',
+          padding: '4px 6px',
+        }}
+      />
+      {suggestions.length > 0 && (
+        <datalist id={datalistId}>
+          {suggestions.map((s) => <option key={s} value={s} />)}
+        </datalist>
+      )}
+    </div>
+  );
+}
+
 
 function Pill({ children, color = '#94a3b8' }: { children: React.ReactNode; color?: string }) {
   return (
@@ -68,6 +154,8 @@ export default function IntegrationRulesPage() {
   const [repos, setRepos] = useState<RepoMapping[]>([]);
   const [jiraReporters, setJiraReporters] = useState<JiraReporter[]>([]);
   const [jiraIssueTypes, setJiraIssueTypes] = useState<JiraIssueType[]>([]);
+  const [jiraLabels, setJiraLabels] = useState<JiraLabel[]>([]);
+  const [jiraProjects, setJiraProjects] = useState<JiraProject[]>([]);
   const [azureUsers, setAzureUsers] = useState<AzureUser[]>([]);
   const [azureWITypes, setAzureWITypes] = useState<AzureWorkItemType[]>([]);
   const [azureProject, setAzureProject] = useState<string>('');
@@ -106,6 +194,8 @@ export default function IntegrationRulesPage() {
     if (provider !== 'jira') return;
     void apiFetch<JiraReporter[]>('/integrations/jira/reporters').then(setJiraReporters).catch(() => setJiraReporters([]));
     void apiFetch<JiraIssueType[]>('/integrations/jira/issuetypes').then(setJiraIssueTypes).catch(() => setJiraIssueTypes([]));
+    void apiFetch<JiraLabel[]>('/integrations/jira/labels').then(setJiraLabels).catch(() => setJiraLabels([]));
+    void apiFetch<JiraProject[]>('/integrations/jira/projects').then(setJiraProjects).catch(() => setJiraProjects([]));
   }, [provider]);
 
   useEffect(() => {
@@ -337,6 +427,8 @@ export default function IntegrationRulesPage() {
           repos={repos}
           jiraReporters={jiraReporters}
           jiraIssueTypes={jiraIssueTypes}
+          jiraLabels={jiraLabels}
+          jiraProjects={jiraProjects}
           azureUsers={azureUsers}
           azureWITypes={azureWITypes}
           agentRoles={agentRoles}
@@ -355,12 +447,14 @@ export default function IntegrationRulesPage() {
   );
 }
 
-function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, azureUsers, azureWITypes, agentRoles, onClose, onSaved, setError }: {
+function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, jiraLabels, jiraProjects, azureUsers, azureWITypes, agentRoles, onClose, onSaved, setError }: {
   provider: Provider;
   existing: IntegrationRule | null;
   repos: RepoMapping[];
   jiraReporters: JiraReporter[];
   jiraIssueTypes: JiraIssueType[];
+  jiraLabels: JiraLabel[];
+  jiraProjects: JiraProject[];
   azureUsers: AzureUser[];
   azureWITypes: AzureWorkItemType[];
   agentRoles: { role: string; label: string }[];
@@ -373,8 +467,8 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
   const [reporter, setReporter] = useState(existing?.match.reporter ?? '');
   const [issueType, setIssueType] = useState(existing?.match.issue_type ?? '');
   const [project, setProject] = useState(existing?.match.project ?? '');
-  const [labelsInput, setLabelsInput] = useState((existing?.match.labels || []).join(','));
-  const [tagsInput, setTagsInput] = useState((existing?.action.tags || []).join(','));
+  const [labels, setLabels] = useState<string[]>(existing?.match.labels || []);
+  const [tags, setTags] = useState<string[]>(existing?.action.tags || []);
   const [priority, setPriority] = useState(existing?.action.priority ?? '');
   const [repoMappingId, setRepoMappingId] = useState<string>(existing?.action.repo_mapping_id ? String(existing.action.repo_mapping_id) : '');
   const [agentRole, setAgentRole] = useState(existing?.action.agent_role ?? '');
@@ -386,8 +480,6 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
   async function save() {
     setSaving(true);
     try {
-      const labelsArr = labelsInput.split(',').map((s) => s.trim()).filter(Boolean);
-      const tagsArr = tagsInput.split(',').map((s) => s.trim()).filter(Boolean);
       const body = {
         provider,
         name: name.trim(),
@@ -395,10 +487,10 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
           reporter: reporter.trim() || undefined,
           issue_type: issueType.trim() || undefined,
           project: project.trim() || undefined,
-          labels: labelsArr.length ? labelsArr : undefined,
+          labels: labels.length ? labels : undefined,
         },
         action: {
-          tags: tagsArr,
+          tags,
           priority: priority || undefined,
           repo_mapping_id: repoMappingId ? parseInt(repoMappingId) : undefined,
           agent_role: agentRole.trim() || undefined,
@@ -475,11 +567,31 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
               </div>
               <div>
                 <label style={labelStyle}>{t('integrationRules.project') || 'Project key / name'}</label>
-                <input value={project} onChange={(e) => setProject(e.target.value)} style={inputStyle} placeholder='e.g. SEC' />
+                {provider === 'jira' && jiraProjects.length > 0 ? (
+                  <select value={project} onChange={(e) => setProject(e.target.value)} style={inputStyle}>
+                    <option value=''>—</option>
+                    {jiraProjects.map((p) => (
+                      <option key={p.key} value={p.key}>{p.key} — {p.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={project} onChange={(e) => setProject(e.target.value)} style={inputStyle} placeholder='e.g. SEC' />
+                )}
               </div>
               <div>
-                <label style={labelStyle}>{t('integrationRules.labels') || 'Labels (comma separated)'}</label>
-                <input value={labelsInput} onChange={(e) => setLabelsInput(e.target.value)} style={inputStyle} placeholder='security,urgent' />
+                <label style={labelStyle}>{t('integrationRules.labels') || 'Labels'}</label>
+                <ChipInput
+                  values={labels}
+                  onChange={setLabels}
+                  suggestions={provider === 'jira' ? jiraLabels.map((l) => l.name) : []}
+                  placeholder={provider === 'jira' ? (t('integrationRules.labelsPlaceholderJira') || 'Pick or type a label') : (t('integrationRules.labelsPlaceholder') || 'security, urgent')}
+                  inputStyle={inputStyle}
+                />
+                {provider === 'jira' && jiraLabels.length === 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--ink-35)', marginTop: 4 }}>
+                    {t('integrationRules.labelsHint') || 'Suggestions appear after Jira labels load.'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -490,8 +602,14 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               <div>
-                <label style={labelStyle}>{t('integrationRules.tags') || 'Apply tags (comma separated)'}</label>
-                <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} style={inputStyle} placeholder='security_review,p0' />
+                <label style={labelStyle}>{t('integrationRules.tags') || 'Apply tags'}</label>
+                <ChipInput
+                  values={tags}
+                  onChange={setTags}
+                  suggestions={[]}
+                  placeholder={t('integrationRules.tagsPlaceholder') || 'security_review, p0'}
+                  inputStyle={inputStyle}
+                />
               </div>
               <div>
                 <label style={labelStyle}>{t('integrationRules.priorityOverride') || 'Priority override'}</label>

@@ -396,6 +396,15 @@ class JiraIssueTypeItem(BaseModel):
     icon_url: str | None = None
 
 
+class JiraLabelItem(BaseModel):
+    name: str
+
+
+class JiraProjectItem(BaseModel):
+    key: str
+    name: str
+
+
 @router.get('/jira/reporters', response_model=list[JiraReporterItem])
 async def list_jira_reporters(
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -470,6 +479,99 @@ async def list_jira_issuetypes(
             seen.add(name)
             out.append(JiraIssueTypeItem(name=name, icon_url=it.get('iconUrl')))
     out.sort(key=lambda i: i.name.lower())
+    return out
+
+
+@router.get('/jira/labels', response_model=list[JiraLabelItem])
+async def list_jira_labels(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[JiraLabelItem]:
+    """Return all labels in use across the org's Jira instance. Backed by
+    /rest/api/3/label which paginates the global label registry — we walk
+    pages until we hit the end (or 5k labels, whichever comes first) so
+    the rule editor offers an autocomplete dropdown instead of free text."""
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'jira')
+    if cfg is None or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    import base64
+    email = (cfg.username or '').strip()
+    auth = base64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    seen: set[str] = set()
+    start_at = 0
+    page_size = 1000
+    hard_cap = 5000
+    async with httpx.AsyncClient(timeout=20) as client:
+        while True:
+            resp = await client.get(
+                f'{base_url}/rest/api/3/label?startAt={start_at}&maxResults={page_size}',
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                break
+            data = resp.json() if resp.content else {}
+            values = data.get('values') or []
+            for v in values:
+                if isinstance(v, str) and v:
+                    seen.add(v.strip())
+            is_last = bool(data.get('isLast', True))
+            if is_last or not values or len(seen) >= hard_cap:
+                break
+            start_at += len(values)
+    out = [JiraLabelItem(name=n) for n in sorted(seen, key=str.lower)]
+    return out
+
+
+@router.get('/jira/projects', response_model=list[JiraProjectItem])
+async def list_jira_projects(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[JiraProjectItem]:
+    """Return all projects visible to the configured Jira account. Used by
+    the rule editor so the user picks from a list instead of typing a key."""
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'jira')
+    if cfg is None or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    import base64
+    email = (cfg.username or '').strip()
+    auth = base64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[JiraProjectItem] = []
+    seen: set[str] = set()
+    start_at = 0
+    page_size = 50
+    async with httpx.AsyncClient(timeout=20) as client:
+        while True:
+            resp = await client.get(
+                f'{base_url}/rest/api/3/project/search?startAt={start_at}&maxResults={page_size}',
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                break
+            data = resp.json() if resp.content else {}
+            values = data.get('values') or []
+            for p in values:
+                if not isinstance(p, dict):
+                    continue
+                key = str(p.get('key') or '').strip()
+                name = str(p.get('name') or key).strip()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                out.append(JiraProjectItem(key=key, name=name))
+            if data.get('isLast', True) or not values:
+                break
+            start_at += len(values)
+    out.sort(key=lambda p: p.key.lower())
     return out
 
 
