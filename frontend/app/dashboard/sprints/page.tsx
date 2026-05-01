@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
+import { SPRINT_CHANGED_EVENT } from '@/components/SprintSwitcher';
 
 type Opt = {
   id: string;
@@ -266,6 +267,10 @@ export default function SprintsPage() {
   const [taskStatusByExternalId, setTaskStatusByExternalId] = useState<Record<string, string>>({});
   const [hydrating, setHydrating] = useState(true);
   const [preferredSprint, setPreferredSprint] = useState('');
+  // Bumped whenever the global SprintSwitcher saves a new sprint, so this
+  // page re-reads prefs and switches without a full reload — same pattern
+  // as /dashboard/refinement.
+  const [sprintRefreshKey, setSprintRefreshKey] = useState(0);
   const [importPickerItem, setImportPickerItem] = useState<WorkItem | null>(null);
   const [importPickerRepoId, setImportPickerRepoId] = useState<string>('');
   const isJiraAuthError = (message: string) => message.toLowerCase().includes('jira credentials are invalid');
@@ -447,14 +452,18 @@ export default function SprintsPage() {
           const sps = await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(boardId));
           setSprints(sps);
           setSprintsScope('jira');
+          // Saved sprint (set via the global SprintSwitcher) wins over the
+          // API's "current" guess — user explicitly picked one.
+          if (savedSprint) {
+            const matched = sps.find((sp) => (sp.path ?? sp.name) === savedSprint || sp.name === savedSprint);
+            setSprintRaw((matched?.path ?? matched?.name ?? savedSprint));
+            return;
+          }
           const current = pickCurrentSprint(sps);
           if (current) {
             setSprintRaw(current.path ?? current.name);
             return;
           }
-          if (!savedSprint) return;
-          const matched = sps.find((sp) => (sp.path ?? sp.name) === savedSprint || sp.name === savedSprint);
-          setSprintRaw((matched?.path ?? matched?.name ?? savedSprint));
           return;
         }
         const projs = await apiFetch<Opt[]>('/tasks/azure/projects');
@@ -470,18 +479,35 @@ export default function SprintsPage() {
         const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(savedProject) + '&team=' + encodeURIComponent(savedTeam));
         setSprints(sps);
         setSprintsScope('azure');
+        // Saved sprint (set via the global SprintSwitcher) wins over the
+        // API's "current" guess — user explicitly picked one.
+        if (savedSprint) {
+          const matched = sps.find((sp) => (sp.path ?? sp.name) === savedSprint || sp.name === savedSprint);
+          setSprintRaw((matched?.path ?? matched?.name ?? savedSprint));
+          return;
+        }
         const current = pickCurrentSprint(sps);
         if (current) {
           setSprintRaw(current.path ?? current.name);
           return;
         }
-        if (!savedSprint) return;
-        const matched = sps.find((sp) => (sp.path ?? sp.name) === savedSprint || sp.name === savedSprint);
-        setSprintRaw((matched?.path ?? matched?.name ?? savedSprint));
       } catch {}
       finally { setLpj(false); setHydrating(false); }
     };
     void init();
+    // sprintRefreshKey re-runs init so a sprint change from the global
+    // SprintSwitcher pulls in fresh project/team/sprint without a hard reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sprintRefreshKey]);
+
+  // Listen for global SprintSwitcher saves and bump the refresh key.
+  useEffect(() => {
+    const onChange = () => {
+      setHydrating(true);
+      setSprintRefreshKey((k) => k + 1);
+    };
+    window.addEventListener(SPRINT_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(SPRINT_CHANGED_EVENT, onChange);
   }, []);
 
   useEffect(() => {
@@ -599,17 +625,19 @@ export default function SprintsPage() {
       .then((list) => {
         setSprints(list);
         setSprintsScope(provider);
-        const current = pickCurrentSprint(list);
-        if (current) {
-          setSprintRaw(current.path ?? current.name);
-          return;
-        }
+        // Preferred sprint (from SprintSwitcher) wins over the API's
+        // "current" guess.
         if (preferredSprint) {
           const matched = list.find((sp) => (sp.path ?? sp.name) === preferredSprint || sp.name === preferredSprint);
           if (matched) {
             setSprintRaw(matched.path ?? matched.name);
             return;
           }
+        }
+        const current = pickCurrentSprint(list);
+        if (current) {
+          setSprintRaw(current.path ?? current.name);
+          return;
         }
         if (list.length > 0) setSprintRaw(list[0].path ?? list[0].name);
       }).catch((e: unknown) => setErr(e instanceof Error ? e.message : t('sprints.sprintsError')))
