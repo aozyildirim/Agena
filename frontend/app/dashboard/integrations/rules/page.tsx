@@ -83,14 +83,14 @@ function ChipInput({
         <span key={v} style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '3px 8px', borderRadius: 6,
-          background: 'rgba(28,231,131,0.12)', border: '1px solid rgba(28,231,131,0.30)',
-          color: '#bbf7d0', fontSize: 12, fontWeight: 600,
+          background: 'rgba(34,197,94,0.18)', border: '1px solid rgba(34,197,94,0.55)',
+          color: '#15803d', fontSize: 12, fontWeight: 700,
         }}>
           {v}
           <button
             type='button'
             onClick={() => remove(v)}
-            style={{ background: 'transparent', border: 'none', color: '#86efac', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1 }}
+            style={{ background: 'transparent', border: 'none', color: '#15803d', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1, opacity: 0.75 }}
           >×</button>
         </span>
       ))}
