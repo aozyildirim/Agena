@@ -682,6 +682,7 @@ export default function DashboardTasksPage() {
         edge_cases?: string | null;
         max_tokens?: number | null;
         max_cost_usd?: number | null;
+        repo_mapping_id?: number | null;
         repo_assignments?: { repo_mapping_id: number }[];
       };
       const full = await apiFetch<FullTask>('/tasks/' + task.id);
@@ -692,7 +693,17 @@ export default function DashboardTasksPage() {
       setEditEdgeCases(full.edge_cases || '');
       setEditMaxTokens(full.max_tokens != null ? String(full.max_tokens) : '');
       setEditMaxCost(full.max_cost_usd != null ? String(full.max_cost_usd) : '');
-      setEditRepoMappingIds((full.repo_assignments || []).map((a) => a.repo_mapping_id));
+      // Prefer task_repo_assignments rows; fall back to the legacy single
+      // repo_mapping_id column for tasks that came in via paths that don't
+      // create assignment rows (e.g. IntegrationRule auto-routing on import).
+      const fromAssignments = (full.repo_assignments || []).map((a) => a.repo_mapping_id);
+      if (fromAssignments.length > 0) {
+        setEditRepoMappingIds(fromAssignments);
+      } else if (typeof full.repo_mapping_id === 'number' && full.repo_mapping_id > 0) {
+        setEditRepoMappingIds([full.repo_mapping_id]);
+      } else {
+        setEditRepoMappingIds([]);
+      }
       // Pull current dependency set so the user can edit it.
       try {
         const deps = await apiFetch<{ depends_on_task_ids: number[] }>(`/tasks/${task.id}/dependencies`);
