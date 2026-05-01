@@ -240,7 +240,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
     throw new Error(message);
   }
 
-  return (await response.json()) as T;
+  // 204 No Content (or any empty body) — return undefined cast to T so
+  // callers using `void apiFetch(..., { method: 'DELETE' })` don't blow up
+  // with "Unexpected end of JSON input".
+  if (response.status === 204) return undefined as unknown as T;
+  const body = await response.text();
+  if (!body) return undefined as unknown as T;
+  return JSON.parse(body) as T;
 }
 
 // ── Backend repo mapping (multi-repo orchestration) ─────────────────────────
