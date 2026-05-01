@@ -8,8 +8,11 @@ import logging
 import re
 from datetime import datetime
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agena_core.settings import get_settings
+from agena_models.models.integration_config import IntegrationConfig
 from agena_models.models.prompt_override import PromptOverride
 from agena_models.models.task_record import TaskRecord
 from agena_models.models.task_review import TaskReview
@@ -19,6 +22,10 @@ from agena_services.services.prompt_service import PromptService
 
 logger = logging.getLogger(__name__)
 
+# Cap diff size to keep prompts under control. 6000 chars ≈ 1500 tokens —
+# leaves enough headroom for the system prompt + description + verdict.
+_MAX_DIFF_CHARS = 6000
+
 
 _ROLE_TO_SLUG = {
     'reviewer': 'reviewer_system_prompt',
@@ -26,6 +33,144 @@ _ROLE_TO_SLUG = {
     'qa': 'reviewer_system_prompt',  # falls back to general reviewer prompt
     'lead_developer': 'reviewer_system_prompt',
 }
+
+
+async def _fetch_pr_diff_for_review(
+    db: AsyncSession,
+    *,
+    organization_id: int,
+    pr_url: str,
+) -> tuple[str, str]:
+    """Fetch a textual representation of a PR's changes for the reviewer.
+
+    Returns (diff_text, source_label). diff_text is empty on failure or
+    when the URL doesn't match a supported provider — callers should
+    gate the prompt section on emptiness.
+
+    GitHub: returns the unified diff (Accept: application/vnd.github.v3.diff).
+    Azure DevOps: returns a structured "file change list" (paths + change
+    type), since Azure's REST API doesn't expose a single unified-diff
+    endpoint and stitching one would require N extra calls per PR.
+    """
+    if not pr_url:
+        return '', ''
+    settings = get_settings()
+    pr_url = pr_url.strip()
+
+    # ── GitHub ─────────────────────────────────────────────────────────
+    gh_match = re.match(
+        r'^https?://(?:www\.)?github\.com/([^/]+)/([^/]+)/pull/(\d+)',
+        pr_url, re.IGNORECASE,
+    )
+    if gh_match:
+        owner, repo, pr_n = gh_match.group(1), gh_match.group(2), gh_match.group(3)
+        from sqlalchemy import select
+        cfg = (await db.execute(
+            select(IntegrationConfig).where(
+                IntegrationConfig.organization_id == organization_id,
+                IntegrationConfig.provider == 'github',
+            )
+        )).scalar_one_or_none()
+        token = (cfg.secret if cfg else '') or settings.github_token or ''
+        headers = {'Accept': 'application/vnd.github.v3.diff'}
+        if token:
+            headers['Authorization'] = f'Bearer {token}'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(
+                    f'https://api.github.com/repos/{owner}/{repo}/pulls/{pr_n}',
+                    headers=headers,
+                )
+                if resp.status_code == 200 and resp.text:
+                    diff = resp.text
+                    if len(diff) > _MAX_DIFF_CHARS:
+                        diff = diff[:_MAX_DIFF_CHARS] + '\n\n[... diff truncated ...]\n'
+                    return diff, f'github:{owner}/{repo}#{pr_n}'
+        except Exception as exc:
+            logger.info('github diff fetch failed for %s: %s', pr_url, exc)
+        return '', ''
+
+    # ── Azure DevOps ──────────────────────────────────────────────────
+    # URL shapes:
+    #   https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{prId}
+    #   https://{org}.visualstudio.com/{project}/_git/{repo}/pullrequest/{prId}
+    az_match = re.search(
+        r'_git/([^/]+)/pullrequest/(\d+)', pr_url, re.IGNORECASE,
+    )
+    if az_match:
+        from sqlalchemy import select
+        cfg = (await db.execute(
+            select(IntegrationConfig).where(
+                IntegrationConfig.organization_id == organization_id,
+                IntegrationConfig.provider == 'azure',
+            )
+        )).scalar_one_or_none()
+        if not cfg or not cfg.secret:
+            return '', ''
+        repo_id = az_match.group(1)
+        pr_id = az_match.group(2)
+        org_url = (cfg.base_url or '').rstrip('/')
+        if not org_url:
+            return '', ''
+        import base64 as _b64
+        auth = _b64.b64encode(f':{cfg.secret}'.encode()).decode()
+        headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                # 1) Resolve PR to get latest iteration
+                pr_resp = await client.get(
+                    f'{org_url}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}'
+                    f'?api-version=7.1-preview.1',
+                    headers=headers,
+                )
+                if pr_resp.status_code != 200:
+                    return '', ''
+                pr_meta = pr_resp.json() if pr_resp.content else {}
+                pr_title = str(pr_meta.get('title') or '').strip()
+                # 2) List iterations, pick the highest id
+                iters_resp = await client.get(
+                    f'{org_url}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}/iterations'
+                    f'?api-version=7.1-preview.1',
+                    headers=headers,
+                )
+                if iters_resp.status_code != 200:
+                    return '', ''
+                iters = (iters_resp.json() if iters_resp.content else {}).get('value') or []
+                if not iters:
+                    return '', ''
+                iter_id = max(int(i.get('id', 0) or 0) for i in iters if isinstance(i, dict))
+                # 3) Fetch changes for that iteration
+                ch_resp = await client.get(
+                    f'{org_url}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}'
+                    f'/iterations/{iter_id}/changes?api-version=7.1-preview.1',
+                    headers=headers,
+                )
+                if ch_resp.status_code != 200:
+                    return '', ''
+                changes = (ch_resp.json() if ch_resp.content else {}).get('changeEntries') or []
+                lines: list[str] = []
+                if pr_title:
+                    lines.append(f'PR title: {pr_title}')
+                lines.append(f'Files changed: {len(changes)}')
+                for c in changes[:80]:
+                    if not isinstance(c, dict):
+                        continue
+                    item = c.get('item') or {}
+                    path = str(item.get('path') or '').strip()
+                    ctype = str(c.get('changeType') or '').strip()
+                    if path:
+                        lines.append(f'  [{ctype}] {path}')
+                if len(changes) > 80:
+                    lines.append(f'  ... +{len(changes) - 80} more files')
+                text = '\n'.join(lines)
+                if len(text) > _MAX_DIFF_CHARS:
+                    text = text[:_MAX_DIFF_CHARS] + '\n\n[... change list truncated ...]\n'
+                return text, f'azure:repo={repo_id} pr={pr_id}'
+        except Exception as exc:
+            logger.info('azure diff fetch failed for %s: %s', pr_url, exc)
+        return '', ''
+
+    return '', ''
 
 
 _KNOWN_SLUGS = {
@@ -243,6 +388,28 @@ async def trigger_review(
         system_prompt = await _resolve_reviewer_prompt(db, role_norm, requested_by_user_id)
         provider, model = await _resolve_reviewer_model(db, requested_by_user_id, role_norm)
 
+        # Pull the actual diff (or change list for Azure) so the reviewer
+        # has something concrete to evaluate. Empty when fetch fails or
+        # the URL doesn't match a known provider — prompt section is
+        # then omitted entirely instead of saying "(no diff)".
+        diff_text, diff_source = '', ''
+        if task.pr_url:
+            diff_text, diff_source = await _fetch_pr_diff_for_review(
+                db, organization_id=organization_id, pr_url=task.pr_url,
+            )
+
+        diff_section = ''
+        if diff_text:
+            diff_section = (
+                f'## Diff ({diff_source})\n'
+                f'```\n{diff_text}\n```\n\n'
+            )
+            # Stamp the snapshot too so the UI can show what was looked at.
+            review.input_snapshot = (review.input_snapshot or '') + (
+                f'\nDiff source: {diff_source} ({len(diff_text)} chars)'
+            )
+            await db.commit()
+
         user_prompt = (
             f'You are reviewing the following task. Produce a structured code-review report. '
             f'Do NOT write code, do NOT propose patches — only review.\n\n'
@@ -252,9 +419,10 @@ async def trigger_review(
             f'PR URL: {task.pr_url or "(no PR yet)"}\n'
             f'Branch: {task.branch_name or "(no branch)"}\n\n'
             f'## Description\n{(task.description or "")[:6000]}\n\n'
+            f'{diff_section}'
             f'## Output format (REQUIRED)\n'
-            f'### Summary\n(1-2 sentence overall verdict)\n\n'
-            f'### Findings\n(numbered list — each finding has: file/area, what is wrong, severity, suggested fix)\n\n'
+            f'### Summary\n(1-2 sentence overall verdict — anchor it on what you saw in the diff above when present)\n\n'
+            f'### Findings\n(numbered list — each finding has: file/area, what is wrong, severity, suggested fix; reference specific lines from the diff)\n\n'
             f'### Severity\n(one of: critical / high / medium / low / clean)\n\n'
             f'### Score\n(0-100 integer — your confidence that this task / PR is ready to merge)'
         )
