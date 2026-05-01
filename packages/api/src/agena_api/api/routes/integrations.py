@@ -587,6 +587,15 @@ class AzureWorkItemTypeItem(BaseModel):
     color: str | None = None
 
 
+class AzureProjectItem(BaseModel):
+    id: str
+    name: str
+
+
+class AzureTagItem(BaseModel):
+    name: str
+
+
 @router.get('/azure/users', response_model=list[AzureUserItem])
 async def list_azure_users(
     project: str = Query(..., description='Azure DevOps project name or ID'),
@@ -668,4 +677,88 @@ async def list_azure_work_item_types(
                 continue
             out.append(AzureWorkItemTypeItem(name=name, color=it.get('color')))
     out.sort(key=lambda i: i.name.lower())
+    return out
+
+
+@router.get('/azure/projects', response_model=list[AzureProjectItem])
+async def list_azure_projects(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[AzureProjectItem]:
+    """All Azure DevOps projects visible to the configured PAT. Used by
+    the rule editor to populate the Project dropdown so the user picks
+    instead of typing."""
+    import base64
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'azure')
+    if not cfg or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    auth = base64.b64encode(f':{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[AzureProjectItem] = []
+    seen: set[str] = set()
+    continuation: str | None = None
+    async with httpx.AsyncClient(timeout=20) as client:
+        while True:
+            url = f'{base_url}/_apis/projects?api-version=7.1&$top=200'
+            if continuation:
+                url += f'&continuationToken={quote(continuation)}'
+            resp = await client.get(url, headers=headers)
+            if resp.status_code != 200:
+                break
+            data = resp.json() if resp.content else {}
+            for p in data.get('value', []):
+                pid = str(p.get('id') or '').strip()
+                name = str(p.get('name') or '').strip()
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                out.append(AzureProjectItem(id=pid, name=name))
+            # Azure returns continuation in x-ms-continuationtoken header
+            continuation = resp.headers.get('x-ms-continuationtoken') or ''
+            if not continuation:
+                break
+    out.sort(key=lambda p: p.name.lower())
+    return out
+
+
+@router.get('/azure/tags', response_model=list[AzureTagItem])
+async def list_azure_tags(
+    project: str = Query(..., description='Azure DevOps project name or ID'),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[AzureTagItem]:
+    """All work-item tags ever used in the project. Drives autocomplete
+    on the rule editor's Labels field — Azure tags ≈ Jira labels for
+    rule-matching purposes."""
+    import base64
+    service = IntegrationConfigService(db)
+    cfg = await service.get_config(tenant.organization_id, 'azure')
+    if not cfg or not cfg.secret:
+        return []
+    base_url = (cfg.base_url or '').rstrip('/')
+    if not base_url:
+        return []
+    auth = base64.b64encode(f':{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    out: list[AzureTagItem] = []
+    seen: set[str] = set()
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(
+            f'{base_url}/{quote(project)}/_apis/wit/tags?api-version=7.1-preview.1',
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            return []
+        data = resp.json() if resp.content else {}
+        for t in data.get('value', []):
+            name = str((t.get('name') if isinstance(t, dict) else '') or '').strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out.append(AzureTagItem(name=name))
+    out.sort(key=lambda t: t.name.lower())
     return out

@@ -3173,6 +3173,8 @@
   "integrationRules.labelsPlaceholder": "security, urgent",
   "integrationRules.labelsPlaceholderJira": "选择或输入标签",
   "integrationRules.labelsHint": "Jira 标签加载完成后将显示建议。",
+  "integrationRules.labelsPlaceholderAzure": "选择或输入标签",
+  "integrationRules.tagsHintAzure": "需要在 /dashboard/sprints 中设置默认 Azure 项目。",
   "integrationRules.tags": "应用标签",
   "integrationRules.tagsPlaceholder": "security_review, p0",
   "integrationRules.priorityOverride": "覆盖优先级",

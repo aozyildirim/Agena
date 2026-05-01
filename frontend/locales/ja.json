@@ -3173,6 +3173,8 @@
   "integrationRules.labelsPlaceholder": "security, urgent",
   "integrationRules.labelsPlaceholderJira": "ラベルを選択または入力",
   "integrationRules.labelsHint": "Jira ラベル取得後に候補が表示されます。",
+  "integrationRules.labelsPlaceholderAzure": "タグを選択または入力",
+  "integrationRules.tagsHintAzure": "/dashboard/sprints でデフォルトの Azure プロジェクトが必要です。",
   "integrationRules.tags": "適用するタグ",
   "integrationRules.tagsPlaceholder": "security_review, p0",
   "integrationRules.priorityOverride": "優先度を上書き",

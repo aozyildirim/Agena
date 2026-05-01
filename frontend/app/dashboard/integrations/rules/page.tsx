@@ -41,6 +41,8 @@ interface JiraLabel { name: string }
 interface JiraProject { key: string; name: string }
 interface AzureUser { email: string; display_name: string }
 interface AzureWorkItemType { name: string; color: string | null }
+interface AzureProject { id: string; name: string }
+interface AzureTag { name: string }
 
 function ChipInput({
   values,
@@ -158,6 +160,8 @@ export default function IntegrationRulesPage() {
   const [jiraProjects, setJiraProjects] = useState<JiraProject[]>([]);
   const [azureUsers, setAzureUsers] = useState<AzureUser[]>([]);
   const [azureWITypes, setAzureWITypes] = useState<AzureWorkItemType[]>([]);
+  const [azureProjects, setAzureProjects] = useState<AzureProject[]>([]);
+  const [azureTags, setAzureTags] = useState<AzureTag[]>([]);
   const [azureProject, setAzureProject] = useState<string>('');
   const [agentRoles, setAgentRoles] = useState<{ role: string; label: string }[]>([]);
 
@@ -200,6 +204,7 @@ export default function IntegrationRulesPage() {
 
   useEffect(() => {
     if (provider !== 'azure') return;
+    void apiFetch<AzureProject[]>('/integrations/azure/projects').then(setAzureProjects).catch(() => setAzureProjects([]));
     apiFetch<{ azure_project?: string | null }>('/preferences')
       .then((p) => {
         const proj = (p?.azure_project || '').trim();
@@ -207,6 +212,7 @@ export default function IntegrationRulesPage() {
         if (proj) {
           void apiFetch<AzureUser[]>(`/integrations/azure/users?project=${encodeURIComponent(proj)}`).then(setAzureUsers).catch(() => setAzureUsers([]));
           void apiFetch<AzureWorkItemType[]>(`/integrations/azure/work-item-types?project=${encodeURIComponent(proj)}`).then(setAzureWITypes).catch(() => setAzureWITypes([]));
+          void apiFetch<AzureTag[]>(`/integrations/azure/tags?project=${encodeURIComponent(proj)}`).then(setAzureTags).catch(() => setAzureTags([]));
         }
       })
       .catch(() => {});
@@ -431,6 +437,8 @@ export default function IntegrationRulesPage() {
           jiraProjects={jiraProjects}
           azureUsers={azureUsers}
           azureWITypes={azureWITypes}
+          azureProjects={azureProjects}
+          azureTags={azureTags}
           agentRoles={agentRoles}
           onClose={() => { setShowAdd(false); setEditingRule(null); }}
           onSaved={() => {
@@ -447,7 +455,7 @@ export default function IntegrationRulesPage() {
   );
 }
 
-function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, jiraLabels, jiraProjects, azureUsers, azureWITypes, agentRoles, onClose, onSaved, setError }: {
+function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, jiraLabels, jiraProjects, azureUsers, azureWITypes, azureProjects, azureTags, agentRoles, onClose, onSaved, setError }: {
   provider: Provider;
   existing: IntegrationRule | null;
   repos: RepoMapping[];
@@ -457,6 +465,8 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
   jiraProjects: JiraProject[];
   azureUsers: AzureUser[];
   azureWITypes: AzureWorkItemType[];
+  azureProjects: AzureProject[];
+  azureTags: AzureTag[];
   agentRoles: { role: string; label: string }[];
   onClose: () => void;
   onSaved: () => void;
@@ -574,6 +584,13 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
                       <option key={p.key} value={p.key}>{p.key} — {p.name}</option>
                     ))}
                   </select>
+                ) : provider === 'azure' && azureProjects.length > 0 ? (
+                  <select value={project} onChange={(e) => setProject(e.target.value)} style={inputStyle}>
+                    <option value=''>—</option>
+                    {azureProjects.map((p) => (
+                      <option key={p.id || p.name} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
                 ) : (
                   <input value={project} onChange={(e) => setProject(e.target.value)} style={inputStyle} placeholder='e.g. SEC' />
                 )}
@@ -583,13 +600,15 @@ function RuleEditor({ provider, existing, repos, jiraReporters, jiraIssueTypes, 
                 <ChipInput
                   values={labels}
                   onChange={setLabels}
-                  suggestions={provider === 'jira' ? jiraLabels.map((l) => l.name) : []}
-                  placeholder={provider === 'jira' ? (t('integrationRules.labelsPlaceholderJira') || 'Pick or type a label') : (t('integrationRules.labelsPlaceholder') || 'security, urgent')}
+                  suggestions={provider === 'jira' ? jiraLabels.map((l) => l.name) : provider === 'azure' ? azureTags.map((t) => t.name) : []}
+                  placeholder={provider === 'jira' ? (t('integrationRules.labelsPlaceholderJira') || 'Pick or type a label') : provider === 'azure' ? (t('integrationRules.labelsPlaceholderAzure') || 'Pick or type a tag') : (t('integrationRules.labelsPlaceholder') || 'security, urgent')}
                   inputStyle={inputStyle}
                 />
-                {provider === 'jira' && jiraLabels.length === 0 && (
+                {((provider === 'jira' && jiraLabels.length === 0) || (provider === 'azure' && azureTags.length === 0)) && (
                   <div style={{ fontSize: 10, color: 'var(--ink-35)', marginTop: 4 }}>
-                    {t('integrationRules.labelsHint') || 'Suggestions appear after Jira labels load.'}
+                    {provider === 'azure'
+                      ? (t('integrationRules.tagsHintAzure') || 'Suggestions appear after Azure tags load (requires a default project in /dashboard/sprints).')
+                      : (t('integrationRules.labelsHint') || 'Suggestions appear after Jira labels load.')}
                   </div>
                 )}
               </div>

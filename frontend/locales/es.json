@@ -3173,6 +3173,8 @@
   "integrationRules.labelsPlaceholder": "security, urgent",
   "integrationRules.labelsPlaceholderJira": "Elige o escribe una label",
   "integrationRules.labelsHint": "Las sugerencias aparecen al cargar las labels de Jira.",
+  "integrationRules.labelsPlaceholderAzure": "Elige o escribe un tag",
+  "integrationRules.tagsHintAzure": "Las sugerencias requieren un proyecto Azure por defecto en /dashboard/sprints.",
   "integrationRules.tags": "Aplicar tags",
   "integrationRules.tagsPlaceholder": "security_review, p0",
   "integrationRules.priorityOverride": "Override prioridad",
