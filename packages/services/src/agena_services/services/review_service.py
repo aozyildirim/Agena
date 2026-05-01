@@ -137,11 +137,14 @@ async def _fetch_pr_diff_for_review(
         return '', ''
 
     # ── Azure DevOps ──────────────────────────────────────────────────
-    # URL shapes:
-    #   https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{prId}
-    #   https://{org}.visualstudio.com/{project}/_git/{repo}/pullrequest/{prId}
+    # URL shapes we accept:
+    #   web URL:    https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{prId}
+    #   API URL:    https://dev.azure.com/{org}/{projectGuid}/_apis/git/repositories/{repoGuid}/pullRequests/{prId}
+    #   on-prem:    https://{org}.visualstudio.com/{project}/_git/{repo}/pullrequest/{prId}
     az_match = re.search(
         r'_git/([^/]+)/pullrequest/(\d+)', pr_url, re.IGNORECASE,
+    ) or re.search(
+        r'_apis/git/repositories/([^/]+)/pullRequests?/(\d+)', pr_url, re.IGNORECASE,
     )
     if az_match:
         from sqlalchemy import select
@@ -308,20 +311,29 @@ async def _run_cli_review(
     """Run the reviewer prompt through the local Claude / Codex CLI via
     the host-side bridge. Mirrors RefinementService._run_cli_refinement —
     read-only sandbox so the reviewer can Read/Grep/Bash but cannot
-    mutate the repo. Returns (stdout, used_model)."""
+    mutate the repo. Returns (stdout, used_model).
+
+    Timeout is generous (30 min default, env-overridable via
+    REVIEW_CLI_TIMEOUT_SEC) — Claude reviewing a large PR with grep
+    + multi-file Read can easily take 5-10 minutes, and we'd rather
+    wait than fail an in-progress review."""
     import os
     bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+    cli_timeout = int(os.getenv('REVIEW_CLI_TIMEOUT_SEC', '1800'))
+    # Outer httpx timeout adds a small buffer so the bridge always wins
+    # the race and surfaces its own "timed out after Ns" error message.
+    http_timeout = cli_timeout + 30
     cli = 'claude' if cli_provider == 'claude_cli' else 'codex'
     full_prompt = f'{system_prompt}\n\n---\n\n{user_prompt}' if system_prompt else user_prompt
     try:
-        async with httpx.AsyncClient(timeout=300) as client:
+        async with httpx.AsyncClient(timeout=http_timeout) as client:
             resp = await client.post(
                 f'{bridge_url}/{cli}',
                 json={
                     'repo_path': repo_path,
                     'prompt': full_prompt,
                     'model': model or '',
-                    'timeout': 240,
+                    'timeout': cli_timeout,
                     'read_only': True,
                 },
             )
@@ -329,7 +341,7 @@ async def _run_cli_review(
     except httpx.ConnectError:
         raise RuntimeError(f'CLI bridge unreachable at {bridge_url}')
     except httpx.TimeoutException:
-        raise RuntimeError('CLI bridge request timed out (300s)')
+        raise RuntimeError(f'CLI bridge request timed out ({http_timeout}s)')
     except (httpx.RequestError, ValueError) as exc:
         raise RuntimeError(f'CLI bridge request failed: {exc}')
     if data.get('status') != 'ok':
@@ -638,6 +650,21 @@ async def _run_review_background(
                 )
                 await db.commit()
 
+            # When we have the diff / change list, tell the reviewer to
+            # stay focused on those files. Otherwise Claude tends to
+            # grep the whole repo trying to figure out what was changed,
+            # which turns a 30-second review into a 5-minute one.
+            scope_hint = (
+                'IMPORTANT: Review ONLY the files shown in the Diff section above. '
+                "Do NOT scan unrelated parts of the repo — read only what's needed "
+                'to evaluate those specific changes. Use Read on the listed files '
+                'when you need full context for a finding.\n\n'
+                if diff_text else
+                'IMPORTANT: This task has no PR diff attached. Read the branch '
+                f'`{task.branch_name or ""}` against base if available, otherwise '
+                'evaluate the description. Keep the review tight and avoid '
+                'wandering across the whole repo.\n\n'
+            )
             user_prompt = (
                 f'You are reviewing the following task. Produce a structured code-review report. '
                 f'Do NOT write code, do NOT propose patches — only review.\n\n'
@@ -648,6 +675,7 @@ async def _run_review_background(
                 f'Branch: {task.branch_name or "(no branch)"}\n\n'
                 f'## Description\n{(task.description or "")[:6000]}\n\n'
                 f'{diff_section}'
+                f'{scope_hint}'
                 f'## Output format (REQUIRED)\n'
                 f'### Summary\n(1-2 sentence overall verdict — anchor it on what you saw in the diff above when present)\n\n'
                 f'### Findings\n(numbered list — each finding has: file/area, what is wrong, severity, suggested fix; reference specific lines from the diff)\n\n'
