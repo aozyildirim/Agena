@@ -242,6 +242,38 @@ class QdrantMemoryStore(MemoryStore):
                 break
         return rows[: limit] if limit else rows
 
+    async def count_by_filters(
+        self,
+        *,
+        organization_id: int | None = None,
+        extra_filters: dict[str, Any] | None = None,
+    ) -> int:
+        """Exact count of points matching org + filters. Uses Qdrant's
+        count API (server-side aggregate) so we don't have to scroll."""
+        if not self.enabled or not self.client:
+            return 0
+        await self.ensure_collection()
+        must: list[FieldCondition] = []
+        if organization_id is not None and organization_id > 0:
+            must.append(
+                FieldCondition(key='organization_id', match=MatchValue(value=int(organization_id)))
+            )
+        if extra_filters:
+            for fk, fv in extra_filters.items():
+                if fv is None:
+                    continue
+                must.append(FieldCondition(key=str(fk), match=MatchValue(value=fv)))
+        query_filter = Filter(must=must) if must else None
+        try:
+            result = await self.client.count(
+                collection_name=self.settings.qdrant_collection,
+                count_filter=query_filter,
+                exact=True,
+            )
+            return int(getattr(result, 'count', 0) or 0)
+        except Exception:
+            return 0
+
     async def get_status(self) -> dict[str, Any]:
         mode = self._embedding_mode_label()
         if not self.enabled:

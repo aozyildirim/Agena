@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   apiFetch,
@@ -51,12 +52,24 @@ type MemoryStatus = {
   notes?: string | null;
 };
 
+type MemoryKindEntry = {
+  kind: string;
+  label: string;
+  description: string;
+  embed_recipe: string;
+  written_by: string[];
+  read_by: string[];
+  payload_keys: string[];
+  points_count: number;
+};
+
 type MemorySchema = {
   purpose: string;
   what_is_stored: Record<string, string>;
   retrieval_flow: string[];
   constraints: string[];
   privacy_scope: string;
+  kinds: MemoryKindEntry[];
 };
 
 type IntegrationConfigLite = {
@@ -101,6 +114,8 @@ export default function DashboardOverview() {
   const [schema, setSchema] = useState<MemorySchema | null>(null);
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [schemaLoading, setSchemaLoading] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => { setPortalReady(true); }, []);
   const [analyticsDaily, setAnalyticsDaily] = useState<AnalyticsDailyResponse | null>(null);
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummaryResponse | null>(null);
   const [analyticsModels, setAnalyticsModels] = useState<AnalyticsModelResponse | null>(null);
@@ -166,7 +181,7 @@ export default function DashboardOverview() {
 
   const openMemorySchema = async () => {
     setSchemaOpen(true);
-    if (schema || schemaLoading) return;
+    if (schemaLoading) return;
     setSchemaLoading(true);
     try {
       const data = await apiFetch<MemorySchema>('/memory/schema');
@@ -689,36 +704,40 @@ export default function DashboardOverview() {
         ))}
       </div>
 
-      {schemaOpen && (
+      {schemaOpen && portalReady && createPortal(
         <div
           role='dialog'
           aria-modal='true'
           style={{
             position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 50,
+            zIndex: 9999,
             padding: 20,
           }}
           onClick={() => setSchemaOpen(false)}
         >
           <div
             style={{
-              width: 'min(760px, 100%)',
-              maxHeight: '80vh',
+              width: 'min(880px, 100%)',
+              maxHeight: '85vh',
               overflowY: 'auto',
               borderRadius: 16,
               border: '1px solid rgba(125,211,252,0.35)',
               background: 'linear-gradient(180deg, var(--surface), var(--surface))',
               padding: 18,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'sticky', top: -18, paddingTop: 18, marginTop: -18, background: 'var(--surface)', zIndex: 1 }}>
               <div style={{ color: '#bae6fd', fontWeight: 800, fontSize: 16 }}>{t('dashboard.schema.title')}</div>
               <button
                 type='button'
@@ -728,7 +747,7 @@ export default function DashboardOverview() {
                   background: 'var(--panel-border)',
                   color: 'var(--ink-90)',
                   borderRadius: 8,
-                  padding: '4px 8px',
+                  padding: '4px 10px',
                   cursor: 'pointer',
                 }}
               >
@@ -756,6 +775,54 @@ export default function DashboardOverview() {
                   ))}
                 </div>
 
+                {Array.isArray(schema.kinds) && schema.kinds.length > 0 && (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase' }}>{t('dashboard.schema.kinds')}</div>
+                    {schema.kinds.map((k) => (
+                      <div key={k.kind} style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12, display: 'grid', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <code style={{ color: '#5eead4', fontSize: 12, background: 'rgba(94,234,212,0.10)', padding: '2px 8px', borderRadius: 6 }}>kind={k.kind}</code>
+                            <div style={{ color: 'var(--ink-90)', fontWeight: 700, fontSize: 13 }}>{k.label}</div>
+                          </div>
+                          <div style={{ color: '#bae6fd', fontWeight: 800, fontSize: 12, background: 'rgba(125,211,252,0.10)', padding: '2px 8px', borderRadius: 6 }}>
+                            {k.points_count.toLocaleString()} {t('dashboard.schema.points')}
+                          </div>
+                        </div>
+                        <div style={{ color: 'var(--ink-72)', fontSize: 12.5, lineHeight: 1.5 }}>{k.description}</div>
+                        <div>
+                          <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.embedRecipe')}</div>
+                          <pre style={{ color: 'var(--ink-90)', fontSize: 11.5, fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', padding: 8, borderRadius: 6, margin: 0, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{k.embed_recipe}</pre>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div>
+                            <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.writtenBy')}</div>
+                            {k.written_by.map((w, i) => (
+                              <div key={`w-${i}`} style={{ color: 'var(--ink-90)', fontSize: 12, padding: '2px 0' }}>· {w}</div>
+                            ))}
+                          </div>
+                          <div>
+                            <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.readBy')}</div>
+                            {k.read_by.map((r, i) => (
+                              <div key={`r-${i}`} style={{ color: 'var(--ink-90)', fontSize: 12, padding: '2px 0' }}>· {r}</div>
+                            ))}
+                          </div>
+                        </div>
+                        {k.payload_keys.length > 0 && (
+                          <div>
+                            <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.payloadKeys')}</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {k.payload_keys.map((pk) => (
+                                <code key={pk} style={{ color: '#5eead4', fontSize: 11, background: 'rgba(94,234,212,0.08)', padding: '2px 6px', borderRadius: 4 }}>{pk}</code>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12 }}>
                   <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 8 }}>{t('dashboard.schema.retrievalFlow')}</div>
                   {schema.retrieval_flow.map((step, idx) => (
@@ -781,7 +848,8 @@ export default function DashboardOverview() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
