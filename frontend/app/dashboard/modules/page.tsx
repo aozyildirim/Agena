@@ -40,6 +40,10 @@ const MODULE_HELP: Record<string, { features: string[]; useCases: string[] }> = 
   teams: { features: ['Bot notifications', 'Teams webhook', 'ChatOps commands'], useCases: ['Team notifications in Microsoft Teams'] },
   telegram: { features: ['Bot notifications', 'ChatOps commands (/fix, /status)', 'Group chat support'], useCases: ['Lightweight mobile notifications'] },
   notifications: { features: ['Slack, Teams, Telegram integrations', 'Webhook notifications'], useCases: ['Team communication channels'] },
+  insights: { features: ['Cross-source event correlation engine', 'PR + deploy + Sentry/NewRelic/Datadog/AppDynamics + Jira/Azure clusters', 'Confidence-scored timeline view', '5-minute polling'], useCases: ['Root-cause hunting after a deploy', 'Connecting "this Sentry error came from PR #4519"', 'Seeing how multiple monitoring signals correlate'] },
+  triage: { features: ['Weekly AI scan of stale Jira / Azure tickets', 'Verdict per ticket: close / snooze / keep', 'Bulk-approve from /dashboard/triage', 'Configurable idle threshold + sources'], useCases: ['Eliminating Friday triage meetings', 'Keeping the backlog honest without manual review'] },
+  review_backlog: { features: ['Detects PRs sitting unreviewed past warn/critical thresholds', 'Slack / email reviewer nudges', 'Escalation flag at critical age', 'Per-repo exempt list'], useCases: ['Killing review-bottleneck velocity drops', 'Surfacing PRs that fall through the cracks'] },
+  reviews: { features: ['🔎 Review button on every task', 'is_reviewer toggle on agents', 'Per-agent review history with severity distribution', 'Custom reviewer personas (security_developer, qa, lead_developer)'], useCases: ['OWASP-aware AI code review', 'Custom reviewer personas (perf, a11y, style cop)', 'Audit-trail per agent'] },
 };
 
 export default function ModulesPage() {
@@ -81,13 +85,21 @@ export default function ModulesPage() {
 
   const MODULE_GROUPS: { label: string; slugs: string[] }[] = [
     { label: 'Core & Workspace', slugs: ['core', 'boss_mode', 'sprints', 'refinement', 'skills', 'runtimes', 'permissions'] },
-    { label: 'AI & Automation', slugs: ['flows', 'prompt_studio', 'playbook'] },
+    { label: 'AI & Automation', slugs: ['flows', 'prompt_studio', 'playbook', 'reviews'] },
+    { label: 'Workflows & Insights', slugs: ['insights', 'triage', 'review_backlog'] },
     { label: 'LLM Providers', slugs: ['openai', 'gemini', 'hal', 'cli_agents'] },
     { label: 'Source Control', slugs: ['github', 'gitlab', 'bitbucket', 'azure'] },
     { label: 'Issue Tracking', slugs: ['jira', 'sentry', 'newrelic', 'datadog', 'appdynamics'] },
     { label: 'Analytics & Metrics', slugs: ['dora'] },
     { label: 'Notifications', slugs: ['slack', 'teams', 'telegram', 'notifications'] },
   ];
+
+  // Catch-all: any module the DB returns but isn't slotted into a group
+  // above gets surfaced under "Other" so we never silently hide a feature
+  // again like we did with the new workflow modules.
+  const KNOWN = new Set(MODULE_GROUPS.flatMap((g) => g.slugs));
+  const orphans = modules.filter((m) => !KNOWN.has(m.slug)).map((m) => m.slug);
+  if (orphans.length) MODULE_GROUPS.push({ label: 'Other', slugs: orphans });
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>

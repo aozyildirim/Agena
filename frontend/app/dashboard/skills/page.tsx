@@ -230,16 +230,16 @@ export default function SkillsPage() {
             }}>
               <div
                 onClick={() => setExpanded(isOpen ? null : s.id)}
-                style={{ padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+                style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
               >
                 <span style={{
-                  fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 6,
+                  fontSize: 10, fontWeight: 800, padding: '3px 7px', borderRadius: 6,
                   background: `${color}1e`, color, textTransform: 'uppercase', letterSpacing: 0.6,
                   flexShrink: 0,
                 }}>
                   {s.pattern_type}
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', flex: 1, minWidth: 200 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', flex: '1 1 140px', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.35 }}>
                   {s.name}
                 </span>
                 {s.usage_count > 0 && (
@@ -264,13 +264,13 @@ export default function SkillsPage() {
                 <span style={{ fontSize: 11, color: 'var(--ink-42)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▼</span>
               </div>
               {isOpen && (
-                <div style={{ padding: '0 16px 16px', display: 'grid', gap: 10 }}>
+                <div style={{ padding: '0 12px 12px', display: 'grid', gap: 10 }}>
                   {s.description && (
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-45)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>
                         {tr('skills.col.description')}
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{s.description}</div>
+                      <div style={{ fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{s.description}</div>
                     </div>
                   )}
                   {s.approach_summary && (
@@ -278,7 +278,7 @@ export default function SkillsPage() {
                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-45)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>
                         {tr('skills.col.approach')}
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{s.approach_summary}</div>
+                      <div style={{ fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{s.approach_summary}</div>
                     </div>
                   )}
                   {s.prompt_fragment && (

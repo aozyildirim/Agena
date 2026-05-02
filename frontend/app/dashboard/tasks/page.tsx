@@ -1660,15 +1660,15 @@ export default function DashboardTasksPage() {
                 const prUrl = task.repo_assignments?.[0]?.pr_url || task.pr_url;
                 return (
                   <div key={task.id} style={{
-                    padding: '12px 14px', borderBottom: '1px solid var(--panel-border)',
+                    padding: '10px 12px', borderBottom: '1px solid var(--panel-border)',
                     borderLeft: task.description?.includes('Status: resolved') ? '3px solid #a855f7' : task.status === 'running' ? '3px solid #38bdf8' : '3px solid transparent',
                     background: task.description?.includes('Status: resolved') ? 'rgba(168,85,247,0.04)' : task.status === 'running' ? 'rgba(56,189,248,0.04)' : undefined,
                   }}>
                     {/* Row 1: title + status */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                        padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
                         background: `${statusColor(task.status)}18`,
                         border: `1px solid ${statusColor(task.status)}40`,
                         color: statusColor(task.status), flexShrink: 0, textTransform: 'capitalize',
@@ -1681,8 +1681,8 @@ export default function DashboardTasksPage() {
                         <a href={prUrl} target='_blank' rel='noreferrer' style={{ fontSize: 10, color: '#5eead4', textDecoration: 'none', marginLeft: 'auto', flexShrink: 0 }}>PR ↗</a>
                       )}
                     </div>
-                    {/* Row 2: title */}
-                    <div style={{ fontWeight: 600, color: 'var(--ink-78)', fontSize: 13, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {/* Row 2: title — clamped to 13px so long titles don't blow out the layout on small phones */}
+                    <div style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13, lineHeight: 1.35, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
                       {task.title}
                     </div>
                     {/* Row 3: badges */}

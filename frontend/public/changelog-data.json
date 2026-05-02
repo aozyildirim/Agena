@@ -1,5 +1,13 @@
 [
   {
+    "hash": "d4e6159",
+    "short": "d4e6159",
+    "message": "Reviews: gate the entire feature behind a 'reviews' module",
+    "date": "2026-05-02",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "49d98e4",
     "short": "49d98e4",
     "message": "Triage + Review Backlog: two new workflow automations",
