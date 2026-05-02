@@ -90,14 +90,41 @@ async def scan_for_org(
     tracked = 0
     resolved = 0
 
+    # Resolve repo mappings up front so we can refresh Azure status per
+    # row without N+1 queries.
+    from agena_models.models.repo_mapping import RepoMapping
+    mapping_ids: set[int] = set()
+    for pr in rows:
+        rid = (pr.repo_mapping_id or '').strip()
+        if rid.isdigit():
+            mapping_ids.add(int(rid))
+    mappings_by_id: dict[int, RepoMapping] = {}
+    if mapping_ids:
+        mrows = (await db.execute(
+            select(RepoMapping).where(
+                RepoMapping.id.in_(list(mapping_ids)),
+                RepoMapping.organization_id == org_id,
+            )
+        )).scalars().all()
+        mappings_by_id = {m.id: m for m in mrows}
+
     open_pr_ids = set()
     for pr in rows:
         if pr.repo_mapping_id in exempt_repos:
             continue
+        # Refresh status from the source of truth — our local copy can
+        # be hours stale (abandoned in Azure but still 'active' in DB).
+        rid = (pr.repo_mapping_id or '').strip()
+        m = mappings_by_id.get(int(rid)) if rid.isdigit() else None
+        if m is not None:
+            await _refresh_azure_pr_status(
+                db, organization_id=org_id, pr=pr, mapping=m,
+            )
         # Drop abandoned / declined / closed PRs even when they slipped
         # past the merged_at/closed_at filter (Azure's abandoned PRs may
         # leave closed_at NULL while flipping status='abandoned' — the
-        # SQL filter above misses those).
+        # SQL filter above misses those, and the refresh above may have
+        # just flipped us into this branch).
         if (pr.status or '').strip().lower() in DEAD_STATUSES:
             continue
         # Treat any non-merged, non-closed PR as still open. The provider's
@@ -205,6 +232,73 @@ async def scan_all_orgs(db: AsyncSession) -> int:
 
 
 _AGENA_SIGNATURE = 'AGENA Review Backlog'
+
+
+async def _refresh_azure_pr_status(
+    db: AsyncSession,
+    *,
+    organization_id: int,
+    pr,
+    mapping,
+) -> None:
+    """Hit Azure REST and copy the live status / closed_at back onto our
+    GitPullRequest row. Without this, a PR abandoned on Azure shows up
+    as 'active' in the backlog list because we only refresh status during
+    git_sync, which is on a separate cadence.
+
+    Best-effort: any error leaves the row untouched. Caller should run
+    the DEAD_STATUSES filter AFTER this so freshly-abandoned PRs drop out
+    of the same scan."""
+    if (pr.provider or '').strip().lower() != 'azure':
+        return
+    if not pr.external_id or mapping is None:
+        return
+    from agena_models.models.integration_config import IntegrationConfig
+    import base64 as _b64
+    import httpx as _httpx
+    from urllib.parse import quote as _q
+    cfg = (await db.execute(
+        select(IntegrationConfig).where(
+            IntegrationConfig.organization_id == organization_id,
+            IntegrationConfig.provider == 'azure',
+        )
+    )).scalar_one_or_none()
+    if not cfg or not cfg.secret:
+        return
+    org_url = (cfg.base_url or '').rstrip('/')
+    if not org_url:
+        return
+    auth = _b64.b64encode(f':{cfg.secret}'.encode()).decode()
+    headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    project = _q(mapping.owner or '', safe='')
+    repo = _q(mapping.repo_name or '', safe='')
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                f'{org_url}/{project}/_apis/git/repositories/{repo}/pullRequests/{pr.external_id}'
+                f'?api-version=7.1-preview.1',
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                return
+            data = resp.json() if resp.content else {}
+        new_status = str(data.get('status') or '').strip().lower() or pr.status
+        new_closed = data.get('closedDate')
+        from datetime import datetime as _dt
+        # Status mapping: Azure 'completed' → merged, 'abandoned' → closed.
+        if new_status and new_status != (pr.status or '').strip().lower():
+            pr.status = new_status
+        if new_status == 'completed' and pr.merged_at is None:
+            pr.merged_at = _dt.utcnow()
+        if new_status == 'abandoned' and pr.closed_at is None:
+            pr.closed_at = _dt.utcnow()
+        if new_closed and pr.closed_at is None:
+            try:
+                pr.closed_at = _dt.fromisoformat(str(new_closed).replace('Z', '+00:00'))
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.info('Azure PR status refresh failed (pr=%s): %s', pr.external_id, exc)
 
 
 # Static template per language. Used as fallback when use_ai=False or
