@@ -480,10 +480,18 @@ async def _scan_azure_source(
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     }
+    # Exclude every "ticket is over" state we've seen across Agile /
+    # Scrum / CMMI / common custom process templates. Both US and UK
+    # spellings of cancelled because Azure lets either be configured.
+    dead_states = (
+        "'Done','Closed','Removed','Resolved',"
+        "'Cancelled','Canceled','Rejected','Withdrawn','Abandoned',"
+        "'Wont Fix','Won''t Fix','WontFix','Duplicate'"
+    )
     wiql = (
         "SELECT [System.Id] FROM WorkItems "
         "WHERE [System.TeamProject] = @project "
-        "AND [System.State] NOT IN ('Done','Closed','Removed','Resolved') "
+        f"AND [System.State] NOT IN ({dead_states}) "
         f"AND [System.ChangedDate] <= @today - {int(idle_days)} "
         "ORDER BY [System.ChangedDate] ASC"
     )
@@ -517,12 +525,23 @@ async def _scan_azure_source(
             )
             if hyd.status_code != 200:
                 continue
+            _DEAD_STATES_LOWER = {
+                'done', 'closed', 'removed', 'resolved',
+                'cancelled', 'canceled', 'rejected', 'withdrawn',
+                'abandoned', 'wont fix', "won't fix", 'wontfix',
+                'duplicate',
+            }
             for w in (hyd.json() or {}).get('value') or []:
                 if not isinstance(w, dict):
                     continue
                 fields = w.get('fields') or {}
                 wid = fields.get('System.Id') or w.get('id')
                 if not wid:
+                    continue
+                state_val = str(fields.get('System.State') or '').strip().lower()
+                if state_val in _DEAD_STATES_LOWER:
+                    # WIQL should've filtered this, but cached / custom
+                    # states sometimes slip through. Belt-and-braces.
                     continue
                 changed = str(fields.get('System.ChangedDate') or '').strip()
                 idle = idle_days
