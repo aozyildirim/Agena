@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8010';
+// Server-side: prefer INTERNAL_API_BASE_URL (e.g. http://backend:8010 in
+// Docker) so the route can reach the API container directly. Fall back to
+// the public URL for non-Docker dev where backend lives on localhost.
+const API_BASE =
+  process.env.INTERNAL_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  'http://localhost:8010';
 
 export async function POST(req: NextRequest) {
   try {
