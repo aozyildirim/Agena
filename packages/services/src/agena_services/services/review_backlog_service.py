@@ -241,11 +241,17 @@ async def _fetch_existing_pr_activity(
             org_url = (cfg.base_url or '').rstrip('/')
             if not org_url:
                 return ''
+            # Azure REST resolves a repo by name only when the URL also
+            # carries the project. owner here = mapping.owner = the Azure
+            # project name (set by sprints page when we synced repos).
+            from urllib.parse import quote as _q
+            project = _q(mapping.owner or '', safe='')
+            repo = _q(mapping.repo_name or '', safe='')
             auth = _b64.b64encode(f':{cfg.secret}'.encode()).decode()
             headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
             async with _httpx.AsyncClient(timeout=15) as client:
                 resp = await client.get(
-                    f'{org_url}/_apis/git/repositories/{mapping.repo_name}/pullRequests/{pr.external_id}'
+                    f'{org_url}/{project}/_apis/git/repositories/{repo}/pullRequests/{pr.external_id}'
                     f'/threads?api-version=7.1-preview.1',
                     headers=headers,
                 )
@@ -347,6 +353,7 @@ async def _post_pr_comment(db: AsyncSession, n: ReviewBacklogNudge) -> bool:
                 return False
             import base64 as _b64
             import httpx as _httpx
+            from urllib.parse import quote as _q
             org_url = (cfg.base_url or '').rstrip('/')
             if not org_url:
                 return False
@@ -356,8 +363,13 @@ async def _post_pr_comment(db: AsyncSession, n: ReviewBacklogNudge) -> bool:
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
             }
+            # Azure REST refuses to resolve a repo by name unless the
+            # project segment is in the URL. mapping.owner holds the
+            # Azure project for repos imported via the sprints sync.
+            project = _q(mapping.owner or '', safe='')
+            repo = _q(mapping.repo_name or '', safe='')
             url = (
-                f'{org_url}/_apis/git/repositories/{mapping.repo_name}/pullRequests/'
+                f'{org_url}/{project}/_apis/git/repositories/{repo}/pullRequests/'
                 f'{pr.external_id}/threads?api-version=7.1-preview.1'
             )
             payload = {
