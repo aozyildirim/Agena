@@ -244,6 +244,14 @@ export default function TriagePage() {
 
       {showSettings && settings && (
         <SettingsCard title={`${t('triage.settingsTitle')}${savingSettings ? ' · ' + t('common.saving') : ''}`}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              columnGap: 18,
+              rowGap: 0,
+            }}
+          >
           <SettingsField label={t('triage.set.enabled')} hint={t('triage.set.enabledHint')}>
             <SwitchToggle
               value={settings.triage_enabled}
@@ -295,6 +303,7 @@ export default function TriagePage() {
               ]}
             />
           </SettingsField>
+          </div>
         </SettingsCard>
       )}
 

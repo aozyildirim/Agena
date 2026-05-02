@@ -239,6 +239,14 @@ export default function ReviewBacklogPage() {
 
       {showSettings && settings && (
         <SettingsCard title={`${t('backlog.settingsTitle')}${savingSettings ? ' · ' + t('common.saving') : ''}`}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              columnGap: 18,
+              rowGap: 0,
+            }}
+          >
           <SettingsField label={t('backlog.set.enabled')} hint={t('backlog.set.enabledHint')}>
             <SwitchToggle
               value={settings.backlog_enabled}
@@ -349,6 +357,7 @@ export default function ReviewBacklogPage() {
               onChange={(v) => void saveSettings({ nudge_use_ai: v })}
             />
           </SettingsField>
+          </div>
         </SettingsCard>
       )}
 
