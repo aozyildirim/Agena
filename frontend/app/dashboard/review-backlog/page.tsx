@@ -110,15 +110,38 @@ export default function ReviewBacklogPage() {
     }
   }
 
+  // Track in-flight nudges so a fast double-click doesn't fire two
+  // requests. Server also rate-limits but the client guard avoids the
+  // round-trip and prevents the "two PR comments back-to-back" bug
+  // entirely on slow networks.
+  const [nudgingIds, setNudgingIds] = useState<Set<number>>(new Set());
+
   async function nudge(id: number) {
+    if (nudgingIds.has(id)) return;
+    setNudgingIds((s) => { const next = new Set(s); next.add(id); return next; });
     try {
-      const res = await apiFetch<{ nudge_count: number; last_nudged_at: string | null }>(
+      const res = await apiFetch<{
+        nudge_count: number;
+        last_nudged_at: string | null;
+        status: string;
+      }>(
         `/review-backlog/${id}/nudge`,
         { method: 'POST', body: JSON.stringify({ channel: settings?.backlog_channel || 'slack_dm' }) }
       );
-      setItems((prev) => prev?.map((n) => n.id === id ? { ...n, nudge_count: res.nudge_count, last_nudged_at: res.last_nudged_at } : n) ?? null);
+      setItems((prev) => prev?.map((n) => n.id === id ? {
+        ...n,
+        nudge_count: res.nudge_count,
+        last_nudged_at: res.last_nudged_at,
+      } : n) ?? null);
+      if (res.status === 'rate_limited') {
+        setError(t('backlog.nudgeRateLimited' as TranslationKey));
+      } else if (res.status === 'comment_failed') {
+        setError(t('backlog.nudgeCommentFailed' as TranslationKey));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setNudgingIds((s) => { const next = new Set(s); next.delete(id); return next; });
     }
   }
 
@@ -172,7 +195,7 @@ export default function ReviewBacklogPage() {
             <StatTile label={t('backlog.stat.escalated')} value={stats.escalated} accent='#a855f7' />
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={scanNow}
             disabled={scanning}
@@ -186,6 +209,17 @@ export default function ReviewBacklogPage() {
           >
             {scanning ? t('backlog.scanning') : t('backlog.scanNow')}
           </button>
+          {settings && (
+            <span style={{
+              fontSize: 11, color: 'var(--ink-58)', padding: '6px 10px',
+              background: 'var(--panel)', border: '1px solid var(--panel-border)',
+              borderRadius: 8,
+            }}>
+              ⏱ {t('backlog.cadenceHint' as TranslationKey, {
+                hours: String(settings.backlog_nudge_interval_hours),
+              })}
+            </span>
+          )}
           <button
             onClick={() => setShowSettings((v) => !v)}
             style={{
@@ -382,12 +416,51 @@ export default function ReviewBacklogPage() {
                   {n.repo_display_name && <> · 📦 {n.repo_display_name}</>}
                   {n.last_nudged_at && <> · {t('backlog.lastNudged')}: {new Date(n.last_nudged_at).toLocaleString()} ({n.last_nudge_channel})</>}
                 </div>
+                {(() => {
+                  // "Tekrar dürtme şu kadar saat sonra" göstergesi —
+                  // interval (settings) - last_nudged'den bu yana geçen saat.
+                  // Hiç dürtülmediyse hemen müsait. Negatife düşerse "şimdi".
+                  const interval = settings?.backlog_nudge_interval_hours ?? 6;
+                  if (!n.last_nudged_at) {
+                    return (
+                      <div style={{ fontSize: 11, color: '#5eead4', fontWeight: 600 }}>
+                        ⏰ {t('backlog.nextNudgeReady' as TranslationKey)}
+                      </div>
+                    );
+                  }
+                  const lastMs = new Date(n.last_nudged_at).getTime();
+                  const elapsedHours = (Date.now() - lastMs) / 3_600_000;
+                  const remainingHours = Math.max(0, interval - elapsedHours);
+                  const ready = remainingHours <= 0;
+                  return (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: ready ? '#5eead4' : 'var(--ink-50)',
+                        fontWeight: ready ? 700 : 500,
+                      }}
+                    >
+                      {ready
+                        ? `⏰ ${t('backlog.nextNudgeReady' as TranslationKey)}`
+                        : `⏰ ${t('backlog.nextNudgeIn' as TranslationKey, { hours: String(Math.ceil(remainingHours)) })}`}
+                    </div>
+                  );
+                })()}
                 <footer style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => void nudge(n.id)}
-                    style={{ padding: '5px 11px', borderRadius: 8, background: `${color}22`, color, border: `1px solid ${color}55`, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    disabled={nudgingIds.has(n.id)}
+                    style={{
+                      padding: '5px 11px', borderRadius: 8,
+                      background: nudgingIds.has(n.id) ? 'var(--panel)' : `${color}22`,
+                      color: nudgingIds.has(n.id) ? 'var(--ink-35)' : color,
+                      border: `1px solid ${nudgingIds.has(n.id) ? 'var(--panel-border)' : `${color}55`}`,
+                      fontSize: 11, fontWeight: 700,
+                      cursor: nudgingIds.has(n.id) ? 'wait' : 'pointer',
+                      opacity: nudgingIds.has(n.id) ? 0.6 : 1,
+                    }}
                   >
-                    🔔 {t('backlog.nudgeNow')}
+                    {nudgingIds.has(n.id) ? t('backlog.nudging' as TranslationKey) : `🔔 ${t('backlog.nudgeNow')}`}
                   </button>
                 </footer>
               </article>

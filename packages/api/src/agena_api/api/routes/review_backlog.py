@@ -153,7 +153,7 @@ async def nudge(
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     try:
-        n = await review_backlog_service.record_nudge(
+        n, status = await review_backlog_service.record_nudge(
             db, nudge_id,
             organization_id=tenant.organization_id,
             channel=body.channel,
@@ -161,7 +161,8 @@ async def nudge(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return {
-        'ok': True,
+        'ok': status != 'rate_limited',
+        'status': status,  # sent | rate_limited | comment_failed
         'nudge_count': n.nudge_count,
         'last_nudged_at': n.last_nudged_at.isoformat() if n.last_nudged_at else None,
     }

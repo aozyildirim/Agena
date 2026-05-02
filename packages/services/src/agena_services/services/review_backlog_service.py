@@ -330,7 +330,6 @@ async def _post_pr_comment(db: AsyncSession, n: ReviewBacklogNudge) -> bool:
     )
     if activity:
         body += f'\n{activity}\n'
-    body += '\nConfigure thresholds at `/dashboard/review-backlog`.'
 
     provider = (pr.provider or '').lower()
     try:
@@ -399,12 +398,16 @@ async def record_nudge(
     *,
     organization_id: int,
     channel: str,
-) -> ReviewBacklogNudge:
-    """Mark that a nudge was sent via the given channel. For
-    channel='pr_comment' we also try to post a comment on the PR
-    via the configured git provider. Slack/email delivery is wired
-    elsewhere; this function records the timestamp + counter no
-    matter which channel succeeds."""
+) -> tuple[ReviewBacklogNudge, str]:
+    """Mark that a nudge was sent via the given channel. Returns
+    (nudge_row, status) where status is one of:
+      'sent'         — comment posted (or non-pr_comment channel logged)
+      'rate_limited' — interval hasn't elapsed since the previous nudge
+      'comment_failed' — pr_comment channel failed but row was bumped
+                         anyway (best-effort — Slack/email may still go)
+    The interval check stops fast double-clicks from posting two PR
+    comments back-to-back (UI sometimes fires two requests when the
+    user mashes the button)."""
     n = (
         await db.execute(
             select(ReviewBacklogNudge).where(
@@ -416,8 +419,25 @@ async def record_nudge(
     if n is None:
         raise ValueError('nudge not found')
 
+    # Rate-limit: only block when we'd be posting on the same channel
+    # within the configured interval. Switching channels (e.g. pr_comment
+    # → slack) still goes through because that's a different intent.
+    settings = await _settings_for(db, organization_id)
+    interval_hours = max(1, int(settings.backlog_nudge_interval_hours or 6))
+    if (
+        n.last_nudged_at is not None
+        and (n.last_nudge_channel or '') == channel
+        and (datetime.utcnow() - n.last_nudged_at) < timedelta(hours=interval_hours)
+    ):
+        logger.info(
+            'Nudge rate-limited: id=%s channel=%s interval=%sh last=%s',
+            n.id, channel, interval_hours, n.last_nudged_at,
+        )
+        return n, 'rate_limited'
+
+    comment_ok = True
     if channel == 'pr_comment':
-        await _post_pr_comment(db, n)
+        comment_ok = await _post_pr_comment(db, n)
 
     n.last_nudged_at = datetime.utcnow()
     n.nudge_count = (n.nudge_count or 0) + 1
@@ -426,4 +446,4 @@ async def record_nudge(
         n.escalated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(n)
-    return n
+    return n, ('sent' if comment_ok else 'comment_failed')
