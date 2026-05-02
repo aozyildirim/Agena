@@ -941,6 +941,99 @@ $ agena refinement analyze -p MyProject -t MyTeam`}</code>
           </div>
         </section>
 
+        {/* ── WORKFLOW AUTOMATION SHOWCASE ── */}
+        <section style={{ padding: '60px 0' }}>
+          <div style={{ marginBottom: 32 }}>
+            <div className='section-label'>{t('landing.workflowLabel' as TranslationKey)}</div>
+            <h2 style={{ fontSize: 'clamp(28px, 3vw, 42px)', fontWeight: 800, color: 'var(--ink-90)', maxWidth: 720 }}>
+              {t('landing.workflowTitle' as TranslationKey)}
+            </h2>
+            <p style={{ color: 'var(--ink-50)', fontSize: 16, lineHeight: 1.7, marginTop: 12, maxWidth: 720 }}>
+              {t('landing.workflowDesc' as TranslationKey)}
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+            {/* Stale Ticket Triage card */}
+            <Link
+              href='/stale-ticket-triage'
+              style={{
+                background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.04))',
+                border: '1px solid rgba(16,185,129,0.25)', borderRadius: 16,
+                padding: 24, textDecoration: 'none', color: 'inherit',
+                display: 'grid', gap: 12, transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 28 }}>🧹</span>
+                <strong style={{ color: '#10b981', fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' }}>
+                  {t('landing.workflowTriageEyebrow' as TranslationKey)}
+                </strong>
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+                {t('landing.workflowTriageTitle' as TranslationKey)}
+              </h3>
+              <p style={{ color: 'var(--ink-50)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+                {t('landing.workflowTriageDesc' as TranslationKey)}
+              </p>
+              <ul style={{ margin: '4px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+                {[
+                  t('landing.workflowTriageBullet1' as TranslationKey),
+                  t('landing.workflowTriageBullet2' as TranslationKey),
+                  t('landing.workflowTriageBullet3' as TranslationKey),
+                  t('landing.workflowTriageBullet4' as TranslationKey),
+                ].map((b) => (
+                  <li key={b} style={{ display: 'flex', gap: 8, color: 'var(--ink-78)', fontSize: 13 }}>
+                    <span style={{ color: '#10b981' }}>✓</span>{b}
+                  </li>
+                ))}
+              </ul>
+              <span style={{ color: '#10b981', fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+                {t('landing.workflowSeeMore' as TranslationKey)} →
+              </span>
+            </Link>
+
+            {/* Review Backlog Killer card */}
+            <Link
+              href='/review-backlog-killer'
+              style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.04))',
+                border: '1px solid rgba(245,158,11,0.25)', borderRadius: 16,
+                padding: 24, textDecoration: 'none', color: 'inherit',
+                display: 'grid', gap: 12, transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 28 }}>⏱</span>
+                <strong style={{ color: '#f59e0b', fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' }}>
+                  {t('landing.workflowBacklogEyebrow' as TranslationKey)}
+                </strong>
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+                {t('landing.workflowBacklogTitle' as TranslationKey)}
+              </h3>
+              <p style={{ color: 'var(--ink-50)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+                {t('landing.workflowBacklogDesc' as TranslationKey)}
+              </p>
+              <ul style={{ margin: '4px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+                {[
+                  t('landing.workflowBacklogBullet1' as TranslationKey),
+                  t('landing.workflowBacklogBullet2' as TranslationKey),
+                  t('landing.workflowBacklogBullet3' as TranslationKey),
+                  t('landing.workflowBacklogBullet4' as TranslationKey),
+                ].map((b) => (
+                  <li key={b} style={{ display: 'flex', gap: 8, color: 'var(--ink-78)', fontSize: 13 }}>
+                    <span style={{ color: '#f59e0b' }}>✓</span>{b}
+                  </li>
+                ))}
+              </ul>
+              <span style={{ color: '#f59e0b', fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+                {t('landing.workflowSeeMore' as TranslationKey)} →
+              </span>
+            </Link>
+          </div>
+        </section>
+
         {/* ── MULTI-REPO SHOWCASE ── */}
         <section style={{ padding: '80px 0 60px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className='multi-repo-grid'>

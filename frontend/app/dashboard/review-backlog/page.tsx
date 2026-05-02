@@ -550,7 +550,7 @@ export default function ReviewBacklogPage() {
                     PR #{n.pr_external_id || n.pr_id}
                   </span>
                   <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: `${color}22`, color, fontWeight: 700, textTransform: 'uppercase' }}>
-                    {sev} · {n.age_hours}h
+                    {t(`backlog.severity.${sev}` as TranslationKey)} · {n.age_hours}h
                   </span>
                   {n.pr_status && (() => {
                     const s = n.pr_status.toLowerCase();
@@ -568,9 +568,10 @@ export default function ReviewBacklogPage() {
                       merged:    { bg: 'rgba(96,165,250,0.18)',  fg: '#60a5fa' },
                     };
                     const c = palette[s] || { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' };
+                    const localized = t(`backlog.prStatus.${s}` as TranslationKey) || n.pr_status;
                     return (
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: c.bg, color: c.fg, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                        {n.pr_status}
+                        {localized.startsWith('backlog.prStatus.') ? n.pr_status : localized}
                       </span>
                     );
                   })()}
@@ -593,10 +594,10 @@ export default function ReviewBacklogPage() {
                       rel='noopener noreferrer'
                       style={{ color: 'var(--ink-90)', textDecoration: 'underline', textUnderlineOffset: 3 }}
                     >
-                      {n.pr_title || '(no title)'} ↗
+                      {n.pr_title || t('backlog.noTitle' as TranslationKey)} ↗
                     </a>
                   ) : (
-                    n.pr_title || '(no title)'
+                    n.pr_title || t('backlog.noTitle' as TranslationKey)
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>

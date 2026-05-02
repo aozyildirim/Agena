@@ -189,31 +189,64 @@ they get re-applied.
   the data the existing AGENA clients already cache
 - Marketing page: [`/cross-source-insights`](https://agena.dev/cross-source-insights)
 
-**Stale Ticket Triage** *(module: `triage`, default off)*
-- Schedule-driven scan (chip pickers: every 6h / 12h / daily / weekly /
-  monthly) of every Jira and Azure DevOps task whose `updated_at` is
-  past the org's idle threshold
-- LLM emits one of three verdicts per ticket — `close` /
-  `snooze` / `keep` — plus a one-sentence reason
-- "Apply all AI suggestions" bulk-approves the queue in one click;
-  per-row override still available
-- Conservative defaults: only picks `close` when the ticket itself
-  signals resolution; otherwise prefers `snooze`
-- Audit trail per decision (AI verdict + user override + timestamp)
-  in the `triage_decisions` table
+**Stale Ticket Triage** *(module: `triage`, source-side scan, AI verdicts)*
+- **Source-side scan, not local mirror.** Hits Jira's
+  `/rest/api/3/search/jql` (the new endpoint — the deprecated `/search`
+  one is gone) with cursor pagination, and Azure DevOps WIQL across
+  every project the org has access to. No internal task table fan-out
+  — the truth lives at the source, and so does the scan.
+- **Background task + progress polling.** Scan runs as a strong-ref
+  asyncio task; the dashboard polls `/triage/scan/status` every 2s for
+  per-row progress so the UI never blocks on a 10-minute crawl.
+- **AI verdict per ticket.** The reviewer agent (Claude CLI / Codex
+  CLI / hosted OpenAI — whichever the org configured, **never** an env
+  fallback) reads title, description, last comment + ticket age and
+  emits one of `close` / `snooze` / `keep` plus a one-sentence reason.
+- **`source_updated_at` cache.** If a ticket's source-side timestamp
+  hasn't moved since the last scan, we skip the LLM call and just
+  backfill any new metadata fields. Fresh decisions only when the
+  source actually changed.
+- **Look-back window.** `triage_max_age_days` caps how far back the
+  scan reaches — useful when you want "only the last 12 months,"
+  not history all the way to 2018.
+- **Filters baked in.** Source (Jira / Azure), project, state, and
+  status chips. Cancelled / Won't Fix / Rejected excluded by default
+  on both the WIQL query and a defensive Python filter on read.
+- **Confirm-before-apply modal.** "Apply all AI suggestions" never
+  fires silently — you see the count, the breakdown, and click to
+  commit. Audit trail per decision in `triage_decisions`.
 - Marketing page: [`/stale-ticket-triage`](https://agena.dev/stale-ticket-triage)
 
-**Review Backlog Killer** *(module: `review_backlog`, default off)*
-- 30-minute poller flags every open PR aging past warn / critical
-  thresholds (defaults 24h / 48h, both chip-configurable)
-- Severity tiers (info / warning / critical) drive dashboard sorting
-  and auto-escalation flags
-- Multi-channel reviewer nudge: Slack DM, Slack channel, email, or a
-  comment posted directly on the PR via the GitHub client
-- Per-PR nudge counter + last-nudged-channel + last-nudged-at so the
-  same reviewer doesn't get spammed
-- Per-org settings: warn / critical / nudge interval (chips), notify
-  channel (chips), exempt repo list (comma-separated repo mapping ids)
+**Review Backlog Killer** *(module: `review_backlog`, multi-channel, AI-aware)*
+- **Five nudge channels, comma-selectable.** Slack DM, WhatsApp,
+  email, Telegram, and a comment posted directly on the PR thread
+  itself (GitHub `pulls/{n}/comments` or Azure
+  `{org}/{project}/_apis/git/repositories/{repo}/pullRequests/{n}/threads`
+  — Azure URL needs the project segment, not just the repo guid).
+- **AI-generated comment body, optional.** Toggle on and the reviewer
+  agent reads the actual diff (GitHub `Accept: application/vnd.github.v3.diff`
+  or Azure `iterations/{n}/changes`) and writes a polite,
+  diff-specific question — not a generic "still around?" template.
+- **Comment language picker — 7 languages.** Set the org's preferred
+  tone in `nudge_comment_language` (en/tr/de/es/it/ja/zh); both
+  static templates and the AI prompt swap accordingly.
+- **Auto-nudge worker (opt-in).** Off by default —
+  `backlog_auto_nudge` boolean toggle. When on, the 30-minute worker
+  poller auto-posts to the configured channels with a hard 24h
+  interval floor (`max(24, backlog_nudge_interval_hours)`) so nobody
+  ever gets spammed by accident.
+- **Azure deletion detection.** Before counting a row as "already
+  nudged," we verify the existing Agena comment still lives on the
+  PR. If a reviewer wiped the comment, `last_nudged_at` resets and
+  the nudge becomes available again — same logic the production
+  detector uses to dodge stale state.
+- **Per-row cooldown that's actually delivery-aware.** Status return
+  is `sent` / `rate_limited` / `comment_failed`; we only stamp
+  `last_nudged_at` on `sent`, so a 400 from Azure doesn't lock the
+  row for 6 hours.
+- **Searchbox + chip-tag exempt-repo picker.** No more 80-row
+  alt-alta toggle list. Type, autocomplete, click to add as a chip
+  — same UX as Jira/Azure label pickers elsewhere in the app.
 - Marketing page: [`/review-backlog-killer`](https://agena.dev/review-backlog-killer)
 
 ---
