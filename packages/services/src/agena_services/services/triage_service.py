@@ -34,7 +34,12 @@ logger = logging.getLogger(__name__)
 
 # TaskRecord.status values that count as "still open and worth triaging".
 # Anything completed / failed / cancelled stays out of the triage queue.
-ACTIVE_STATUSES = {'queued', 'pending', 'open', 'in_progress', 'running', 'paused'}
+# 'new' is what create_task_from_external() writes for imported Jira /
+# Azure work items that haven't been Run yet — leaving it out of this
+# set was the reason scan reported 0 candidates against fresh imports.
+ACTIVE_STATUSES = {
+    'new', 'queued', 'pending', 'open', 'in_progress', 'running', 'paused',
+}
 
 
 SYSTEM_PROMPT = (
