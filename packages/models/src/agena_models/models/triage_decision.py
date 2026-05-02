@@ -26,6 +26,10 @@ class TriageDecision(Base):
     external_id: Mapped[str] = mapped_column(String(128), nullable=False)
     ticket_title: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     ticket_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # ISO timestamp from the source platform's "updated" field at the
+    # time we last evaluated this ticket. Lets the scan loop skip the
+    # LLM call when the ticket hasn't moved since our last verdict.
+    source_updated_at: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     idle_days: Mapped[int] = mapped_column(Integer, default=0)
 
     ai_verdict: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)

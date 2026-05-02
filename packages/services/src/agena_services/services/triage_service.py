@@ -437,6 +437,7 @@ async def _scan_jira_source(
                     'assigned_to': assignee,
                     'idle_days': idle,
                     'url': f'{base_url}/browse/{key}',
+                    'source_updated_at': updated,
                 })
                 if len(out) >= max_results:
                     break
@@ -478,19 +479,49 @@ async def _scan_azure_source(
     org_url = (cfg.base_url or '').rstrip('/')
     if not org_url:
         return []
-    # Project comes from any org member's saved preference
-    pref = (await db.execute(
-        select(UserPreference)
-        .join(OrganizationMember, OrganizationMember.user_id == UserPreference.user_id)
-        .where(OrganizationMember.organization_id == org_id)
-        .limit(1)
-    )).scalars().first()
-    project = (pref.azure_project if pref else '') or ''
-    if not project:
-        logger.info('Azure source-side triage skipped: no azure_project preference for org=%s', org_id)
-        return []
-
+    # Scan EVERY Azure project the PAT can see, not just the user's
+    # currently-saved azure_project. Triage is for "everything stale",
+    # so capping it to one project would miss most of the org.
     auth = _b64.b64encode(f':{cfg.secret}'.encode()).decode()
+    list_headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+    projects: list[str] = []
+    try:
+        async with _httpx.AsyncClient(timeout=20) as client:
+            continuation: str | None = None
+            while True:
+                url = f'{org_url}/_apis/projects?api-version=7.1&$top=200'
+                if continuation:
+                    url += f'&continuationToken={_q(continuation)}'
+                resp = await client.get(url, headers=list_headers)
+                if resp.status_code != 200:
+                    break
+                data = resp.json() if resp.content else {}
+                for p in data.get('value', []):
+                    name = str((p or {}).get('name') or '').strip()
+                    if name and name not in projects:
+                        projects.append(name)
+                continuation = resp.headers.get('x-ms-continuationtoken') or ''
+                if not continuation:
+                    break
+    except Exception as exc:
+        logger.info('Azure project listing failed: %s', exc)
+    if not projects:
+        # Fall back to the saved preference if the project list call
+        # failed (limited PAT scope, network blip).
+        pref = (await db.execute(
+            select(UserPreference)
+            .join(OrganizationMember, OrganizationMember.user_id == UserPreference.user_id)
+            .where(OrganizationMember.organization_id == org_id)
+            .limit(1)
+        )).scalars().first()
+        fallback = (pref.azure_project if pref else '') or ''
+        if not fallback:
+            logger.info(
+                'Azure source-side triage skipped: no projects discovered for org=%s', org_id,
+            )
+            return []
+        projects = [fallback]
+
     headers = {
         'Authorization': f'Basic {auth}',
         'Accept': 'application/json',
@@ -513,19 +544,22 @@ async def _scan_azure_source(
     )
     out: list[dict] = []
     async with _httpx.AsyncClient(timeout=20) as client:
+      for project in projects:
+        if len(out) >= max_results:
+            break
         wiql_resp = await client.post(
             f'{org_url}/{_q(project)}/_apis/wit/wiql?api-version=7.1-preview.2',
             json={'query': wiql},
             headers=headers,
         )
         if wiql_resp.status_code != 200:
-            logger.info('Azure WIQL scan failed: status=%s body=%s',
-                        wiql_resp.status_code, wiql_resp.text[:200])
-            return []
+            logger.info('Azure WIQL scan failed for project=%s status=%s body=%s',
+                        project, wiql_resp.status_code, wiql_resp.text[:200])
+            continue
         ids = [int(w.get('id', 0)) for w in (wiql_resp.json() or {}).get('workItems') or [] if isinstance(w, dict)]
-        ids = [i for i in ids if i][:max_results]
+        ids = [i for i in ids if i][:max_results - len(out)]
         if not ids:
-            return []
+            continue
         # Hydrate in chunks (Azure's "ids" param caps around 200)
         chunk = 100
         from datetime import datetime as _dt
@@ -584,6 +618,7 @@ async def _scan_azure_source(
                     'assigned_to': assignee,
                     'idle_days': idle,
                     'url': f'{org_url}/{_q(proj)}/_workitems/edit/{wid}',
+                    'source_updated_at': changed,
                 })
     return out
 
@@ -671,6 +706,18 @@ async def scan_for_org(
         # Don't churn LLM cost on rows the user hasn't actioned yet.
         if existing and existing.status == 'pending':
             continue
+        # Cache: skip the LLM call entirely when the source ticket
+        # hasn't moved since our last verdict. The user already saw
+        # whatever recommendation we'd produce — repeating the call
+        # would just burn tokens. Only re-evaluate when source updated.
+        cand_updated_at = (cand.get('source_updated_at') or '').strip()
+        if (
+            existing is not None
+            and existing.ai_verdict
+            and (existing.source_updated_at or '').strip() == cand_updated_at
+            and cand_updated_at
+        ):
+            continue
 
         try:
             stub = _make_stub_task(cand)
@@ -692,6 +739,7 @@ async def scan_for_org(
             existing.ai_reasoning = reasoning
             existing.ticket_title = cand['title']
             existing.ticket_url = cand.get('url')
+            existing.source_updated_at = cand_updated_at or None
             existing.status = 'pending'
             existing.applied_verdict = None
             existing.applied_at = None
@@ -704,6 +752,7 @@ async def scan_for_org(
                 external_id=cand['external_id'],
                 ticket_title=cand['title'],
                 ticket_url=cand.get('url'),
+                source_updated_at=cand_updated_at or None,
                 idle_days=cand['idle_days'],
                 ai_verdict=verdict,
                 ai_confidence=confidence,
