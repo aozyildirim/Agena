@@ -34,6 +34,8 @@ type Settings = {
   backlog_warn_hours: number;
   backlog_critical_hours: number;
   backlog_nudge_interval_hours: number;
+  nudge_comment_language: string;
+  nudge_use_ai: boolean;
   backlog_channel: string;
   backlog_exempt_repos: string | null;
 };
@@ -317,6 +319,34 @@ export default function ReviewBacklogPage() {
               onChange={(e) => void saveSettings({ backlog_exempt_repos: e.target.value })}
               style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, width: '100%', maxWidth: 320 }}
               placeholder='1, 3, 7'
+            />
+          </SettingsField>
+          <SettingsField
+            label={t('backlog.set.commentLanguage' as TranslationKey)}
+            hint={t('backlog.set.commentLanguageHint' as TranslationKey)}
+          >
+            <ChipSelect<string>
+              value={settings.nudge_comment_language || 'en'}
+              onChange={(v) => void saveSettings({ nudge_comment_language: v })}
+              accent='#06b6d4'
+              options={[
+                { value: 'en', label: 'English' },
+                { value: 'tr', label: 'Türkçe' },
+                { value: 'de', label: 'Deutsch' },
+                { value: 'es', label: 'Español' },
+                { value: 'it', label: 'Italiano' },
+                { value: 'ja', label: '日本語' },
+                { value: 'zh', label: '中文' },
+              ]}
+            />
+          </SettingsField>
+          <SettingsField
+            label={t('backlog.set.useAi' as TranslationKey)}
+            hint={t('backlog.set.useAiHint' as TranslationKey)}
+          >
+            <SwitchToggle
+              value={!!settings.nudge_use_ai}
+              onChange={(v) => void saveSettings({ nudge_use_ai: v })}
             />
           </SettingsField>
         </SettingsCard>

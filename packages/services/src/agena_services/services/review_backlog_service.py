@@ -138,6 +138,35 @@ async def scan_for_org(
             existing.repo_mapping_id = pr.repo_mapping_id
             if existing.resolved_at is not None:
                 existing.resolved_at = None  # reopened? — keep tracking
+            # If we previously posted a PR comment but the user removed
+            # it on Azure/GitHub, treat the row as un-nudged so the UI
+            # offers the button again — and so the next scheduled run
+            # is allowed to re-post. Without this we never re-nudge a
+            # PR whose AGENA comment was wiped.
+            if (
+                existing.last_nudged_at is not None
+                and (existing.last_nudge_channel or '') == 'pr_comment'
+            ):
+                m_id = (existing.repo_mapping_id or '').strip()
+                if m_id.isdigit():
+                    from agena_models.models.repo_mapping import RepoMapping
+                    mapping = (await db.execute(
+                        select(RepoMapping).where(
+                            RepoMapping.id == int(m_id),
+                            RepoMapping.organization_id == org_id,
+                        )
+                    )).scalar_one_or_none()
+                    if mapping is not None:
+                        still_there = await _verify_existing_agena_comment(
+                            db, organization_id=org_id, pr=pr, mapping=mapping,
+                        )
+                        if not still_there:
+                            existing.last_nudged_at = None
+                            existing.last_nudge_channel = None
+                            logger.info(
+                                'AGENA comment vanished from PR %s — clearing last_nudged_at',
+                                pr.external_id,
+                            )
             tracked += 1
 
     # Resolve nudges whose PRs are no longer in the open list (got
@@ -173,6 +202,312 @@ async def scan_all_orgs(db: AsyncSession) -> int:
         except Exception:
             logger.exception('Review-backlog scan failed for org=%s', oid)
     return total
+
+
+_AGENA_SIGNATURE = 'AGENA Review Backlog'
+
+
+# Static template per language. Used as fallback when use_ai=False or
+# when the LLM call fails. Placeholders: {hours} {severity} {n}
+# {activity_block}. activity_block is already formatted by the caller.
+_TEMPLATES: dict[str, str] = {
+    'en': (
+        '⏱️ **{sig}**\n\n'
+        'This PR has been waiting for review for **{hours} hours** '
+        '(severity: {severity}). Nudge #{n}.\n'
+        '{activity_block}'
+    ),
+    'tr': (
+        '⏱️ **{sig}**\n\n'
+        'Bu PR **{hours} saattir** review bekliyor '
+        '(önem: {severity}). Dürtü #{n}.\n'
+        '{activity_block}'
+    ),
+    'de': (
+        '⏱️ **{sig}**\n\n'
+        'Dieser PR wartet seit **{hours} Stunden** auf Review '
+        '(Schweregrad: {severity}). Anstoß #{n}.\n'
+        '{activity_block}'
+    ),
+    'es': (
+        '⏱️ **{sig}**\n\n'
+        'Este PR lleva **{hours} horas** esperando review '
+        '(severidad: {severity}). Recordatorio #{n}.\n'
+        '{activity_block}'
+    ),
+    'it': (
+        '⏱️ **{sig}**\n\n'
+        'Questo PR aspetta review da **{hours} ore** '
+        '(severità: {severity}). Sollecito #{n}.\n'
+        '{activity_block}'
+    ),
+    'ja': (
+        '⏱️ **{sig}**\n\n'
+        'この PR は **{hours} 時間** レビュー待ちです '
+        '(深刻度: {severity})。通知 #{n}。\n'
+        '{activity_block}'
+    ),
+    'zh': (
+        '⏱️ **{sig}**\n\n'
+        '该 PR 已等待评审 **{hours} 小时** '
+        '(严重性: {severity})。提醒 #{n}。\n'
+        '{activity_block}'
+    ),
+}
+
+
+async def _compose_nudge_body(
+    db: AsyncSession,
+    *,
+    organization_id: int,
+    pr,
+    nudge,
+    activity: str,
+    language: str,
+    use_ai: bool,
+) -> str:
+    """Build the nudge body. When use_ai=True we route the prompt through
+    the org's first claude_cli/codex_cli agent (or LLMProvider as fallback)
+    so the comment references the actual recent activity. When use_ai is
+    off (or the LLM call fails) we fall back to the per-language static
+    template — keeps the feature usable without API keys configured."""
+    lang = (language or 'en').strip().lower()
+    if lang not in _TEMPLATES:
+        lang = 'en'
+    activity_block = f'\n{activity}\n' if activity else ''
+    fallback = _TEMPLATES[lang].format(
+        sig=_AGENA_SIGNATURE,
+        hours=nudge.age_hours,
+        severity=nudge.severity or 'info',
+        n=(nudge.nudge_count or 0) + 1,
+        activity_block=activity_block,
+    )
+    if not use_ai:
+        return fallback
+    try:
+        ai = await _generate_ai_nudge_body(
+            db,
+            organization_id=organization_id,
+            pr=pr,
+            nudge=nudge,
+            activity=activity,
+            language=lang,
+        )
+        if ai:
+            # Always keep the AGENA signature visible so reviewers know
+            # it's an automated nudge — and so the deletion-detector
+            # below can still match.
+            return f'⏱️ **{_AGENA_SIGNATURE}**\n\n{ai.strip()}'
+    except Exception as exc:
+        logger.info('AI nudge body generation failed, falling back to template: %s', exc)
+    return fallback
+
+
+async def _generate_ai_nudge_body(
+    db: AsyncSession,
+    *,
+    organization_id: int,
+    pr,
+    nudge,
+    activity: str,
+    language: str,
+) -> str:
+    """Call the org's reviewer agent to write a contextual nudge.
+    Returns the model's prose (no AGENA signature — caller adds it).
+
+    Routing mirrors review_service: prefer claude_cli / codex_cli through
+    the local bridge (no API key needed), fall back to LLMProvider with
+    the org's integration_configs credentials when the user has API
+    agents instead. Tight 60s timeout keeps the button click responsive."""
+    from sqlalchemy import select as _sel
+    from agena_models.models.user_preference import UserPreference
+
+    # Pick the org's first enabled CLI agent, then any API agent.
+    pref = (await db.execute(
+        _sel(UserPreference).join(
+            # any user in the org will do for resolving an agent — the
+            # agent config drives provider, not the user identity
+        )
+    )).scalars().first()
+    cli_provider = ''
+    cli_model = ''
+    api_provider = ''
+    api_model = ''
+    if pref and pref.agents_json:
+        import json as _json
+        try:
+            agents = _json.loads(pref.agents_json) or []
+        except (ValueError, TypeError):
+            agents = []
+        for a in agents if isinstance(agents, list) else []:
+            if not isinstance(a, dict) or a.get('enabled') is False:
+                continue
+            p = str(a.get('provider') or '').strip().lower()
+            m = str(a.get('custom_model') or a.get('model') or '').strip()
+            if p in ('claude_cli', 'codex_cli') and not cli_provider:
+                cli_provider, cli_model = p, m
+            elif p in ('openai', 'gemini', 'anthropic') and not api_provider:
+                api_provider, api_model = p, m
+
+    lang_label = {
+        'en': 'English', 'tr': 'Türkçe', 'de': 'Deutsch',
+        'es': 'Español', 'it': 'Italiano', 'ja': '日本語', 'zh': '中文',
+    }.get(language, 'English')
+
+    system_prompt = (
+        'You write polite, contextual nudge comments for stale pull requests. '
+        f'Reply ONLY in {lang_label}. Keep it under 80 words, one paragraph, '
+        'no markdown headings. If the recent activity mentions a specific '
+        'reviewer or technical question, reference it naturally — do NOT '
+        'just repeat the hours-since-open. Do not include greetings like '
+        '"Hi team", get straight to the point. Do not add a closing signature.'
+    )
+    user_prompt = (
+        f'PR title: {(pr.title or "(no title)")}\n'
+        f'Author: {(pr.author or "unknown")}\n'
+        f'Hours waiting: {nudge.age_hours}\n'
+        f'Severity: {nudge.severity or "info"}\n'
+        f'Nudge number: {(nudge.nudge_count or 0) + 1}\n\n'
+        f'Recent activity (most recent last):\n{activity or "(no comments yet)"}\n\n'
+        'Write a short nudge comment for the reviewer.'
+    )
+
+    if cli_provider:
+        # Light CLI call — no Read/Bash needed, prompt is self-contained.
+        # Bridge timeout 60s; if it overruns we fall back to template.
+        import os as _os, httpx as _httpx
+        bridge_url = _os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        cli = 'claude' if cli_provider == 'claude_cli' else 'codex'
+        full_prompt = f'{system_prompt}\n\n---\n\n{user_prompt}'
+        try:
+            async with _httpx.AsyncClient(timeout=90) as client:
+                resp = await client.post(
+                    f'{bridge_url}/{cli}',
+                    json={
+                        'repo_path': '/tmp',  # no repo access needed
+                        'prompt': full_prompt,
+                        'model': cli_model or '',
+                        'timeout': 60,
+                        'read_only': True,
+                    },
+                )
+                data = resp.json() if resp.content else {}
+            if data.get('status') == 'ok':
+                return (data.get('stdout') or '').strip()
+        except Exception as exc:
+            logger.info('CLI nudge generation failed: %s', exc)
+        return ''
+
+    if api_provider:
+        from agena_services.services.review_service import _build_llm_for_org
+        try:
+            llm = await _build_llm_for_org(
+                db, organization_id=organization_id,
+                provider=api_provider, model=api_model or None,
+            )
+            output, _u, _m, _c = await llm.generate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                complexity_hint='light',
+                max_output_tokens=300,
+            )
+            return (output or '').strip()
+        except Exception as exc:
+            logger.info('LLM nudge generation failed: %s', exc)
+    return ''
+
+
+async def _verify_existing_agena_comment(
+    db: AsyncSession,
+    *,
+    organization_id: int,
+    pr,
+    mapping,
+) -> bool:
+    """Returns True when a comment carrying the AGENA signature is still
+    present on the PR thread. Used by scan_for_org to detect when a user
+    deleted our last nudge from the source platform — in that case the
+    UI's "Ready to nudge again" should flip back to true so the next
+    scan cycle is allowed to post again."""
+    activity_text = await _fetch_existing_pr_activity(
+        db, organization_id=organization_id, pr=pr, mapping=mapping,
+    )
+    # _fetch returns a markdown summary; signature lives in the body
+    # we POST so we have to look it up the same way. Pull the threads
+    # one more time looking specifically for our signature.
+    import base64 as _b64
+    import httpx as _httpx
+    from urllib.parse import quote as _q
+    from agena_models.models.integration_config import IntegrationConfig
+    provider = (pr.provider or '').strip().lower()
+    if not pr.external_id:
+        return False
+    try:
+        if provider == 'github':
+            cfg = (await db.execute(
+                select(IntegrationConfig).where(
+                    IntegrationConfig.organization_id == organization_id,
+                    IntegrationConfig.provider == 'github',
+                )
+            )).scalar_one_or_none()
+            from agena_core.settings import get_settings
+            token = ((cfg.secret if cfg else '') or get_settings().github_token or '').strip()
+            headers = {'Accept': 'application/vnd.github.v3+json'}
+            if token:
+                headers['Authorization'] = f'Bearer {token}'
+            async with _httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    f'https://api.github.com/repos/{mapping.owner}/{mapping.repo_name}'
+                    f'/issues/{pr.external_id}/comments?per_page=100',
+                    headers=headers,
+                )
+                if resp.status_code != 200:
+                    return False
+                for c in resp.json() or []:
+                    if _AGENA_SIGNATURE in (c.get('body') or ''):
+                        return True
+            return False
+        if provider == 'azure':
+            cfg = (await db.execute(
+                select(IntegrationConfig).where(
+                    IntegrationConfig.organization_id == organization_id,
+                    IntegrationConfig.provider == 'azure',
+                )
+            )).scalar_one_or_none()
+            if not cfg or not cfg.secret:
+                return False
+            org_url = (cfg.base_url or '').rstrip('/')
+            if not org_url:
+                return False
+            project = _q(mapping.owner or '', safe='')
+            repo = _q(mapping.repo_name or '', safe='')
+            auth = _b64.b64encode(f':{cfg.secret}'.encode()).decode()
+            headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+            async with _httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    f'{org_url}/{project}/_apis/git/repositories/{repo}/pullRequests/{pr.external_id}'
+                    f'/threads?api-version=7.1-preview.1',
+                    headers=headers,
+                )
+                if resp.status_code != 200:
+                    return False
+                threads = (resp.json() or {}).get('value') or []
+                for t in threads:
+                    if not isinstance(t, dict):
+                        continue
+                    if t.get('isDeleted'):
+                        continue
+                    for c in t.get('comments') or []:
+                        if not isinstance(c, dict):
+                            continue
+                        if c.get('isDeleted'):
+                            continue
+                        if _AGENA_SIGNATURE in (c.get('content') or ''):
+                            return True
+            return False
+    except Exception as exc:
+        logger.info('AGENA signature check failed (provider=%s pr=%s): %s', provider, pr.external_id, exc)
+    return False
 
 
 async def _fetch_existing_pr_activity(
@@ -323,13 +658,16 @@ async def _post_pr_comment(db: AsyncSession, n: ReviewBacklogNudge) -> bool:
     activity = await _fetch_existing_pr_activity(
         db, organization_id=n.organization_id, pr=pr, mapping=mapping,
     )
-    body = (
-        f"⏱️ **AGENA Review Backlog**\n\n"
-        f"This PR has been waiting for review for **{n.age_hours} hours** "
-        f"(severity: {n.severity or 'info'}). Nudge #{(n.nudge_count or 0) + 1}.\n"
+    settings = await _settings_for(db, n.organization_id)
+    body = await _compose_nudge_body(
+        db,
+        organization_id=n.organization_id,
+        pr=pr,
+        nudge=n,
+        activity=activity,
+        language=(settings.nudge_comment_language or 'en'),
+        use_ai=bool(settings.nudge_use_ai),
     )
-    if activity:
-        body += f'\n{activity}\n'
 
     provider = (pr.provider or '').lower()
     try:

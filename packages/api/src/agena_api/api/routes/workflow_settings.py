@@ -26,6 +26,8 @@ class WorkflowSettingsResponse(BaseModel):
     backlog_nudge_interval_hours: int
     backlog_channel: str
     backlog_exempt_repos: str | None = None
+    nudge_comment_language: str = 'en'
+    nudge_use_ai: bool = False
     updated_at: datetime | None = None
 
 
@@ -40,6 +42,8 @@ class WorkflowSettingsUpdate(BaseModel):
     backlog_nudge_interval_hours: int | None = Field(default=None, ge=1, le=168)
     backlog_channel: str | None = None
     backlog_exempt_repos: str | None = None
+    nudge_comment_language: str | None = None
+    nudge_use_ai: bool | None = None
 
 
 async def _get_or_create(db: AsyncSession, org_id: int) -> OrgWorkflowSettings:
