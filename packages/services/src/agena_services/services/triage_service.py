@@ -721,6 +721,25 @@ async def scan_for_org(
             and (existing.source_updated_at or '').strip() == cand_updated_at
             and cand_updated_at
         ):
+            # Even on cache hit, backfill meta we may have learned later
+            # (project_key + ticket_state were added in newer migrations
+            # so older rows have NULL until the user reruns scan). LLM
+            # call still skipped — only the metadata gets refreshed.
+            meta_changed = False
+            if not existing.project_key and cand.get('project_key'):
+                existing.project_key = cand['project_key']
+                meta_changed = True
+            if cand.get('status') and existing.ticket_state != cand['status']:
+                existing.ticket_state = cand['status']
+                meta_changed = True
+            if cand.get('url') and existing.ticket_url != cand['url']:
+                existing.ticket_url = cand['url']
+                meta_changed = True
+            if meta_changed:
+                try:
+                    await db.commit()
+                except Exception:
+                    pass
             continue
 
         try:
