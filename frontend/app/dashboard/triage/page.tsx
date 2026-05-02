@@ -12,6 +12,7 @@ type Decision = {
   source: string;
   external_id: string;
   project_key: string | null;
+  ticket_state: string | null;
   ticket_title: string | null;
   ticket_url: string | null;
   idle_days: number;
@@ -565,6 +566,37 @@ export default function TriagePage() {
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-58)', fontFamily: 'ui-monospace, monospace' }}>
                     {d.external_id}
                   </span>
+                  {d.project_key && (
+                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'rgba(99,102,241,0.10)', color: '#818cf8', fontWeight: 700, letterSpacing: 0.4 }}>
+                      {d.project_key}
+                    </span>
+                  )}
+                  {d.ticket_state && (() => {
+                    // Source ticket state badge — colour mapping mirrors
+                    // the review-backlog convention for consistency.
+                    const s = d.ticket_state.toLowerCase();
+                    const palette: Record<string, { bg: string; fg: string }> = {
+                      active:        { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
+                      open:          { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
+                      new:           { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
+                      'to do':       { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
+                      'in progress': { bg: 'rgba(56,189,248,0.15)',  fg: '#38bdf8' },
+                      committed:     { bg: 'rgba(56,189,248,0.15)',  fg: '#38bdf8' },
+                      'code review': { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
+                      'in review':   { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
+                      review:        { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
+                      'qa to do':    { bg: 'rgba(244,114,182,0.15)', fg: '#f472b6' },
+                      'in qa':       { bg: 'rgba(244,114,182,0.15)', fg: '#f472b6' },
+                      blocked:       { bg: 'rgba(239,68,68,0.15)',   fg: '#ef4444' },
+                      pending:       { bg: 'rgba(245,158,11,0.15)',  fg: '#f59e0b' },
+                    };
+                    const c = palette[s] || { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' };
+                    return (
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: c.bg, color: c.fg, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        {d.ticket_state}
+                      </span>
+                    );
+                  })()}
                   <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontWeight: 700 }}>
                     {d.idle_days} {t('triage.daysIdle')}
                   </span>

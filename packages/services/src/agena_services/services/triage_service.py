@@ -743,6 +743,7 @@ async def scan_for_org(
             existing.ai_reasoning = reasoning
             existing.ticket_title = cand['title']
             existing.ticket_url = cand.get('url')
+            existing.ticket_state = cand.get('status') or None
             existing.project_key = cand.get('project_key') or None
             existing.source_updated_at = cand_updated_at or None
             existing.status = 'pending'
@@ -758,6 +759,7 @@ async def scan_for_org(
                 project_key=cand.get('project_key') or None,
                 ticket_title=cand['title'],
                 ticket_url=cand.get('url'),
+                ticket_state=cand.get('status') or None,
                 source_updated_at=cand_updated_at or None,
                 idle_days=cand['idle_days'],
                 ai_verdict=verdict,

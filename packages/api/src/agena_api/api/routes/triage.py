@@ -23,6 +23,7 @@ class DecisionResponse(BaseModel):
     source: str
     external_id: str
     project_key: str | None = None
+    ticket_state: str | None = None
     ticket_title: str | None = None
     ticket_url: str | None = None
     idle_days: int
@@ -66,6 +67,20 @@ async def list_decisions(
         stmt = stmt.where(TriageDecision.project_key == project)
     stmt = stmt.order_by(desc(TriageDecision.idle_days)).limit(min(limit, 500))
     rows = (await db.execute(stmt)).scalars().all()
+    # Defensive filter: drop rows whose source ticket is now in a
+    # dead state (Cancelled / Rejected / Won't Fix / etc.) so older
+    # decisions left over from before the scan-time filter don't keep
+    # showing up. Source state shifts after the row was created get
+    # caught here too — the next scan will mark them resolved.
+    DEAD = {
+        'done', 'closed', 'removed', 'resolved',
+        'cancelled', 'canceled', 'rejected', 'withdrawn',
+        'abandoned', 'wont fix', "won't fix", 'wontfix', 'duplicate',
+    }
+    rows = [
+        r for r in rows
+        if (r.ticket_state or '').strip().lower() not in DEAD
+    ]
     return [DecisionResponse.model_validate(r, from_attributes=True) for r in rows]
 
 

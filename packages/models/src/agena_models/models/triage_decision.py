@@ -27,6 +27,10 @@ class TriageDecision(Base):
     # Jira project key ('SCRUM') or Azure project name ('EcomBackend').
     # Populated on scan so the UI can group / filter without rescanning.
     project_key: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    # Source-side ticket state ('Active', 'In Progress', 'Cancelled', …).
+    # Populated on scan so the row can render a status badge and GET
+    # can drop dead-state rows left over from older scans.
+    ticket_state: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     ticket_title: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     ticket_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     # ISO timestamp from the source platform's "updated" field at the
