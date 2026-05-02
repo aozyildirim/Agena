@@ -3286,6 +3286,7 @@
   "triage.confirm.close": "关闭工单?",
   "triage.confirm.snooze": "暂停工单?",
   "triage.confirm.keep": "保持开放?",
+  "triage.source.all": "全部",
   "triage.scan.disabled": "Triage 已在组织设置中禁用。请在 Settings → Workflow Settings 中启用。",
   "triage.scan.noSources": "Triage 数据源列表为空。请在 Settings → Workflow Settings 中至少选择一个。",
   "triage.scan.noStale": "{sources} 中没有空闲 {days}+ 天的活跃任务。",

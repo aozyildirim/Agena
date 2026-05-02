@@ -66,10 +66,18 @@ export default function TriagePage() {
   // (the to-do queue), but the user can switch to applied / skipped to
   // audit what was actioned previously.
   const [statusFilter, setStatusFilter] = useState<'pending' | 'applied' | 'skipped'>('pending');
+  // Source tab — separates Jira / Azure queues so the user can triage
+  // one platform at a time.
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'jira' | 'azure'>('all');
 
-  async function load(filter: typeof statusFilter = statusFilter) {
+  async function load(
+    filter: typeof statusFilter = statusFilter,
+    src: typeof sourceFilter = sourceFilter,
+  ) {
     try {
-      const rows = await apiFetch<Decision[]>(`/triage/decisions?status=${filter}&limit=200`);
+      const params = new URLSearchParams({ status: filter, limit: '200' });
+      if (src && src !== 'all') params.set('source', src);
+      const rows = await apiFetch<Decision[]>(`/triage/decisions?${params.toString()}`);
       setDecisions(rows);
       setError(null);
     } catch (e) {
@@ -87,7 +95,7 @@ export default function TriagePage() {
   }
 
   useEffect(() => { void load(); void loadSettings(); }, []);
-  useEffect(() => { void load(statusFilter); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter]);
+  useEffect(() => { void load(statusFilter, sourceFilter); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter, sourceFilter]);
 
   // Source-side scans walk hundreds of tickets through the LLM, so we
   // run them in the background. POST returns immediately with
@@ -353,6 +361,36 @@ export default function TriagePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Source tabs — All / Jira / Azure. The decision counts come
+            from the loaded `decisions` slice (filtered by the active
+            status), so the count next to each tab matches what the
+            user is about to see if they switch. */}
+        <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, alignSelf: 'flex-start' }}>
+          {([
+            { key: 'all', label: t('triage.source.all' as TranslationKey), icon: '⌭', accent: '#6366f1' },
+            { key: 'jira', label: 'Jira', icon: '📋', accent: '#0052cc' },
+            { key: 'azure', label: 'Azure DevOps', icon: '☁️', accent: '#0078d4' },
+          ] as const).map((tab) => {
+            const isActive = sourceFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setSourceFilter(tab.key)}
+                style={{
+                  padding: '6px 12px', borderRadius: 7, border: 'none',
+                  background: isActive ? `${tab.accent}26` : 'transparent',
+                  color: isActive ? tab.accent : 'var(--ink-58)',
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </header>
 

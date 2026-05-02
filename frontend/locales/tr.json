@@ -3286,6 +3286,7 @@
   "triage.confirm.close": "Ticket kapatılsın mı?",
   "triage.confirm.snooze": "Ticket snooze edilsin mi?",
   "triage.confirm.keep": "Açık tutulsun mu?",
+  "triage.source.all": "Tümü",
   "triage.scan.disabled": "Triage org ayarlarında kapalı. Settings → Workflow Settings'ten aç.",
   "triage.scan.noSources": "Triage kaynak listesi boş. Settings → Workflow Settings'ten en az bir kaynak seç.",
   "triage.scan.noStale": "{sources} kaynaklarında {days}+ gündür dokunulmamış aktif task bulunamadı.",

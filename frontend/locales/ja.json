@@ -3286,6 +3286,7 @@
   "triage.confirm.close": "チケットを閉じますか?",
   "triage.confirm.snooze": "チケットをスヌーズしますか?",
   "triage.confirm.keep": "開いたままにしますか?",
+  "triage.source.all": "すべて",
   "triage.scan.disabled": "Triage が組織設定で無効になっています。Settings → Workflow Settings から有効化してください。",
   "triage.scan.noSources": "Triage のソースリストが空です。Settings → Workflow Settings で少なくとも1つ選択してください。",
   "triage.scan.noStale": "{sources} に {days}+ 日間アイドル状態のアクティブタスクはありません。",

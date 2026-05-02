@@ -3286,6 +3286,7 @@
   "triage.confirm.close": "¿Cerrar ticket?",
   "triage.confirm.snooze": "¿Posponer ticket?",
   "triage.confirm.keep": "¿Mantener abierto?",
+  "triage.source.all": "Todos",
   "triage.scan.disabled": "Triage está deshabilitado en la configuración. Actívalo en Settings → Workflow Settings.",
   "triage.scan.noSources": "La lista de fuentes está vacía. Elige al menos una en Settings → Workflow Settings.",
   "triage.scan.noStale": "No hay tareas activas inactivas {days}+ días en {sources}.",

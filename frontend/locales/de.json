@@ -3286,6 +3286,7 @@
   "triage.confirm.close": "Ticket schließen?",
   "triage.confirm.snooze": "Ticket snoozen?",
   "triage.confirm.keep": "Offen lassen?",
+  "triage.source.all": "Alle",
   "triage.scan.disabled": "Triage ist in den Org-Einstellungen deaktiviert. Aktiviere es unter Settings → Workflow Settings.",
   "triage.scan.noSources": "Triage-Quellen sind leer. Wähle mindestens eine Quelle unter Settings → Workflow Settings.",
   "triage.scan.noStale": "Keine aktiven Tickets seit {days}+ Tagen ungenutzt in {sources}.",

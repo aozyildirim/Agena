@@ -3286,6 +3286,7 @@
   "triage.confirm.close": "Close ticket?",
   "triage.confirm.snooze": "Snooze ticket?",
   "triage.confirm.keep": "Keep open?",
+  "triage.source.all": "All",
   "triage.scan.disabled": "Triage is disabled in your org settings. Open Settings → Workflow Settings to enable it.",
   "triage.scan.noSources": "Triage source list is empty. Pick at least one source under Settings → Workflow Settings.",
   "triage.scan.noStale": "No active tasks idle for {days}+ days in {sources}.",

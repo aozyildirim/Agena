@@ -47,17 +47,24 @@ async def list_decisions(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
     status: str = 'pending',
+    source: str | None = None,
     limit: int = 100,
 ) -> list[DecisionResponse]:
-    rows = (
-        await db.execute(
-            select(TriageDecision)
-            .where(TriageDecision.organization_id == tenant.organization_id)
-            .where(TriageDecision.status == status)
-            .order_by(desc(TriageDecision.idle_days))
-            .limit(min(limit, 500))
-        )
-    ).scalars().all()
+    stmt = (
+        select(TriageDecision)
+        .where(TriageDecision.organization_id == tenant.organization_id)
+        .where(TriageDecision.status == status)
+    )
+    if source and source not in ('all', ''):
+        # Treat 'azure' and 'azure_devops' as the same bucket so the
+        # tab matches the user's mental model regardless of which
+        # spelling lands in the row.
+        if source.lower() in ('azure', 'azure_devops'):
+            stmt = stmt.where(TriageDecision.source.in_(['azure', 'azure_devops']))
+        else:
+            stmt = stmt.where(TriageDecision.source == source.lower())
+    stmt = stmt.order_by(desc(TriageDecision.idle_days)).limit(min(limit, 500))
+    rows = (await db.execute(stmt)).scalars().all()
     return [DecisionResponse.model_validate(r, from_attributes=True) for r in rows]
 
 
