@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 Nudge — posts a comment on the PR (GitHub: issue comment, Azure: thread). Channels you've enabled in Settings (Slack / email / WhatsApp / Telegram) record the intent so external delivery integrations can fire.",
   "backlog.help.cooldown": "⏰ Cooldown — server enforces the nudge interval. The button disables and shows when the next nudge is allowed; clicking earlier returns 'rate_limited' instead of double-posting.",
   "backlog.help.deletion": "🧹 Deletion detection — if a teammate removes AGENA's previous comment from the source platform, the next scan resets last_nudged_at so the row flips back to 'ready to nudge again'.",
+  "backlog.help.worker": "Auto-nudge: when settings.backlog_channel is anything other than 'manual', the worker re-checks every 30 min and posts nudges for rows past the cooldown. 'Manual' = nothing fires until you click — opt-in. Server-side rate-limit prevents any double-post even if you click while the poller is running.",
   "backlog.set.commentLanguage": "Comment language",
   "backlog.set.commentLanguageHint": "Language AGENA uses when it auto-comments on a PR.",
   "backlog.set.useAi": "AI-generated comment",

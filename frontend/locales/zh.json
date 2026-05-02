@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 催促 — 在 PR 上发布评论 (GitHub: issue 评论, Azure: thread)。设置中启用的渠道 (Slack / 邮件 / WhatsApp / Telegram) 记录意图供外部集成使用。",
   "backlog.help.cooldown": "⏰ 冷却 — 服务器强制执行催促间隔。按钮禁用并显示下次允许的催促时间;过早点击返回 'rate_limited' 而非重复发布。",
   "backlog.help.deletion": "🧹 删除检测 — 如果有人从源平台移除 AGENA 之前的评论,下次扫描会重置 last_nudged_at,该行恢复为 '准备再次催促'。",
+  "backlog.help.worker": "自动催促:当 settings.backlog_channel 不是 'manual' 时,worker 每 30 分钟检查一次,对超出冷却期的行自动发布催促。'Manual' = 在你点击之前什么都不会发生 — 选择加入。服务器端速率限制防止重复发布。",
   "backlog.set.commentLanguage": "评论语言",
   "backlog.set.commentLanguageHint": "AGENA 在 PR 上自动评论时使用的语言。",
   "backlog.set.useAi": "AI 生成评论",

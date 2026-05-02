@@ -200,6 +200,23 @@ async def _poll_review_backlog() -> None:
             logger.exception('Review-backlog scan failed')
 
 
+async def _poll_auto_nudge() -> None:
+    """Auto-post nudges for orgs whose cooldown has elapsed. Skipped
+    silently when an org's backlog_channel is 'manual' (the default)
+    so a deployment-wide poller never posts comments without explicit
+    opt-in. record_nudge enforces the rate-limit again, defending
+    against any poller-and-user race."""
+    from agena_services.services import review_backlog_service
+
+    async with SessionLocal() as session:
+        try:
+            n = await review_backlog_service.auto_nudge_all_orgs(session)
+            if n:
+                logger.info('Auto-nudge delivered %s comments', n)
+        except Exception:
+            logger.exception('Auto-nudge poll failed')
+
+
 async def _poll_correlations() -> None:
     """Run a correlation pass for every org. Quick, no external network
     calls — just reads from our own DB and writes back any new clusters
@@ -529,6 +546,10 @@ async def process_queue() -> None:
                 await _poll_review_backlog()
             except Exception:
                 logger.exception('Review-backlog poll failed')
+            try:
+                await _poll_auto_nudge()
+            except Exception:
+                logger.exception('Auto-nudge poll failed')
             last_backlog_poll = now
 
         if now - last_triage_poll >= 21600:  # 6 hours

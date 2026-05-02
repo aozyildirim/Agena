@@ -231,6 +231,71 @@ async def scan_all_orgs(db: AsyncSession) -> int:
     return total
 
 
+async def auto_nudge_for_org(db: AsyncSession, org_id: int) -> int:
+    """Posts a nudge for every backlog row whose cooldown has elapsed.
+    Channel comes from settings.backlog_channel (the multi-select the
+    user configured under /dashboard/review-backlog → Settings).
+
+    Idempotent + rate-limit-aware: record_nudge() short-circuits with
+    status='rate_limited' when the same channel was used inside the
+    cooldown window, so even re-running this poller every 5 minutes
+    doesn't double-post. Returns the count of nudges actually
+    delivered (excludes rate-limited ones)."""
+    settings = await _settings_for(db, org_id)
+    if not settings.backlog_enabled:
+        return 0
+    channel = (settings.backlog_channel or 'manual').strip()
+    if not channel or channel == 'manual':
+        # Manual-only: user hasn't opted into auto-nudging.
+        return 0
+    interval_hours = max(1, int(settings.backlog_nudge_interval_hours or 6))
+    cutoff = datetime.utcnow() - timedelta(hours=interval_hours)
+
+    # Pick rows that:
+    #  - are still tracked (not resolved)
+    #  - severity is at least warning (don't auto-nudge 'info' churn)
+    #  - either never been nudged, or last nudge older than the cooldown
+    rows = (await db.execute(
+        select(ReviewBacklogNudge).where(
+            ReviewBacklogNudge.organization_id == org_id,
+            ReviewBacklogNudge.resolved_at.is_(None),
+            ReviewBacklogNudge.severity.in_(['warning', 'critical']),
+        )
+    )).scalars().all()
+    delivered = 0
+    for n in rows:
+        if n.last_nudged_at is not None and n.last_nudged_at >= cutoff:
+            continue  # within cooldown — server-side guard agrees
+        try:
+            _row, status = await record_nudge(
+                db, n.id,
+                organization_id=org_id,
+                channel=channel,
+            )
+            if status == 'sent':
+                delivered += 1
+        except Exception:
+            logger.exception('Auto-nudge failed for nudge_id=%s', n.id)
+    if delivered:
+        logger.info('Auto-nudge: org=%s delivered=%s of %s rows', org_id, delivered, len(rows))
+    return delivered
+
+
+async def auto_nudge_all_orgs(db: AsyncSession) -> int:
+    """Run auto_nudge_for_org for every org. Called by the worker
+    poller on the same cadence as scan_all_orgs."""
+    org_ids: Iterable[int] = (
+        await db.execute(select(Organization.id))
+    ).scalars().all()
+    total = 0
+    for oid in org_ids:
+        try:
+            total += await auto_nudge_for_org(db, oid)
+        except Exception:
+            logger.exception('Auto-nudge failed for org=%s', oid)
+    return total
+
+
 _AGENA_SIGNATURE = 'AGENA Review Backlog'
 
 

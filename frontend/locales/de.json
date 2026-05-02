@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 Anstoßen — postet einen Kommentar am PR (GitHub: Issue-Kommentar, Azure: Thread). In den Einstellungen aktivierte Kanäle (Slack / E-Mail / WhatsApp / Telegram) erfassen die Absicht für externe Lieferintegrationen.",
   "backlog.help.cooldown": "⏰ Cooldown — der Server erzwingt das Anstoß-Intervall. Der Button wird gesperrt und zeigt die nächste erlaubte Anstoßzeit; früheres Klicken gibt 'rate_limited' statt doppelt zu posten.",
   "backlog.help.deletion": "🧹 Lösch-Erkennung — wenn jemand AGENAs vorherigen Kommentar von der Quelle entfernt, setzt der nächste Scan last_nudged_at zurück und die Zeile zeigt wieder 'bereit zum Anstoß'.",
+  "backlog.help.worker": "Auto-Anstoß: wenn settings.backlog_channel etwas anderes als 'manual' ist, prüft der Worker alle 30 Minuten und postet Nudges für Zeilen nach dem Cooldown. 'Manual' = nichts passiert bis du klickst — Opt-in. Server-seitige Rate-Limit verhindert Doppelposts.",
   "backlog.set.commentLanguage": "Kommentarsprache",
   "backlog.set.commentLanguageHint": "Sprache, in der AGENA automatisch auf PRs kommentiert.",
   "backlog.set.useAi": "KI-generierter Kommentar",

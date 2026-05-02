@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 Dürt — PR'a yorum atar (GitHub: issue comment, Azure: thread). Settings'te açtığın diğer kanallar (Slack / email / WhatsApp / Telegram) intent kaydı tutar — gerçek delivery entegrasyon kurulduğunda devreye girer.",
   "backlog.help.cooldown": "⏰ Soğuma — server dürtü aralığını zorlar. Buton kilitlenir ve sıradaki dürtü zamanı görünür; erken bastığında 'rate_limited' döner, çift yorum atılmaz.",
   "backlog.help.deletion": "🧹 Silinme tespiti — biri AGENA'nın eski yorumunu kaynak platformdan silerse, sonraki tarama last_nudged_at'i sıfırlar ve satır 'tekrar dürtmeye hazır'a döner.",
+  "backlog.help.worker": "Otomatik dürtme: settings.backlog_channel 'manual' dışında bir şeyse, worker her 30 dakikada bir kontrol edip cooldown'u geçenlere otomatik yorum atar. 'Manual' = sen tıklayana kadar hiçbir şey olmaz — opt-in. Server-side rate-limit poller koşarken sen de tıklarsan çift yorum atılmasını engeller.",
   "backlog.set.commentLanguage": "Yorum dili",
   "backlog.set.commentLanguageHint": "AGENA PR'a otomatik yorum atarken hangi dili kullansın.",
   "backlog.set.useAi": "AI yazsın",

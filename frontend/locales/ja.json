@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 通知 — PR にコメントを投稿 (GitHub: issue コメント、Azure: thread)。設定で有効化したチャンネル (Slack / email / WhatsApp / Telegram) は意図を記録します。",
   "backlog.help.cooldown": "⏰ クールダウン — サーバーが通知間隔を強制します。ボタンが無効化され、次の通知許可時間が表示されます。早すぎるクリックは 'rate_limited' を返し、重複投稿を防ぎます。",
   "backlog.help.deletion": "🧹 削除検出 — 誰かがソースプラットフォームから AGENA の以前のコメントを削除すると、次のスキャンで last_nudged_at がリセットされ、行は '再通知可能' に戻ります。",
+  "backlog.help.worker": "自動通知: settings.backlog_channel が 'manual' 以外の場合、ワーカーは 30 分ごとに確認し、クールダウンを過ぎた行に自動通知を投稿します。'Manual' = クリックするまで何も起きません — オプトイン。サーバー側のレート制限が重複投稿を防ぎます。",
   "backlog.set.commentLanguage": "コメント言語",
   "backlog.set.commentLanguageHint": "AGENA が PR に自動コメントする言語。",
   "backlog.set.useAi": "AI 生成コメント",

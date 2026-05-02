@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 Notificar — publica un comentario en el PR (GitHub: comentario en issue, Azure: thread). Los canales habilitados en Settings (Slack / email / WhatsApp / Telegram) registran intención para integraciones externas.",
   "backlog.help.cooldown": "⏰ Cooldown — el servidor aplica el intervalo de notificación. El botón se desactiva y muestra cuándo se permite la siguiente notificación; clicar antes devuelve 'rate_limited' en lugar de publicar duplicados.",
   "backlog.help.deletion": "🧹 Detección de borrado — si alguien elimina el comentario previo de AGENA en la plataforma fuente, el próximo escaneo restablece last_nudged_at y la fila vuelve a 'lista para notificar'.",
+  "backlog.help.worker": "Auto-notificación: cuando settings.backlog_channel no es 'manual', el worker comprueba cada 30 min y publica nudges en filas pasado el cooldown. 'Manual' = nada sucede hasta que haces clic — opt-in. El rate-limit del servidor evita duplicados.",
   "backlog.set.commentLanguage": "Idioma del comentario",
   "backlog.set.commentLanguageHint": "Idioma que AGENA usa al comentar automáticamente en un PR.",
   "backlog.set.useAi": "Comentario generado por IA",

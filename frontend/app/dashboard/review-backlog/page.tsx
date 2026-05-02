@@ -225,11 +225,22 @@ export default function ReviewBacklogPage() {
           </summary>
           <div style={{ marginTop: 8, lineHeight: 1.55, display: 'grid', gap: 4 }}>
             <div>{t('backlog.help.body' as TranslationKey)}</div>
-            <div style={{ marginTop: 6 }}>{t('backlog.help.scope' as TranslationKey)}</div>
+            <div style={{ marginTop: 6 }}>
+              {t('backlog.help.scope' as TranslationKey)}{' '}
+              <a href='/dashboard/mappings' style={{ color: '#5eead4', textDecoration: 'underline' }}>
+                /dashboard/mappings ↗
+              </a>{' · '}
+              <a href='/dashboard/dora' style={{ color: '#5eead4', textDecoration: 'underline' }}>
+                /dashboard/dora ↗
+              </a>
+            </div>
             <div>{t('backlog.help.scan' as TranslationKey)}</div>
             <div>{t('backlog.help.nudge' as TranslationKey)}</div>
             <div>{t('backlog.help.cooldown' as TranslationKey)}</div>
             <div>{t('backlog.help.deletion' as TranslationKey)}</div>
+            <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+              ⚙️ {t('backlog.help.worker' as TranslationKey)}
+            </div>
           </div>
         </details>
 

@@ -3309,6 +3309,7 @@
   "backlog.help.nudge": "🔔 Sollecita — pubblica un commento sul PR (GitHub: commento issue, Azure: thread). I canali abilitati nelle Impostazioni (Slack / email / WhatsApp / Telegram) registrano l'intento per integrazioni esterne.",
   "backlog.help.cooldown": "⏰ Cooldown — il server applica l'intervallo di sollecito. Il bottone si disabilita e mostra quando il prossimo sollecito è consentito; cliccare prima ritorna 'rate_limited' invece di pubblicare duplicati.",
   "backlog.help.deletion": "🧹 Rilevamento eliminazione — se qualcuno rimuove il commento AGENA precedente dalla piattaforma sorgente, la prossima scansione ripristina last_nudged_at e la riga torna 'pronta da sollecitare'.",
+  "backlog.help.worker": "Auto-sollecito: quando settings.backlog_channel non è 'manual', il worker controlla ogni 30 min e pubblica solleciti per le righe oltre il cooldown. 'Manual' = niente accade finché non clicchi — opt-in. Il rate-limit server impedisce duplicati.",
   "backlog.set.commentLanguage": "Lingua del commento",
   "backlog.set.commentLanguageHint": "Lingua che AGENA usa quando commenta automaticamente un PR.",
   "backlog.set.useAi": "Commento generato da AI",
