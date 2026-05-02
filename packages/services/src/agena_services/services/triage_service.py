@@ -379,19 +379,31 @@ async def _scan_jira_source(
     auth = _b64.b64encode(f'{email}:{cfg.secret}'.encode()).decode()
     headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
     jql = f'statusCategory != Done AND updated <= -{int(idle_days)}d ORDER BY updated ASC'
+    # Atlassian deprecated /rest/api/3/search in 2024 — the new endpoint
+    # is /rest/api/3/search/jql (POST). Old endpoint returns 410 on
+    # cloud instances now. Switch to the new one.
     out: list[dict] = []
-    start_at = 0
+    next_token: str | None = None
     page = 50
     async with _httpx.AsyncClient(timeout=20) as client:
         while len(out) < max_results:
-            resp = await client.get(
-                f'{base_url}/rest/api/3/search',
-                params={'jql': jql, 'startAt': start_at, 'maxResults': page,
-                        'fields': 'summary,status,priority,assignee,updated,reporter'},
-                headers=headers,
+            payload: dict = {
+                'jql': jql,
+                'maxResults': page,
+                'fields': ['summary', 'status', 'priority', 'assignee', 'updated', 'reporter'],
+            }
+            if next_token:
+                payload['nextPageToken'] = next_token
+            resp = await client.post(
+                f'{base_url}/rest/api/3/search/jql',
+                json=payload,
+                headers={**headers, 'Content-Type': 'application/json'},
             )
             if resp.status_code != 200:
-                logger.info('Jira JQL scan failed: status=%s', resp.status_code)
+                logger.info(
+                    'Jira JQL scan failed: status=%s body=%s',
+                    resp.status_code, resp.text[:200],
+                )
                 break
             data = resp.json() if resp.content else {}
             issues = data.get('issues') or []
@@ -428,9 +440,13 @@ async def _scan_jira_source(
                 })
                 if len(out) >= max_results:
                     break
-            if len(issues) < page or len(out) >= max_results:
+            if len(out) >= max_results:
                 break
-            start_at += len(issues)
+            # New endpoint paginates with `nextPageToken` (cursor) +
+            # `isLast`. Break when either signals no more results.
+            next_token = data.get('nextPageToken')
+            if data.get('isLast') or not next_token or not issues:
+                break
     return out
 
 
