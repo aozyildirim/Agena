@@ -19,6 +19,12 @@ dependencies = [
     "pymysql>=1.1",
     "redis>=5.2",
     "sentry-sdk[fastapi]>=2.20",
+    # Pin cryptography below 47 — 47.0.0 ARM64 wheel ships an instruction
+    # the linuxkit/aarch64 Docker VM doesn't support, crashing the API
+    # boot with SIGILL ("Illegal instruction"). 45.x and 46.x are fine.
+    # crewai → pdfplumber → pdfminer.six pulls cryptography transitively
+    # without an upper bound, so we cap it here in core (installed first).
+    "cryptography>=42,<47",
 ]
 
 [tool.setuptools.packages.find]
