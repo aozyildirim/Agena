@@ -320,6 +320,22 @@ export default function DashboardTasksPage() {
         setTasks(sortTasks(data.items));
         setTotal(data.total);
         setQueueItems(queueData);
+        // Pull latest review per task so the row's button can switch
+        // from "🔎 Review" to "✓ Reviewed" + link to detail page.
+        void (async () => {
+          try {
+            type ReviewLite = { id: number; task_id: number; status: string; severity: string | null; findings_count: number | null };
+            const recent = await apiFetch<ReviewLite[]>('/reviews?limit=200');
+            const latestByTask: Record<number, ReviewLite> = {};
+            for (const r of recent) {
+              const cur = latestByTask[r.task_id];
+              if (!cur || r.id > cur.id) latestByTask[r.task_id] = r;
+            }
+            setLatestReviewByTask(latestByTask);
+          } catch {
+            // optional — graceful degradation if reviews API is unavailable
+          }
+        })();
       } catch {
         // Backward compatibility: if /tasks/search is unavailable, use legacy /tasks.
         const [legacyData, queueData] = await Promise.all([
@@ -629,6 +645,24 @@ export default function DashboardTasksPage() {
   const [reviewPickerTaskId, setReviewPickerTaskId] = useState<number | null>(null);
   const [reviewPickerAnchor, setReviewPickerAnchor] = useState<HTMLElement | null>(null);
   const [reviewerAgentOptions, setReviewerAgentOptions] = useState<Array<{ role: string; label: string }>>([]);
+  // Track which tasks have an in-flight review run so the row's button
+  // can render "⏳ Reviewing" until the backend reaches a terminal state.
+  const [reviewingTaskIds, setReviewingTaskIds] = useState<Set<number>>(new Set());
+  // Most recent review per task — the Review button in the row uses this
+  // to render an "✓ Reviewed" link to the detail page when the task has
+  // already been reviewed (instead of triggering yet another run).
+  type LatestReview = { id: number; task_id: number; status: string; severity: string | null; findings_count: number | null };
+  const [latestReviewByTask, setLatestReviewByTask] = useState<Record<number, LatestReview>>({});
+  // Result of the most recently completed review surfaced as a modal so
+  // the user sees the verdict immediately + can jump to the task detail
+  // for the full report.
+  type ReviewResult = {
+    id: number; status: string; severity: string | null;
+    findings_count: number | null; score: number | null;
+    summary: string | null; reviewer_agent_role: string | null;
+    task_id: number; task_title: string | null;
+  };
+  const [reviewResultModal, setReviewResultModal] = useState<ReviewResult | null>(null);
 
   useEffect(() => {
     // Load the user's reviewer-flagged agents once. Falls back to the
@@ -693,16 +727,57 @@ export default function DashboardTasksPage() {
     setReviewPickerTaskId(null);
     setReviewPickerAnchor(null);
     setError('');
+    // Optimistically mark the row as reviewing so the button flips to
+    // "⏳ Reviewing" the same render — feedback shouldn't wait for the
+    // POST round-trip.
+    setReviewingTaskIds((s) => { const n = new Set(s); n.add(taskId); return n; });
     try {
-      const res = await apiFetch<{ id: number; status: string; severity: string | null; findings_count: number | null; score: number | null }>('/reviews', {
+      const res = await apiFetch<ReviewResult>('/reviews', {
         method: 'POST',
         body: JSON.stringify({ task_id: taskId, reviewer_agent_role: role }),
       });
-      const sevText = res.severity ? ` · ${res.severity}` : '';
-      const findText = res.findings_count != null ? ` · ${res.findings_count} findings` : '';
-      setMsg(`Review #${res.id}: ${res.status}${sevText}${findText}`);
+      // Backend returns immediately with status='running' and runs the
+      // reviewer in a strong-ref asyncio task. Poll /reviews/{id} every
+      // 3s until we hit a terminal status, then pop the result modal.
+      const reviewId = res.id;
+      let final: ReviewResult | null = null;
+      if (res.status === 'running' || res.status === 'queued') {
+        const start = Date.now();
+        const TIMEOUT_MS = 30 * 60 * 1000; // match backend reaper
+        while (Date.now() - start < TIMEOUT_MS) {
+          await new Promise((r) => setTimeout(r, 3000));
+          try {
+            const poll = await apiFetch<ReviewResult>(`/reviews/${reviewId}`);
+            if (poll.status !== 'running' && poll.status !== 'queued') {
+              final = poll;
+              break;
+            }
+          } catch {
+            // transient — keep polling
+          }
+        }
+      } else {
+        final = res;
+      }
+      if (final) {
+        setReviewResultModal({
+          ...final,
+          task_id: taskId,
+          task_title: tasks.find((tk) => tk.id === taskId)?.title || final.task_title || `Task #${taskId}`,
+        });
+        // Refresh the row's button → from "⏳ Reviewing" to "✓ Reviewed"
+        // (linked to the new review's detail page) on next render.
+        setLatestReviewByTask((prev) => ({
+          ...prev,
+          [taskId]: { id: final!.id, task_id: taskId, status: final!.status, severity: final!.severity, findings_count: final!.findings_count },
+        }));
+      } else {
+        setError(`Review #${reviewId} timed out — open the task detail for the latest status.`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Review failed');
+    } finally {
+      setReviewingTaskIds((s) => { const n = new Set(s); n.delete(taskId); return n; });
     }
   }
 
@@ -1741,14 +1816,56 @@ export default function DashboardTasksPage() {
                   </span>
                 ) : (
                   <>
-                    {reviewsEnabled && (
-                      <button onClick={(e) => openReviewPicker(task.id, e.currentTarget)}
-                        title={t('reviews.runReview' as TranslationKey) || 'Run review'}
-                        data-review-trigger
-                        style={{ padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.4)', background: 'rgba(168,85,247,0.10)', color: '#c084fc', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        🔎 Review
-                      </button>
-                    )}
+                    {reviewsEnabled && (() => {
+                      const reviewing = reviewingTaskIds.has(task.id);
+                      const latest = latestReviewByTask[task.id];
+                      // Done review → swap to a colored "Reviewed" link
+                      // pointing at the dedicated detail page, so the
+                      // user can re-read findings instead of triggering
+                      // a duplicate run.
+                      if (latest && !reviewing && (latest.status === 'completed' || latest.status === 'failed')) {
+                        const sevColors: Record<string, string> = {
+                          critical: '#ef4444', high: '#f97316', medium: '#eab308',
+                          low: '#60a5fa', clean: '#22c55e',
+                        };
+                        const c = sevColors[latest.severity || 'clean'] || '#a78bfa';
+                        return (
+                          <Link href={`/dashboard/reviews/${latest.id}`}
+                            data-review-trigger
+                            title={t('reviews.openReview' as TranslationKey) || 'Open review'}
+                            style={{
+                              padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                              border: `1px solid ${c}55`,
+                              background: `${c}15`, color: c,
+                              textDecoration: 'none', whiteSpace: 'nowrap',
+                            }}>
+                            ✓ {t('reviews.reviewed' as TranslationKey) || 'Reviewed'}
+                            {latest.findings_count != null && latest.findings_count > 0 ? ` · ${latest.findings_count}` : ''}
+                          </Link>
+                        );
+                      }
+                      return (
+                        <button
+                          onClick={(e) => { if (!reviewing) openReviewPicker(task.id, e.currentTarget); }}
+                          disabled={reviewing}
+                          title={reviewing
+                            ? (t('reviews.inProgress' as TranslationKey) || 'Review in progress…')
+                            : (t('reviews.runReview' as TranslationKey) || 'Run review')}
+                          data-review-trigger
+                          style={{
+                            padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                            border: '1px solid rgba(168,85,247,0.4)',
+                            background: reviewing ? 'rgba(168,85,247,0.22)' : 'rgba(168,85,247,0.10)',
+                            color: '#c084fc',
+                            cursor: reviewing ? 'wait' : 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}>
+                          {reviewing
+                            ? `⏳ ${t('reviews.running' as TranslationKey) || 'Reviewing…'}`
+                            : `🔎 ${t('reviews.review' as TranslationKey) || 'Review'}`}
+                        </button>
+                      );
+                    })()}
                     <button onClick={() => void onAssignMCP(task.id)}
                       style={{ padding: '6px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       Run
@@ -1991,6 +2108,74 @@ export default function DashboardTasksPage() {
           t={t}
         />
       )}
+      {/* Review result modal — surfaces verdict + jump to detail page */}
+      {reviewResultModal && typeof document !== 'undefined' && createPortal(
+        (() => {
+          const r = reviewResultModal;
+          const sevColors: Record<string, string> = {
+            critical: '#ef4444', high: '#f97316', medium: '#eab308',
+            low: '#60a5fa', clean: '#22c55e',
+          };
+          const c = sevColors[r.severity || 'clean'] || '#a78bfa';
+          return (
+            <div onClick={() => setReviewResultModal(null)}
+              style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}>
+              <div onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: 'min(540px, calc(100vw - 24px))',
+                  borderRadius: 18, background: 'var(--surface)',
+                  border: `1px solid ${c}55`, padding: 24,
+                  boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+                  display: 'grid', gap: 14, maxHeight: '90vh', overflowY: 'auto',
+                }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 16,
+                  background: `${c}18`, border: `1px solid ${c}55`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 26, margin: '0 auto',
+                }}>{r.severity === 'clean' ? '✅' : '🔎'}</div>
+                <div style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>
+                  {t('reviews.completed' as TranslationKey) || 'Review completed'}
+                </div>
+                <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-50)', wordBreak: 'break-word' }}>
+                  {r.task_title}
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, background: `${c}22`, color: c, border: `1px solid ${c}55` }}>
+                    {r.severity || '—'}
+                  </span>
+                  <span style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--panel-alt)', color: 'var(--ink-78)', border: '1px solid var(--panel-border-2)' }}>
+                    {r.findings_count != null ? `${r.findings_count} ${t('reviews.findings' as TranslationKey) || 'findings'}` : '—'}
+                  </span>
+                  {r.score != null && (
+                    <span style={{ padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: 'var(--panel-alt)', color: 'var(--ink-78)', border: '1px solid var(--panel-border-2)' }}>
+                      {t('reviews.score' as TranslationKey) || 'Score'}: {r.score}
+                    </span>
+                  )}
+                </div>
+                {r.summary && (
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-2)', fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5, maxHeight: 200, overflowY: 'auto' }}>
+                    {r.summary}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 4 }}>
+                  <button onClick={() => setReviewResultModal(null)}
+                    style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                    {t('tasks.cancel' as TranslationKey) || 'Close'}
+                  </button>
+                  <Link href={`/dashboard/reviews/${r.id}`}
+                    onClick={() => setReviewResultModal(null)}
+                    style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                    {t('reviews.openDetails' as TranslationKey) || 'Open details'} →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        })(),
+        document.body,
+      )}
+
       {/* Delete confirmation modal */}
       {deleteConfirmTask && typeof document !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}

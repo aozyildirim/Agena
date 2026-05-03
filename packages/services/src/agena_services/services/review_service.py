@@ -468,20 +468,41 @@ async def _resolve_reviewer_model(db: AsyncSession, user_id: int, role: str) -> 
     return None, None
 
 
+_SEV_RANK = {'clean': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+
+
 def _parse_findings(output: str) -> tuple[int, int | None, str | None]:
     """Extract (findings_count, score, severity) from the markdown output.
-    The reviewer prompt asks for headings like '### Findings' or numbered
-    lists; we count them as a rough signal. Score and severity are extracted
-    from explicit lines if present.
+
+    The reviewer prompt asks for findings under a '### Findings' heading,
+    typically formatted as numbered + bold lines (`**1. Title**`,
+    `**2. Title**`, …). Earlier versions of this parser only matched
+    plain bullet/numbered lines and missed every bold-wrapped finding,
+    which is why a review with three real critical/high issues used to
+    return findings_count=0 + severity=clean.
+
+    Walk three formats so we don't miss anything: plain numbered (`1. `),
+    bullet (`- `, `* `), and bold-numbered (`**1. ` / `**1) `). Each
+    finding's own `Severity: …` line decides the overall severity (we
+    take the highest), with a content-keyword fallback for outputs that
+    forget to declare it.
 
     Returns (count, score, severity)."""
     if not output:
         return 0, None, None
 
-    # Count bullet / numbered findings
-    bullets = re.findall(r'^\s*[-*]\s+\S', output, re.MULTILINE)
-    numbered = re.findall(r'^\s*\d+\.\s+\S', output, re.MULTILINE)
-    count = len(bullets) + len(numbered)
+    # Findings count. Bold-numbered (`**1. Title**`) is the primary
+    # format our reviewer prompts produce — when we see them, they ARE
+    # the findings and bullets/sub-points underneath are evidence, NOT
+    # additional findings. Only fall back to plain bullets/numbered when
+    # no bold-numbered headers exist (free-form output).
+    bold_numbered = re.findall(r'^\s*\*\*\d+[.)]\s+', output, re.MULTILINE)
+    if bold_numbered:
+        count = len(bold_numbered)
+    else:
+        bullets = re.findall(r'^\s*[-*]\s+\S', output, re.MULTILINE)
+        numbered = re.findall(r'^\s*\d+[.)]\s+\S', output, re.MULTILINE)
+        count = max(len(numbered), len(bullets))
 
     score: int | None = None
     score_match = re.search(r'(?:score|verdict|confidence)[:=]?\s*(\d{1,3})', output, re.IGNORECASE)
@@ -494,9 +515,22 @@ def _parse_findings(output: str) -> tuple[int, int | None, str | None]:
             pass
 
     severity: str | None = None
-    sev_match = re.search(r'severity[:=]?\s*(critical|high|medium|low|clean)', output, re.IGNORECASE)
-    if sev_match:
-        severity = sev_match.group(1).lower()
+    # Pick up every per-finding Severity: <level> line and rank-merge —
+    # the reviewer often emits one per finding, and we want the highest.
+    # `\W*` between colon and the level token tolerates `**Critical**`
+    # and similar markdown bolding.
+    sev_matches = re.findall(
+        r'severity[:=]?\W*(critical|high|medium|low|clean)',
+        output,
+        flags=re.IGNORECASE,
+    )
+    if sev_matches:
+        ranked = sorted(
+            (m.lower() for m in sev_matches),
+            key=lambda s: _SEV_RANK.get(s, -1),
+            reverse=True,
+        )
+        severity = ranked[0]
     elif count == 0:
         severity = 'clean'
     elif re.search(r'\b(critical|cve|rce|sql\s*injection|sqli|xss|ssrf|auth\s*bypass)\b', output, re.IGNORECASE):
