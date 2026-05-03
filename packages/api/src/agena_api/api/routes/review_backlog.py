@@ -1,8 +1,19 @@
 """/review-backlog — PRs sitting unreviewed past warn/critical thresholds."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
+
+
+def _utc(dt: datetime | None) -> datetime | None:
+    """Tag naive datetimes (everything we store is naive UTC) with tz so
+    `isoformat()` emits `+00:00` and JS Date parses as UTC. Without this,
+    naive ISO strings get interpreted in the browser's local TZ — which
+    in TR (UTC+3) made the cooldown timer 3h ahead, enabling the nudge
+    button while the server still saw it as in-cooldown."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -175,8 +186,8 @@ async def list_backlog(
             pr_provider=pr.provider, pr_status=pr.status, pr_url=pr_url,
             repo_mapping_id=n.repo_mapping_id, repo_display_name=repo_display or None,
             age_hours=n.age_hours, severity=n.severity, nudge_count=n.nudge_count,
-            last_nudged_at=n.last_nudged_at, last_nudge_channel=n.last_nudge_channel,
-            escalated_at=n.escalated_at, resolved_at=n.resolved_at,
+            last_nudged_at=_utc(n.last_nudged_at), last_nudge_channel=n.last_nudge_channel,
+            escalated_at=_utc(n.escalated_at), resolved_at=_utc(n.resolved_at),
         ))
     return out
 
@@ -208,5 +219,5 @@ async def nudge(
         'ok': status != 'rate_limited',
         'status': status,  # sent | rate_limited | comment_failed
         'nudge_count': n.nudge_count,
-        'last_nudged_at': n.last_nudged_at.isoformat() if n.last_nudged_at else None,
+        'last_nudged_at': _utc(n.last_nudged_at).isoformat() if n.last_nudged_at else None,
     }
