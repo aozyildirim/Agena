@@ -19,6 +19,28 @@ type ProfileSettings = {
   notification_preferences: Record<string, { in_app: boolean; email: boolean; web_push: boolean }>;
 };
 
+// Provider + model dropdown options. Splitting these out so the profile
+// form stops being a free-text trap — the previous version saved
+// whatever the user typed, which is how `preferred_provider="openai"`
+// got stuck on accounts that had no OpenAI integration plugged in.
+const PROVIDER_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'claude_cli', label: 'Claude CLI (subscription)' },
+  { value: 'codex_cli', label: 'Codex CLI (subscription)' },
+  { value: 'openai', label: 'OpenAI (API key)' },
+  { value: 'anthropic', label: 'Anthropic (API key)' },
+  { value: 'gemini', label: 'Google Gemini (API key)' },
+  { value: 'hal', label: 'HAL (self-hosted)' },
+];
+
+const MODELS_BY_PROVIDER: Record<string, string[]> = {
+  claude_cli: ['sonnet', 'opus', 'haiku'],
+  codex_cli: ['gpt-5', 'gpt-5-mini'],
+  openai: ['gpt-5', 'gpt-4.1', 'gpt-4o', 'o3-mini'],
+  anthropic: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+  hal: ['hal'],
+};
+
 const EVENT_PREF_DEFAULTS: Record<string, { in_app: boolean; email: boolean; web_push: boolean }> = {
   task_queued: { in_app: true, email: false, web_push: false },
   task_running: { in_app: true, email: false, web_push: false },
@@ -221,17 +243,24 @@ export default function ProfilePage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <ProfileInput
+            <ProfileSelect
               label={t('profile.preferredProvider')}
               value={profileSettings.preferred_provider}
-              onChange={(v) => patch('preferred_provider', v)}
-              placeholder={t('profile.preferredProviderPlaceholder')}
+              onChange={(v) => {
+                // Switching provider also resets the model to that
+                // provider's default so a stale "gpt-5" doesn't follow
+                // the user into Claude CLI and silently break runs.
+                const fallbackModel = MODELS_BY_PROVIDER[v]?.[0] || profileSettings.preferred_model;
+                setProfileSettings((p) => ({ ...p, preferred_provider: v, preferred_model: fallbackModel }));
+                setDirty(true);
+              }}
+              options={PROVIDER_OPTIONS}
             />
-            <ProfileInput
+            <ProfileSelect
               label={t('profile.preferredModel')}
               value={profileSettings.preferred_model}
               onChange={(v) => patch('preferred_model', v)}
-              placeholder={t('profile.preferredModelPlaceholder')}
+              options={(MODELS_BY_PROVIDER[profileSettings.preferred_provider] || MODELS_BY_PROVIDER.openai).map((m) => ({ value: m, label: m }))}
             />
           </div>
 
@@ -376,6 +405,44 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
         <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff' }} />
       </span>
     </button>
+  );
+}
+
+function ProfileSelect({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <div>
+      <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', display: 'block', marginBottom: 6 }}>
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%', padding: '10px 12px', borderRadius: 10,
+          border: '1px solid var(--panel-border-3)',
+          background: 'var(--glass)', color: 'var(--ink-90)',
+          fontSize: 13, outline: 'none', boxSizing: 'border-box',
+          cursor: 'pointer',
+        }}
+      >
+        {/* Show the saved value even if it's not in the options list, so
+            we never silently mutate stored settings the first time the
+            user opens the page after a release. */}
+        {options.some((o) => o.value === value) ? null : (
+          <option value={value}>{value} (custom)</option>
+        )}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
   );
 }
 

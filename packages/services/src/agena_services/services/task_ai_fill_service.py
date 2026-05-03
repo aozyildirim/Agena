@@ -117,6 +117,22 @@ async def _user_preferred_provider(db: AsyncSession, user_id: int) -> tuple[str 
     return (p if isinstance(p, str) and p else None), (m if isinstance(m, str) and m else None)
 
 
+async def _resolve_org_default(db: AsyncSession, organization_id: int) -> str:
+    """Pick a sensible default provider when neither the request nor the
+    user's preferred_provider names one. Probes the org's configured
+    integrations in order: hosted-LLM keys first (anthropic > openai >
+    gemini), then claude_cli (always available locally if the bridge is
+    reachable). Falls back to claude_cli so the user gets a CLI-bridge
+    error instead of an opaque "openai not configured" when they haven't
+    plugged any hosted credentials in."""
+    integration_service = IntegrationConfigService(db)
+    for prov in ('anthropic', 'openai', 'gemini'):
+        cfg = await integration_service.get_config(organization_id, prov)
+        if cfg and (cfg.secret or '').strip():
+            return prov
+    return 'claude_cli'
+
+
 async def _run_cli(*, cli_provider: str, model: str, prompt: str) -> str:
     """Round-trip the prompt through the host CLI bridge. read_only sandbox
     + /tmp repo path: the CLI doesn't need to touch a repo for this call,
@@ -143,9 +159,16 @@ async def _run_cli(*, cli_provider: str, model: str, prompt: str) -> str:
         raise RuntimeError(f'CLI bridge timed out after {timeout}s') from exc
     except (httpx.RequestError, ValueError) as exc:
         raise RuntimeError(f'CLI bridge error: {exc}') from exc
+    stdout = (data.get('stdout') or '').strip()
+    # Bridge marks status='error' whenever the CLI exits with non-zero,
+    # but claude often emits an OpenSSL CA-bundle warning and STILL writes
+    # the answer to stdout. If we have a non-empty stdout, prefer it over
+    # the stderr noise — only raise when stdout is genuinely empty.
+    if stdout:
+        return stdout
     if data.get('status') != 'ok':
         raise RuntimeError(f'{cli} bridge: {data.get("message", data.get("stderr", "unknown"))}')
-    return (data.get('stdout') or '').strip()
+    raise RuntimeError(f'{cli} bridge returned empty output')
 
 
 async def fill(
@@ -167,7 +190,13 @@ async def fill(
     settings = get_settings()
     integration_service = IntegrationConfigService(db)
     pref_provider, pref_model = await _user_preferred_provider(db, user_id)
-    chosen = (provider or pref_provider or 'openai').strip().lower()
+    explicit = (provider or '').strip().lower()
+    if explicit:
+        chosen = explicit
+    elif pref_provider:
+        chosen = pref_provider.strip().lower()
+    else:
+        chosen = await _resolve_org_default(db, organization_id)
     chosen_model = (model or pref_model or '').strip()
 
     user_prompt = _build_user_prompt(title, description)
@@ -177,6 +206,20 @@ async def fill(
     used_provider = chosen
     used_model = chosen_model or 'auto'
 
+    # If the chosen hosted provider has no credentials configured, fall
+    # back to the CLI bridge so the request still succeeds — many users
+    # set preferred_provider before plugging in API keys, and the CLI
+    # bridge is always available locally for development.
+    if chosen in {'openai', 'anthropic', 'gemini'}:
+        cfg_for_check = await integration_service.get_config(organization_id, chosen)
+        api_key_for_check = ((cfg_for_check.secret if cfg_for_check else '') or '').strip()
+        if not api_key_for_check:
+            logger.info(
+                'AI fill: %s not configured for org %s — falling back to claude_cli',
+                chosen, organization_id,
+            )
+            chosen = 'claude_cli'
+
     if chosen in ('claude_cli', 'codex_cli'):
         # Default model labels match the CLI bridge's expectations.
         cli_model = chosen_model or ('sonnet' if chosen == 'claude_cli' else 'gpt-5')
@@ -185,6 +228,7 @@ async def fill(
             model=cli_model,
             prompt=full_prompt,
         )
+        used_provider = chosen
         used_model = cli_model
     else:
         provider_norm = chosen if chosen in {'openai', 'anthropic', 'gemini'} else 'openai'
