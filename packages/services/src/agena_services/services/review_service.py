@@ -141,11 +141,28 @@ async def _fetch_pr_diff_for_review(
     #   web URL:    https://dev.azure.com/{org}/{project}/_git/{repo}/pullrequest/{prId}
     #   API URL:    https://dev.azure.com/{org}/{projectGuid}/_apis/git/repositories/{repoGuid}/pullRequests/{prId}
     #   on-prem:    https://{org}.visualstudio.com/{project}/_git/{repo}/pullrequest/{prId}
-    az_match = re.search(
-        r'_git/([^/]+)/pullrequest/(\d+)', pr_url, re.IGNORECASE,
-    ) or re.search(
-        r'_apis/git/repositories/([^/]+)/pullRequests?/(\d+)', pr_url, re.IGNORECASE,
+    #
+    # Project segment matters: Azure's `/_apis/git/repositories/{repoName}`
+    # endpoint resolves repos by NAME only when the path is scoped to a
+    # project (`{org}/{project}/_apis/...`). Without the project, Azure
+    # only resolves repos by GUID — so a web URL like .../_git/orkestra/
+    # pullrequest/N would 404 the diff fetch and we'd silently fall back
+    # to "no diff", which makes the reviewer read the whole file instead
+    # of focusing on the changed lines.
+    az_web_match = re.search(
+        r'/([^/]+)/_git/([^/]+)/pullrequest/(\d+)', pr_url, re.IGNORECASE,
     )
+    az_api_match = re.search(
+        r'/([^/]+)/_apis/git/repositories/([^/]+)/pullRequests?/(\d+)',
+        pr_url, re.IGNORECASE,
+    )
+    az_match: tuple[str, str, str] | None = None
+    if az_web_match:
+        # web URL: groups = (project, repo_name, pr_id)
+        az_match = (az_web_match.group(1), az_web_match.group(2), az_web_match.group(3))
+    elif az_api_match:
+        # API URL: groups = (project_guid, repo_guid, pr_id)
+        az_match = (az_api_match.group(1), az_api_match.group(2), az_api_match.group(3))
     if az_match:
         from sqlalchemy import select
         cfg = (await db.execute(
@@ -156,19 +173,23 @@ async def _fetch_pr_diff_for_review(
         )).scalar_one_or_none()
         if not cfg or not cfg.secret:
             return '', ''
-        repo_id = az_match.group(1)
-        pr_id = az_match.group(2)
+        project, repo_id, pr_id = az_match
         org_url = (cfg.base_url or '').rstrip('/')
         if not org_url:
             return '', ''
         import base64 as _b64
+        from urllib.parse import quote as _q
         auth = _b64.b64encode(f':{cfg.secret}'.encode()).decode()
         headers = {'Authorization': f'Basic {auth}', 'Accept': 'application/json'}
+        proj_seg = _q(project, safe='') if project else ''
+        # Project-scoped path resolves repos by name; GUID-only also works
+        # at /_apis directly but the project-scoped path is a safe superset.
+        api_base = f'{org_url}/{proj_seg}' if proj_seg else org_url
         try:
             async with httpx.AsyncClient(timeout=20) as client:
                 # 1) Resolve PR to get latest iteration
                 pr_resp = await client.get(
-                    f'{org_url}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}'
+                    f'{api_base}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}'
                     f'?api-version=7.1-preview.1',
                     headers=headers,
                 )
@@ -178,7 +199,7 @@ async def _fetch_pr_diff_for_review(
                 pr_title = str(pr_meta.get('title') or '').strip()
                 # 2) List iterations, pick the highest id
                 iters_resp = await client.get(
-                    f'{org_url}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}/iterations'
+                    f'{api_base}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}/iterations'
                     f'?api-version=7.1-preview.1',
                     headers=headers,
                 )
@@ -190,7 +211,7 @@ async def _fetch_pr_diff_for_review(
                 iter_id = max(int(i.get('id', 0) or 0) for i in iters if isinstance(i, dict))
                 # 3) Fetch changes for that iteration
                 ch_resp = await client.get(
-                    f'{org_url}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}'
+                    f'{api_base}/_apis/git/repositories/{repo_id}/pullrequests/{pr_id}'
                     f'/iterations/{iter_id}/changes?api-version=7.1-preview.1',
                     headers=headers,
                 )
@@ -744,17 +765,39 @@ async def _run_review_background(
             # stay focused on those files. Otherwise Claude tends to
             # grep the whole repo trying to figure out what was changed,
             # which turns a 30-second review into a 5-minute one.
-            scope_hint = (
-                'IMPORTANT: Review ONLY the files shown in the Diff section above. '
-                "Do NOT scan unrelated parts of the repo — read only what's needed "
-                'to evaluate those specific changes. Use Read on the listed files '
-                'when you need full context for a finding.\n\n'
-                if diff_text else
-                'IMPORTANT: This task has no PR diff attached. Read the branch '
-                f'`{task.branch_name or ""}` against base if available, otherwise '
-                'evaluate the description. Keep the review tight and avoid '
-                'wandering across the whole repo.\n\n'
-            )
+            #
+            # Azure's diff section is just a file list (no line content),
+            # so we explicitly tell the CLI reviewer to run `git diff`
+            # itself for the actual hunks — Bash(git:*) is whitelisted
+            # in the read-only sandbox. GitHub's diff section already
+            # carries the unified diff, so no extra git invocation
+            # needed there.
+            branch = (task.branch_name or '').strip()
+            git_diff_hint = ''
+            if branch and (not diff_text or diff_source.startswith('azure:')):
+                git_diff_hint = (
+                    f'When you need the actual changed lines, run '
+                    f'`git diff origin/HEAD...{branch}` (or `git diff '
+                    f'origin/master...{branch}` if HEAD ref is missing) '
+                    f'inside the repo. Review the diff hunks the same way '
+                    f'you would on a code-review platform — do not just '
+                    f'read the whole files. '
+                )
+            if diff_text:
+                scope_hint = (
+                    'IMPORTANT: Review ONLY the files shown in the Diff section above. '
+                    'Focus on the LINES that changed, not the entire file. '
+                    f'{git_diff_hint}'
+                    "Do NOT scan unrelated parts of the repo. Use Read on the "
+                    'listed files only when you need surrounding context to '
+                    'evaluate a specific changed line.\n\n'
+                )
+            else:
+                scope_hint = (
+                    'IMPORTANT: This task has no PR diff attached. '
+                    f'{git_diff_hint or f"Read the branch `{branch}` against base if available, otherwise evaluate the description. "}'
+                    'Keep the review tight and avoid wandering across the whole repo.\n\n'
+                )
             # Resolve the user's preferred output language. Drives the
             # natural-language part of the report (Summary, finding text)
             # while leaving code identifiers / file paths intact. Falls
