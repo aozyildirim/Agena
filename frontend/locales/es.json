@@ -3510,5 +3510,6 @@
   "dora.githubRepo": "Repo de GitHub",
   "integrations.saveDatadogConfig": "Guardar config Datadog",
   "integrations.deleteDatadogConnection": "Eliminar conexión Datadog",
-  "integrations.saveTelegram": "Guardar Telegram"
+  "integrations.saveTelegram": "Guardar Telegram",
+  "admin.tab.seo": "SEO"
 }

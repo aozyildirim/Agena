@@ -3510,5 +3510,6 @@
   "dora.githubRepo": "GitHub リポジトリ",
   "integrations.saveDatadogConfig": "Datadog 設定を保存",
   "integrations.deleteDatadogConnection": "Datadog 接続を削除",
-  "integrations.saveTelegram": "Telegram を保存"
+  "integrations.saveTelegram": "Telegram を保存",
+  "admin.tab.seo": "SEO"
 }

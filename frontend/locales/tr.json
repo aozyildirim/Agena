@@ -3384,7 +3384,7 @@
   "triage.set.enabledHint": "Kapalıyken haftalık tarama hiçbir şey yapmaz.",
   "triage.set.idleDaysHint": "Bir ticket triage kuyruğuna girmek için bu kadar süre dokunulmadan kalmalı.",
   "triage.set.maxAge": "Geri bakış penceresi",
-  "triage.set.maxAgeHint": "Tarama ne kadar eskiye baksın. Bu yaştan eski ticket\u0027lar atlanır — 2019 hayalet ticket\u0027ları görmek istemezsin.",
+  "triage.set.maxAgeHint": "Tarama ne kadar eskiye baksın. Bu yaştan eski ticket'lar atlanır — 2019 hayalet ticket'ları görmek istemezsin.",
   "triage.set.maxAge.none": "Sınır yok",
   "triage.set.scheduleHint": "Zamanlama",
   "triage.set.scheduleSubhint": "AI hangi sıklıkta stale ticket'ları değerlendirsin. UTC.",
@@ -3510,5 +3510,6 @@
   "dora.githubRepo": "GitHub deposu",
   "integrations.saveDatadogConfig": "Datadog ayarını kaydet",
   "integrations.deleteDatadogConnection": "Datadog bağlantısını sil",
-  "integrations.saveTelegram": "Telegram'ı kaydet"
+  "integrations.saveTelegram": "Telegram'ı kaydet",
+  "admin.tab.seo": "SEO"
 }

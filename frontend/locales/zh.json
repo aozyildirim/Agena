@@ -3510,5 +3510,6 @@
   "dora.githubRepo": "GitHub 仓库",
   "integrations.saveDatadogConfig": "保存 Datadog 配置",
   "integrations.deleteDatadogConnection": "删除 Datadog 连接",
-  "integrations.saveTelegram": "保存 Telegram"
+  "integrations.saveTelegram": "保存 Telegram",
+  "admin.tab.seo": "SEO"
 }
