@@ -500,6 +500,16 @@ export default function RefinementPage() {
   const [repoMappingId, setRepoMappingId] = useState<string>('');
   const [runModalAdvanced, setRunModalAdvanced] = useState(false);
 
+  // ── Import-to-tasks (mirrors the sprints page flow) ─────────────────
+  // taskMapByExternalId tracks which refinement items already have a
+  // TaskRecord row, so we can grey out the Import button. importPicker*
+  // drives the modal for picking a repo mapping before the actual POST.
+  const [taskMapByExternalId, setTaskMapByExternalId] = useState<Record<string, number>>({});
+  const [taskStatusByExternalId, setTaskStatusByExternalId] = useState<Record<string, string>>({});
+  const [importPickerItem, setImportPickerItem] = useState<ExternalTask | null>(null);
+  const [importPickerRepoId, setImportPickerRepoId] = useState<string>('');
+  const [importingId, setImportingId] = useState<string>('');
+
   const [azureProjects, setAzureProjects] = useState<Opt[]>([]);
   const [azureTeams, setAzureTeams] = useState<Opt[]>([]);
   const [azureSprints, setAzureSprints] = useState<Opt[]>([]);
@@ -618,6 +628,99 @@ export default function RefinementPage() {
       }
     })();
   }, []);
+
+  // Walk /tasks/search for previously-imported items so the row can show
+  // an "imported" pill instead of the Import button. Same shape as sprints
+  // page: tasks tagged source=azure|jira, plus older source=internal
+  // entries whose title still encodes the work item id.
+  const loadExistingImports = useCallback(async () => {
+    try {
+      type SearchRow = { id: number; source: string; external_id?: string | null; title?: string; status: string };
+      type SearchResp = { items: SearchRow[]; total: number };
+      const providerQs = new URLSearchParams({ source: provider, page: '1', page_size: '200' });
+      const internalQs = new URLSearchParams({ source: 'internal', page: '1', page_size: '200' });
+      const [tagged, internal] = await Promise.all([
+        apiFetch<SearchResp>(`/tasks/search?${providerQs.toString()}`).catch(() => ({ items: [], total: 0 })),
+        apiFetch<SearchResp>(`/tasks/search?${internalQs.toString()}`).catch(() => ({ items: [], total: 0 })),
+      ]);
+      const idMap: Record<string, number> = {};
+      const stMap: Record<string, string> = {};
+      for (const row of tagged.items || []) {
+        if (row.external_id) {
+          idMap[row.external_id] = row.id;
+          stMap[row.external_id] = row.status;
+        }
+      }
+      const titlePrefix = provider === 'jira' ? 'Jira' : 'Azure';
+      const titleRe = new RegExp(`^\\[${titlePrefix}\\s*#([^\\]\\s]+)\\]`);
+      for (const row of internal.items || []) {
+        const m = row.title ? titleRe.exec(row.title) : null;
+        if (m && m[1] && !idMap[m[1]]) {
+          idMap[m[1]] = row.id;
+          stMap[m[1]] = row.status;
+        }
+      }
+      setTaskMapByExternalId(idMap);
+      setTaskStatusByExternalId(stMap);
+    } catch {
+      // Non-fatal — pills just won't populate.
+    }
+  }, [provider]);
+
+  useEffect(() => { void loadExistingImports(); }, [loadExistingImports]);
+
+  function requestImportSingleItem(item: ExternalTask) {
+    if (taskMapByExternalId[item.id]) {
+      setError(t('refinement.alreadyImported' as Parameters<typeof t>[0]) || 'Already imported');
+      return;
+    }
+    if (repoMappings.length === 0) {
+      setError(t('refinement.noRepoMapping' as Parameters<typeof t>[0]) || 'No repo mapping yet — add one from /dashboard/mappings');
+      return;
+    }
+    if (!importPickerRepoId && repoMappings[0]) {
+      setImportPickerRepoId(String(repoMappings[0].id));
+    }
+    setImportPickerItem(item);
+  }
+
+  async function importSingleItem(
+    item: ExternalTask,
+    mapping: { id: number; display_name: string; provider: string; owner: string; repo_name: string } | undefined,
+  ) {
+    if (taskMapByExternalId[item.id]) return;
+    if (!mapping?.id) {
+      setError(t('refinement.noRepoMapping' as Parameters<typeof t>[0]) || 'Pick a repo first');
+      return;
+    }
+    setImportingId(item.id);
+    try {
+      const desc = String(item.description || '').trim();
+      const ctxParts = [
+        `External Source: ${provider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
+        'Prompt Instruction: Read any images in the task description and include their context in your analysis.',
+        `Local Repo Mapping: ${mapping.display_name || `${mapping.owner}/${mapping.repo_name}`}`,
+      ].filter(Boolean);
+      type TaskRecord = { id: number; status: string };
+      const created = await apiFetch<TaskRecord>('/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: `[${provider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`,
+          description: `${desc || '(no description)'}\n\n---\n${ctxParts.join('\n')}`,
+          source: provider,
+          external_id: String(item.id),
+          ...(item.assigned_to ? { assigned_to: item.assigned_to } : {}),
+          repo_mapping_ids: [mapping.id],
+        }),
+      });
+      setTaskMapByExternalId((prev) => ({ ...prev, [item.id]: created.id }));
+      setTaskStatusByExternalId((prev) => ({ ...prev, [item.id]: created.status || 'new' }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setImportingId('');
+    }
+  }
 
   // Re-attach to a refinement that was started in a previous mount of
   // this page. Source of truth = the backend's active jobs list; we use
@@ -2048,6 +2151,49 @@ export default function RefinementPage() {
                             </div>
                           )}
                           {isWrittenBack && <span style={{ ...writtenBadge, fontSize: 9, padding: '1px 6px' }}>{copy.writtenBack}</span>}
+                          {(() => {
+                            const importedTaskId = taskMapByExternalId[item.id];
+                            const importedStatus = taskStatusByExternalId[item.id];
+                            if (importedTaskId) {
+                              return (
+                                <a
+                                  href={`/dashboard/tasks/${importedTaskId}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    fontSize: 11, fontWeight: 700,
+                                    padding: '4px 10px', borderRadius: 8,
+                                    border: '1px solid rgba(34,197,94,0.35)',
+                                    background: 'rgba(34,197,94,0.08)',
+                                    color: '#22c55e',
+                                    textDecoration: 'none',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={`#${importedTaskId} · ${importedStatus || ''}`}
+                                >
+                                  ✓ {t('refinement.imported' as Parameters<typeof t>[0]) || 'Imported'}
+                                </a>
+                              );
+                            }
+                            const isImporting = importingId === item.id;
+                            return (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); requestImportSingleItem(item); }}
+                                disabled={isImporting}
+                                style={{
+                                  fontSize: 11, fontWeight: 700,
+                                  padding: '4px 10px', borderRadius: 8,
+                                  border: '1px solid rgba(13,148,136,0.45)',
+                                  background: isImporting ? 'rgba(13,148,136,0.20)' : 'rgba(13,148,136,0.10)',
+                                  color: '#0d9488',
+                                  cursor: isImporting ? 'wait' : 'pointer',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={t('refinement.importToTasks' as Parameters<typeof t>[0]) || 'Import to Tasks'}
+                              >
+                                {isImporting ? `⏳` : `📥 ${t('refinement.import' as Parameters<typeof t>[0]) || 'Import'}`}
+                              </button>
+                            );
+                          })()}
                           {!estimated && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setRunModal({ itemIds: [item.id], single: true }); }}
@@ -2911,6 +3057,95 @@ export default function RefinementPage() {
                   );
                 })}
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* Import repo picker (portaled). Same shape as sprints. */}
+      {importPickerItem && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setImportPickerItem(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 460, maxWidth: '100%', maxHeight: '90vh',
+              background: 'var(--surface)', color: 'var(--ink-90)',
+              border: '1px solid var(--panel-border-3)', borderRadius: 14,
+              padding: 18, boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+              display: 'flex', flexDirection: 'column', minHeight: 0,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 4 }}>
+              {t('refinement.importRepoPicker.label' as Parameters<typeof t>[0]) || 'Pick a repo'}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 2, lineHeight: 1.35 }}>
+              {`[${provider === 'jira' ? 'Jira' : 'Azure'} #${importPickerItem.id}] ${importPickerItem.title}`}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-55)', marginBottom: 14 }}>
+              {t('refinement.importRepoPicker.hint' as Parameters<typeof t>[0]) || 'The imported task will be wired to this repo for code-aware planning.'}
+            </div>
+            <div style={{ display: 'grid', gap: 6, overflowY: 'auto', marginBottom: 14, minHeight: 0, flex: 1 }}>
+              {repoMappings.map((m) => {
+                const selected = String(m.id) === importPickerRepoId;
+                return (
+                  <label
+                    key={m.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                      borderRadius: 8, border: '1px solid ' + (selected ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-2)'),
+                      background: selected ? 'rgba(13,148,136,0.1)' : 'var(--panel-alt)',
+                      cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)',
+                    }}
+                  >
+                    <input
+                      type='radio'
+                      name='refinement-import-repo'
+                      checked={selected}
+                      onChange={() => setImportPickerRepoId(String(m.id))}
+                      style={{ accentColor: '#0d9488', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--ink-90)' }}>{m.display_name || `${m.owner}/${m.repo_name}`}</span>
+                      <span style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(m.provider || '').toLowerCase()} · {m.owner}/{m.repo_name}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                type='button'
+                className='button button-outline'
+                onClick={() => setImportPickerItem(null)}
+                style={{ fontSize: 12 }}
+              >
+                {t('tasks.cancel' as Parameters<typeof t>[0]) || 'Cancel'}
+              </button>
+              <button
+                type='button'
+                className='button button-primary'
+                disabled={!importPickerRepoId}
+                onClick={() => {
+                  const picked = repoMappings.find((m) => String(m.id) === importPickerRepoId);
+                  const target = importPickerItem;
+                  setImportPickerItem(null);
+                  if (target) void importSingleItem(target, picked);
+                }}
+                style={{ fontSize: 12 }}
+              >
+                {t('refinement.import' as Parameters<typeof t>[0]) || 'Import'}
+              </button>
             </div>
           </div>
         </div>,
