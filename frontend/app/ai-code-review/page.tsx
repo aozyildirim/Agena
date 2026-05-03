@@ -146,9 +146,9 @@ export default function AICodeReviewPage() {
         </div>
       </section>
 
-      <section style={{ padding: 24, borderRadius: 16, background: 'var(--panel)', border: '1px solid var(--panel-border)' }}>
+      <section style={{ padding: 'clamp(14px, 4vw, 24px)', borderRadius: 16, background: 'var(--panel)', border: '1px solid var(--panel-border)' }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Sample reviewer output</h2>
-        <pre style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, color: 'var(--ink-78)', background: 'rgba(0,0,0,0.2)', padding: 16, borderRadius: 10, overflowX: 'auto', lineHeight: 1.6, margin: 0 }}>{`### Summary
+        <pre style={{ fontFamily: 'ui-monospace, monospace', fontSize: 'clamp(10px, 2.6vw, 12px)', color: 'var(--ink-78)', background: 'rgba(0,0,0,0.2)', padding: 'clamp(12px, 3vw, 16px)', borderRadius: 10, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{`### Summary
 The patch fixes the off-by-one in pagination but introduces a SQL string concat that is reachable from /api/orders.
 
 ### Findings
