@@ -571,11 +571,53 @@ async def process_queue() -> None:
             active_tasks.add(task)
             task.add_done_callback(active_tasks.discard)
 
+        # Reviews live on a separate queue so a long agent run doesn't
+        # starve a quick code review (and vice-versa). Drain whatever's
+        # there each loop with a short timeout — keeps the main task
+        # poll responsive without spawning a second loop / process.
+        review_queue_name = settings.redis_review_queue_name
+        while len(active_tasks) < max_workers:
+            review_payload = await queue_service.dequeue(
+                queue_name=review_queue_name, timeout=0,
+            )
+            if not review_payload:
+                break
+            task = asyncio.create_task(_run_review_safe(review_payload))
+            active_tasks.add(task)
+            task.add_done_callback(active_tasks.discard)
+
         if not active_tasks:
             await asyncio.sleep(1)
             continue
 
         await asyncio.sleep(0.2)
+
+
+async def _run_review_safe(payload: dict) -> None:
+    """Drive a review row through the reviewer pipeline. Wraps
+    review_service._run_review_background, which already handles its own
+    DB session, prompt build, CLI bridge / hosted LLM call and findings
+    parse. Failures land as `failed` on the row plus a logger.exception
+    so the operator can dig in without losing the queue item."""
+    from agena_services.services.review_service import _run_review_background
+    review_id = int(payload.get('review_id') or 0)
+    org_id = int(payload.get('organization_id') or 0)
+    t_id = int(payload.get('task_id') or 0)
+    user_id = int(payload.get('requested_by_user_id') or 0)
+    role_norm = str(payload.get('role_norm') or 'reviewer')
+    if not (review_id and org_id and t_id):
+        logger.warning('review payload missing required fields: %s', payload)
+        return
+    try:
+        await _run_review_background(
+            review_id=review_id,
+            organization_id=org_id,
+            task_id=t_id,
+            requested_by_user_id=user_id,
+            role_norm=role_norm,
+        )
+    except Exception:
+        logger.exception('Review job failed payload=%s', payload)
 
 
 async def _run_safe(payload: dict) -> None:

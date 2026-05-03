@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     redis_db: int = Field(default=0, alias='REDIS_DB')
     redis_password: Optional[str] = Field(default=None, alias='REDIS_PASSWORD')
     redis_queue_name: str = Field(default='agent_tasks', alias='REDIS_QUEUE_NAME')
+    redis_review_queue_name: str = Field(default='agent_reviews', alias='REDIS_REVIEW_QUEUE_NAME')
     max_workers: int = Field(default=8, alias='MAX_WORKERS')
     queue_lock_max_retries: int = Field(default=20, alias='QUEUE_LOCK_MAX_RETRIES')
     task_running_timeout_minutes: int = Field(default=180, alias='TASK_RUNNING_TIMEOUT_MINUTES')

@@ -676,19 +676,26 @@ async def trigger_review(
     await db.commit()
     await db.refresh(review)
 
-    # Detach: spawn a background task with its own DB session. The HTTP
-    # request's session closes when this function returns; using it from
-    # a long-running task would race with the response cycle.
-    bg = asyncio.create_task(_run_review_background(
-        review_id=review.id,
-        organization_id=organization_id,
-        task_id=task.id,
-        requested_by_user_id=requested_by_user_id,
-        role_norm=role_norm,
-    ))
-    _REVIEW_BG_TASKS.add(bg)
-    bg.add_done_callback(_REVIEW_BG_TASKS.discard)
-
+    # Hand the work off to the worker via Redis so backend deploys /
+    # restarts don't kill an in-flight review. The worker drains
+    # `redis_review_queue_name` in parallel with the main task queue
+    # and runs `_run_review_background` from this module. The DB row
+    # still goes out as 'running'; the worker flips it to completed/
+    # failed when it's done.
+    from agena_core.settings import get_settings as _get_settings
+    from agena_services.services.queue_service import QueueService
+    queue = QueueService()
+    await queue.enqueue(
+        {
+            'type': 'review',
+            'review_id': review.id,
+            'organization_id': organization_id,
+            'task_id': task.id,
+            'requested_by_user_id': requested_by_user_id,
+            'role_norm': role_norm,
+        },
+        queue_name=_get_settings().redis_review_queue_name,
+    )
     return review
 
 
