@@ -24,35 +24,33 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/sentry-ai-auto-fix',
     title: 'Sentry AI Auto-Fix — Production Errors → Merged PR | AGENA',
-    description: 'Imports a Sentry issue, runs an AI reviewer, opens a PR, resolves the Sentry issue on merge. Setup in 5 minutes.',
-    images: ['/og-image.png'],
-  },
+    description: 'Imports a Sentry issue, runs an AI reviewer, opens a PR, resolves the Sentry issue on merge. Setup in 5 minutes.',  }
 };
 
 const FAQ = [
   {
     q: 'How does AGENA fix Sentry errors automatically?',
-    a: 'AGENA polls your Sentry organization for unresolved issues, parses the stack trace and reproduction context, runs the AI agent pipeline (analyzer → planner → developer → reviewer), opens a pull request on GitHub or Azure DevOps with the patch, and posts a comment back on the Sentry issue with the PR URL. When the PR is merged, the Sentry issue is auto-resolved via webhook.',
+    a: 'AGENA polls your Sentry organization for unresolved issues, parses the stack trace and reproduction context, runs the AI agent pipeline (analyzer → planner → developer → reviewer), opens a pull request on GitHub or Azure DevOps with the patch, and posts a comment back on the Sentry issue with the PR URL. When the PR is merged, the Sentry issue is auto-resolved via webhook.'
   },
   {
     q: 'Do I need to give AGENA my Sentry API token?',
-    a: 'Yes — a User Auth Token with org:read, project:read, event:read, event:write and issue:write scopes. The token is stored encrypted server-side and used only for the configured organization slug. AGENA never reads source code through Sentry.',
+    a: 'Yes — a User Auth Token with org:read, project:read, event:read, event:write and issue:write scopes. The token is stored encrypted server-side and used only for the configured organization slug. AGENA never reads source code through Sentry.'
   },
   {
     q: 'Which Sentry issues get imported?',
-    a: 'By default, unresolved issues from the Sentry projects you map to Agena repos. You can scope by environment, release, fixability score (Sentry Seer), substatus (regressed / new), age window (24h / 7d / 14d / 30d) and reporter rules.',
+    a: 'By default, unresolved issues from the Sentry projects you map to Agena repos. You can scope by environment, release, fixability score (Sentry Seer), substatus (regressed / new), age window (24h / 7d / 14d / 30d) and reporter rules.'
   },
   {
     q: 'Can I send security errors to a specific reviewer agent?',
-    a: 'Yes — define an Integration Rule that matches the Sentry issue\'s tags / project and routes the imported task to your security_developer agent. The rule action also lets you override priority and target repo. The security agent runs an OWASP-aware prompt and produces a threat-model + fix plan instead of writing code.',
+    a: 'Yes — define an Integration Rule that matches the Sentry issue\'s tags / project and routes the imported task to your security_developer agent. The rule action also lets you override priority and target repo. The security agent runs an OWASP-aware prompt and produces a threat-model + fix plan instead of writing code.'
   },
   {
     q: 'Does AGENA replace Sentry Seer?',
-    a: 'No — AGENA complements Seer. We use Seer\'s fixability score (when present) as a signal for which issues to auto-fix vs. flag. AGENA actually opens the PR and routes through your code review process; Seer suggests inline fixes within Sentry.',
+    a: 'No — AGENA complements Seer. We use Seer\'s fixability score (when present) as a signal for which issues to auto-fix vs. flag. AGENA actually opens the PR and routes through your code review process; Seer suggests inline fixes within Sentry.'
   },
   {
     q: 'How long does an auto-fix take?',
-    a: 'Typical end-to-end: 8-15 minutes from "Sentry alert fires" to "AI PR opened on GitHub". The reviewer agent then runs a 30-90 second AI code review against the patch before the PR is marked ready.',
+    a: 'Typical end-to-end: 8-15 minutes from "Sentry alert fires" to "AI PR opened on GitHub". The reviewer agent then runs a 30-90 second AI code review against the patch before the PR is marked ready.'
   },
 ];
 
@@ -65,7 +63,7 @@ export default function SentryAIAutoFixPage() {
     operatingSystem: 'Web',
     description: metadata.description,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' }
   };
   const faqJson = {
     '@context': 'https://schema.org',
@@ -73,8 +71,8 @@ export default function SentryAIAutoFixPage() {
     mainEntity: FAQ.map((f) => ({
       '@type': 'Question',
       name: f.q,
-      acceptedAnswer: { '@type': 'Answer', text: f.a },
-    })),
+      acceptedAnswer: { '@type': 'Answer', text: f.a }
+    }))
   };
 
   return (

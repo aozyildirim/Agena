@@ -20,9 +20,7 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/vs/seer',
     title: 'AGENA vs Sentry Seer — Auto-Fix That Opens the PR | AGENA',
-    description: 'Seer suggests fixes inline. AGENA opens the PR. Open-source, BYOLLM, OWASP-aware reviewer.',
-    images: ['/og-image.png'],
-  },
+    description: 'Seer suggests fixes inline. AGENA opens the PR. Open-source, BYOLLM, OWASP-aware reviewer.',  }
 };
 
 const ROWS: { feature: string; agena: string; competitor: string }[] = [
@@ -51,12 +49,12 @@ export default function VsSeerPage() {
     '@type': 'WebPage',
     name: metadata.title,
     description: metadata.description,
-    url: 'https://agena.dev/vs/seer',
+    url: 'https://agena.dev/vs/seer'
   };
   const faqJson = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
   };
 
   return (

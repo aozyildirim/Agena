@@ -24,35 +24,33 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/azure-devops-ai-bot',
     title: 'Azure DevOps AI Bot — Work Items → Merged PR | AGENA',
-    description: 'AI agents pick up Azure DevOps work items, write code, open the PR, and complete it on merge. Reporter-based routing for security tickets.',
-    images: ['/og-image.png'],
-  },
+    description: 'AI agents pick up Azure DevOps work items, write code, open the PR, and complete it on merge. Reporter-based routing for security tickets.',  }
 };
 
 const FAQ = [
   {
     q: 'How does AGENA work with Azure DevOps?',
-    a: 'AGENA connects to your Azure DevOps organization via PAT, syncs work items from selected projects, runs the AI agent pipeline, and creates pull requests on Azure Repos. The work item state transitions (To Do → Active → Resolved → Closed) are written back automatically as the AI runs and the PR merges.',
+    a: 'AGENA connects to your Azure DevOps organization via PAT, syncs work items from selected projects, runs the AI agent pipeline, and creates pull requests on Azure Repos. The work item state transitions (To Do → Active → Resolved → Closed) are written back automatically as the AI runs and the PR merges.'
   },
   {
     q: 'Does AGENA support both Azure Repos and Azure Boards?',
-    a: 'Yes. Boards (work items) is the source of truth for tasks; Repos is the target for PRs. You can also mix — pull work items from Azure Boards and open PRs on GitHub if your code lives there.',
+    a: 'Yes. Boards (work items) is the source of truth for tasks; Repos is the target for PRs. You can also mix — pull work items from Azure Boards and open PRs on GitHub if your code lives there.'
   },
   {
     q: 'Can I auto-route security work items to a security reviewer agent?',
-    a: 'Yes — define an Integration Rule that matches Created By, Work Item Type, Area Path, or Tags, and route to your security_developer agent. Same rule engine works for Jira, Azure DevOps, Sentry, and New Relic imports.',
+    a: 'Yes — define an Integration Rule that matches Created By, Work Item Type, Area Path, or Tags, and route to your security_developer agent. Same rule engine works for Jira, Azure DevOps, Sentry, and New Relic imports.'
   },
   {
     q: 'How is the PAT stored?',
-    a: 'Personal Access Token is encrypted at rest with envelope encryption (org-level KMS-style key). Required scopes: Code (read & write), Work Items (read & write), Build (read), and Identity (read). AGENA never reads your code through Boards APIs.',
+    a: 'Personal Access Token is encrypted at rest with envelope encryption (org-level KMS-style key). Required scopes: Code (read & write), Work Items (read & write), Build (read), and Identity (read). AGENA never reads your code through Boards APIs.'
   },
   {
     q: 'Does AGENA write story points back to Azure DevOps?',
-    a: 'Yes — when AI Refinement runs on an Azure-sourced task, AGENA updates the Story Points field on the work item, transitions state to "Refined", and posts the AI-generated acceptance criteria as a discussion comment.',
+    a: 'Yes — when AI Refinement runs on an Azure-sourced task, AGENA updates the Story Points field on the work item, transitions state to "Refined", and posts the AI-generated acceptance criteria as a discussion comment.'
   },
   {
     q: 'How does it handle Azure DevOps Pipelines?',
-    a: 'AGENA does not run your pipelines. When the AI opens a PR, your existing build/release pipelines run as normal. The reviewer agent runs an LLM code review independently before the PR is marked ready, so AI review and CI run in parallel.',
+    a: 'AGENA does not run your pipelines. When the AI opens a PR, your existing build/release pipelines run as normal. The reviewer agent runs an LLM code review independently before the PR is marked ready, so AI review and CI run in parallel.'
   },
 ];
 
@@ -65,7 +63,7 @@ export default function AzureDevOpsAIBotPage() {
     operatingSystem: 'Web',
     description: metadata.description,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' }
   };
   const faqJson = {
     '@context': 'https://schema.org',
@@ -73,8 +71,8 @@ export default function AzureDevOpsAIBotPage() {
     mainEntity: FAQ.map((f) => ({
       '@type': 'Question',
       name: f.q,
-      acceptedAnswer: { '@type': 'Answer', text: f.a },
-    })),
+      acceptedAnswer: { '@type': 'Answer', text: f.a }
+    }))
   };
 
   return (

@@ -23,9 +23,7 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/ai-sprint-refinement',
     title: 'AI Sprint Refinement — Auto-Estimate Story Points | AGENA',
-    description: 'AI expands descriptions, writes AC, estimates points, suggests assignees. Writes back to Jira / Azure DevOps.',
-    images: ['/og-image.png'],
-  },
+    description: 'AI expands descriptions, writes AC, estimates points, suggests assignees. Writes back to Jira / Azure DevOps.',  }
 };
 
 const FAQ = [
@@ -46,12 +44,12 @@ export default function AISprintRefinementPage() {
     operatingSystem: 'Web',
     description: metadata.description,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' }
   };
   const faqJson = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
   };
 
   return (

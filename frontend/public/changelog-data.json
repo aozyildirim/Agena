@@ -1,5 +1,13 @@
 [
   {
+    "hash": "d4ade36",
+    "short": "d4ade36",
+    "message": "SEO: cross-link 11 landings + add Solutions/Integrations columns to footer",
+    "date": "2026-05-03",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "db91675",
     "short": "db91675",
     "message": "regenerate changelog-data after recent commits",

@@ -21,9 +21,7 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/newrelic-ai-agent',
     title: 'New Relic AI Agent — APM Errors → Merged PR | AGENA',
-    description: 'Imports New Relic errors, runs AI pipeline, opens the PR. NerdGraph-powered, OWASP-aware reviewer, multi-repo.',
-    images: ['/og-image.png'],
-  },
+    description: 'Imports New Relic errors, runs AI pipeline, opens the PR. NerdGraph-powered, OWASP-aware reviewer, multi-repo.',  }
 };
 
 const FAQ = [
@@ -44,12 +42,12 @@ export default function NewRelicAIAgentPage() {
     operatingSystem: 'Web',
     description: metadata.description,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' }
   };
   const faqJson = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
   };
 
   return (

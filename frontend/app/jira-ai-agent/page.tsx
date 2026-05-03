@@ -24,35 +24,33 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/jira-ai-agent',
     title: 'Jira AI Agent — Auto-Refine Backlog & Open PRs | AGENA',
-    description: 'AI agents pick up Jira issues, refine them, estimate story points, route by reporter, and open the PR. Setup in 5 minutes.',
-    images: ['/og-image.png'],
-  },
+    description: 'AI agents pick up Jira issues, refine them, estimate story points, route by reporter, and open the PR. Setup in 5 minutes.',  }
 };
 
 const FAQ = [
   {
     q: 'How does AGENA work with Jira?',
-    a: 'AGENA imports Jira issues (via JQL filter or per-project sync), turns each into a Task, runs the AI agent pipeline (analyzer → planner → developer → reviewer), opens a PR on the linked GitHub or Azure DevOps repo, and writes back to the Jira issue with PR URL, status transitions, and refinement output (acceptance criteria, story points, suggested assignee).',
+    a: 'AGENA imports Jira issues (via JQL filter or per-project sync), turns each into a Task, runs the AI agent pipeline (analyzer → planner → developer → reviewer), opens a PR on the linked GitHub or Azure DevOps repo, and writes back to the Jira issue with PR URL, status transitions, and refinement output (acceptance criteria, story points, suggested assignee).'
   },
   {
     q: 'Can I route security tickets to a different agent automatically?',
-    a: 'Yes — define an Integration Rule that matches Jira reporter, issue type, project, or label. For example: reporter = security@yourcompany.com OR label = security → auto-tag = security_review, agent = security_developer, priority = critical. The same rule engine works for both Jira and Azure DevOps.',
+    a: 'Yes — define an Integration Rule that matches Jira reporter, issue type, project, or label. For example: reporter = security@yourcompany.com OR label = security → auto-tag = security_review, agent = security_developer, priority = critical. The same rule engine works for both Jira and Azure DevOps.'
   },
   {
     q: 'Does AGENA write story points back to Jira?',
-    a: 'Yes — when you run AI Refinement on a Jira-sourced task, AGENA writes the estimated story points to the Jira custom field you configure (default: customfield_10016). Acceptance criteria and refined description are also written back as a Jira comment.',
+    a: 'Yes — when you run AI Refinement on a Jira-sourced task, AGENA writes the estimated story points to the Jira custom field you configure (default: customfield_10016). Acceptance criteria and refined description are also written back as a Jira comment.'
   },
   {
     q: 'Which Jira authentication is supported?',
-    a: 'API token via email + token (Atlassian Cloud) or PAT (Jira Server / Data Center). Stored encrypted server-side, scoped to the configured site URL. AGENA never reads code through Jira — only issue content.',
+    a: 'API token via email + token (Atlassian Cloud) or PAT (Jira Server / Data Center). Stored encrypted server-side, scoped to the configured site URL. AGENA never reads code through Jira — only issue content.'
   },
   {
     q: 'Do I need Jira Premium or a specific Atlassian plan?',
-    a: 'No — AGENA works with Jira Free, Standard, Premium, and Enterprise. Custom field IDs are auto-detected. JQL filters can be edited per project.',
+    a: 'No — AGENA works with Jira Free, Standard, Premium, and Enterprise. Custom field IDs are auto-detected. JQL filters can be edited per project.'
   },
   {
     q: 'How is this different from Atlassian Intelligence?',
-    a: 'Atlassian Intelligence summarises and rewrites issue text. AGENA actually writes the code, opens the PR, runs an AI code review, and resolves the Jira issue when the PR merges. They are complementary — many teams use both.',
+    a: 'Atlassian Intelligence summarises and rewrites issue text. AGENA actually writes the code, opens the PR, runs an AI code review, and resolves the Jira issue when the PR merges. They are complementary — many teams use both.'
   },
 ];
 
@@ -65,7 +63,7 @@ export default function JiraAIAgentPage() {
     operatingSystem: 'Web',
     description: metadata.description,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' }
   };
   const faqJson = {
     '@context': 'https://schema.org',
@@ -73,8 +71,8 @@ export default function JiraAIAgentPage() {
     mainEntity: FAQ.map((f) => ({
       '@type': 'Question',
       name: f.q,
-      acceptedAnswer: { '@type': 'Answer', text: f.a },
-    })),
+      acceptedAnswer: { '@type': 'Answer', text: f.a }
+    }))
   };
 
   return (

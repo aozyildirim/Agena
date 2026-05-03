@@ -20,9 +20,7 @@ export const metadata: Metadata = {
     type: 'article',
     url: 'https://agena.dev/vs/coderabbit',
     title: 'AGENA vs CodeRabbit — Custom Reviewer Personas | AGENA',
-    description: 'Multiple reviewer personas, BYO LLM, OWASP-aware, open-source. The configurable AI code review platform.',
-    images: ['/og-image.png'],
-  },
+    description: 'Multiple reviewer personas, BYO LLM, OWASP-aware, open-source. The configurable AI code review platform.',  }
 };
 
 const ROWS: { feature: string; agena: string; competitor: string }[] = [
@@ -52,12 +50,12 @@ export default function VsCodeRabbitPage() {
     '@type': 'WebPage',
     name: metadata.title,
     description: metadata.description,
-    url: 'https://agena.dev/vs/coderabbit',
+    url: 'https://agena.dev/vs/coderabbit'
   };
   const faqJson = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
   };
 
   return (

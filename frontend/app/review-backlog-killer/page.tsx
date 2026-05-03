@@ -26,7 +26,7 @@ export async function generateMetadata({ searchParams }: { searchParams: { lang?
     description: c.metaDescription,
     keywords: BACKLOG_KEYWORDS,
     alternates: { canonical: URL, languages: altLang },
-    openGraph: { type: 'article', url: URL, title: c.ogTitle, description: c.ogDescription, images: ['/og-image.png'] },
+    openGraph: { type: 'article', url: URL, title: c.ogTitle, description: c.ogDescription }
   };
 }
 
@@ -39,11 +39,11 @@ export default function ReviewBacklogKillerPage({ searchParams }: { searchParams
     name: 'AGENA — Review Backlog Killer', applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Web', description: c.metaDescription,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' },
+    publisher: { '@type': 'Organization', name: 'AGENA', url: 'https://agena.dev' }
   };
   const faqJson = {
     '@context': 'https://schema.org', '@type': 'FAQPage',
-    mainEntity: c.faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+    mainEntity: c.faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
   };
   return (
     <main style={{ maxWidth: 980, margin: '0 auto', padding: '40px 20px', display: 'grid', gap: 48 }}>
