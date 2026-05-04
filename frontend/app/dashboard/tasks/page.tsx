@@ -1783,20 +1783,36 @@ export default function DashboardTasksPage() {
                         {statusLabel(task.repo_assignments[0].status, t)}
                       </span>
                     )
-                  ) : (
+                  ) : (() => {
+                    // Color the "n/total PR" badge by completion progress
+                    // so the user can tell at a glance whether all repos
+                    // finished. Green only when n === total, amber while
+                    // some are still working, grey when none ready yet.
+                    const _withPr = task.repo_assignments.filter((ra: RepoAssignment) => ra.pr_url).length;
+                    const _total = task.repo_assignments.length;
+                    const _allDone = _withPr === _total && _total > 0;
+                    const _none = _withPr === 0;
+                    const _color = _allDone ? '#22c55e' : _none ? 'var(--ink-50)' : '#f59e0b';
+                    return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#5eead4' }}>
-                        {t('tasks.multiPrCount', { n: task.repo_assignments.filter((ra: RepoAssignment) => ra.pr_url).length, total: task.repo_assignments.length })}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: _color }}>
+                        {_allDone ? '✓' : _none ? '⏳' : '⏳'} {t('tasks.multiPrCount', { n: _withPr, total: _total })}
                       </span>
                       {task.repo_assignments.slice(0, 2).map((ra: RepoAssignment) => (
-                        <span key={ra.id} style={{ fontSize: 10, color: ra.pr_url ? '#5eead4' : 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
+                        <span key={ra.id} style={{ fontSize: 10, color: ra.pr_url ? '#22c55e' : (ra.status === 'running' || ra.status === 'queued') ? '#f59e0b' : 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
                           {ra.pr_url ? (
-                            <a href={ra.pr_url} target='_blank' rel='noreferrer' style={{ color: '#5eead4', textDecoration: 'none' }}>↗ {ra.repo_display_name.split('/').pop()}</a>
-                          ) : ra.repo_display_name.split('/').pop()}
+                            <a href={ra.pr_url} target='_blank' rel='noreferrer' style={{ color: '#22c55e', textDecoration: 'none' }}>✓ {ra.repo_display_name.split('/').pop()}</a>
+                          ) : (
+                            <>
+                              {(ra.status === 'running' || ra.status === 'queued') ? '⏳ ' : ''}
+                              {ra.repo_display_name.split('/').pop()}
+                            </>
+                          )}
                         </span>
                       ))}
                     </div>
-                  )
+                    );
+                  })()
                 ) : task.pr_url ? (
                   <a href={task.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
                 ) : (
