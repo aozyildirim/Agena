@@ -1092,6 +1092,13 @@ export default function RefinementPage() {
 
   const [runningItemId, setRunningItemId] = useState('');
   const [runModal, setRunModal] = useState<{ itemIds: string[]; single: boolean } | null>(null);
+  // Per-type exclusions inside the bulk modal. Reset each time the modal
+  // opens so a previous "I don't want Epics" choice doesn't carry over
+  // silently into a different run.
+  const [runModalExcludedTypes, setRunModalExcludedTypes] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (runModal) setRunModalExcludedTypes(new Set());
+  }, [runModal]);
 
   const finalizeJobOutcome = useCallback((status: RefinementJobStatus, isSingle: boolean) => {
     if (status.status === 'failed') {
@@ -1559,19 +1566,82 @@ export default function RefinementPage() {
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
             }}
           >
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                {copy.analyze}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', marginTop: 4 }}>
-                {runModal.single
-                  ? (t('refinement.runModal.titleSingle' as Parameters<typeof t>[0])).replace('{id}', runModal.itemIds[0] || '')
-                  : (t('refinement.runModal.titleBulk' as Parameters<typeof t>[0])).replace('{count}', String(runModal.itemIds.length))}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--ink-45)', marginTop: 4 }}>
-                {t('refinement.runModal.subtitle' as Parameters<typeof t>[0])}
-              </div>
-            </div>
+            {(() => {
+              // Per-type breakdown of the items the modal is about to
+              // run on. Used by both the title (filtered count) and the
+              // type chips below — derived once so they can't drift.
+              const typesByItem = new Map<string, string>();
+              for (const it of itemsData?.items || []) {
+                typesByItem.set(it.id, (it.work_item_type || 'Other') || 'Other');
+              }
+              const counts: Record<string, number> = {};
+              for (const id of runModal.itemIds) {
+                const ty = typesByItem.get(id) || 'Other';
+                counts[ty] = (counts[ty] || 0) + 1;
+              }
+              const orderedTypes = Object.keys(counts).sort();
+              const filteredIds = runModal.itemIds.filter((id) => {
+                const ty = typesByItem.get(id) || 'Other';
+                return !runModalExcludedTypes.has(ty);
+              });
+              // Stash on a ref-ish closure so the Start button further
+              // down can reuse without recomputing. We attach to the
+              // modal element via a data attribute is overkill — just
+              // recompute there. Here we render title + chips.
+              return (
+                <>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                      {copy.analyze}
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', marginTop: 4 }}>
+                      {runModal.single
+                        ? (t('refinement.runModal.titleSingle' as Parameters<typeof t>[0])).replace('{id}', runModal.itemIds[0] || '')
+                        : (t('refinement.runModal.titleBulk' as Parameters<typeof t>[0])).replace('{count}', String(filteredIds.length))}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-45)', marginTop: 4 }}>
+                      {t('refinement.runModal.subtitle' as Parameters<typeof t>[0])}
+                    </div>
+                  </div>
+
+                  {!runModal.single && orderedTypes.length > 1 && (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                        {lang === 'tr' ? 'Tipler' : 'Types'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {orderedTypes.map((ty) => {
+                          const on = !runModalExcludedTypes.has(ty);
+                          return (
+                            <button
+                              key={ty}
+                              type='button'
+                              onClick={() => {
+                                setRunModalExcludedTypes((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(ty)) next.delete(ty); else next.add(ty);
+                                  return next;
+                                });
+                              }}
+                              style={{
+                                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                                cursor: 'pointer',
+                                background: on ? 'rgba(94,234,212,0.18)' : 'var(--panel)',
+                                border: on ? '1px solid rgba(94,234,212,0.55)' : '1px solid var(--panel-border-2)',
+                                color: on ? '#5eead4' : 'var(--ink-50)',
+                                textTransform: 'uppercase', letterSpacing: 0.4,
+                              }}
+                            >
+                              {on ? '✓ ' : ''}{ty} <span style={{ opacity: 0.7, marginLeft: 2 }}>{counts[ty]}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div style={{
               display: 'flex', gap: 8, alignItems: 'center',
@@ -1661,21 +1731,37 @@ export default function RefinementPage() {
               >
                 {t('refinement.runModal.cancel' as Parameters<typeof t>[0])}
               </button>
-              <button
-                onClick={() => {
-                  const ids = runModal.itemIds;
-                  setRunModal(null);
-                  void runRefinement(ids);
-                }}
-                style={{
-                  padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 800,
-                  border: '1px solid rgba(13,148,136,0.6)',
-                  background: 'linear-gradient(135deg, #0d9488, #5eead4)',
-                  color: '#0a1815', cursor: 'pointer',
-                }}
-              >
-                ▶ {t('refinement.runModal.start' as Parameters<typeof t>[0])}
-              </button>
+              {(() => {
+                const typesByItem = new Map<string, string>();
+                for (const it of itemsData?.items || []) {
+                  typesByItem.set(it.id, (it.work_item_type || 'Other') || 'Other');
+                }
+                const filteredIds = runModal.itemIds.filter((id) => {
+                  const ty = typesByItem.get(id) || 'Other';
+                  return !runModalExcludedTypes.has(ty);
+                });
+                const disabled = filteredIds.length === 0;
+                return (
+                  <button
+                    onClick={() => {
+                      if (disabled) return;
+                      setRunModal(null);
+                      void runRefinement(filteredIds);
+                    }}
+                    disabled={disabled}
+                    style={{
+                      padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 800,
+                      border: '1px solid rgba(13,148,136,0.6)',
+                      background: disabled ? 'var(--panel)' : 'linear-gradient(135deg, #0d9488, #5eead4)',
+                      color: disabled ? 'var(--ink-35)' : '#0a1815',
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      opacity: disabled ? 0.6 : 1,
+                    }}
+                  >
+                    ▶ {t('refinement.runModal.start' as Parameters<typeof t>[0])}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>,
@@ -1767,73 +1853,9 @@ export default function RefinementPage() {
             </div>
           )}
 
-          <div className="ref-row-4" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
-            <Field label={copy.agentProvider}>
-              <select
-                value={agentProvider}
-                onChange={(e) => {
-                  const next = e.target.value as AgentProvider;
-                  setAgentProvider(next);
-                  setAgentModel(modelsForProvider(next)[0]?.id || '');
-                }}
-                style={inputStyle}
-              >
-                <option value='openai'>OpenAI</option>
-                <option value='gemini'>Gemini</option>
-                <option value='claude_cli'>Claude CLI</option>
-                <option value='codex_cli'>Codex CLI</option>
-                <option value='hal'>HAL</option>
-              </select>
-            </Field>
-            {agentProvider !== 'hal' && (
-              <Field label={copy.agentModel}>
-                <select value={agentModel} onChange={(e) => setAgentModel(e.target.value)} style={inputStyle}>
-                  {availableModels.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </select>
-              </Field>
-            )}
-            <Field label={copy.limit}>
-              <input
-                type='number'
-                min={1}
-                max={20}
-                value={maxItems}
-                onChange={(e) => setMaxItems(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label={copy.signature}>
-              <input value={commentSignature} onChange={(e) => setCommentSignature(e.target.value)} style={inputStyle} />
-            </Field>
-          </div>
-
-          {agentProvider !== 'hal' && (
-            <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-                {t('common.availableModels')}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {availableModels.map((item) => (
-                  <button
-                    key={item.id}
-                    type='button'
-                    onClick={() => setAgentModel(item.id)}
-                    style={item.id === agentModel ? activeModelChip : modelChip}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-
           <div className="refinement-actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={() => void refreshItems()} style={primaryButton} disabled={loadingItems}>
               {loadingItems ? copy.loadingItems : copy.loadItems}
-            </button>
-            <button onClick={() => setRunModal({ itemIds: [...selectedIds], single: false })} style={secondaryButton} disabled={running || !selectedIds.length}>
-              {running ? copy.analyzing : copy.analyze}
             </button>
             {results && results.results.filter(r => !r.error).length > 0 && (
               <>
@@ -2087,6 +2109,39 @@ export default function RefinementPage() {
                     </button>
                   );
                 })}
+              {(() => {
+                // "All Refinement" — collects every visible row that is
+                // still actionable (no estimate AND not already written
+                // back this session) and opens the same modal a per-row
+                // click would, so the user picks provider/model once and
+                // the batch runs without ticking checkboxes.
+                const eligibleIds = (typeFilter
+                  ? sortedItems.filter((it) => (it.work_item_type || '') === typeFilter)
+                  : sortedItems
+                ).filter((it) => !hasEstimate(it) && !writtenBackIds.has(it.id))
+                  .map((it) => it.id);
+                const disabled = running || eligibleIds.length === 0;
+                return (
+                  <button
+                    type='button'
+                    onClick={() => setRunModal({ itemIds: eligibleIds, single: false })}
+                    disabled={disabled}
+                    title={eligibleIds.length === 0 ? '' : `${eligibleIds.length} item`}
+                    style={{
+                      marginLeft: 6,
+                      padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 800,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      background: disabled ? 'var(--panel)' : 'linear-gradient(135deg, #0d9488, #5eead4)',
+                      border: '1px solid rgba(13,148,136,0.55)',
+                      color: disabled ? 'var(--ink-35)' : '#0a1815',
+                      letterSpacing: 0.4, textTransform: 'uppercase',
+                      opacity: disabled ? 0.6 : 1,
+                    }}
+                  >
+                    ▶ {running ? copy.analyzing : copy.analyze} ({eligibleIds.length})
+                  </button>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -2241,10 +2296,10 @@ export default function RefinementPage() {
                               </button>
                             );
                           })()}
-                          {!estimated && (
+                          {!estimated && !isWrittenBack && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setRunModal({ itemIds: [item.id], single: true }); }}
-                              disabled={running || runningItemId === item.id || !!isWrittenBack}
+                              disabled={running || runningItemId === item.id}
                               style={{
                                 marginLeft: suggestion ? 0 : 'auto',
                                 fontSize: 11, fontWeight: 700,

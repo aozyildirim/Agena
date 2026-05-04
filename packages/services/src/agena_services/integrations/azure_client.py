@@ -324,6 +324,89 @@ class AzureDevOpsClient:
                     continue
         return results
 
+    async def fetch_work_item_attachments(
+        self,
+        work_item_id: int | str,
+        cfg: dict[str, str] | None = None,
+        *,
+        max_files: int = 6,
+        max_bytes_per_file: int = 8 * 1024 * 1024,
+    ) -> list[tuple[str, bytes, str]]:
+        """Pull non-image attachments declared as `AttachedFile` relations
+        on a work item. Returns (filename, raw_bytes, mime_type) tuples
+        capped to `max_files`. Skips files larger than `max_bytes_per_file`
+        because we'd just choke the LLM context with unhelpful chunks.
+
+        Inline screenshots are handled by `fetch_description_images`.
+        This method covers PDFs, Word/Excel docs, plain text — the stuff
+        a PM staples on top of a story to give the engineer real context.
+        """
+        cfg = cfg or {}
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not pat or not org_url:
+            return []
+
+        wi_url = f'{org_url}/_apis/wit/workitems/{work_item_id}?$expand=relations&api-version=7.1-preview.3'
+        headers = self._headers(pat)
+        results: list[tuple[str, bytes, str]] = []
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                resp = await client.get(wi_url, headers=headers)
+            except Exception as exc:
+                logger.info('Attachment fetch: GET work item %s failed: %s', work_item_id, exc)
+                return []
+            if resp.status_code != 200:
+                logger.info(
+                    'Attachment fetch: work item %s returned HTTP %s',
+                    work_item_id, resp.status_code,
+                )
+                return []
+            data = resp.json() or {}
+            relations = data.get('relations') or []
+            for rel in relations:
+                if len(results) >= max_files:
+                    break
+                if not isinstance(rel, dict):
+                    continue
+                if (rel.get('rel') or '') != 'AttachedFile':
+                    continue
+                url = str(rel.get('url') or '')
+                if not url or '/_apis/wit/attachments/' not in url:
+                    continue
+                attrs = rel.get('attributes') or {}
+                name = str(attrs.get('name') or '').strip()
+                # Skip image attachments — those are handled by the
+                # inline-image path which also picks up screenshots
+                # embedded via <img> tags. Avoids double-counting.
+                ext = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
+                if ext in {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'}:
+                    continue
+                size = int(attrs.get('resourceSize') or 0)
+                if size and size > max_bytes_per_file:
+                    logger.info(
+                        'Skip attachment %s: %s bytes exceeds %s', name, size, max_bytes_per_file,
+                    )
+                    continue
+                try:
+                    bin_resp = await client.get(url, headers=headers)
+                except Exception as exc:
+                    logger.info('Failed to download attachment %s: %s', name, exc)
+                    continue
+                if bin_resp.status_code != 200:
+                    logger.info('Attachment %s HTTP %s', name, bin_resp.status_code)
+                    continue
+                if len(bin_resp.content) > max_bytes_per_file:
+                    logger.info(
+                        'Skip attachment %s: downloaded %s bytes', name, len(bin_resp.content),
+                    )
+                    continue
+                mime = (bin_resp.headers.get('content-type') or '').split(';')[0].strip().lower()
+                if not name:
+                    name = f'attachment-{len(results) + 1}.bin'
+                results.append((name, bin_resp.content, mime or 'application/octet-stream'))
+        return results
+
     async def fetch_period_work_items(
         self,
         cfg: dict[str, str] | None = None,

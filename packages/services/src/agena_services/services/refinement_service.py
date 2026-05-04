@@ -48,6 +48,117 @@ class _SafeDict(dict[str, Any]):
         return ''
 
 
+# Per-attachment text cap. The full Azure attachment may be 8 MB; only
+# the first few thousand chars typically carry the requirements / spec
+# the PM intended. Hard cap protects the LLM context.
+_ATTACHMENT_TEXT_PER_FILE_LIMIT = 8000
+_ATTACHMENT_TOTAL_LIMIT = 24000
+
+
+def _extract_text_from_pdf(data: bytes) -> str:
+    try:
+        import io
+        import pdfplumber  # type: ignore
+        out: list[str] = []
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            for page in pdf.pages[:30]:
+                try:
+                    txt = page.extract_text() or ''
+                except Exception:
+                    txt = ''
+                if txt:
+                    out.append(txt)
+        return '\n'.join(out)
+    except Exception as exc:
+        logger.info('PDF extract failed: %s', exc)
+        return ''
+
+
+def _extract_text_from_docx(data: bytes) -> str:
+    try:
+        import io
+        import docx  # type: ignore
+        d = docx.Document(io.BytesIO(data))
+        parts = [p.text for p in d.paragraphs if (p.text or '').strip()]
+        # Tables — flatten into "cell | cell" lines so requirement
+        # tables (very common in Office briefs) survive the trip.
+        for tbl in d.tables:
+            for row in tbl.rows:
+                cells = [(c.text or '').strip() for c in row.cells]
+                line = ' | '.join(c for c in cells if c)
+                if line:
+                    parts.append(line)
+        return '\n'.join(parts)
+    except Exception as exc:
+        logger.info('DOCX extract failed: %s', exc)
+        return ''
+
+
+def _extract_text_from_xlsx(data: bytes) -> str:
+    try:
+        import io
+        import openpyxl  # type: ignore
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True, read_only=True)
+        out: list[str] = []
+        for name in wb.sheetnames[:5]:
+            ws = wb[name]
+            out.append(f'--- {name} ---')
+            for row in ws.iter_rows(max_rows=200, values_only=True):
+                cells = [str(c) for c in row if c is not None and str(c).strip()]
+                if cells:
+                    out.append(' | '.join(cells))
+        wb.close()
+        return '\n'.join(out)
+    except Exception as exc:
+        logger.info('XLSX extract failed: %s', exc)
+        return ''
+
+
+def _extract_attachments_text(
+    files: list[tuple[str, bytes, str]] | None,
+) -> str:
+    """Turn (filename, bytes, mime) tuples into a single prompt-friendly
+    block. Skips formats we can't parse so the LLM doesn't see noise.
+    Returns '' if nothing extractable came through."""
+    if not files:
+        return ''
+    blocks: list[str] = []
+    total = 0
+    for name, data, mime in files:
+        text = ''
+        ext = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
+        m = (mime or '').lower()
+        if ext == 'pdf' or 'pdf' in m:
+            text = _extract_text_from_pdf(data)
+        elif ext == 'docx' or 'wordprocessingml' in m:
+            text = _extract_text_from_docx(data)
+        elif ext == 'xlsx' or 'spreadsheetml' in m:
+            text = _extract_text_from_xlsx(data)
+        elif ext in {'txt', 'md', 'csv', 'log', 'json', 'yaml', 'yml'} or m.startswith('text/'):
+            try:
+                text = data.decode('utf-8', errors='replace')
+            except Exception:
+                text = ''
+        else:
+            # Unknown binary — skip rather than dumping bytes into prompt.
+            continue
+        text = (text or '').strip()
+        if not text:
+            continue
+        if len(text) > _ATTACHMENT_TEXT_PER_FILE_LIMIT:
+            text = text[:_ATTACHMENT_TEXT_PER_FILE_LIMIT] + '\n…[truncated]'
+        block = f'[ATTACHMENT: {name}]\n{text}'
+        if total + len(block) > _ATTACHMENT_TOTAL_LIMIT:
+            blocks.append(f'[ATTACHMENT: {name}]\n…[skipped — total budget exhausted]')
+            break
+        blocks.append(block)
+        total += len(block)
+    if not blocks:
+        return ''
+    header = '## Eklenen Dokümanlar / Attachments'
+    return header + '\n\n' + '\n\n'.join(blocks)
+
+
 class _RefinementFileChange(BaseModel):
     """Loose schema for the file_changes block — we don't validate paths
     here; resolution happens in _resolve_authorship_for_files."""
@@ -420,6 +531,36 @@ class RefinementService:
                             )
                     except Exception as exc:
                         logger.info('Discussion fetch skipped for item %s: %s', item.id, exc)
+
+                    # Pull non-image attachments (PDF / DOCX / XLSX /
+                    # plain text) via the work-item AttachedFile relations
+                    # and append the extracted text to the description.
+                    # Inline screenshots are still handled by the image
+                    # path below — this covers files a PM staples on the
+                    # work item that the description only references.
+                    if request.provider == 'azure':
+                        try:
+                            _azcfg_doc = await self.integration_service.get_config(organization_id, 'azure')
+                            if _azcfg_doc and _azcfg_doc.secret:
+                                _docs = await self.azure_client.fetch_work_item_attachments(
+                                    item.id,
+                                    cfg={
+                                        'org_url': _azcfg_doc.base_url or '',
+                                        'pat': _azcfg_doc.secret,
+                                    },
+                                    max_files=4,
+                                )
+                                _doc_block = _extract_attachments_text(_docs)
+                                if _doc_block:
+                                    prompt_vars['description'] = (
+                                        f"{prompt_vars.get('description') or ''}\n\n{_doc_block}".strip()
+                                    )
+                                    logger.info(
+                                        'Refinement: injected %d attachment(s) into prompt for item %s',
+                                        len(_docs), item.id,
+                                    )
+                        except Exception as exc:
+                            logger.info('Attachment text fetch skipped for item %s: %s', item.id, exc)
 
                     # Pull image attachments. Description first; then walk
                     # comment HTML too — Azure work-item comments are HTML
