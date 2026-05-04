@@ -276,7 +276,7 @@ async def list_azure_org_members(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict[str, Any]]:
-    """YourOrg org genelindeki tüm kullanıcıları döndürür."""
+    """Returns every user in the configured Azure DevOps organization."""
     cached = await _cache_get(tenant.organization_id, 'azure', 'members')
     if cached is not None:
         return cached

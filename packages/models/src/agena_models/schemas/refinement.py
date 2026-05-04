@@ -74,7 +74,7 @@ class RecommendedAuthor(BaseModel):
     files_touched: int = 0
     reason: str = ''  # human-readable "5 commits in app/Foo since 2026-02"
     # Filled in when the git author email matches a member in the user's
-    # `my_team` list. Lets the UI show a clean "Ali (ali@example.com)"
+    # `my_team` list. Lets the UI show a clean "Alice (alice@example.com)"
     # row + an "Assign" button that hits Azure / Jira with a real id.
     member_id: str = ''
     member_display_name: str = ''

@@ -108,7 +108,7 @@ export default function JiraAIAgentPage() {
         <ol style={{ display: 'grid', gap: 12, paddingLeft: 0, listStyle: 'none' }}>
           {[
             { title: 'Jira issue → Agena task', desc: 'AGENA polls Jira via JQL or webhook. Each matching issue becomes a Task with full description, acceptance criteria, attachments, and a backlink to the Jira ticket.' },
-            { title: 'Integration Rules tag and route', desc: 'Rules match on reporter, issue type, project, or label. Example: reporter = security@example.com → tag = security_review, agent = security_developer, priority = critical. Same rule engine works for Jira AND Azure DevOps.' },
+            { title: 'Integration Rules tag and route', desc: 'Rules match on reporter, issue type, project, or label. Example: reporter = security@yourcompany.com → tag = security_review, agent = security_developer, priority = critical. Same rule engine works for Jira AND Azure DevOps.' },
             { title: 'AI Refinement (optional)', desc: 'Click ✨ Refine on the task. The PM agent expands the description, writes acceptance criteria, estimates story points, and suggests an assignee based on prior expertise.' },
             { title: 'AI pipeline runs', desc: 'analyzer → planner → developer → reviewer. The reviewer agent runs an OWASP-aware code review against the diff and produces a severity + score.' },
             { title: 'PR opened, Jira updated', desc: 'A pull request is opened on GitHub or Azure DevOps. The Jira issue gets a comment with the PR URL, transitions to "In Review", and (when the PR merges) auto-transitions to "Done".' },
