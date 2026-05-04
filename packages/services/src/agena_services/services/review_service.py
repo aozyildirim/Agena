@@ -660,16 +660,18 @@ async def trigger_review(
     if task is None or task.organization_id != organization_id:
         raise ValueError('Task not found')
 
-    desc_lower = (task.description or '').lower()
-    has_code_anchor = bool(
-        (task.pr_url or '').strip()
-        or (task.branch_name or '').strip()
-        or 'local repo path:' in desc_lower
-    )
-    if not has_code_anchor:
+    # PR-only guard. The previous version also accepted bare
+    # branch_name / "Local Repo Path:" hints in the description, but
+    # imports from sprints / refinement always stamp those strings, so
+    # the guard never fired for sprint-sourced tasks even when no
+    # actual code change existed yet. Reviewing a "we plan to do this"
+    # ticket against the repo's mainline is just expensive noise — the
+    # reviewer reads whole files and finds problems unrelated to the
+    # work. Refuse until the agent run produces an actual PR.
+    if not (task.pr_url or '').strip():
         raise ValueError(
-            'No code to review on this task. Open a PR via Run, or attach a '
-            'local repo path, then re-run the review.'
+            'No PR to review on this task yet. Click Run to let the agent '
+            'open a PR first, then come back and re-run the review.'
         )
 
     role_norm = _resolve_reviewer_role_from_task(task, reviewer_agent_role)
