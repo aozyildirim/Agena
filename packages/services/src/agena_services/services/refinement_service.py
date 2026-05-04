@@ -116,10 +116,14 @@ def _extract_text_from_xlsx(data: bytes) -> str:
 
 def _extract_attachments_text(
     files: list[tuple[str, bytes, str]] | None,
+    *,
+    item_id: str | int | None = None,
 ) -> str:
     """Turn (filename, bytes, mime) tuples into a single prompt-friendly
     block. Skips formats we can't parse so the LLM doesn't see noise.
-    Returns '' if nothing extractable came through."""
+    Returns '' if nothing extractable came through. Per-file outcome is
+    logged at INFO so a scanned/image-only PDF showing up as zero
+    extracted chars is visible without re-running with debug enabled."""
     if not files:
         return ''
     blocks: list[str] = []
@@ -128,21 +132,33 @@ def _extract_attachments_text(
         text = ''
         ext = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
         m = (mime or '').lower()
+        kind = 'unknown'
         if ext == 'pdf' or 'pdf' in m:
+            kind = 'pdf'
             text = _extract_text_from_pdf(data)
         elif ext == 'docx' or 'wordprocessingml' in m:
+            kind = 'docx'
             text = _extract_text_from_docx(data)
         elif ext == 'xlsx' or 'spreadsheetml' in m:
+            kind = 'xlsx'
             text = _extract_text_from_xlsx(data)
         elif ext in {'txt', 'md', 'csv', 'log', 'json', 'yaml', 'yml'} or m.startswith('text/'):
+            kind = 'text'
             try:
                 text = data.decode('utf-8', errors='replace')
             except Exception:
                 text = ''
         else:
-            # Unknown binary — skip rather than dumping bytes into prompt.
+            logger.info(
+                'Refinement attachment item=%s skip (unsupported): name=%s mime=%s size=%d',
+                item_id, name, mime, len(data),
+            )
             continue
         text = (text or '').strip()
+        logger.info(
+            'Refinement attachment item=%s extract: name=%s kind=%s mime=%s size=%d chars=%d',
+            item_id, name, kind, mime, len(data), len(text),
+        )
         if not text:
             continue
         if len(text) > _ATTACHMENT_TEXT_PER_FILE_LIMIT:
@@ -550,13 +566,18 @@ class RefinementService:
                                     },
                                     max_files=4,
                                 )
-                                _doc_block = _extract_attachments_text(_docs)
+                                _doc_block = _extract_attachments_text(_docs, item_id=item.id)
                                 if _doc_block:
                                     prompt_vars['description'] = (
                                         f"{prompt_vars.get('description') or ''}\n\n{_doc_block}".strip()
                                     )
                                     logger.info(
-                                        'Refinement: injected %d attachment(s) into prompt for item %s',
+                                        'Refinement: injected attachments for item %s (downloaded=%d, prompt_chars=%d)',
+                                        item.id, len(_docs), len(_doc_block),
+                                    )
+                                elif _docs:
+                                    logger.info(
+                                        'Refinement: %d attachment(s) downloaded for item %s but extracted text was empty (likely scanned PDF or unsupported format)',
                                         len(_docs), item.id,
                                     )
                         except Exception as exc:
