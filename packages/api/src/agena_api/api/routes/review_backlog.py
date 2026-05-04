@@ -142,6 +142,16 @@ async def list_backlog(
     )
     if not include_resolved:
         stmt = stmt.where(ReviewBacklogNudge.resolved_at.is_(None))
+        # Hide dead PRs (abandoned/declined/closed/rejected/completed/merged)
+        # even when the scan hasn't yet stamped resolved_at on the nudge.
+        # Without this, an abandoned PR sits in the list until the next
+        # scan and the nudge button only fails with "comment_failed".
+        from sqlalchemy import func as _func
+        stmt = stmt.where(
+            _func.lower(_func.coalesce(GitPullRequest.status, '')).notin_(
+                ['abandoned', 'declined', 'closed', 'rejected', 'completed', 'merged']
+            )
+        )
     if repo_mapping_id and repo_mapping_id != 'all':
         stmt = stmt.where(ReviewBacklogNudge.repo_mapping_id == repo_mapping_id)
     rows = (await db.execute(stmt)).all()
