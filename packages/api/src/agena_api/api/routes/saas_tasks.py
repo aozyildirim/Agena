@@ -731,16 +731,37 @@ async def assign_task(
         if len(mappings) != len(mapping_ids):
             raise HTTPException(400, 'One or more repo mappings not found or inactive')
 
-        # Create assignments
+        # Reuse existing assignment rows (Edit task → Save creates them
+        # ahead of time with status='pending'). Without this dedupe the
+        # second Run press would 500 on the (task_id, repo_mapping_id)
+        # unique constraint. Existing rows have their status flipped to
+        # 'queued' so the worker re-evaluates them; missing combos are
+        # inserted fresh.
+        existing_rows = (await db.execute(
+            select(TaskRepoAssignment).where(
+                TaskRepoAssignment.task_id == task_id,
+                TaskRepoAssignment.organization_id == tenant.organization_id,
+                TaskRepoAssignment.repo_mapping_id.in_([m.id for m in mappings]),
+            )
+        )).scalars().all()
+        existing_by_mapping = {a.repo_mapping_id: a for a in existing_rows}
         assignments = []
         for m in mappings:
-            a = TaskRepoAssignment(
-                task_id=task_id,
-                organization_id=tenant.organization_id,
-                repo_mapping_id=m.id,
-                status='queued',
-            )
-            db.add(a)
+            a = existing_by_mapping.get(m.id)
+            if a is None:
+                a = TaskRepoAssignment(
+                    task_id=task_id,
+                    organization_id=tenant.organization_id,
+                    repo_mapping_id=m.id,
+                    status='queued',
+                )
+                db.add(a)
+            else:
+                # Reset failure metadata + status so a re-run picks up
+                # cleanly even if a previous attempt left the row in a
+                # terminal state.
+                a.status = 'queued'
+                a.failure_reason = None
             assignments.append(a)
         await db.flush()
 
