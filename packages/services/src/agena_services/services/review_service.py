@@ -644,35 +644,65 @@ async def trigger_review(
     task_id: int,
     requested_by_user_id: int,
     reviewer_agent_role: str,
+    assignment_id: int | None = None,
 ) -> TaskReview:
     """Validate the request, persist a TaskReview row in 'running' state,
     and schedule the LLM/CLI work as a fire-and-forget background task.
     Returns immediately so the API response unblocks the user.
 
-    The frontend polls /reviews to see status flip to 'completed' /
-    'failed'. If the API process restarts mid-review,
-    reap_stale_running_reviews() cleans up on next startup.
-
-    Validation errors (no code anchor, task not found) are raised here
-    synchronously so the POST /reviews route returns 400 instead of
-    leaving a 'failed' row behind for nothing."""
+    `assignment_id` scopes the review to a specific repo on a multi-repo
+    task. Without it, multi-repo tasks reject — the caller has to pick
+    which PR they want reviewed since a comma-joined `task.pr_url` won't
+    parse cleanly into a diff fetch.
+    """
     task = await db.get(TaskRecord, task_id)
     if task is None or task.organization_id != organization_id:
         raise ValueError('Task not found')
 
-    # PR-only guard. The previous version also accepted bare
-    # branch_name / "Local Repo Path:" hints in the description, but
-    # imports from sprints / refinement always stamp those strings, so
-    # the guard never fired for sprint-sourced tasks even when no
-    # actual code change existed yet. Reviewing a "we plan to do this"
-    # ticket against the repo's mainline is just expensive noise — the
-    # reviewer reads whole files and finds problems unrelated to the
-    # work. Refuse until the agent run produces an actual PR.
-    if not (task.pr_url or '').strip():
-        raise ValueError(
-            'No PR to review on this task yet. Click Run to let the agent '
-            'open a PR first, then come back and re-run the review.'
-        )
+    from agena_models.models.task_repo_assignment import TaskRepoAssignment
+    assignment: TaskRepoAssignment | None = None
+    if assignment_id:
+        assignment = await db.get(TaskRepoAssignment, assignment_id)
+        if assignment is None or assignment.task_id != task.id or assignment.organization_id != organization_id:
+            raise ValueError('Assignment not found on this task')
+        if not (assignment.pr_url or '').strip():
+            raise ValueError(
+                'No PR on this repo yet — Run the agent on this repo first, then come back to review.'
+            )
+    else:
+        # Multi-repo task with no assignment specified — make the caller
+        # pick. Comma-joined pr_url on task_records doesn't survive a
+        # diff fetch, and reviewing N PRs at once needs N separate jobs
+        # anyway.
+        assignments = (await db.execute(
+            select(TaskRepoAssignment).where(
+                TaskRepoAssignment.task_id == task.id,
+                TaskRepoAssignment.organization_id == organization_id,
+            )
+        )).scalars().all()
+        with_pr = [a for a in assignments if (a.pr_url or '').strip()]
+        if len(with_pr) > 1:
+            raise ValueError(
+                'This task targets multiple repos. Pick a specific PR / repo to review.'
+            )
+        if len(with_pr) == 1:
+            assignment = with_pr[0]
+        elif assignments:
+            # All assignments exist but none have a PR yet
+            raise ValueError(
+                'No PR to review on this task yet. Click Run to let the agent '
+                'open a PR first, then come back and re-run the review.'
+            )
+        elif not (task.pr_url or '').strip():
+            # Legacy single-repo task path
+            raise ValueError(
+                'No PR to review on this task yet. Click Run to let the agent '
+                'open a PR first, then come back and re-run the review.'
+            )
+
+    pr_url_for_review = (assignment.pr_url if assignment else task.pr_url) or ''
+    branch_for_review = (assignment.branch_name if assignment else task.branch_name) or ''
+    repo_mapping_for_review = (assignment.repo_mapping_id if assignment else task.repo_mapping_id) or None
 
     role_norm = _resolve_reviewer_role_from_task(task, reviewer_agent_role)
 
@@ -680,16 +710,19 @@ async def trigger_review(
         f'Task: #{task.id} {task.title or ""}',
         f'Source: {task.source}',
     ]
-    if task.pr_url:
-        snapshot_lines.append(f'PR: {task.pr_url}')
-    if task.branch_name:
-        snapshot_lines.append(f'Branch: {task.branch_name}')
-    if task.repo_mapping_id:
-        snapshot_lines.append(f'Repo mapping: #{task.repo_mapping_id}')
+    if pr_url_for_review:
+        snapshot_lines.append(f'PR: {pr_url_for_review}')
+    if branch_for_review:
+        snapshot_lines.append(f'Branch: {branch_for_review}')
+    if repo_mapping_for_review:
+        snapshot_lines.append(f'Repo mapping: #{repo_mapping_for_review}')
+    if assignment:
+        snapshot_lines.append(f'Assignment: #{assignment.id}')
 
     review = TaskReview(
         organization_id=organization_id,
         task_id=task.id,
+        assignment_id=assignment.id if assignment else None,
         requested_by_user_id=requested_by_user_id,
         reviewer_agent_role=role_norm,
         input_snapshot='\n'.join(snapshot_lines),
@@ -700,11 +733,7 @@ async def trigger_review(
     await db.refresh(review)
 
     # Hand the work off to the worker via Redis so backend deploys /
-    # restarts don't kill an in-flight review. The worker drains
-    # `redis_review_queue_name` in parallel with the main task queue
-    # and runs `_run_review_background` from this module. The DB row
-    # still goes out as 'running'; the worker flips it to completed/
-    # failed when it's done.
+    # restarts don't kill an in-flight review.
     from agena_core.settings import get_settings as _get_settings
     from agena_services.services.queue_service import QueueService
     queue = QueueService()
@@ -714,6 +743,7 @@ async def trigger_review(
             'review_id': review.id,
             'organization_id': organization_id,
             'task_id': task.id,
+            'assignment_id': assignment.id if assignment else None,
             'requested_by_user_id': requested_by_user_id,
             'role_norm': role_norm,
         },
@@ -729,12 +759,18 @@ async def _run_review_background(
     task_id: int,
     requested_by_user_id: int,
     role_norm: str,
+    assignment_id: int | None = None,
 ) -> None:
     """Long-running half of the review pipeline — opens a fresh DB
     session, fetches the diff, builds the prompt, calls the CLI bridge
     or LLMProvider, parses findings, and writes the result back. Runs
     independently of the HTTP request that scheduled it; cancellation
-    is okay (reap_stale_running_reviews picks up orphans on restart)."""
+    is okay (reap_stale_running_reviews picks up orphans on restart).
+
+    When `assignment_id` is set, the diff fetch + branch hints use that
+    assignment's pr_url / branch / repo_mapping instead of the task-row
+    fields — important for multi-repo tasks where the task-row pr_url
+    is a comma-joined list that won't survive the URL parser."""
     from agena_core.database import SessionLocal
     async with SessionLocal() as db:
         review = await db.get(TaskReview, review_id)
@@ -742,14 +778,24 @@ async def _run_review_background(
         if review is None or task is None:
             logger.warning('background review skipped: review=%s task=%s missing', review_id, task_id)
             return
+        # Override task-row fields with the per-assignment PR / branch
+        # so the diff fetch + scope hints stay focused on a single repo.
+        scoped_pr_url = task.pr_url or ''
+        scoped_branch = task.branch_name or ''
+        if assignment_id:
+            from agena_models.models.task_repo_assignment import TaskRepoAssignment
+            assn = await db.get(TaskRepoAssignment, assignment_id)
+            if assn:
+                scoped_pr_url = assn.pr_url or scoped_pr_url
+                scoped_branch = assn.branch_name or scoped_branch
         try:
             system_prompt = await _resolve_reviewer_prompt(db, role_norm, requested_by_user_id)
             provider, model = await _resolve_reviewer_model(db, requested_by_user_id, role_norm)
 
             diff_text, diff_source = '', ''
-            if task.pr_url:
+            if scoped_pr_url:
                 diff_text, diff_source = await _fetch_pr_diff_for_review(
-                    db, organization_id=organization_id, pr_url=task.pr_url,
+                    db, organization_id=organization_id, pr_url=scoped_pr_url,
                 )
 
             diff_section = ''
@@ -774,7 +820,7 @@ async def _run_review_background(
             # in the read-only sandbox. GitHub's diff section already
             # carries the unified diff, so no extra git invocation
             # needed there.
-            branch = (task.branch_name or '').strip()
+            branch = (scoped_branch or '').strip()
             git_diff_hint = ''
             if branch and (not diff_text or diff_source.startswith('azure:')):
                 git_diff_hint = (

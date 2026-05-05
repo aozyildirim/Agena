@@ -18,6 +18,11 @@ class TaskReview(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), index=True)
     task_id: Mapped[int] = mapped_column(ForeignKey('task_records.id', ondelete='CASCADE'), index=True)
+    # Set when the review covers a specific repo on a multi-repo task.
+    # None = legacy single-repo review (uses task.pr_url directly). Each
+    # assignment gets its own row so the list page can show a per-repo
+    # verdict instead of a single "task-level" one.
+    assignment_id: Mapped[int | None] = mapped_column(ForeignKey('task_repo_assignments.id', ondelete='SET NULL'), nullable=True, index=True)
     requested_by_user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
 
     # Reviewer identity. We capture both the agent role string (so we can

@@ -3575,5 +3575,7 @@
   "tasks.status.revising": "修订中",
   "taskDetail.pr": "PR",
   "profile.prTitlePattern": "PR 标题模板",
-  "profile.prTitlePatternHint": "占位符：{ab}（Azure 用 AB#id，Jira 用 key）、{title}、{ext_id}、{id}、{source}。空 = 默认 `[AI] {ab} {title}`。"
+  "profile.prTitlePatternHint": "占位符：{ab}（Azure 用 AB#id，Jira 用 key）、{title}、{ext_id}、{id}、{source}。空 = 默认 `[AI] {ab} {title}`。",
+  "reviews.pickRepo": "选择 PR / 仓库",
+  "reviews.changeRepo": "更改仓库"
 }

@@ -686,9 +686,11 @@ export default function DashboardTasksPage() {
   }, []);
 
   function openReviewPicker(taskId: number, anchor?: HTMLElement | null) {
-    if (reviewerAgentOptions.length <= 1) {
-      // Only one reviewer agent → run it immediately, no menu needed.
-      void triggerReview(taskId, reviewerAgentOptions[0]?.role || 'auto');
+    const _task = tasks.find((tk) => tk.id === taskId);
+    const _multiRepo = ((_task?.repo_assignments || []).filter((a: RepoAssignment) => a.pr_url).length > 1);
+    if (!_multiRepo && reviewerAgentOptions.length <= 1) {
+      // Single reviewer + single repo → run it immediately, no menu needed.
+      void triggerReview(taskId, reviewerAgentOptions[0]?.role || 'auto', null);
       return;
     }
     if (reviewPickerTaskId === taskId) {
@@ -723,7 +725,7 @@ export default function DashboardTasksPage() {
     };
   }, [reviewPickerTaskId]);
 
-  async function triggerReview(taskId: number, role: string) {
+  async function triggerReview(taskId: number, role: string, assignmentId: number | null) {
     setReviewPickerTaskId(null);
     setReviewPickerAnchor(null);
     setError('');
@@ -734,7 +736,11 @@ export default function DashboardTasksPage() {
     try {
       const res = await apiFetch<ReviewResult>('/reviews', {
         method: 'POST',
-        body: JSON.stringify({ task_id: taskId, reviewer_agent_role: role }),
+        body: JSON.stringify({
+          task_id: taskId,
+          reviewer_agent_role: role,
+          ...(assignmentId ? { assignment_id: assignmentId } : {}),
+        }),
       });
       // Backend returns immediately with status='running' and runs the
       // reviewer in a strong-ref asyncio task. Poll /reviews/{id} every
@@ -2071,14 +2077,28 @@ export default function DashboardTasksPage() {
       {/* Reviewer picker — single portal-based popover. Positions next to
           the anchor button, flips above when there's not enough room
           below. Closes via outside-click / Esc handler set up earlier. */}
-      {reviewPickerTaskId !== null && reviewPickerAnchor !== null && (
-        <ReviewerPickerPopover
-          anchor={reviewPickerAnchor}
-          options={reviewerAgentOptions}
-          onPick={(role) => void triggerReview(reviewPickerTaskId, role)}
-          t={t}
-        />
-      )}
+      {reviewPickerTaskId !== null && reviewPickerAnchor !== null && (() => {
+        // For multi-repo tasks, pass the assignments (with PRs) into
+        // the popover so it can render a "pick a PR" stage. Single-PR
+        // tasks skip that stage entirely (the popover gates on
+        // repoOptions.length > 1).
+        const _t = tasks.find((tk) => tk.id === reviewPickerTaskId);
+        const _repos = (_t?.repo_assignments || [])
+          .filter((a: RepoAssignment) => a.pr_url)
+          .map((a: RepoAssignment) => ({
+            assignment_id: a.id,
+            label: a.repo_display_name || `assignment #${a.id}`,
+          }));
+        return (
+          <ReviewerPickerPopover
+            anchor={reviewPickerAnchor}
+            options={reviewerAgentOptions}
+            repoOptions={_repos.length > 1 ? _repos : undefined}
+            onPick={(role, assignmentId) => void triggerReview(reviewPickerTaskId, role, assignmentId)}
+            t={t}
+          />
+        );
+      })()}
 
       {/* AI Agent Select Popup — with repo config */}
       {aiPopupTaskId !== null && (
@@ -2647,12 +2667,22 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
   );
 }
 
-function ReviewerPickerPopover({ anchor, options, onPick, t }: {
+function ReviewerPickerPopover({ anchor, options, repoOptions, onPick, t }: {
   anchor: HTMLElement;
   options: Array<{ role: string; label: string }>;
-  onPick: (role: string) => void;
+  // Repo picker: only relevant for multi-repo tasks. When the list has
+  // more than one entry, the popover renders a "Pick a repo" stage
+  // before the role list — each PR-bearing assignment becomes its own
+  // review job.
+  repoOptions?: Array<{ assignment_id: number; label: string }>;
+  onPick: (role: string, assignmentId: number | null) => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
+  // Only force a repo step when the user actually has more than one to
+  // choose from — single-repo tasks skip straight to the reviewer list.
+  const _multi = (repoOptions?.length ?? 0) > 1;
+  const [pickedAssignment, setPickedAssignment] = useState<number | null>(null);
+  const showRepoStage = _multi && pickedAssignment === null;
   // Compute viewport-relative coords from the anchor's bounding rect and
   // flip above if the menu would clip below the viewport. Recomputes on
   // window resize / scroll so the popover sticks to the button.
@@ -2696,19 +2726,42 @@ function ReviewerPickerPopover({ anchor, options, onPick, t }: {
       }}
     >
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', padding: '6px 10px 4px' }}>
-        {t('reviews.pickReviewer' as TranslationKey) || 'Pick reviewer'}
+        {showRepoStage
+          ? (t('reviews.pickRepo' as TranslationKey) || 'Pick a PR / repo')
+          : (t('reviews.pickReviewer' as TranslationKey) || 'Pick reviewer')}
       </div>
-      <button onClick={() => onPick('auto')}
-        style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
-        ✨ Auto <span style={{ color: 'var(--ink-35)', fontWeight: 400 }}>(task config)</span>
-      </button>
-      <div style={{ height: 1, background: 'var(--panel-border)', margin: '4px 0' }} />
-      {options.map((opt) => (
-        <button key={opt.role} onClick={() => onPick(opt.role)}
-          style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
-          🔎 {opt.label} <span style={{ color: 'var(--ink-35)', fontWeight: 400, fontFamily: 'monospace' }}>({opt.role})</span>
-        </button>
-      ))}
+      {showRepoStage ? (
+        // Two-stage flow: pick repo first, then role.
+        (repoOptions || []).map((r) => (
+          <button key={r.assignment_id} onClick={() => setPickedAssignment(r.assignment_id)}
+            style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+            📦 {r.label}
+          </button>
+        ))
+      ) : (
+        <>
+          <button onClick={() => onPick('auto', pickedAssignment)}
+            style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+            ✨ Auto <span style={{ color: 'var(--ink-35)', fontWeight: 400 }}>(task config)</span>
+          </button>
+          <div style={{ height: 1, background: 'var(--panel-border)', margin: '4px 0' }} />
+          {options.map((opt) => (
+            <button key={opt.role} onClick={() => onPick(opt.role, pickedAssignment)}
+              style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+              🔎 {opt.label} <span style={{ color: 'var(--ink-35)', fontWeight: 400, fontFamily: 'monospace' }}>({opt.role})</span>
+            </button>
+          ))}
+          {_multi && pickedAssignment !== null && (
+            <>
+              <div style={{ height: 1, background: 'var(--panel-border)', margin: '4px 0' }} />
+              <button onClick={() => setPickedAssignment(null)}
+                style={{ width: '100%', textAlign: 'left', padding: '6px 10px', fontSize: 11, fontWeight: 500, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink-50)', cursor: 'pointer' }}>
+                ← {t('reviews.changeRepo' as TranslationKey) || 'Change repo'}
+              </button>
+            </>
+          )}
+        </>
+      )}
     </div>,
     document.body,
   );

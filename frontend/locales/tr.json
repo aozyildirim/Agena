@@ -3575,5 +3575,7 @@
   "tasks.status.revising": "Revize ediliyor",
   "taskDetail.pr": "PR",
   "profile.prTitlePattern": "PR başlık şablonu",
-  "profile.prTitlePatternHint": "Placeholder: {ab} (Azure için AB#id, Jira için key), {title}, {ext_id}, {id}, {source}. Boş = default `[AI] {ab} {title}`."
+  "profile.prTitlePatternHint": "Placeholder: {ab} (Azure için AB#id, Jira için key), {title}, {ext_id}, {id}, {source}. Boş = default `[AI] {ab} {title}`.",
+  "reviews.pickRepo": "PR / repo seç",
+  "reviews.changeRepo": "Repoyu değiştir"
 }

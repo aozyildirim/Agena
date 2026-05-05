@@ -663,6 +663,8 @@ async def _run_review_safe(payload: dict) -> None:
     review_id = int(payload.get('review_id') or 0)
     org_id = int(payload.get('organization_id') or 0)
     t_id = int(payload.get('task_id') or 0)
+    assn_id_raw = payload.get('assignment_id')
+    assn_id = int(assn_id_raw) if assn_id_raw else None
     user_id = int(payload.get('requested_by_user_id') or 0)
     role_norm = str(payload.get('role_norm') or 'reviewer')
     if not (review_id and org_id and t_id):
@@ -675,6 +677,7 @@ async def _run_review_safe(payload: dict) -> None:
             task_id=t_id,
             requested_by_user_id=user_id,
             role_norm=role_norm,
+            assignment_id=assn_id,
         )
     except Exception:
         logger.exception('Review job failed payload=%s', payload)

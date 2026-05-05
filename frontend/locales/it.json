@@ -3575,5 +3575,7 @@
   "tasks.status.revising": "In revisione",
   "taskDetail.pr": "PR",
   "profile.prTitlePattern": "Pattern del titolo PR",
-  "profile.prTitlePatternHint": "Placeholder: {ab} (AB#id per Azure, key per Jira), {title}, {ext_id}, {id}, {source}. Vuoto = default `[AI] {ab} {title}`."
+  "profile.prTitlePatternHint": "Placeholder: {ab} (AB#id per Azure, key per Jira), {title}, {ext_id}, {id}, {source}. Vuoto = default `[AI] {ab} {title}`.",
+  "reviews.pickRepo": "Scegli un PR / repo",
+  "reviews.changeRepo": "Cambia repo"
 }

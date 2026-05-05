@@ -20,6 +20,8 @@ class TaskReviewResponse(BaseModel):
     id: int
     task_id: int
     task_title: str | None = None
+    assignment_id: int | None = None
+    repo_display_name: str | None = None
     reviewer_agent_role: str
     reviewer_provider: str | None = None
     reviewer_model: str | None = None
@@ -38,13 +40,16 @@ class TaskReviewResponse(BaseModel):
 class TriggerReviewRequest(BaseModel):
     task_id: int
     reviewer_agent_role: str = 'reviewer'
+    assignment_id: int | None = None
 
 
-def _to_response(row: TaskReview, task_title: str | None) -> TaskReviewResponse:
+def _to_response(row: TaskReview, task_title: str | None, repo_display_name: str | None = None) -> TaskReviewResponse:
     return TaskReviewResponse(
         id=row.id,
         task_id=row.task_id,
         task_title=task_title,
+        assignment_id=getattr(row, 'assignment_id', None),
+        repo_display_name=repo_display_name,
         reviewer_agent_role=row.reviewer_agent_role,
         reviewer_provider=row.reviewer_provider,
         reviewer_model=row.reviewer_model,
@@ -119,11 +124,21 @@ async def trigger_new_review(
             task_id=body.task_id,
             requested_by_user_id=tenant.user_id,
             reviewer_agent_role=body.reviewer_agent_role,
+            assignment_id=body.assignment_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     task = await db.get(TaskRecord, review.task_id)
-    return _to_response(review, task.title if task else None)
+    repo_display = None
+    if review.assignment_id:
+        from agena_models.models.task_repo_assignment import TaskRepoAssignment
+        from agena_models.models.repo_mapping import RepoMapping
+        assn = await db.get(TaskRepoAssignment, review.assignment_id)
+        if assn and assn.repo_mapping_id:
+            rm = await db.get(RepoMapping, assn.repo_mapping_id)
+            if rm:
+                repo_display = f'{(rm.provider or "").lower()}:{rm.owner}/{rm.repo_name}'
+    return _to_response(review, task.title if task else None, repo_display)
 
 
 @router.delete('/{review_id}')
