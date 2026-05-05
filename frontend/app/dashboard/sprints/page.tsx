@@ -1407,17 +1407,48 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
     <div
       onClick={onClick}
       style={{
-        borderRadius: 9, border: '1px solid ' + (active ? stateColor + '60' : 'var(--panel-border)'),
-        background: selected ? stateColor + '10' : 'var(--panel)',
-        padding: '10px 11px', transition: 'all 0.15s',
+        borderRadius: 9,
+        // Imported cards get a colored left rail + tinted background
+        // so a glance over the sprint board immediately separates "I've
+        // already pulled this into Agena" from fresh untouched items.
+        // Border colour follows the Agena run status (running=blue,
+        // queued=amber, completed=green, failed=red, …) — matches the
+        // chip dot at the bottom of the card.
+        borderTop: '1px solid ' + (active ? stateColor + '60' : 'var(--panel-border)'),
+        borderRight: '1px solid ' + (active ? stateColor + '60' : 'var(--panel-border)'),
+        borderBottom: '1px solid ' + (active ? stateColor + '60' : 'var(--panel-border)'),
+        borderLeft: isImported ? '4px solid ' + statusColor : '1px solid ' + (active ? stateColor + '60' : 'var(--panel-border)'),
+        background: selected
+          ? stateColor + '10'
+          : isImported ? statusColor + '0d' : 'var(--panel)',
+        padding: '10px 11px',
+        paddingLeft: isImported ? 9 : 11,
+        transition: 'all 0.15s',
         transform: hovered ? 'translateY(-1px)' : 'none',
         boxShadow: active ? '0 3px 16px ' + stateColor + '18' : 'none',
         cursor: 'pointer',
+        position: 'relative',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4, marginBottom: 6 }}>{item.title}</div>
+      {/* Top-right "AGENA" ribbon — only on imported cards. Cheap visual
+          cue so the user can scan a sprint of 30+ tickets and tell at
+          a glance which ones have already been picked up. */}
+      {isImported && (
+        <span style={{
+          position: 'absolute', top: 6, right: 6,
+          fontSize: 8, fontWeight: 800, letterSpacing: 0.6,
+          padding: '1px 6px', borderRadius: 999,
+          background: statusColor + '22', color: statusColor,
+          border: '1px solid ' + statusColor + '55',
+          textTransform: 'uppercase',
+          pointerEvents: 'none',
+        }}>
+          ✓ {agenaStatus || 'agena'}
+        </span>
+      )}
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4, marginBottom: 6, paddingRight: isImported ? 60 : 0 }}>{item.title}</div>
       {descriptionPreview && (
         <div style={{ fontSize: 10, color: 'var(--ink-42)', lineHeight: 1.45, marginBottom: 6 }}>
           {descriptionPreview}

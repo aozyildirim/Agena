@@ -595,6 +595,12 @@ async function runCLI(bin, name, data) {
       args = ['--print', '--dangerously-skip-permissions'];
     }
     if (model) args.push('--model', model);
+    // Ask Claude for a structured JSON envelope so the bridge can pull
+    // out real token usage + cost in addition to the answer text. The
+    // backend used to estimate via len(prompt)/4 which under-counted by
+    // 50–100x on agentic runs (every Read/Grep/Bash tool round-trip is
+    // invisible at the prompt boundary).
+    args.push('--output-format', 'json');
     args.push('-p', prompt.slice(0, 10000));  // claude --prompt has limits, use shorter
   }
 
@@ -671,7 +677,41 @@ async function runCLI(bin, name, data) {
     });
     console.log(`[${name}] done — ${result.stdout.length} chars output`);
     try { unlinkSync(promptFile); } catch {}
-    return { status: result.code === 0 ? 'ok' : 'error', stdout: result.stdout, stderr: result.stderr };
+    // Claude --output-format json emits a single JSON object on stdout
+    // with `result` (text answer), `usage` (input/output/cache tokens),
+    // `total_cost_usd`, etc. Pull `result` out as the new stdout so
+    // existing callers (which just want the answer text) keep working,
+    // and surface `usage` + `cost_usd` as separate fields for the
+    // backend to record. Errors fall back to the raw stdout.
+    let payload = { status: result.code === 0 ? 'ok' : 'error', stdout: result.stdout, stderr: result.stderr };
+    if (name === 'claude' && result.code === 0) {
+      try {
+        const trimmed = (result.stdout || '').trim();
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          // Accept either {result, usage, total_cost_usd} or
+          // {messages: [...]} (older claude CLI versions).
+          if (typeof parsed.result === 'string') {
+            payload.stdout = parsed.result;
+          }
+          if (parsed.usage && typeof parsed.usage === 'object') {
+            payload.usage = parsed.usage;
+          }
+          if (typeof parsed.total_cost_usd === 'number') {
+            payload.cost_usd = parsed.total_cost_usd;
+          }
+          if (typeof parsed.duration_ms === 'number') {
+            payload.duration_ms = parsed.duration_ms;
+          }
+          if (typeof parsed.num_turns === 'number') {
+            payload.num_turns = parsed.num_turns;
+          }
+        }
+      } catch (err) {
+        // Not JSON — keep raw stdout as the answer text.
+      }
+    }
+    return payload;
   } catch (e) {
     console.log(`[${name}] error: ${e.message.slice(0, 200)}`);
     try { unlinkSync(promptFile); } catch {}
