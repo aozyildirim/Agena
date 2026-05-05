@@ -3577,5 +3577,9 @@
   "profile.prTitlePattern": "PR başlık şablonu",
   "profile.prTitlePatternHint": "Placeholder: {ab} (Azure için AB#id, Jira için key), {title}, {ext_id}, {id}, {source}. Boş = default `[AI] {ab} {title}`.",
   "reviews.pickRepo": "PR / repo seç",
-  "reviews.changeRepo": "Repoyu değiştir"
+  "reviews.changeRepo": "Repoyu değiştir",
+  "sprints.filters": "Filtreler",
+  "sprints.filters.clear": "Filtreleri temizle",
+  "sprints.filters.columns": "Sütunlar (state)",
+  "sprints.filters.types": "Tipler (User Story / Bug / Task …)"
 }

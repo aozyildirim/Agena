@@ -22,6 +22,7 @@ type Opt = {
 type WorkItem = {
   id: string; title: string; description: string; source: string; state?: string;
   assigned_to?: string; created_date?: string; activated_date?: string;
+  work_item_type?: string | null;
 };
 type FlowRunOptions = {
   project?: string;
@@ -239,6 +240,14 @@ export default function SprintsPage() {
   const [teamsScope, setTeamsScope] = useState<'azure' | 'jira' | null>(null);
   const [sprintsScope, setSprintsScope] = useState<'azure' | 'jira' | null>(null);
   const [states,   setStates]   = useState<string[]>([]);
+  // Per-board column / type visibility filters. Persisted in
+  // localStorage so a user's "hide UAT and Blocked" choice survives
+  // refresh / re-navigation. Default: nothing hidden — all states +
+  // types render exactly like before, the user opts out of the bits
+  // they don't want to see.
+  const [hiddenStates, setHiddenStates] = useState<Set<string>>(new Set());
+  const [hiddenTypes,  setHiddenTypes]  = useState<Set<string>>(new Set());
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [project,  setProjectRaw]  = useState('');
   const [team,     setTeamRaw]     = useState('');
   const [sprint,   setSprintRaw]   = useState('');
@@ -1026,10 +1035,68 @@ export default function SprintsPage() {
     }
   }
 
-  // Sadece içi dolu sütunları göster (yükleme sırasında hepsini göster)
-  const visibleStates = lbd
+  // Available work-item types for the filter panel — derived from
+  // whatever the API actually returned. Sorted so the chip order is
+  // stable across reloads (Bug, Epic, Task, User Story, …).
+  const availableTypes = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) {
+      const t = (it.work_item_type || '').trim();
+      if (t) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [items]);
+
+  // Persist hidden-state / hidden-type sets in localStorage so the
+  // user's "I never want to see UAT" choice survives reload. Keyed by
+  // provider + project + sprint so different boards keep their own
+  // preferences.
+  const _filterKey = `agena_sprint_filters:${provider}:${project}:${team}:${sprint}`;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!provider || !project || !team || !sprint) return;
+    try {
+      const raw = window.localStorage.getItem(_filterKey);
+      if (!raw) {
+        setHiddenStates(new Set());
+        setHiddenTypes(new Set());
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setHiddenStates(new Set(Array.isArray(parsed.states) ? parsed.states : []));
+      setHiddenTypes(new Set(Array.isArray(parsed.types) ? parsed.types : []));
+    } catch {
+      setHiddenStates(new Set());
+      setHiddenTypes(new Set());
+    }
+  }, [_filterKey, provider, project, team, sprint]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!provider || !project || !team || !sprint) return;
+    try {
+      window.localStorage.setItem(_filterKey, JSON.stringify({
+        states: Array.from(hiddenStates),
+        types: Array.from(hiddenTypes),
+      }));
+    } catch { /* quota / disabled — non-fatal */ }
+  }, [_filterKey, hiddenStates, hiddenTypes, provider, project, team, sprint]);
+
+  // Sadece içi dolu sütunları göster (yükleme sırasında hepsini göster).
+  // Hide-list is layered on top: a state present in `hiddenStates`
+  // never renders, regardless of whether it has cards.
+  const filteredItems = useMemo(() => (
+    items.filter((i) => {
+      const t = (i.work_item_type || '').trim();
+      if (t && hiddenTypes.has(t)) return false;
+      if (i.state && hiddenStates.has(i.state)) return false;
+      return true;
+    })
+  ), [items, hiddenStates, hiddenTypes]);
+
+  const visibleStates = (lbd
     ? states
-    : states.filter((s) => items.some((i) => normalizeState(i.state) === normalizeState(s)));
+    : states.filter((s) => filteredItems.some((i) => normalizeState(i.state) === normalizeState(s))))
+    .filter((s) => !hiddenStates.has(s));
 
   const selS = sprints.find((s) => (s.path ?? s.name) === sprint);
   const selT = teams.find((t) => t.name === team);
@@ -1161,6 +1228,115 @@ export default function SprintsPage() {
         </div>
       ) : null}
 
+      {/* Filter chips: per-state + per-type visibility. Default is
+          "everything visible" — clicking a chip toggles it off.
+          Persisted per board. */}
+      {sprint && !lbd && (states.length > 0 || availableTypes.length > 0) && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type='button'
+              onClick={() => setFilterPanelOpen((v) => !v)}
+              style={{
+                padding: '5px 11px', fontSize: 11, fontWeight: 700, borderRadius: 999,
+                border: '1px solid var(--panel-border-2)',
+                background: filterPanelOpen ? 'var(--panel-alt)' : 'transparent',
+                color: 'var(--ink-50)', cursor: 'pointer',
+              }}
+            >
+              ⚙ {t('sprints.filters' as TranslationKey) || 'Filtreler'}
+              {(hiddenStates.size + hiddenTypes.size) > 0 && (
+                <span style={{ marginLeft: 6, color: '#f59e0b', fontWeight: 800 }}>
+                  ({hiddenStates.size + hiddenTypes.size})
+                </span>
+              )}
+              <span style={{ marginLeft: 6, color: 'var(--ink-35)' }}>{filterPanelOpen ? '▾' : '▸'}</span>
+            </button>
+            {(hiddenStates.size + hiddenTypes.size) > 0 && (
+              <button
+                type='button'
+                onClick={() => { setHiddenStates(new Set()); setHiddenTypes(new Set()); }}
+                style={{
+                  padding: '5px 11px', fontSize: 11, fontWeight: 600, borderRadius: 999,
+                  border: '1px solid rgba(248,113,113,0.3)', background: 'transparent',
+                  color: '#f87171', cursor: 'pointer',
+                }}
+              >
+                ✕ {t('sprints.filters.clear' as TranslationKey) || 'Filtreleri temizle'}
+              </button>
+            )}
+          </div>
+          {filterPanelOpen && (
+            <div style={{ display: 'grid', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' }}>
+              {/* States */}
+              {states.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 6 }}>
+                    {t('sprints.filters.columns' as TranslationKey) || 'Sütunlar (state)'}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {states.map((s) => {
+                      const on = !hiddenStates.has(s);
+                      return (
+                        <button key={s} type='button'
+                          onClick={() => setHiddenStates((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(s)) next.delete(s); else next.add(s);
+                            return next;
+                          })}
+                          style={{
+                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 999,
+                            border: '1px solid ' + (on ? 'rgba(94,234,212,0.45)' : 'rgba(148,163,184,0.35)'),
+                            background: on ? 'rgba(94,234,212,0.12)' : 'transparent',
+                            color: on ? '#5eead4' : 'var(--ink-35)',
+                            cursor: 'pointer',
+                            textDecoration: on ? 'none' : 'line-through',
+                          }}
+                        >
+                          {on ? '✓' : '○'} {s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Work-item types */}
+              {availableTypes.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 6 }}>
+                    {t('sprints.filters.types' as TranslationKey) || 'Tipler (User Story / Bug / Task …)'}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {availableTypes.map((tp) => {
+                      const on = !hiddenTypes.has(tp);
+                      return (
+                        <button key={tp} type='button'
+                          onClick={() => setHiddenTypes((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(tp)) next.delete(tp); else next.add(tp);
+                            return next;
+                          })}
+                          style={{
+                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 999,
+                            border: '1px solid ' + (on ? 'rgba(168,85,247,0.45)' : 'rgba(148,163,184,0.35)'),
+                            background: on ? 'rgba(168,85,247,0.10)' : 'transparent',
+                            color: on ? '#c084fc' : 'var(--ink-35)',
+                            cursor: 'pointer',
+                            textDecoration: on ? 'none' : 'line-through',
+                          }}
+                        >
+                          {on ? '✓' : '○'} {tp}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Board + Detail Panel */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minHeight: 0 }}>
         {/* Board columns */}
@@ -1172,7 +1348,7 @@ export default function SprintsPage() {
               </div>
             ) : (lbd ? states : visibleStates).map((state, idx) => {
               const s = sc(state, idx);
-              const col = items.filter((i) => normalizeState(i.state) === normalizeState(state));
+              const col = filteredItems.filter((i) => normalizeState(i.state) === normalizeState(state));
               return (
                 <div key={state} style={{ borderRadius: 14, border: '1px solid ' + s.border, background: s.bg, overflow: 'hidden', minWidth: 200, width: 220, flexShrink: 0 }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid ' + s.border, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

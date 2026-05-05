@@ -3577,5 +3577,9 @@
   "profile.prTitlePattern": "PRタイトルパターン",
   "profile.prTitlePatternHint": "プレースホルダ: {ab}（Azure は AB#id、Jira はキー）、{title}、{ext_id}、{id}、{source}。空 = デフォルト `[AI] {ab} {title}`。",
   "reviews.pickRepo": "PR / リポジトリを選択",
-  "reviews.changeRepo": "リポジトリを変更"
+  "reviews.changeRepo": "リポジトリを変更",
+  "sprints.filters": "フィルター",
+  "sprints.filters.clear": "フィルターを解除",
+  "sprints.filters.columns": "列（ステート）",
+  "sprints.filters.types": "タイプ (User Story / Bug / Task …)"
 }

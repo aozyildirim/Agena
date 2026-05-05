@@ -3577,5 +3577,9 @@
   "profile.prTitlePattern": "PR-Titel-Muster",
   "profile.prTitlePatternHint": "Platzhalter: {ab} (AB#id bei Azure, Key bei Jira), {title}, {ext_id}, {id}, {source}. Leer = default `[AI] {ab} {title}`.",
   "reviews.pickRepo": "PR / Repo wählen",
-  "reviews.changeRepo": "Repo wechseln"
+  "reviews.changeRepo": "Repo wechseln",
+  "sprints.filters": "Filter",
+  "sprints.filters.clear": "Filter zurücksetzen",
+  "sprints.filters.columns": "Spalten (Status)",
+  "sprints.filters.types": "Typen (User Story / Bug / Task …)"
 }

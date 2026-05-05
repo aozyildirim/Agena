@@ -3577,5 +3577,9 @@
   "profile.prTitlePattern": "Pattern del titolo PR",
   "profile.prTitlePatternHint": "Placeholder: {ab} (AB#id per Azure, key per Jira), {title}, {ext_id}, {id}, {source}. Vuoto = default `[AI] {ab} {title}`.",
   "reviews.pickRepo": "Scegli un PR / repo",
-  "reviews.changeRepo": "Cambia repo"
+  "reviews.changeRepo": "Cambia repo",
+  "sprints.filters": "Filtri",
+  "sprints.filters.clear": "Svuota filtri",
+  "sprints.filters.columns": "Colonne (stato)",
+  "sprints.filters.types": "Tipi (User Story / Bug / Task …)"
 }
