@@ -674,8 +674,9 @@ async def trigger_review(
         # pick. Comma-joined pr_url on task_records doesn't survive a
         # diff fetch, and reviewing N PRs at once needs N separate jobs
         # anyway.
+        from sqlalchemy import select as _select
         assignments = (await db.execute(
-            select(TaskRepoAssignment).where(
+            _select(TaskRepoAssignment).where(
                 TaskRepoAssignment.task_id == task.id,
                 TaskRepoAssignment.organization_id == organization_id,
             )
