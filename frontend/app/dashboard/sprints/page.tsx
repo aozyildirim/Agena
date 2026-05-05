@@ -756,25 +756,38 @@ export default function SprintsPage() {
   // show "Agena #ID · status" badges on items that were brought in before.
   // Refetched whenever the provider changes or after a successful import.
   const loadExistingImports = useCallback(async () => {
+    type SearchRow = { id: number; source: string; external_id?: string | null; title?: string; status: string };
+    type SearchResp = { items: SearchRow[]; total: number };
+    // /tasks/search caps page_size at 100 (validator); to cover orgs
+    // with >100 historical imports we walk pages until we've seen
+    // every row. Pull from both source=<provider> (new imports with
+    // a clean external_id) and source=internal (legacy imports whose
+    // title still encodes [Azure #N] / [Jira #KEY]).
+    const fetchAll = async (source: string): Promise<SearchRow[]> => {
+      const all: SearchRow[] = [];
+      let page = 1;
+      const pageSize = 100;
+      // Hard cap so a misconfigured filter can't sweep tens of thousands.
+      const safetyCap = 50;
+      while (page <= safetyCap) {
+        const qs = new URLSearchParams({ source, page: String(page), page_size: String(pageSize) });
+        const resp = await apiFetch<SearchResp>(`/tasks/search?${qs.toString()}`).catch(() => null);
+        if (!resp || !resp.items?.length) break;
+        all.push(...resp.items);
+        if (resp.items.length < pageSize) break;
+        if (resp.total && all.length >= resp.total) break;
+        page += 1;
+      }
+      return all;
+    };
     try {
-      type SearchRow = { id: number; source: string; external_id?: string | null; title?: string; status: string };
-      type SearchResp = { items: SearchRow[]; total: number };
-      // Pull both:
-      //   (a) tasks tagged source=azure|jira — new imports have a clean
-      //       external_id = work item id
-      //   (b) tasks tagged source=internal whose title starts with
-      //       `[Azure #<id>] ...` / `[Jira #<id>] ...` — these are older
-      //       per-item imports made before the source/external_id plumbing,
-      //       so we recover them by title pattern.
-      const providerQs = new URLSearchParams({ source: provider, page: '1', page_size: '200' });
-      const internalQs = new URLSearchParams({ source: 'internal', page: '1', page_size: '200' });
       const [tagged, internal] = await Promise.all([
-        apiFetch<SearchResp>(`/tasks/search?${providerQs.toString()}`).catch(() => ({ items: [], total: 0 })),
-        apiFetch<SearchResp>(`/tasks/search?${internalQs.toString()}`).catch(() => ({ items: [], total: 0 })),
+        fetchAll(provider),
+        fetchAll('internal'),
       ]);
       const idMap: Record<string, number> = {};
       const stMap: Record<string, string> = {};
-      for (const row of tagged.items || []) {
+      for (const row of tagged) {
         if (row.external_id) {
           idMap[row.external_id] = row.id;
           stMap[row.external_id] = row.status;
@@ -782,7 +795,7 @@ export default function SprintsPage() {
       }
       const titlePrefix = provider === 'jira' ? 'Jira' : 'Azure';
       const titleRe = new RegExp(`^\\[${titlePrefix}\\s*#([^\\]\\s]+)\\]`);
-      for (const row of internal.items || []) {
+      for (const row of internal) {
         const m = row.title ? titleRe.exec(row.title) : null;
         if (m && m[1] && !idMap[m[1]]) {
           idMap[m[1]] = row.id;
