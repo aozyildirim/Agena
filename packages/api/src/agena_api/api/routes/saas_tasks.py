@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_models.schemas.saas_task import (
     AssignTaskRequest,
@@ -674,7 +674,11 @@ async def link_work_item(
     return await _to_task_response(service, tenant.organization_id, task)
 
 
-@router.post('/{task_id}/assign', response_model=AssignTaskResponse)
+@router.post(
+    '/{task_id}/assign',
+    response_model=AssignTaskResponse,
+    dependencies=[Depends(require_workspace_perm('tasks:run-ai'))],
+)
 async def assign_task(
     task_id: int,
     payload: AssignTaskRequest = Body(default_factory=AssignTaskRequest),

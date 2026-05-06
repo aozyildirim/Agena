@@ -11,13 +11,13 @@ import ThemeToggle from '@/components/ThemeToggle';
 import GuidedTour from '@/components/GuidedTour';
 import SprintSwitcher from '@/components/SprintSwitcher';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
-import { PermissionsProvider } from '@/lib/permissions';
+import { PermissionsProvider, useCanDo } from '@/lib/permissions';
 import { useLocale } from '@/lib/i18n';
 import { RoleContext, canAccess, type Role } from '@/lib/rbac';
 import { WebSocketProvider } from '@/lib/useWebSocket';
 
-type NavChild = { href: string; key: string; icon: string; permission?: string; module?: string };
-type NavItem = { href: string; key: string; icon: string; permission?: string; children?: NavChild[]; module?: string };
+type NavChild = { href: string; key: string; icon: string; permission?: string; module?: string; wsPerm?: string };
+type NavItem = { href: string; key: string; icon: string; permission?: string; children?: NavChild[]; module?: string; wsPerm?: string };
 
 const NOTIF_EVENT = 'agena:notification';
 const NOTIF_SYNC_EVENT = 'agena:notification-sync';
@@ -35,7 +35,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'boss_mode' },
       { href: '/dashboard/tasks', key: 'nav.tasks', icon: '📋', permission: 'tasks:read' as const, module: 'core' },
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const, module: 'sprints' },
-      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement' },
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'refinement:run' },
       { href: '/dashboard/triage', key: 'nav.triage', icon: '🧹', permission: 'tasks:read' as const, module: 'triage' },
       { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: '⏱', permission: 'tasks:read' as const, module: 'review_backlog' },
       { href: '/dashboard/skills', key: 'nav.skills', icon: '📚', permission: 'tasks:read' as const, module: 'skills' },
@@ -47,11 +47,11 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     module: 'core',
     items: [
-      { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖', module: 'core' },
+      { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖', module: 'core', wsPerm: 'agents:manage' },
       { href: '/dashboard/reviews', key: 'nav.reviews', icon: '🔎', permission: 'tasks:read' as const, module: 'reviews' },
       { href: '/dashboard/insights', key: 'nav.insights', icon: '🧠', module: 'insights' },
-      { href: '/dashboard/flows', key: 'nav.flows', icon: '🔀', module: 'flows' },
-      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '✏️', module: 'prompt_studio' },
+      { href: '/dashboard/flows', key: 'nav.flows', icon: '🔀', module: 'flows', wsPerm: 'flows:manage' },
+      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '✏️', module: 'prompt_studio', wsPerm: 'prompts:edit' },
       { href: '/dashboard/templates', key: 'nav.templates', icon: '📦', module: 'flows' },
     ],
   },
@@ -75,7 +75,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     module: 'core',
     items: [
-      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, module: 'core', children: [
+      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'integrations:manage', children: [
         { href: '/dashboard/integrations', key: 'nav.integrationsOverview', icon: '⚙️', permission: 'integrations:manage' as const },
         { href: '/dashboard/integrations/rules', key: 'nav.integrationRules', icon: '📐', permission: 'integrations:manage' as const },
         { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: '📡', permission: 'integrations:manage' as const, module: 'newrelic' },
@@ -88,7 +88,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints' },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'permissions' },
       { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: '🛂', permission: 'roles:manage' as const, module: 'permissions' },
-      { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core' },
+      { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
     ],
   },
 ];
@@ -117,6 +117,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
+  const canDo = useCanDo();
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [enabledModules, setEnabledModules] = useState<Set<string> | null>(null);
   const [orgSlug, setOrgSlugState] = useState('');
@@ -618,6 +619,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             const visibleItems = group.items
               .filter((item) => !item.module || modules.has(item.module))
               .filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]))
+              .filter((item) => !item.wsPerm || canDo(item.wsPerm))
               .map((item) => item.children ? { ...item, children: item.children.filter((c) => !c.module || modules.has(c.module)) } : item);
             if (!visibleItems.length) return null;
             const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));

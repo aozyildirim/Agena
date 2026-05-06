@@ -1,5 +1,13 @@
 [
   {
+    "hash": "60fbbdaf",
+    "short": "60fbbdaf",
+    "message": "workspaces: phase B slice 3+4 \u2014 matrix UI + role dropdown + permissions context",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
     "hash": "db8d5187",
     "short": "db8d5187",
     "message": "workspaces: phase B slice 1+2 \u2014 workspace_roles model + migration seed + Roles API + require_workspace_perm",

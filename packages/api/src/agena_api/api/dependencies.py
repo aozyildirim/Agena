@@ -141,17 +141,35 @@ def require_workspace_perm(permission: str) -> Callable:
         if (tenant.role or '').lower() == 'owner':
             return tenant
 
-        if tenant.workspace_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='Active workspace required (set X-Workspace-Id header)',
+        # If the client didn't send X-Workspace-Id (e.g. older clients,
+        # background jobs, etc.) fall back to the user's default workspace
+        # in this org. Avoids hard-failing pre-rollout traffic that hasn't
+        # been updated to thread the workspace through yet.
+        workspace_id = tenant.workspace_id
+        if workspace_id is None:
+            from agena_models.models.workspace import Workspace, WorkspaceMember
+            row = await db.execute(
+                select(Workspace.id)
+                .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
+                .where(
+                    Workspace.organization_id == tenant.organization_id,
+                    WorkspaceMember.user_id == tenant.user_id,
+                )
+                .order_by(Workspace.is_default.desc(), Workspace.created_at.asc())
+                .limit(1)
             )
+            workspace_id = row.scalar_one_or_none()
+            if workspace_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail='No workspace membership found',
+                )
 
         from agena_services.services.workspace_role_service import WorkspaceRoleService
         service = WorkspaceRoleService(db)
         perms = await service.get_user_permissions(
             user_id=tenant.user_id,
-            workspace_id=tenant.workspace_id,
+            workspace_id=workspace_id,
             organization_id=tenant.organization_id,
         )
         if permission not in perms:

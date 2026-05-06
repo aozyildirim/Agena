@@ -1,4 +1,5 @@
 'use client';
+import { useCanDo } from '@/lib/permissions';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -481,6 +482,8 @@ type RefinementJobStatus = {
 export default function RefinementPage() {
   const { lang, t } = useLocale();
   const copy = lang === 'tr' ? COPY.tr : COPY.en;
+  const canDo = useCanDo();
+  const canRefine = canDo('refinement:run');
 
   const [provider, setProvider] = useState<Provider>('azure');
   const [agentProvider, setAgentProvider] = useState<AgentProvider>('openai');
@@ -1740,7 +1743,7 @@ export default function RefinementPage() {
                   const ty = typesByItem.get(id) || 'Other';
                   return !runModalExcludedTypes.has(ty);
                 });
-                const disabled = filteredIds.length === 0;
+                const disabled = filteredIds.length === 0 || !canRefine;
                 return (
                   <button
                     onClick={() => {
@@ -1749,6 +1752,7 @@ export default function RefinementPage() {
                       void runRefinement(filteredIds);
                     }}
                     disabled={disabled}
+                    title={!canRefine ? t('permissions.deniedRefine' as Parameters<typeof t>[0]) : undefined}
                     style={{
                       padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 800,
                       border: '1px solid rgba(13,148,136,0.6)',
@@ -1758,7 +1762,7 @@ export default function RefinementPage() {
                       opacity: disabled ? 0.6 : 1,
                     }}
                   >
-                    ▶ {t('refinement.runModal.start' as Parameters<typeof t>[0])}
+                    {!canRefine ? '🔒' : '▶'} {t('refinement.runModal.start' as Parameters<typeof t>[0])}
                   </button>
                 );
               })()}
