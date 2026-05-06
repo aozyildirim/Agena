@@ -1,5 +1,13 @@
 [
   {
+    "hash": "887b7205",
+    "short": "887b7205",
+    "message": "workspaces: phase 4 \u2014 landing page + OG image + sitemap + mobile fixes",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
     "hash": "ecf7ed0a",
     "short": "ecf7ed0a",
     "message": "workspaces: phase 3 \u2014 onboarding gate + WorkspaceSwitcher + settings page + i18n",

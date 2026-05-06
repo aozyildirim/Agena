@@ -32,6 +32,10 @@
   --ink-25: rgba(255,255,255,0.25);
   --panel: rgba(255,255,255,0.02);
   --panel-alt: rgba(255,255,255,0.03);
+  /* Solid panel for popovers and modals — `--panel` itself is alpha 0.02
+     so anything underneath bleeds through. Use this for dropdowns / dialogs
+     that must visually occlude what's behind. */
+  --panel-solid: #0f172a;
   --panel-border: rgba(255,255,255,0.06);
   --panel-border-2: rgba(255,255,255,0.08);
   --panel-border-3: rgba(255,255,255,0.12);
@@ -88,6 +92,7 @@ html.light {
   --ink-25: rgba(0,0,0,0.42);
   --panel: rgba(0,0,0,0.03);
   --panel-alt: rgba(0,0,0,0.05);
+  --panel-solid: #ffffff;
   --panel-border: rgba(0,0,0,0.10);
   --panel-border-2: rgba(0,0,0,0.14);
   --panel-border-3: rgba(0,0,0,0.18);

@@ -314,7 +314,7 @@ export default function WorkspacesPage() {
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(2,8,23,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--panel)', borderRadius: 16, padding: 24, border: '1px solid var(--panel-border)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--panel-solid)', borderRadius: 16, padding: 24, border: '1px solid var(--panel-border)', boxShadow: '0 18px 50px rgba(2,8,23,0.55)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{title}</h2>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--ink-30)', cursor: 'pointer', fontSize: 22 }}>×</button>
