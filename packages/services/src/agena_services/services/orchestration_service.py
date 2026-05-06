@@ -1393,7 +1393,7 @@ class OrchestrationService:
                                 target_branch=pr_payload.base_branch,
                                 title=pr_payload.title,
                                 description=pr_payload.body,
-                                work_item_id=getattr(task, 'external_work_item_id', None),
+                                work_item_id=self._resolve_azure_work_item_id(task),
                             )
                         except Exception as pr_exc:
                             await notification_service.notify_event(
@@ -1444,7 +1444,7 @@ class OrchestrationService:
                         description=pr_payload.body,
                         files=[{'path': f.path, 'content': f.content} for f in pr_payload.files],
                         commit_message=pr_payload.commit_message,
-                        work_item_id=getattr(task, 'external_work_item_id', None),
+                        work_item_id=self._resolve_azure_work_item_id(task),
                     )
                     branch_name = pr_payload.branch_name
                     await task_service.add_log(task.id, organization_id, 'pr', f'Azure PR created: {pr_url}')
@@ -1972,6 +1972,29 @@ class OrchestrationService:
             '=== ORIGINAL TASK BRIEF (for context — already implemented) ===\n'
         )
         return f'{revision_header}{base_description or ""}'
+
+    @staticmethod
+    def _resolve_azure_work_item_id(task: Any) -> str | None:
+        """Pick the Azure work item id for a PR's ``workItemRefs`` payload.
+
+        ``external_work_item_id`` is only populated when Agena mirrors a
+        manual task back into Azure (Agena-created work item). Tasks
+        imported from a sprint board carry the source Azure id under
+        ``external_id`` instead. Without this fallback the imported-task
+        path passes ``None`` to ``azure_pr_service.create_pr``, so the
+        PR's ``workItemRefs`` array stays empty and the work item's
+        Development tab never picks the PR up — even though the title
+        prefix already contains AB#<id> for the title-side auto-link.
+        """
+        linked = (getattr(task, 'external_work_item_id', None) or '').strip()
+        if linked:
+            return linked
+        source = (getattr(task, 'source', None) or '').strip().lower()
+        if source == 'azure':
+            ext = (getattr(task, 'external_id', None) or '').strip()
+            if ext.isdigit():
+                return ext
+        return None
 
     async def _build_pr_payload(self, task: dict[str, Any], reviewed_code: str, local_repo_path: str | None = None) -> CreatePRRequest:
         # Build branch name from pattern (user configurable via profile settings)
