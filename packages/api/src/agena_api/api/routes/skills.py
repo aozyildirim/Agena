@@ -216,7 +216,7 @@ async def list_public_skills(
 @router.post('/public/{skill_id}/toggle')
 async def toggle_public_skill(
     skill_id: int,
-    _admin: CurrentTenant = Depends(require_platform_admin),
+    _tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     s = (await db.execute(select(Skill).where(Skill.id == skill_id, Skill.is_public.is_(True)))).scalar_one_or_none()
@@ -230,7 +230,7 @@ async def toggle_public_skill(
 @router.post('/public/import')
 async def import_public_library(
     repo: str | None = Query(default=None, description='Specific GitHub owner/repo. Omit to run the default seed set.'),
-    _admin: CurrentTenant = Depends(require_platform_admin),
+    _tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Pulls SKILL.md from one repo (or the default seed list) into the
