@@ -10,6 +10,7 @@ import LangToggle from '@/components/LangToggle';
 import ThemeToggle from '@/components/ThemeToggle';
 import GuidedTour from '@/components/GuidedTour';
 import SprintSwitcher from '@/components/SprintSwitcher';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 import { useLocale } from '@/lib/i18n';
 import { RoleContext, canAccess, type Role } from '@/lib/rbac';
 import { WebSocketProvider } from '@/lib/useWebSocket';
@@ -82,6 +83,7 @@ const NAV_GROUPS: NavGroup[] = [
         { href: '/dashboard/integrations/appdynamics', key: 'nav.appdynamics', icon: '📊', permission: 'integrations:manage' as const, module: 'appdynamics' },
       ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🗺', module: 'core' },
+      { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: '🗄', module: 'core' },
       { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints' },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'permissions' },
       { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core' },
@@ -558,6 +560,14 @@ function DashboardInner({ children }: { children: ReactNode }) {
         {sidebarCollapsed && orgSlug && (
           <div title={`${t('tooltip.action.workspaceSlug')}: ${orgNameDisplay || orgSlug} (${orgSlug}.agena.app)`} style={{ textAlign: 'center', marginBottom: 8, fontSize: 14, fontWeight: 800, color: 'var(--nav-active)' }}>
             {(orgNameDisplay || orgSlug)[0]?.toUpperCase()}
+          </div>
+        )}
+
+        {/* Workspace switcher — visible to non-platform-admins, gives a Slack-style
+            dropdown to swap the active workspace (or jump to /dashboard/workspaces). */}
+        {!isPlatformAdmin && (
+          <div style={{ marginBottom: 10 }}>
+            <WorkspaceSwitcher collapsed={sidebarCollapsed} />
           </div>
         )}
 
