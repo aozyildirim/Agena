@@ -3622,5 +3622,12 @@
   "onboarding.workspace.joinBtn": "Unirse",
   "onboarding.workspace.errCreate": "No se pudo crear el área.",
   "onboarding.workspace.errJoin": "No se pudo unir — el código puede ser inválido.",
-  "common.back": "Atrás"
+  "common.back": "Atrás",
+  "landing.workflowWorkspacesEyebrow": "Áreas de trabajo",
+  "landing.workflowWorkspacesTitle": "Una plataforma, un área por escuadrón",
+  "landing.workflowWorkspacesDesc": "Las orgs grandes se dividen en Backend / Mobile / Payments — cada ámbito tiene tareas, repos, agentes IA y código de 6 caracteres.",
+  "landing.workflowWorkspacesBullet1": "Pools, repos, agentes por escuadrón",
+  "landing.workflowWorkspacesBullet2": "Códigos de 6 caracteres (sin SCIM)",
+  "landing.workflowWorkspacesBullet3": "Títulos por área ('Tech Lead', 'QA')",
+  "landing.workflowWorkspacesBullet4": "Dashboard cross-área para owners"
 }

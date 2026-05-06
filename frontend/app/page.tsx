@@ -1070,6 +1070,45 @@ $ agena refinement analyze -p MyProject -t MyTeam`}</code>
                 {t('landing.workflowSeeMore' as TranslationKey)} →
               </span>
             </Link>
+
+            {/* Workspaces card */}
+            <Link
+              href='/workspaces'
+              style={{
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.04))',
+                border: '1px solid rgba(124,58,237,0.25)', borderRadius: 16,
+                padding: 24, textDecoration: 'none', color: 'inherit',
+                display: 'grid', gap: 12, transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 28 }}>🗄</span>
+                <strong style={{ color: '#7c3aed', fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' }}>
+                  {t('landing.workflowWorkspacesEyebrow' as TranslationKey)}
+                </strong>
+              </div>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+                {t('landing.workflowWorkspacesTitle' as TranslationKey)}
+              </h3>
+              <p style={{ color: 'var(--ink-50)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+                {t('landing.workflowWorkspacesDesc' as TranslationKey)}
+              </p>
+              <ul style={{ margin: '4px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+                {[
+                  t('landing.workflowWorkspacesBullet1' as TranslationKey),
+                  t('landing.workflowWorkspacesBullet2' as TranslationKey),
+                  t('landing.workflowWorkspacesBullet3' as TranslationKey),
+                  t('landing.workflowWorkspacesBullet4' as TranslationKey),
+                ].map((b) => (
+                  <li key={b} style={{ display: 'flex', gap: 8, color: 'var(--ink-78)', fontSize: 13 }}>
+                    <span style={{ color: '#7c3aed' }}>✓</span>{b}
+                  </li>
+                ))}
+              </ul>
+              <span style={{ color: '#7c3aed', fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+                {t('landing.workflowSeeMore' as TranslationKey)} →
+              </span>
+            </Link>
           </div>
         </section>
 

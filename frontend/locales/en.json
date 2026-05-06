@@ -3622,5 +3622,12 @@
   "onboarding.workspace.joinBtn": "Join",
   "onboarding.workspace.errCreate": "Couldn’t create the workspace.",
   "onboarding.workspace.errJoin": "Couldn’t join — code may be invalid.",
-  "common.back": "Back"
+  "common.back": "Back",
+  "landing.workflowWorkspacesEyebrow": "Workspaces",
+  "landing.workflowWorkspacesTitle": "One platform, a workspace per squad",
+  "landing.workflowWorkspacesDesc": "Big eng orgs split into Backend / Mobile / Payments — each scope gets its own tasks, repos, AI agents and 6-character invite code.",
+  "landing.workflowWorkspacesBullet1": "Per-squad task pools, repos, AI agents",
+  "landing.workflowWorkspacesBullet2": "6-character invite codes (no SCIM)",
+  "landing.workflowWorkspacesBullet3": "Per-workspace titles ('Tech Lead', 'QA')",
+  "landing.workflowWorkspacesBullet4": "Org-owner cross-workspace dashboard"
 }

@@ -173,7 +173,7 @@ export default function WorkspacesPage() {
 
       {error ? <div style={errorBox}>{error}</div> : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: 20, alignItems: 'start' }}>
+      <div className="ws-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: 20, alignItems: 'start' }}>
         {/* Left column: workspace list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {loading ? (
@@ -301,6 +301,12 @@ export default function WorkspacesPage() {
           </div>
         </Modal>
       ) : null}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 720px) {
+          .ws-grid { grid-template-columns: 1fr !important; }
+        }
+      ` }} />
     </div>
   );
 }

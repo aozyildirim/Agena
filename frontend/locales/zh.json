@@ -3622,5 +3622,12 @@
   "onboarding.workspace.joinBtn": "加入",
   "onboarding.workspace.errCreate": "无法创建工作区。",
   "onboarding.workspace.errJoin": "无法加入 — 邀请码可能无效。",
-  "common.back": "返回"
+  "common.back": "返回",
+  "landing.workflowWorkspacesEyebrow": "工作区",
+  "landing.workflowWorkspacesTitle": "一个平台，每个小组一个工作区",
+  "landing.workflowWorkspacesDesc": "大型工程组织划分为后端/移动/支付 — 每个范围有自己的任务、仓库、AI 代理和 6 位邀请码。",
+  "landing.workflowWorkspacesBullet1": "按小组的任务池、仓库、AI代理",
+  "landing.workflowWorkspacesBullet2": "6位邀请码（无需 SCIM）",
+  "landing.workflowWorkspacesBullet3": "工作区职位（'Tech Lead', 'QA'）",
+  "landing.workflowWorkspacesBullet4": "组织所有者的跨工作区仪表板"
 }

@@ -3622,5 +3622,12 @@
   "onboarding.workspace.joinBtn": "参加",
   "onboarding.workspace.errCreate": "ワークスペースを作成できません。",
   "onboarding.workspace.errJoin": "参加できません — コードが無効です。",
-  "common.back": "戻る"
+  "common.back": "戻る",
+  "landing.workflowWorkspacesEyebrow": "ワークスペース",
+  "landing.workflowWorkspacesTitle": "1つのプラットフォーム、スクワッドごとのワークスペース",
+  "landing.workflowWorkspacesDesc": "大規模エンジニアリング組織はBackend / Mobile / Paymentsに分かれる — 各スコープに独自のタスク、リポジトリ、AIエージェント、6文字の招待コード。",
+  "landing.workflowWorkspacesBullet1": "スクワッドごとのタスクプール、リポジトリ、AIエージェント",
+  "landing.workflowWorkspacesBullet2": "6文字招待コード（SCIM不要）",
+  "landing.workflowWorkspacesBullet3": "ワークスペースごとのタイトル（'Tech Lead', 'QA'）",
+  "landing.workflowWorkspacesBullet4": "オーナー向けクロスワークスペースダッシュボード"
 }

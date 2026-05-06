@@ -3622,5 +3622,12 @@
   "onboarding.workspace.joinBtn": "Katıl",
   "onboarding.workspace.errCreate": "Workspace oluşturulamadı.",
   "onboarding.workspace.errJoin": "Katılınamadı — kod geçersiz olabilir.",
-  "common.back": "Geri"
+  "common.back": "Geri",
+  "landing.workflowWorkspacesEyebrow": "Workspace’ler",
+  "landing.workflowWorkspacesTitle": "Tek platform, her squad için bir workspace",
+  "landing.workflowWorkspacesDesc": "Büyük engineering organizasyonları Backend / Mobile / Payments olarak ayrılır — her kapsamın kendi görevleri, repo'ları, AI ajanları ve 6 haneli davet kodu olur.",
+  "landing.workflowWorkspacesBullet1": "Squad bazlı görev havuzu, repo, AI ajan",
+  "landing.workflowWorkspacesBullet2": "6 haneli davet kodu (SCIM gerekmez)",
+  "landing.workflowWorkspacesBullet3": "Workspace başına ünvan ('Tech Lead', 'QA')",
+  "landing.workflowWorkspacesBullet4": "Org owner için cross-workspace dashboard"
 }

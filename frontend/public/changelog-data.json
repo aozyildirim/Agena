@@ -1,5 +1,13 @@
 [
   {
+    "hash": "ecf7ed0a",
+    "short": "ecf7ed0a",
+    "message": "workspaces: phase 3 \u2014 onboarding gate + WorkspaceSwitcher + settings page + i18n",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
     "hash": "1d6a04ee",
     "short": "1d6a04ee",
     "message": "workspaces: phase 1+2 \u2014 ORM, migration with default seed/backfill, service + API routes",

@@ -119,13 +119,13 @@ export default function WorkspaceSwitcher({ collapsed = false }: { collapsed?: b
       </button>
 
       {open ? (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, minWidth: 240, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, boxShadow: '0 18px 40px rgba(2,8,23,0.18)', overflow: 'hidden', zIndex: 100 }}>
-          <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, minWidth: 240, background: 'var(--panel)', backgroundColor: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, boxShadow: '0 18px 40px rgba(2,8,23,0.45)', overflow: 'hidden', zIndex: 9999, isolation: 'isolate' }}>
+          <div style={{ maxHeight: 280, overflowY: 'auto', background: 'var(--panel)' }}>
             {list.map((w) => (
               <button
                 key={w.id}
                 onClick={() => pick(w.id)}
-                style={{ width: '100%', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, background: w.id === active ? 'rgba(124,58,237,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--panel-border-2)', cursor: 'pointer', textAlign: 'left', color: 'var(--ink-90)' }}
+                style={{ width: '100%', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, background: w.id === active ? 'rgba(124,58,237,0.16)' : 'var(--panel)', border: 'none', borderBottom: '1px solid var(--panel-border-2)', cursor: 'pointer', textAlign: 'left', color: 'var(--ink-90)' }}
               >
                 <div style={{ width: 26, height: 26, borderRadius: 7, background: gradFor(w.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 11 }}>
                   {(w.name[0] || 'W').toUpperCase()}
@@ -141,7 +141,7 @@ export default function WorkspaceSwitcher({ collapsed = false }: { collapsed?: b
               </button>
             ))}
           </div>
-          <Link href="/dashboard/workspaces" onClick={() => setOpen(false)} style={{ display: 'block', padding: '10px 12px', fontSize: 13, color: 'var(--ink-78)', textDecoration: 'none', fontWeight: 600, background: 'var(--glass)' }}>
+          <Link href="/dashboard/workspaces" onClick={() => setOpen(false)} style={{ display: 'block', padding: '10px 12px', fontSize: 13, color: 'var(--ink-78)', textDecoration: 'none', fontWeight: 600, background: 'var(--panel)', borderTop: '1px solid var(--panel-border-2)' }}>
             ⚙ {t('workspaces.manage')}
           </Link>
         </div>

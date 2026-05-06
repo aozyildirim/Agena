@@ -3622,5 +3622,12 @@
   "onboarding.workspace.joinBtn": "Beitreten",
   "onboarding.workspace.errCreate": "Bereich konnte nicht erstellt werden.",
   "onboarding.workspace.errJoin": "Beitritt fehlgeschlagen — Code ungültig.",
-  "common.back": "Zurück"
+  "common.back": "Zurück",
+  "landing.workflowWorkspacesEyebrow": "Arbeitsbereiche",
+  "landing.workflowWorkspacesTitle": "Eine Plattform, ein Bereich pro Squad",
+  "landing.workflowWorkspacesDesc": "Große Eng-Orgs teilen sich in Backend / Mobile / Payments — pro Scope eigene Tasks, Repos, Agenten und 6-stelliger Code.",
+  "landing.workflowWorkspacesBullet1": "Pools, Repos, Agenten pro Squad",
+  "landing.workflowWorkspacesBullet2": "6-stellige Codes (kein SCIM)",
+  "landing.workflowWorkspacesBullet3": "Titel pro Bereich ('Tech Lead', 'QA')",
+  "landing.workflowWorkspacesBullet4": "Cross-Workspace Dashboard für Owner"
 }
