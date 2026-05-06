@@ -37,10 +37,38 @@ async def me(
     from sqlalchemy import select
     from agena_models.models.organization import Organization
     from agena_models.models.user import User
+    from agena_services.services.workspace_role_service import WorkspaceRoleService
+    from agena_services.services.permission_catalog import all_permission_keys
+
     result = await db.execute(select(User).where(User.id == tenant.user_id))
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail='User not found')
     org_result = await db.execute(select(Organization).where(Organization.id == tenant.organization_id))
     org = org_result.scalar_one_or_none()
-    return MeResponse(user_id=user.id, email=user.email, full_name=user.full_name or '', organization_id=tenant.organization_id, org_slug=org.slug if org else '', org_name=org.name if org else '', is_platform_admin=user.is_platform_admin)
+
+    # Permission set for the active workspace (if header present). Org owners
+    # always get the full catalog so the UI never gates them out by mistake.
+    permissions: list[str] = []
+    if (tenant.role or '').lower() == 'owner':
+        permissions = all_permission_keys()
+    elif tenant.workspace_id is not None:
+        service = WorkspaceRoleService(db)
+        perms = await service.get_user_permissions(
+            user_id=tenant.user_id,
+            workspace_id=tenant.workspace_id,
+            organization_id=tenant.organization_id,
+        )
+        permissions = sorted(perms)
+
+    return MeResponse(
+        user_id=user.id,
+        email=user.email,
+        full_name=user.full_name or '',
+        organization_id=tenant.organization_id,
+        org_slug=org.slug if org else '',
+        org_name=org.name if org else '',
+        is_platform_admin=user.is_platform_admin,
+        org_role=tenant.role,
+        permissions=permissions,
+    )

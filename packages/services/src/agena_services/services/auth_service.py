@@ -8,9 +8,67 @@ from agena_models.models.organization_member import OrganizationMember
 from agena_models.models.subscription import Subscription
 from agena_models.models.user import User
 from agena_models.models.workspace import Workspace, WorkspaceMember, generate_invite_code
+from agena_models.models.workspace_role import WorkspaceRole
 from agena_models.schemas.auth import LoginRequest, SignupRequest
 from agena_core.security.jwt import create_access_token
 from agena_core.security.passwords import hash_password, verify_password
+
+
+# Seed permission sets for the 4 built-in roles. Mirrors migration 0058 so
+# that new orgs created via signup get the same starting matrix as orgs
+# that existed at migration time.
+_BUILTIN_ROLES = [
+    {
+        'name': 'Owner', 'sort': 10, 'is_default': False,
+        'description': 'Full control of a workspace — settings, members, deletion.',
+        'permissions': [
+            'workspace:create', 'workspace:delete', 'workspace:manage', 'workspace:invite',
+            'members:add', 'members:remove', 'members:assign-role',
+            'tasks:create', 'tasks:edit', 'tasks:delete', 'tasks:assign', 'tasks:run-ai',
+            'sprint:select', 'sprint:create', 'sprint:assign-task',
+            'code:write', 'pr:create', 'pr:merge', 'pr:close',
+            'review:request', 'review:approve',
+            'refinement:run', 'refinement:approve',
+            'repo:manage',
+            'agents:manage', 'flows:manage', 'prompts:edit',
+            'integrations:manage', 'modules:configure',
+            'billing:read', 'billing:manage', 'analytics:read',
+        ],
+    },
+    {
+        'name': 'Admin', 'sort': 20, 'is_default': False,
+        'description': 'Manages members, repos, and day-to-day operations.',
+        'permissions': [
+            'workspace:manage', 'workspace:invite',
+            'members:add', 'members:remove', 'members:assign-role',
+            'tasks:create', 'tasks:edit', 'tasks:delete', 'tasks:assign', 'tasks:run-ai',
+            'sprint:select', 'sprint:create', 'sprint:assign-task',
+            'code:write', 'pr:create', 'pr:merge', 'pr:close',
+            'review:request', 'review:approve',
+            'refinement:run', 'refinement:approve',
+            'repo:manage',
+            'agents:manage', 'flows:manage', 'prompts:edit',
+            'integrations:manage',
+            'analytics:read',
+        ],
+    },
+    {
+        'name': 'Member', 'sort': 30, 'is_default': True,
+        'description': 'Default role — can work on tasks and run AI agents.',
+        'permissions': [
+            'tasks:create', 'tasks:edit', 'tasks:assign', 'tasks:run-ai',
+            'sprint:select', 'sprint:assign-task',
+            'code:write', 'pr:create',
+            'review:request', 'review:approve',
+            'analytics:read',
+        ],
+    },
+    {
+        'name': 'Viewer', 'sort': 40, 'is_default': False,
+        'description': 'Read-only — can view tasks but cannot create or run AI.',
+        'permissions': ['analytics:read'],
+    },
+]
 
 
 class AuthService:
@@ -46,6 +104,24 @@ class AuthService:
         self.db.add(membership)
         self.db.add(Subscription(organization_id=org.id, plan_name='pro', status='active'))
 
+        # Seed the 4 built-in workspace roles for this org so the
+        # permission matrix exists before the first workspace is created.
+        owner_role: WorkspaceRole | None = None
+        for role_def in _BUILTIN_ROLES:
+            role = WorkspaceRole(
+                organization_id=org.id,
+                name=role_def['name'],
+                description=role_def['description'],
+                permissions_json=__import__('json').dumps(role_def['permissions']),
+                is_builtin=True,
+                is_default_for_new_members=role_def['is_default'],
+                sort_order=role_def['sort'],
+            )
+            self.db.add(role)
+            if role_def['name'] == 'Owner':
+                owner_role = role
+        await self.db.flush()
+
         # Auto-create a default workspace and add the new user as owner.
         # Onboarding can later let them rename it or create more workspaces.
         workspace = Workspace(
@@ -59,7 +135,12 @@ class AuthService:
         )
         self.db.add(workspace)
         await self.db.flush()
-        self.db.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role='owner'))
+        self.db.add(WorkspaceMember(
+            workspace_id=workspace.id,
+            user_id=user.id,
+            role='owner',
+            role_id=owner_role.id if owner_role is not None else None,
+        ))
 
         await self.db.commit()
 

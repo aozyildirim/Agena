@@ -50,3 +50,7 @@ class MeResponse(BaseModel):
     org_slug: str = ''
     org_name: str = ''
     is_platform_admin: bool = False
+    org_role: str = 'member'
+    # Permission keys the user holds in the active workspace (resolved from
+    # the X-Workspace-Id header). Empty list when no header was sent.
+    permissions: list[str] = []

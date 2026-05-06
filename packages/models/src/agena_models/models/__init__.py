@@ -45,6 +45,7 @@ from agena_models.models.org_workflow_settings import OrgWorkflowSettings
 from agena_models.models.module import Module, OrganizationModule
 from agena_models.models.user_preference import UserPreference
 from agena_models.models.workspace import Workspace, WorkspaceMember
+from agena_models.models.workspace_role import WorkspaceRole
 
 __all__ = [
     'User', 'Organization', 'OrganizationMember', 'Subscription',
@@ -68,4 +69,5 @@ __all__ = [
     'NudgeHistory',
     'Workspace',
     'WorkspaceMember',
+    'WorkspaceRole',
 ]

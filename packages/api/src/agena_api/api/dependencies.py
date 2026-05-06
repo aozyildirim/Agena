@@ -27,6 +27,10 @@ class CurrentTenant:
     email: str
     role: str
     is_platform_admin: bool = False
+    # Active workspace, read from the X-Workspace-Id header (set by the
+    # frontend's WorkspaceSwitcher). May be None for endpoints that don't
+    # care about workspace scope (e.g. /workspaces, /auth/me).
+    workspace_id: int | None = None
 
 
 def get_queue_service() -> QueueService:
@@ -83,12 +87,23 @@ async def get_current_tenant(
     if member is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='No organization access')
 
+    # Optional active workspace from header (frontend sends this from the
+    # WorkspaceSwitcher's localStorage value).
+    raw_ws = request.headers.get('x-workspace-id') or request.query_params.get('workspace_id')
+    workspace_id: int | None = None
+    if raw_ws:
+        try:
+            workspace_id = int(raw_ws)
+        except (TypeError, ValueError):
+            workspace_id = None
+
     return CurrentTenant(
         user_id=user_id,
         organization_id=org_id,
         email=email,
         role=member.role or 'member',
         is_platform_admin=bool(payload.get('pa')),
+        workspace_id=workspace_id,
     )
 
 
@@ -98,6 +113,55 @@ async def require_platform_admin(
     if not tenant.is_platform_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Platform admin access required')
     return tenant
+
+
+def require_workspace_perm(permission: str) -> Callable:
+    """Workspace-scoped permission check.
+
+    Reads the active workspace from ``X-Workspace-Id``, looks up the
+    user's role in that workspace, and verifies the role's permission
+    JSON contains the requested key. Org owners
+    (``OrganizationMember.role == 'owner'``) bypass the check.
+
+    Usage::
+
+        @router.post('/refinement/run')
+        async def run(
+            tenant = Depends(require_workspace_perm('refinement:run')),
+            db: AsyncSession = Depends(get_db_session),
+        ):
+            ...
+    """
+
+    async def _check(
+        tenant: CurrentTenant = Depends(get_current_tenant),
+        db: AsyncSession = Depends(get_db_session),
+    ) -> CurrentTenant:
+        # Org owner short-circuit
+        if (tenant.role or '').lower() == 'owner':
+            return tenant
+
+        if tenant.workspace_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Active workspace required (set X-Workspace-Id header)',
+            )
+
+        from agena_services.services.workspace_role_service import WorkspaceRoleService
+        service = WorkspaceRoleService(db)
+        perms = await service.get_user_permissions(
+            user_id=tenant.user_id,
+            workspace_id=tenant.workspace_id,
+            organization_id=tenant.organization_id,
+        )
+        if permission not in perms:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f'Permission denied: {permission}',
+            )
+        return tenant
+
+    return _check
 
 
 def require_permission(permission: str) -> Callable:

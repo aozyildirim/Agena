@@ -44,6 +44,9 @@ class WorkspaceMember(Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey('workspaces.id', ondelete='CASCADE'), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
     role: Mapped[str] = mapped_column(String(32), default='member')
+    # FK to workspace_roles — once populated, takes precedence over the legacy
+    # `role` string column. Nullable for backward-compat during migration.
+    role_id: Mapped[Optional[int]] = mapped_column(ForeignKey('workspace_roles.id', ondelete='SET NULL'), nullable=True, index=True)
     title: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
