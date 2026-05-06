@@ -29,7 +29,7 @@ def _is_valid_file_path(path: str) -> bool:
 _AZURE_TITLE_PREFIX_RE = re.compile(r'^\[\s*Azure\s*#\s*(\d+)\s*\]\s*', re.IGNORECASE)
 _JIRA_TITLE_PREFIX_RE = re.compile(r'^\[\s*Jira\s*#\s*([A-Z][A-Z0-9_]*-\d+)\s*\]\s*', re.IGNORECASE)
 
-DEFAULT_PR_TITLE_TEMPLATE = '[AI] {ab} {title}'
+DEFAULT_PR_TITLE_TEMPLATE = '{ab} {title}'
 
 
 async def _resolve_user_pr_title_template(db, user_id: int) -> str | None:
@@ -76,11 +76,12 @@ def _format_pr_title(
       {id}       — Agena's internal task id
       {source}   — `azure` / `jira` / `internal` / …
 
-    The default template `[AI] {ab} {title}` keeps the existing
-    behaviour (Azure auto-link + [AI] marker). Empty / None template
-    falls back to the default. Multiple consecutive spaces are
-    collapsed so a missing placeholder ({ab} on internal tasks) doesn't
-    leave a double-space scar."""
+    The default template `{ab} {title}` keeps the Azure DevOps
+    auto-linker happy without forcing an `[AI]` prefix on every PR —
+    users who want that marker put it in their own pr_title_template.
+    Empty / None template falls back to the default. Multiple
+    consecutive spaces are collapsed so a missing placeholder ({ab} on
+    internal tasks) doesn't leave a double-space scar."""
     title = (raw_title or 'Generated Task').strip()
     src = (source or '').strip().lower()
     ext = (external_id or '').strip()
@@ -115,7 +116,7 @@ def _format_pr_title(
         .replace('{source}', src)
     )
     # Collapse double spaces left behind by missing placeholders so
-    # "[AI]  Foo" doesn't ship to Azure / GitHub.
+    # " Foo" or "AB#  Foo" doesn't ship to Azure / GitHub.
     rendered = re.sub(r'\s{2,}', ' ', rendered).strip()
     return rendered
 
