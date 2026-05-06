@@ -1,5 +1,13 @@
 [
   {
+    "hash": "ebd3ce03",
+    "short": "ebd3ce03",
+    "message": "workspaces: phase B slice 7 — token-based invite links + signup auto-join",
+    "date": "2026-05-06",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "63831513",
     "short": "63831513",
     "message": "workspaces: phase B slice 6 — edit/delete + perm hardening + Owner lock-down",
