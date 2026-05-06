@@ -8,11 +8,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_services.services.workspace_service import WorkspaceService
 
 router = APIRouter(prefix='/workspaces', tags=['workspaces'])
+
+
+async def _require_workspace_perm(
+    db: AsyncSession,
+    tenant: CurrentTenant,
+    workspace_id: int,
+    permission: str,
+) -> None:
+    """Inline perm check for routes whose target workspace differs from the
+    one in ``X-Workspace-Id``. Org owner short-circuits.
+    """
+    if (tenant.role or '').lower() == 'owner':
+        return
+    from agena_services.services.workspace_role_service import WorkspaceRoleService
+    perms = await WorkspaceRoleService(db).get_user_permissions(
+        user_id=tenant.user_id,
+        workspace_id=workspace_id,
+        organization_id=tenant.organization_id,
+    )
+    if permission not in perms:
+        raise HTTPException(status_code=403, detail=f'Permission denied: {permission}')
 
 
 class WorkspaceItem(BaseModel):
@@ -45,6 +66,11 @@ class CreateWorkspaceRequest(BaseModel):
 class JoinWorkspaceRequest(BaseModel):
     invite_code: str
     title: Optional[str] = None
+
+
+class UpdateWorkspaceRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 
 class UpdateMemberRequest(BaseModel):
@@ -111,6 +137,45 @@ async def join_workspace(
     )
 
 
+@router.put('/{workspace_id}', response_model=WorkspaceItem, dependencies=[Depends(require_workspace_perm('workspace:manage'))])
+async def update_workspace(
+    workspace_id: int,
+    payload: UpdateWorkspaceRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> WorkspaceItem:
+    service = WorkspaceService(db)
+    try:
+        ws = await service.update(
+            workspace_id=workspace_id,
+            organization_id=tenant.organization_id,
+            name=payload.name,
+            description=payload.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return WorkspaceItem(
+        id=ws.id, name=ws.name, slug=ws.slug, description=ws.description,
+        invite_code=ws.invite_code, is_default=ws.is_default, created_at=ws.created_at,
+    )
+
+
+@router.delete('/{workspace_id}', dependencies=[Depends(require_workspace_perm('workspace:delete'))])
+async def delete_workspace(
+    workspace_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, bool]:
+    service = WorkspaceService(db)
+    try:
+        await service.delete(workspace_id=workspace_id, organization_id=tenant.organization_id)
+    except ValueError as exc:
+        msg = str(exc)
+        status = 404 if 'not found' in msg.lower() else 400
+        raise HTTPException(status_code=status, detail=msg) from exc
+    return {'ok': True}
+
+
 @router.get('/{workspace_id}/members', response_model=list[WorkspaceMemberItem])
 async def list_members(
     workspace_id: int,
@@ -151,8 +216,10 @@ async def update_member(
     ws = await service.get(workspace_id=workspace_id, organization_id=tenant.organization_id)
     if ws is None:
         raise HTTPException(status_code=404, detail='Workspace not found')
-    if not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
-        raise HTTPException(status_code=403, detail='Not a workspace member')
+    # Self-edits (titles, etc.) are always allowed; editing someone else
+    # needs the management permission.
+    if user_id != tenant.user_id:
+        await _require_workspace_perm(db, tenant, workspace_id, 'members:assign-role')
     try:
         await service.update_member_title(workspace_id=workspace_id, user_id=user_id, title=payload.title)
     except ValueError as exc:
@@ -182,8 +249,24 @@ async def remove_member(
     ws = await service.get(workspace_id=workspace_id, organization_id=tenant.organization_id)
     if ws is None:
         raise HTTPException(status_code=404, detail='Workspace not found')
-    if not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
-        raise HTTPException(status_code=403, detail='Not a workspace member')
+    # Self-removal is allowed (treat as "leave workspace"); removing someone
+    # else requires the management permission.
+    if user_id != tenant.user_id:
+        await _require_workspace_perm(db, tenant, workspace_id, 'members:remove')
+    # The org owner's seat is anchored — removing them from a workspace
+    # would orphan the workspace and make the org owner lose visibility into
+    # their own org. Block server-side regardless of permission.
+    from agena_models.models.organization_member import OrganizationMember
+    from sqlalchemy import select
+    target_om = await db.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.organization_id == tenant.organization_id,
+            OrganizationMember.user_id == user_id,
+        )
+    )
+    target_member = target_om.scalar_one_or_none()
+    if target_member is not None and (target_member.role or '').lower() == 'owner':
+        raise HTTPException(status_code=400, detail='Cannot remove the organization owner')
     await service.remove_member(workspace_id=workspace_id, user_id=user_id)
     return {'ok': True}
 
@@ -198,8 +281,7 @@ async def regenerate_code(
     ws = await service.get(workspace_id=workspace_id, organization_id=tenant.organization_id)
     if ws is None:
         raise HTTPException(status_code=404, detail='Workspace not found')
-    if not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
-        raise HTTPException(status_code=403, detail='Not a workspace member')
+    await _require_workspace_perm(db, tenant, workspace_id, 'workspace:invite')
     await service.regenerate_invite_code(workspace_id)
     refreshed = await service.get(workspace_id=workspace_id, organization_id=tenant.organization_id)
     assert refreshed is not None

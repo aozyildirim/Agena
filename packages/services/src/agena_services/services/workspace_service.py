@@ -32,16 +32,38 @@ class WorkspaceService:
         self.db = db
 
     async def list_for_user(self, user_id: int, organization_id: int) -> list[Workspace]:
-        """Workspaces in this org that the user belongs to."""
-        result = await self.db.execute(
-            select(Workspace)
-            .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
-            .where(
-                Workspace.organization_id == organization_id,
-                WorkspaceMember.user_id == user_id,
+        """Workspaces in this org that the user belongs to.
+
+        Org owners always see every workspace in their org — even ones they
+        haven't been added to as members. Otherwise a buggy or malicious
+        ``DELETE /workspaces/{id}/members/{owner_id}`` would lock the founder
+        out of their own org, which we recently saw happen in prod.
+        """
+        org_member = await self.db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.organization_id == organization_id,
+                OrganizationMember.user_id == user_id,
             )
-            .order_by(Workspace.is_default.desc(), Workspace.created_at.asc())
         )
+        om = org_member.scalar_one_or_none()
+        is_org_owner = om is not None and (om.role or '').lower() == 'owner'
+
+        if is_org_owner:
+            result = await self.db.execute(
+                select(Workspace)
+                .where(Workspace.organization_id == organization_id)
+                .order_by(Workspace.is_default.desc(), Workspace.created_at.asc())
+            )
+        else:
+            result = await self.db.execute(
+                select(Workspace)
+                .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
+                .where(
+                    Workspace.organization_id == organization_id,
+                    WorkspaceMember.user_id == user_id,
+                )
+                .order_by(Workspace.is_default.desc(), Workspace.created_at.asc())
+            )
         return list(result.scalars().all())
 
     async def get(self, workspace_id: int, organization_id: int) -> Optional[Workspace]:
@@ -215,6 +237,59 @@ class WorkspaceService:
         if member is None:
             return
         await self.db.delete(member)
+        await self.db.commit()
+
+    async def update(
+        self,
+        *,
+        workspace_id: int,
+        organization_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Workspace:
+        result = await self.db.execute(
+            select(Workspace).where(
+                Workspace.id == workspace_id,
+                Workspace.organization_id == organization_id,
+            )
+        )
+        ws = result.scalar_one_or_none()
+        if ws is None:
+            raise ValueError('Workspace not found')
+        if name is not None:
+            new_name = name.strip()
+            if not new_name:
+                raise ValueError('Workspace name is required')
+            ws.name = new_name
+        if description is not None:
+            ws.description = description.strip() or None
+        await self.db.commit()
+        await self.db.refresh(ws)
+        return ws
+
+    async def delete(self, *, workspace_id: int, organization_id: int) -> None:
+        """Delete a workspace and its memberships.
+
+        Refuses to delete the workspace flagged as default for the org —
+        every org needs at least one workspace as a fallback target.
+        """
+        result = await self.db.execute(
+            select(Workspace).where(
+                Workspace.id == workspace_id,
+                Workspace.organization_id == organization_id,
+            )
+        )
+        ws = result.scalar_one_or_none()
+        if ws is None:
+            raise ValueError('Workspace not found')
+        if ws.is_default:
+            raise ValueError('Cannot delete the default workspace')
+        members = await self.db.execute(
+            select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id)
+        )
+        for member in members.scalars().all():
+            await self.db.delete(member)
+        await self.db.delete(ws)
         await self.db.commit()
 
     async def regenerate_invite_code(self, workspace_id: int) -> str:

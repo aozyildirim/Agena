@@ -150,6 +150,11 @@ class WorkspaceRoleService:
         role = await self.get(role_id, organization_id)
         if role is None:
             raise ValueError('Role not found')
+        # Owner is the org founder's seat — not assignable from the UI even
+        # by other owners. We avoid the "two owners, one demotes the other"
+        # privilege-escalation foot-gun by blocking it server-side.
+        if role.is_builtin and (role.name or '').lower() == 'owner':
+            raise ValueError('Owner role cannot be assigned')
         result = await self.db.execute(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == workspace_id,
@@ -159,6 +164,19 @@ class WorkspaceRoleService:
         member = result.scalar_one_or_none()
         if member is None:
             raise ValueError('Member not found')
+        # Symmetric guard: don't let anyone *demote* the org owner either.
+        # Their seat in every workspace is anchored at "Owner" — overwriting
+        # it via this endpoint would silently strip their permissions.
+        from agena_models.models.organization_member import OrganizationMember
+        target_om = await self.db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.organization_id == organization_id,
+                OrganizationMember.user_id == user_id,
+            )
+        )
+        target_member = target_om.scalar_one_or_none()
+        if target_member is not None and (target_member.role or '').lower() == 'owner':
+            raise ValueError("Cannot change the organization owner's role")
         member.role_id = role.id
         member.role = role.name.lower()
         await self.db.commit()

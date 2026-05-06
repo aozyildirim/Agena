@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import { useCanDo } from '@/lib/permissions';
 
 type Workspace = {
   id: number;
@@ -32,6 +33,31 @@ type Role = {
   is_default_for_new_members: boolean;
 };
 
+const isOwnerRole = (r: Role) => r.is_builtin && (r.name || '').toLowerCase() === 'owner';
+
+type InviteLink = {
+  id: number;
+  token: string;
+  workspace_id: number;
+  role_id: number | null;
+  role_name: string | null;
+  max_uses: number | null;
+  uses: number;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+const TTL_DAY = 24 * 60 * 60 * 1000;
+function ttlToDate(days: number | null): string | null {
+  if (days == null) return null;
+  return new Date(Date.now() + days * TTL_DAY).toISOString();
+}
+function inviteUrl(token: string): string {
+  if (typeof window === 'undefined') return `/invite/${token}`;
+  return `${window.location.origin}/invite/${token}`;
+}
+
 const GRADIENTS = [
   ['#7c3aed', '#a78bfa'],
   ['#0d9488', '#22c55e'],
@@ -47,21 +73,30 @@ const gradFor = (name: string) => {
 
 export default function WorkspacesPage() {
   const { t } = useLocale();
+  const canDo = useCanDo();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinTitle, setJoinTitle] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [memberRoleIds, setMemberRoleIds] = useState<Record<number, number | null>>({});
+  const [invites, setInvites] = useState<InviteLink[]>([]);
+  const [inviteRoleId, setInviteRoleId] = useState<number | ''>('');
+  const [inviteMaxUses, setInviteMaxUses] = useState<number | ''>('');
+  const [inviteTtlDays, setInviteTtlDays] = useState<number | ''>(7);
+  const [copiedInvite, setCopiedInvite] = useState<number | null>(null);
 
   const loadWorkspaces = useCallback(async () => {
     setLoading(true);
@@ -85,13 +120,23 @@ export default function WorkspacesPage() {
     }
   }, []);
 
+  const loadInvites = useCallback(async (id: number) => {
+    try {
+      const list = await apiFetch<InviteLink[]>(`/workspaces/${id}/invites`);
+      setInvites(list);
+    } catch (e) {
+      setInvites([]);
+    }
+  }, []);
+
   useEffect(() => { void loadWorkspaces(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (activeId !== null) void loadMembers(activeId); }, [activeId, loadMembers]);
+  useEffect(() => { if (activeId !== null) { void loadMembers(activeId); void loadInvites(activeId); } }, [activeId, loadMembers, loadInvites]);
   useEffect(() => {
     apiFetch<Role[]>('/workspace-roles').then(setRoles).catch(() => {});
   }, []);
 
   const active = useMemo(() => workspaces.find((w) => w.id === activeId) || null, [workspaces, activeId]);
+  const assignableRoles = useMemo(() => roles.filter((r) => !isOwnerRole(r)), [roles]);
 
   async function handleCreate() {
     setBusy(true); setError('');
@@ -130,6 +175,44 @@ export default function WorkspacesPage() {
     }
   }
 
+  function openEdit() {
+    if (!active) return;
+    setEditName(active.name);
+    setEditDesc(active.description || '');
+    setEditOpen(true);
+    setError('');
+  }
+
+  async function handleUpdate() {
+    if (!active) return;
+    setBusy(true); setError('');
+    try {
+      const ws = await apiFetch<Workspace>(`/workspaces/${active.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null }),
+      });
+      setWorkspaces(workspaces.map((w) => (w.id === ws.id ? ws : w)));
+      setEditOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update workspace');
+    } finally { setBusy(false); }
+  }
+
+  async function handleDeleteWorkspace() {
+    if (!active) return;
+    if (active.is_default) { setError(t('workspaces.cannotDeleteDefault')); return; }
+    if (!confirm(t('workspaces.confirmDelete'))) return;
+    setBusy(true); setError('');
+    try {
+      await apiFetch(`/workspaces/${active.id}`, { method: 'DELETE' });
+      const remaining = workspaces.filter((w) => w.id !== active.id);
+      setWorkspaces(remaining);
+      setActiveId(remaining[0]?.id ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete workspace');
+    } finally { setBusy(false); }
+  }
+
   async function handleRegenerateCode() {
     if (!active) return;
     setBusy(true); setError('');
@@ -163,6 +246,46 @@ export default function WorkspacesPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to assign role');
     }
+  }
+
+  async function handleCreateInvite() {
+    if (!active) return;
+    setBusy(true); setError('');
+    try {
+      const link = await apiFetch<InviteLink>(`/workspaces/${active.id}/invites`, {
+        method: 'POST',
+        body: JSON.stringify({
+          role_id: inviteRoleId === '' ? null : inviteRoleId,
+          max_uses: inviteMaxUses === '' ? null : inviteMaxUses,
+          expires_at: inviteTtlDays === '' ? null : ttlToDate(Number(inviteTtlDays)),
+        }),
+      });
+      setInvites([link, ...invites]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create invite');
+    } finally { setBusy(false); }
+  }
+
+  async function handleRevokeInvite(id: number) {
+    if (!confirm(t('workspaces.inviteConfirmRevoke'))) return;
+    try {
+      await apiFetch(`/workspaces/invites/${id}`, { method: 'DELETE' });
+      setInvites(invites.map((i) => i.id === id ? { ...i, revoked_at: new Date().toISOString() } : i));
+    } catch (e) { /* ignore */ }
+  }
+
+  function copyInvite(token: string, id: number) {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(inviteUrl(token));
+    setCopiedInvite(id);
+    setTimeout(() => setCopiedInvite(null), 1500);
+  }
+
+  function inviteStatus(i: InviteLink): 'active' | 'revoked' | 'expired' | 'exhausted' {
+    if (i.revoked_at) return 'revoked';
+    if (i.expires_at && new Date(i.expires_at).getTime() < Date.now()) return 'expired';
+    if (i.max_uses != null && i.uses >= i.max_uses) return 'exhausted';
+    return 'active';
   }
 
   async function handleRemoveMember(memberUserId: number) {
@@ -241,12 +364,24 @@ export default function WorkspacesPage() {
         {active ? (
           <div style={detailPanel}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 14, background: gradFor(active.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: gradFor(active.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22, flexShrink: 0 }}>
                 {(active.name[0] || 'W').toUpperCase()}
               </div>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)' }}>{active.name}</h2>
                 <div style={{ fontSize: 13, color: 'var(--ink-30)', marginTop: 2 }}>{active.description || ''}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {canDo('workspace:manage') ? (
+                  <button onClick={openEdit} style={btnGhost} title={t('workspaces.editTitle')}>
+                    ✎ {t('workspaces.edit')}
+                  </button>
+                ) : null}
+                {canDo('workspace:delete') && !active.is_default ? (
+                  <button onClick={handleDeleteWorkspace} disabled={busy} style={btnDangerLg} title={t('workspaces.delete')}>
+                    🗑 {t('workspaces.delete')}
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -268,6 +403,90 @@ export default function WorkspacesPage() {
                 <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>{members.length}</div>
               </div>
             </div>
+
+            {canDo('workspace:invite') ? (
+              <div style={{ marginTop: 8, marginBottom: 24 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{t('workspaces.inviteLinks')}</h3>
+                <p style={{ fontSize: 12, color: 'var(--ink-30)', marginBottom: 12 }}>{t('workspaces.inviteLinksHint')}</p>
+
+                <div style={inviteCreator}>
+                  <label style={inviteFieldLabel}>{t('workspaces.invitePreBindRole')}</label>
+                  <select
+                    value={inviteRoleId === '' ? '' : String(inviteRoleId)}
+                    onChange={(e) => setInviteRoleId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                    style={inviteSelect}
+                  >
+                    <option value=''>{t('workspaces.inviteNoRole')}</option>
+                    {assignableRoles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+
+                  <label style={inviteFieldLabel}>{t('workspaces.inviteMaxUses')}</label>
+                  <select
+                    value={inviteMaxUses === '' ? '' : String(inviteMaxUses)}
+                    onChange={(e) => setInviteMaxUses(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                    style={inviteSelect}
+                  >
+                    <option value=''>{t('workspaces.inviteUnlimited')}</option>
+                    <option value='1'>1</option>
+                    <option value='5'>5</option>
+                    <option value='25'>25</option>
+                    <option value='100'>100</option>
+                  </select>
+
+                  <label style={inviteFieldLabel}>{t('workspaces.inviteExpiresIn')}</label>
+                  <select
+                    value={inviteTtlDays === '' ? '' : String(inviteTtlDays)}
+                    onChange={(e) => setInviteTtlDays(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                    style={inviteSelect}
+                  >
+                    <option value='1'>{t('workspaces.inviteOneDay')}</option>
+                    <option value='7'>{t('workspaces.inviteOneWeek')}</option>
+                    <option value='30'>{t('workspaces.inviteThirtyDays')}</option>
+                    <option value=''>{t('workspaces.inviteNeverExpires')}</option>
+                  </select>
+
+                  <button onClick={handleCreateInvite} disabled={busy} style={btnPrimarySmall}>
+                    + {t('workspaces.createInvite')}
+                  </button>
+                </div>
+
+                {invites.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 12 }}>{t('workspaces.inviteEmpty')}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                    {invites.map((i) => {
+                      const status = inviteStatus(i);
+                      const inactive = status !== 'active';
+                      const usesText = i.max_uses != null
+                        ? t('workspaces.inviteUsedOf', { uses: i.uses, max: i.max_uses })
+                        : t('workspaces.inviteUsesNoCap', { uses: i.uses });
+                      return (
+                        <div key={i.id} style={{ ...inviteRow, opacity: inactive ? 0.55 : 1 }}>
+                          <code style={inviteTokenBox}>{inviteUrl(i.token)}</code>
+                          <span style={inviteMeta}>
+                            {i.role_name ? <span style={rolePill}>{i.role_name}</span> : null}
+                            <span>{usesText}</span>
+                            {i.expires_at ? <span>· {new Date(i.expires_at).toLocaleDateString()}</span> : null}
+                            {status === 'revoked' ? <span style={statusPill}>· {t('workspaces.inviteRevoked')}</span> : null}
+                            {status === 'expired' ? <span style={statusPill}>· {t('workspaces.inviteExpired')}</span> : null}
+                          </span>
+                          {!inactive ? (
+                            <>
+                              <button onClick={() => copyInvite(i.token, i.id)} style={btnGhost}>
+                                {copiedInvite === i.id ? t('workspaces.copied') : t('workspaces.inviteCopyLink')}
+                              </button>
+                              <button onClick={() => handleRevokeInvite(i.id)} style={btnDanger}>
+                                {t('workspaces.inviteRevoke')}
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             <div style={{ marginTop: 8 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>{t('workspaces.membersTitle')}</h3>
@@ -291,7 +510,7 @@ export default function WorkspacesPage() {
                         title={t('workspaces.roleLabel')}
                       >
                         <option value="" disabled>{t('workspaces.roleLabel')}</option>
-                        {roles.map((r) => (
+                        {assignableRoles.map((r) => (
                           <option key={r.id} value={r.id}>{r.name}</option>
                         ))}
                       </select>
@@ -322,6 +541,19 @@ export default function WorkspacesPage() {
             <Input label={t('workspaces.descLabel')} value={createDesc} onChange={setCreateDesc} placeholder={t('workspaces.descPlaceholder')} />
             <button onClick={handleCreate} disabled={busy || !createName.trim()} style={btnPrimary}>
               {busy ? t('common.loading') : t('workspaces.create')}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* Edit modal */}
+      {editOpen && active ? (
+        <Modal title={t('workspaces.editTitle')} onClose={() => setEditOpen(false)}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <Input label={t('workspaces.nameLabel')} value={editName} onChange={setEditName} placeholder={t('workspaces.namePlaceholder')} />
+            <Input label={t('workspaces.descLabel')} value={editDesc} onChange={setEditDesc} placeholder={t('workspaces.descPlaceholder')} />
+            <button onClick={handleUpdate} disabled={busy || !editName.trim()} style={btnPrimary}>
+              {busy ? t('workspaces.saving') : t('workspaces.save')}
             </button>
           </div>
         </Modal>
@@ -382,6 +614,16 @@ const btnPrimary: React.CSSProperties = { padding: '10px 18px', borderRadius: 10
 const btnSecondary: React.CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontWeight: 600, fontSize: 14, cursor: 'pointer' };
 const btnGhost: React.CSSProperties = { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-78)', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
 const btnDanger: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.10)', color: '#dc2626', fontWeight: 700, fontSize: 12, cursor: 'pointer' };
+const btnDangerLg: React.CSSProperties = { padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.10)', color: '#dc2626', fontWeight: 700, fontSize: 13, cursor: 'pointer' };
+const btnPrimarySmall: React.CSSProperties = { padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' };
+const inviteCreator: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: 12, borderRadius: 10, border: '1px dashed var(--panel-border-3)', background: 'var(--glass)' };
+const inviteFieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--ink-58)' };
+const inviteSelect: React.CSSProperties = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-solid)', color: 'var(--ink-90)', fontSize: 12 };
+const inviteRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--glass)', flexWrap: 'wrap' };
+const inviteTokenBox: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.20)', color: 'var(--ink-78)', fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all', flex: '1 1 280px', minWidth: 0 };
+const inviteMeta: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-30)' };
+const rolePill: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(124,58,237,0.10)', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1 };
+const statusPill: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(248,113,113,0.10)', color: '#dc2626', textTransform: 'uppercase' };
 const errorBox: React.CSSProperties = { padding: '10px 14px', borderRadius: 10, background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)', color: '#dc2626', fontSize: 13, marginBottom: 16 };
 const detailPanel: React.CSSProperties = { padding: 24, borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)' };
 const statCard: React.CSSProperties = { padding: 14, borderRadius: 12, border: '1px solid var(--panel-border-2)', background: 'var(--glass)' };

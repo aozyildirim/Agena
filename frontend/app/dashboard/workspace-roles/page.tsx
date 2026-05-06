@@ -129,10 +129,10 @@ export default function WorkspaceRolesPage() {
   const ownerLocked = active?.is_builtin && active?.name === 'Owner';
 
   return (
-    <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto' }}>
+    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink-90)' }}>{t('workspaceRoles.title')}</h1>
-        <p style={{ fontSize: 13, color: 'var(--ink-30)', marginTop: 4, maxWidth: 720 }}>{t('workspaceRoles.subtitle')}</p>
+        <p style={{ fontSize: 13, color: 'var(--ink-30)', marginTop: 4 }}>{t('workspaceRoles.subtitle')}</p>
       </div>
 
       {error ? <div style={errorBox}>{error}</div> : null}
@@ -199,36 +199,41 @@ export default function WorkspaceRolesPage() {
           </div>
         ) : active ? (
           <div style={detailPanel}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                {active.is_builtin ? (
-                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{active.name}</div>
-                ) : (
-                  <input
-                    value={pendingName}
-                    onChange={(e) => setPendingName(e.target.value)}
-                    style={{ fontSize: 18, fontWeight: 800, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', width: '100%' }}
-                  />
-                )}
-                <input
-                  value={pendingDesc}
-                  onChange={(e) => setPendingDesc(e.target.value)}
-                  placeholder={t('workspaceRoles.descPlaceholder')}
-                  style={{ marginTop: 6, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-78)', width: '100%', fontSize: 13 }}
-                />
+            <div style={{ marginBottom: 18 }}>
+              {/* Top row: role title (with badge) on the left, action cluster on the right */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {active.is_builtin ? (
+                    <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>{active.name}</h2>
+                  ) : (
+                    <input
+                      value={pendingName}
+                      onChange={(e) => setPendingName(e.target.value)}
+                      style={{ fontSize: 18, fontWeight: 800, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', flex: 1, minWidth: 0, outline: 'none' }}
+                    />
+                  )}
+                  {active.is_builtin ? <span style={pillBuiltin}>built-in</span> : null}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-78)', cursor: ownerLocked ? 'not-allowed' : 'pointer', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)' }}>
+                    <input type="checkbox" checked={pendingDefault} onChange={(e) => setPendingDefault(e.target.checked)} disabled={ownerLocked} />
+                    {t('workspaceRoles.defaultForNewMembers')}
+                  </label>
+                  {!active.is_builtin ? (
+                    <button onClick={handleDelete} disabled={busy} style={btnDanger}>{t('workspaceRoles.delete')}</button>
+                  ) : null}
+                  <button onClick={handleSave} disabled={busy || ownerLocked} style={btnPrimary}>
+                    {busy ? '...' : saved === active.id ? '✓ ' + t('workspaceRoles.saved') : t('workspaceRoles.save')}
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-78)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={pendingDefault} onChange={(e) => setPendingDefault(e.target.checked)} />
-                  {t('workspaceRoles.defaultForNewMembers')}
-                </label>
-                {!active.is_builtin ? (
-                  <button onClick={handleDelete} disabled={busy} style={btnDanger}>{t('workspaceRoles.delete')}</button>
-                ) : null}
-                <button onClick={handleSave} disabled={busy || ownerLocked} style={btnPrimary}>
-                  {busy ? '...' : saved === active.id ? '✓ ' + t('workspaceRoles.saved') : t('workspaceRoles.save')}
-                </button>
-              </div>
+              {/* Bottom row: description input full-width under the header */}
+              <input
+                value={pendingDesc}
+                onChange={(e) => setPendingDesc(e.target.value)}
+                placeholder={t('workspaceRoles.descPlaceholder')}
+                style={{ marginTop: 10, width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-78)', fontSize: 13, outline: 'none' }}
+              />
             </div>
 
             {ownerLocked ? (

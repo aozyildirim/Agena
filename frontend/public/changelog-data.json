@@ -1,8 +1,16 @@
 [
   {
+    "hash": "b35da6f5",
+    "short": "b35da6f5",
+    "message": "workspaces: phase B slice 5 — wire backend permission enforcement + sidebar nav gating + Refine button gate",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
     "hash": "60fbbdaf",
     "short": "60fbbdaf",
-    "message": "workspaces: phase B slice 3+4 \u2014 matrix UI + role dropdown + permissions context",
+    "message": "workspaces: phase B slice 3+4 — matrix UI + role dropdown + permissions context",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -10,7 +18,7 @@
   {
     "hash": "db8d5187",
     "short": "db8d5187",
-    "message": "workspaces: phase B slice 1+2 \u2014 workspace_roles model + migration seed + Roles API + require_workspace_perm",
+    "message": "workspaces: phase B slice 1+2 — workspace_roles model + migration seed + Roles API + require_workspace_perm",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -18,15 +26,15 @@
   {
     "hash": "849d5d5b",
     "short": "849d5d5b",
-    "message": "workspaces: fix bleed-through on dropdown + modal \u2014 add --panel-solid CSS var",
+    "message": "workspaces: fix bleed-through on dropdown + modal — add --panel-solid CSS var",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "887b7205",
     "short": "887b7205",
-    "message": "workspaces: phase 4 \u2014 landing page + OG image + sitemap + mobile fixes",
+    "message": "workspaces: phase 4 — landing page + OG image + sitemap + mobile fixes",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -34,7 +42,7 @@
   {
     "hash": "ecf7ed0a",
     "short": "ecf7ed0a",
-    "message": "workspaces: phase 3 \u2014 onboarding gate + WorkspaceSwitcher + settings page + i18n",
+    "message": "workspaces: phase 3 — onboarding gate + WorkspaceSwitcher + settings page + i18n",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -42,7 +50,7 @@
   {
     "hash": "1d6a04ee",
     "short": "1d6a04ee",
-    "message": "workspaces: phase 1+2 \u2014 ORM, migration with default seed/backfill, service + API routes",
+    "message": "workspaces: phase 1+2 — ORM, migration with default seed/backfill, service + API routes",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -61,7 +69,7 @@
     "message": "drop similarity floor to 0.42 + log zero-hit retrievals",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "fcd5d5b9",
@@ -69,7 +77,7 @@
     "message": "tighten exploration cap to 5 reads, mark as HARD LIMIT",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "a15d1ed2",
@@ -85,7 +93,7 @@
     "message": "drop platform_admin gate on public library toggle/import",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "b22b652a",
@@ -98,7 +106,7 @@
   {
     "hash": "d5cf321f",
     "short": "d5cf321f",
-    "message": "import select in trigger_review's multi-repo branch \u2014 was throwing NameError on /reviews POST",
+    "message": "import select in trigger_review's multi-repo branch — was throwing NameError on /reviews POST",
     "date": "2026-05-05",
     "author": "root",
     "type": "fix"
@@ -109,7 +117,7 @@
     "message": "Sprints: compact selector bar + add sprints.activeSelected i18n key",
     "date": "2026-05-06",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f0660237",
@@ -194,7 +202,7 @@
   {
     "hash": "335787ae",
     "short": "335787ae",
-    "message": "tighten guard to PR-only \u2014 branch / repo-path no longer counts",
+    "message": "tighten guard to PR-only — branch / repo-path no longer counts",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -205,7 +213,7 @@
     "message": "scrub corporate-name + email examples from public examples",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "05ced3b7",
@@ -221,7 +229,7 @@
     "message": "ignore corporate proxy cert (kept locally only)",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "da4c6bb6",
@@ -230,14 +238,6 @@
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
     "type": "fix"
-  },
-  {
-    "hash": "9984fb55",
-    "short": "9984fb55",
-    "message": "Merge feat/task-revisions: per-task follow-up commits without new PRs",
-    "date": "2026-05-04",
-    "author": "Ali Ozyildirim",
-    "type": "other"
   },
   {
     "hash": "f9003c44",
@@ -250,7 +250,7 @@
   {
     "hash": "53c6565a",
     "short": "53c6565a",
-    "message": "backend for /tasks/{id}/revise \u2014 follow-up commits on the same branch",
+    "message": "backend for /tasks/{id}/revise — follow-up commits on the same branch",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -269,7 +269,7 @@
     "message": "per-attachment extract logging + accurate inject count",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "c8290b9f",
@@ -306,7 +306,7 @@
   {
     "hash": "fe0eb7b1",
     "short": "fe0eb7b1",
-    "message": "clean up sidebar labels \u2014 drop double emojis, fix TR diacritics, clarify ambiguous names",
+    "message": "clean up sidebar labels — drop double emojis, fix TR diacritics, clarify ambiguous names",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -410,7 +410,7 @@
   {
     "hash": "75d9a6bb",
     "short": "75d9a6bb",
-    "message": "add \ud83e\ude84 AI fill to the Edit Task modal too",
+    "message": "add 🪄 AI fill to the Edit Task modal too",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -426,7 +426,7 @@
   {
     "hash": "a48cd108",
     "short": "a48cd108",
-    "message": "kebab actions + \ud83e\ude84 AI fill across import flows",
+    "message": "kebab actions + 🪄 AI fill across import flows",
     "date": "2026-05-04",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -493,7 +493,7 @@
     "message": "skills/agena: add catalog README",
     "date": "2026-05-03",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "1ef5f3c6",
@@ -501,7 +501,7 @@
     "message": "Skills tabs: matched card layout + i18n + clean mobile header",
     "date": "2026-05-03",
     "author": "root",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "939935fd",
@@ -533,7 +533,7 @@
     "message": "SEO: cross-link 11 landings + add Solutions/Integrations columns to footer",
     "date": "2026-05-03",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "5fb6a42e",
@@ -541,7 +541,7 @@
     "message": "regenerate changelog-data after recent commits",
     "date": "2026-05-03",
     "author": "root",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "d51555b3",
@@ -549,7 +549,7 @@
     "message": "home: add Cross-Source Insights card to the workflow row",
     "date": "2026-05-03",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e83b44a6",
@@ -562,7 +562,7 @@
   {
     "hash": "24c7cb6e",
     "short": "24c7cb6e",
-    "message": "admin: SEO tracking tab \u2014 landings, status, keywords, scheduled checks",
+    "message": "admin: SEO tracking tab — landings, status, keywords, scheduled checks",
     "date": "2026-05-03",
     "author": "root",
     "type": "other"
@@ -706,7 +706,7 @@
   {
     "hash": "3ff74945",
     "short": "3ff74945",
-    "message": "widen WIQL dead-state filter (Cancelled, Rejected, Won't Fix\u2026)",
+    "message": "widen WIQL dead-state filter (Cancelled, Rejected, Won't Fix…)",
     "date": "2026-05-02",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -714,7 +714,7 @@
   {
     "hash": "b230004e",
     "short": "b230004e",
-    "message": "scan as background task \u2014 UI no longer locks up",
+    "message": "scan as background task — UI no longer locks up",
     "date": "2026-05-02",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -778,7 +778,7 @@
   {
     "hash": "ad794cfa",
     "short": "ad794cfa",
-    "message": "settings card \u2192 responsive 2-3 column grid",
+    "message": "settings card → responsive 2-3 column grid",
     "date": "2026-05-02",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -829,7 +829,7 @@
     "message": "regenerate changelog-data after recent landing/i18n commits",
     "date": "2026-05-02",
     "author": "root",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "0a5c1551",
@@ -869,12 +869,12 @@
     "message": "SEO: landing pages + README entries for the 3 new workflow modules",
     "date": "2026-05-02",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "209aa828",
     "short": "209aa828",
-    "message": "i18n: pass 2 \u2014 common chrome words (Name, Status, Save, Cancel\u2026)",
+    "message": "i18n: pass 2 — common chrome words (Name, Status, Save, Cancel…)",
     "date": "2026-05-02",
     "author": "root",
     "type": "other"
@@ -917,7 +917,7 @@
     "message": "organization_modules: deduplicate + add unique (org_id, slug) constraint",
     "date": "2026-05-02",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f0f0939e",
@@ -941,7 +941,7 @@
     "message": "Triage + Review Backlog: two new workflow automations",
     "date": "2026-05-02",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "8a2eee51",
@@ -1173,7 +1173,7 @@
     "message": "untrack backups/ and add to .gitignore",
     "date": "2026-05-01",
     "author": "root",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "813fb51a",
@@ -1194,15 +1194,15 @@
   {
     "hash": "9baf8366",
     "short": "9baf8366",
-    "message": "Reviews: fix giant mobile filter inputs (flex shorthand \u2192 grid layout)",
+    "message": "Reviews: fix giant mobile filter inputs (flex shorthand → grid layout)",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "3f7bdb80",
     "short": "3f7bdb80",
-    "message": "Reviews: \ud83d\udd0e Review button opens a reviewer picker instead of firing instantly",
+    "message": "Reviews: 🔎 Review button opens a reviewer picker instead of firing instantly",
     "date": "2026-04-30",
     "author": "root",
     "type": "other"
@@ -1210,7 +1210,7 @@
   {
     "hash": "391684f9",
     "short": "391684f9",
-    "message": "Reviews: any agent can be a reviewer \u2014 declare it on the agent itself",
+    "message": "Reviews: any agent can be a reviewer — declare it on the agent itself",
     "date": "2026-04-30",
     "author": "root",
     "type": "other"
@@ -1250,7 +1250,7 @@
   {
     "hash": "1881d455",
     "short": "1881d455",
-    "message": "Agents: validate before closing the modal \u2014 show inline error instead of silent close",
+    "message": "Agents: validate before closing the modal — show inline error instead of silent close",
     "date": "2026-04-30",
     "author": "root",
     "type": "other"
@@ -1285,7 +1285,7 @@
     "message": "Agents: add Security Developer role end-to-end (DB prompt + UI + i18n)",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f29322e8",
@@ -1338,10 +1338,10 @@
   {
     "hash": "7dbadfa0",
     "short": "7dbadfa0",
-    "message": "Tasks: optimistic Sentry resolve toggle \u2014 no full-page reload",
+    "message": "Tasks: optimistic Sentry resolve toggle — no full-page reload",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d7361dfa",
@@ -1354,10 +1354,10 @@
   {
     "hash": "4f5501c4",
     "short": "4f5501c4",
-    "message": "Share: fix 500 \u2014 RepoMapping has no .name attribute, derive display name from owner/repo_name",
+    "message": "Share: fix 500 — RepoMapping has no .name attribute, derive display name from owner/repo_name",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "574a5242",
@@ -1365,12 +1365,12 @@
     "message": "Tasks: surface Sentry Resolve / Share / priority / resolved marker on mobile too",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "02182217",
     "short": "02182217",
-    "message": "Header: \ud83d\udea8 Sentry + \ud83d\udce1 NewRelic quick-link icons next to Usage on mobile + desktop",
+    "message": "Header: 🚨 Sentry + 📡 NewRelic quick-link icons next to Usage on mobile + desktop",
     "date": "2026-04-30",
     "author": "root",
     "type": "other"
@@ -1389,7 +1389,7 @@
     "message": "Sentry: drop int-row class on new flex rows so globals.css mobile rule stops nuking layout",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "8d609dcd",
@@ -1405,7 +1405,7 @@
     "message": "Sentry: actually fix mobile row layout (flex-wrap > grid hacks)",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "5ab7fabf",
@@ -1426,7 +1426,7 @@
   {
     "hash": "dd530ac6",
     "short": "dd530ac6",
-    "message": "Sentry: premium landing UX \u2014 hero header with status, stat tiles, auto-load projects",
+    "message": "Sentry: premium landing UX — hero header with status, stat tiles, auto-load projects",
     "date": "2026-04-30",
     "author": "root",
     "type": "other"
@@ -1450,10 +1450,10 @@
   {
     "hash": "5549edab",
     "short": "5549edab",
-    "message": "Sentry: premium issue UX \u2014 sparklines, badges, env/release filters, inline stack trace, AI Fix Preview",
+    "message": "Sentry: premium issue UX — sparklines, badges, env/release filters, inline stack trace, AI Fix Preview",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "65135449",
@@ -1469,7 +1469,7 @@
     "message": "Fix flow agent dropdown + propagate Sentry/NewRelic/Datadog/AppDynamics repo mapping to imported tasks",
     "date": "2026-04-30",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "969b0484",
@@ -1493,15 +1493,15 @@
     "message": "Skills: README rewrite + concrete walk-through panel on landing",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "db789aeb",
     "short": "db789aeb",
-    "message": "Refinement TR locale: fix Google's 'LLM' \u2192 'Y\u00fcksek Lisans' mistranslation + cleanup",
+    "message": "Refinement TR locale: fix Google's 'LLM' → 'Yüksek Lisans' mistranslation + cleanup",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "c12bb97f",
@@ -1525,7 +1525,7 @@
     "message": "Refinement: harder prompt for big/new tasks + empty-state for recommended-assignee",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "2609e923",
@@ -1541,7 +1541,7 @@
     "message": "Refinement Azure writeback: log post-PATCH field state for SP-write debugging",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "05e3d158",
@@ -1581,7 +1581,7 @@
     "message": "Refinement: fix silently-dropped SP write + replace native confirm with a styled modal",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "92709395",
@@ -1594,10 +1594,10 @@
   {
     "hash": "5f48e14e",
     "short": "5f48e14e",
-    "message": "Refinement: per-row Sil button + new Refinementlar\u0131m runs page",
+    "message": "Refinement: per-row Sil button + new Refinementlarım runs page",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e572d614",
@@ -1637,7 +1637,7 @@
     "message": "Refinement: group bulk-select, react to global sprint switcher, fix lingering TS errors",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "e30c41d8",
@@ -1749,7 +1749,7 @@
     "message": "DORA hub: promote + Add repo from a header button to a card-sized tile",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "7eb88eb8",
@@ -1765,7 +1765,7 @@
     "message": "DORA hub: + Add repo button with a quick mapping modal",
     "date": "2026-04-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "3a346504",
@@ -2061,7 +2061,7 @@
     "message": "Revert \"Revert \"Share: drop max_uses cap on resolve, keep per-org dedupe\"\"",
     "date": "2026-04-28",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "e24b77b9",
@@ -2069,7 +2069,7 @@
     "message": "Revert \"Share: drop max_uses cap on resolve, keep per-org dedupe\"",
     "date": "2026-04-28",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "472e3f4c",
@@ -2077,7 +2077,7 @@
     "message": "Share: drop max_uses cap on resolve, keep per-org dedupe",
     "date": "2026-04-28",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "12c1790a",
@@ -2093,7 +2093,7 @@
     "message": "Docs: surface shareable task links in README, FEATURES and the landing page",
     "date": "2026-04-28",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "266a384c",
@@ -2149,7 +2149,7 @@
     "message": "Add Claude CLI Opus option to the agent picker",
     "date": "2026-04-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f9881750",
@@ -2221,15 +2221,7 @@
     "message": "Fix attachment preview click + widen agent_logs.message to MEDIUMTEXT",
     "date": "2026-04-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "53dd66c2",
-    "short": "53dd66c2",
-    "message": "Merge pull request #8 from aozyildirim/claude/awesome-morse-f66232",
-    "date": "2026-04-27",
-    "author": "aozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "286b2c54",
@@ -2461,7 +2453,7 @@
     "message": "New Task modal: HTML preview, already-imported badge, dedup signal",
     "date": "2026-04-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f125953a",
@@ -2469,7 +2461,7 @@
     "message": "New Task: portaled modal with Azure/Jira sprint pull",
     "date": "2026-04-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "63bc296a",
@@ -2485,7 +2477,7 @@
     "message": "Dashboard header: + New Task quick action, mobile layout, light-mode toggles",
     "date": "2026-04-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "bcc4aeaa",
@@ -2605,7 +2597,7 @@
     "message": "Nudge: per-item ping clear + plain @upn mention that ADO auto-resolves",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "3fc7214c",
@@ -2613,12 +2605,12 @@
     "message": "Tasks: add image/file attachments to new task creation",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "595f1831",
     "short": "595f1831",
-    "message": "Landing: anonymize nudge example \u2014 generic Agena Flow Editor case",
+    "message": "Landing: anonymize nudge example — generic Agena Flow Editor case",
     "date": "2026-04-24",
     "author": "root",
     "type": "other"
@@ -2637,7 +2629,7 @@
     "message": "Nudge: real Azure DevOps @mentions via identity resolve + TR as ping default",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "b0394a18",
@@ -2666,7 +2658,7 @@
   {
     "hash": "3b40dfa8",
     "short": "3b40dfa8",
-    "message": "Sprint perf: CLI-powered nudges \u2014 Claude & Codex via bridge + fallback",
+    "message": "Sprint perf: CLI-powered nudges — Claude & Codex via bridge + fallback",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -2698,7 +2690,7 @@
   {
     "hash": "bed7d3e2",
     "short": "bed7d3e2",
-    "message": "Sprint perf: Engineering Pulse \u2014 DORA + PR + velocity at a glance",
+    "message": "Sprint perf: Engineering Pulse — DORA + PR + velocity at a glance",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -2709,7 +2701,7 @@
     "message": "/vs: add Multica comparison page (fifth /vs/ entry)",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "a82ef971",
@@ -2717,7 +2709,7 @@
     "message": "CLI v1.2.1: fix bundled bridge path resolution",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "987cb054",
@@ -2746,7 +2738,7 @@
   {
     "hash": "db045ae7",
     "short": "db045ae7",
-    "message": "CLI: rename @agena/cli \u2192 @agenaai/cli to match actual npm org",
+    "message": "CLI: rename @agena/cli → @agenaai/cli to match actual npm org",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -2797,7 +2789,7 @@
     "message": "CLI release: fix monorepo paths + resilient workflow + dry-run trigger",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "83b0c7f8",
@@ -2829,7 +2821,7 @@
     "message": "CLI: landing page install banner + README section",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "9af2e5a5",
@@ -2853,7 +2845,7 @@
     "message": "Runtimes: UI catalog, sidebar, module registration, docs, landing",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "d0c022c9",
@@ -2885,7 +2877,7 @@
     "message": "Skills: docs page + landing section + README bullet",
     "date": "2026-04-24",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "644891c9",
@@ -2957,7 +2949,7 @@
     "message": "Refinement history page: fix infinite /preview fetch loop",
     "date": "2026-04-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "7eb566bd",
@@ -2981,7 +2973,7 @@
     "message": "Refinement: index code signals (branches + PR titles) + docs + landing",
     "date": "2026-04-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "9a1be116",
@@ -3005,7 +2997,7 @@
     "message": "Refinement: add per-row Refine button on item list",
     "date": "2026-04-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "af40f7df",
@@ -3021,7 +3013,7 @@
     "message": "Refinement backfill: add Jira support + expand sample preview",
     "date": "2026-04-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "d46c160f",
@@ -3093,7 +3085,7 @@
     "message": "Task detail sidebar: fix deps poll, drop Queue Insight, clarify PR link",
     "date": "2026-04-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "3414a3c7",
@@ -3141,7 +3133,7 @@
     "message": "NR description: render Errors Inbox URL as [New Relic Link]() not raw URL",
     "date": "2026-04-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ecb81b4b",
@@ -3229,7 +3221,7 @@
     "message": "Fix Claude CLI bridge NameError: _run_bridge missing task_id param",
     "date": "2026-04-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "ae72f38a",
@@ -3277,12 +3269,12 @@
     "message": "Add update.sh: smart pull + minimal-action redeploy",
     "date": "2026-04-20",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "0d9945e2",
     "short": "0d9945e2",
-    "message": "Theme-aware sprint switcher colors \u2014 readable in light mode",
+    "message": "Theme-aware sprint switcher colors — readable in light mode",
     "date": "2026-04-21",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -3309,7 +3301,7 @@
     "message": "Auto-mirror NR tasks to Azure work item + link ID; fix PR branch to use work item ID",
     "date": "2026-04-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "90d7d693",
@@ -3317,7 +3309,7 @@
     "message": "Fix: propagate created_by_user_id into PR payload so branch template reads profile",
     "date": "2026-04-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d703425a",
@@ -3325,7 +3317,7 @@
     "message": "Add Request modal, mobile + i18n polish, AI tag, host-only CLI bridge",
     "date": "2026-04-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "73689f18",
@@ -3349,7 +3341,7 @@
     "message": "Fix agent-readiness validator failures (ACP, UCP, x402, OAPR)",
     "date": "2026-04-20",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "9c0c4cc4",
@@ -3357,7 +3349,7 @@
     "message": "Add agent discovery: Link headers, .well-known endpoints, WebMCP, x402, markdown",
     "date": "2026-04-20",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "79e1dea7",
@@ -3373,7 +3365,7 @@
     "message": "Raise git diff timeout and add git status fallback for large repos",
     "date": "2026-04-20",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "8327fe8a",
@@ -3381,7 +3373,7 @@
     "message": "Fix imported-state hydration to match tasks created via POST /tasks",
     "date": "2026-04-20",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "e111c566",
@@ -3397,7 +3389,7 @@
     "message": "Add work item import and Azure/Jira deep-link to Team page",
     "date": "2026-04-20",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ee519a4c",
@@ -3413,7 +3405,7 @@
     "message": "Fix AppDynamics: add username field, register provider, Basic auth",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "5cbf8083",
@@ -3421,7 +3413,7 @@
     "message": "Add AppDynamics integration: import errors, dedicated page, full pipeline",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "2e1d8f87",
@@ -3429,7 +3421,7 @@
     "message": "Add GitLab, Bitbucket, Datadog to modules migration seed data",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ca443995",
@@ -3437,7 +3429,7 @@
     "message": "Add Datadog dedicated page with issue browser and import",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "2addaf90",
@@ -3445,7 +3437,7 @@
     "message": "Add Datadog integration: import errors, create tasks, auto-fix",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "6384bca6",
@@ -3461,7 +3453,7 @@
     "message": "Add nav.bitbucket and nav.gitlab i18n keys for all 7 languages",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ba01f9d2",
@@ -3469,7 +3461,7 @@
     "message": "Add GitLab and Bitbucket integrations (working PR creation)",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "dd28b98b",
@@ -3509,15 +3501,7 @@
     "message": "Fix sidebar showing disabled-module menus on initial render",
     "date": "2026-04-17",
     "author": "root",
-    "type": "other"
-  },
-  {
-    "hash": "40a20a5d",
-    "short": "40a20a5d",
-    "message": "Merge feature/modular-architecture: modules system + migration",
-    "date": "2026-04-17",
-    "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "4c2bfcf8",
@@ -3525,7 +3509,7 @@
     "message": "Add alembic migration for modules system",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "143af216",
@@ -3533,7 +3517,7 @@
     "message": "Add ? help modal to modules page + permissions module",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e58b7ceb",
@@ -3541,7 +3525,7 @@
     "message": "Add HAL, Playbook, Slack, Teams, Telegram as separate modules",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "c3b1ca24",
@@ -3549,7 +3533,7 @@
     "message": "Hide disabled modules from integrations + fix instant sidebar update",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "6777f179",
@@ -3557,7 +3541,7 @@
     "message": "Add Boss Mode as toggleable module",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "cc9b37dd",
@@ -3573,7 +3557,7 @@
     "message": "Add Modules management page with toggle UI",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "39dd1b9a",
@@ -3589,7 +3573,7 @@
     "message": "Add modular architecture: org-level module toggle system",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "7625307b",
@@ -3597,7 +3581,7 @@
     "message": "Update README: start.sh, host CLI bridge, Sentry/NR endpoints",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "4f2a0db1",
@@ -3605,7 +3589,7 @@
     "message": "Fix: generate unique external_id for internal tasks",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "165e60b7",
@@ -3621,7 +3605,7 @@
     "message": "Add SENTRY_FIX_PROMPT and NEWRELIC_FIX_PROMPT to Prompt Studio",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "7ca72d99",
@@ -3629,7 +3613,7 @@
     "message": "Add Sentry Developer and New Relic Developer default agents",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "295d7ba7",
@@ -3637,7 +3621,7 @@
     "message": "Add targeted Sentry/NewRelic prompts: inject file content, skip repo scan",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f2ae8a63",
@@ -3645,7 +3629,7 @@
     "message": "Fix: always create branch and push even without explicit remote_url",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "8052ef4f",
@@ -3653,7 +3637,7 @@
     "message": "Fix body scroll lock: cover all modals in task detail page",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "3ff14793",
@@ -3661,7 +3645,7 @@
     "message": "Add stream kill on task cancel: bridge kills CLI process immediately",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "934b19ee",
@@ -3685,7 +3669,7 @@
     "message": "Fix UnboundLocalError: remove redundant IntegrationConfigService import",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "0eda58cc",
@@ -3693,7 +3677,7 @@
     "message": "Fix Codex stream: parse item.started for live tool calls",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "250b4105",
@@ -3701,7 +3685,7 @@
     "message": "Fix Sentry auto-import: use org owner as import user",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "5dd8f447",
@@ -3709,7 +3693,7 @@
     "message": "Fix Sentry auto-import: use real org admin user_id instead of 0",
     "date": "2026-04-17",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "c5ce645a",
@@ -3725,7 +3709,7 @@
     "message": "Fix Codex stream: parse item.completed events for text and tool output",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "842d3dd6",
@@ -3733,7 +3717,7 @@
     "message": "Fix Codex stream error detection: surface error/turn.failed as proper error events",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "7b5103dd",
@@ -3741,7 +3725,7 @@
     "message": "Fix Codex stream retry: detect unsupported model from stderr",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ae5a6f26",
@@ -3749,7 +3733,7 @@
     "message": "Move repo conflict modal to createPortal(document.body)",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "c514b048",
@@ -3765,7 +3749,7 @@
     "message": "Add Codex CLI streaming: real-time logs like Claude CLI",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "7cca1070",
@@ -3781,7 +3765,7 @@
     "message": "Add unsupported model retry to Codex bridge path",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "6785ec68",
@@ -3789,7 +3773,7 @@
     "message": "Fix Codex CLI ChatGPT fallback: use None (CLI default) instead of gpt-4o",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "c2de11ca",
@@ -3797,7 +3781,7 @@
     "message": "Fix office modal overflow: minWidth:0 on all flex children, compact cards",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "2221562b",
@@ -3805,7 +3789,7 @@
     "message": "Fix office modal overflow: use grid layout to prevent child overflow",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "20015cc4",
@@ -3813,7 +3797,7 @@
     "message": "Fix office modal: center when short, scroll backdrop when tall",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "a7851d6b",
@@ -3821,7 +3805,7 @@
     "message": "Fix office modal bottom cutoff: scroll on backdrop instead of modal",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "eabc3e80",
@@ -3837,7 +3821,7 @@
     "message": "Fix office modal horizontal overflow on model/provider selector",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "1cfe0e7c",
@@ -3845,7 +3829,7 @@
     "message": "Fix: prefill custom model field for codex_cli/claude_cli providers",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "87f91ba2",
@@ -3853,7 +3837,7 @@
     "message": "Fix agent creation: pass updated config directly instead of stale draft",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "0db08010",
@@ -3861,7 +3845,7 @@
     "message": "Make migration idempotent and fix docker-compose for v1.25 compat",
     "date": "2026-04-16",
     "author": "root",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "09c36166",
@@ -3877,7 +3861,7 @@
     "message": "Add alembic migration for priority + sentry enrichment fields",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "747ea049",
@@ -3885,7 +3869,7 @@
     "message": "Fix syntax error in sentry_client.py: stray bracket",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "cff31eb3",
@@ -3901,7 +3885,7 @@
     "message": "Add Sentry integration docs to CLAUDE.md",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e5543d5a",
@@ -3909,7 +3893,7 @@
     "message": "Auto-resolve Sentry issues when PR is merged",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "471ca490",
@@ -3925,7 +3909,7 @@
     "message": "Highlight resolved Sentry tasks with purple left border",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "be4982d1",
@@ -3933,7 +3917,7 @@
     "message": "Fix Sentry resolve button: apiFetch returns parsed JSON, not Response",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "72729e85",
@@ -3941,7 +3925,7 @@
     "message": "Add Sentry resolve/unresolve from task list",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "fdaa9969",
@@ -3957,7 +3941,7 @@
     "message": "Add task priority field, fix Azure PR reuse, deduplicate Sentry imports",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "37024a3c",
@@ -3981,7 +3965,7 @@
     "message": "Reorganize sidebar nav: cleaner groups, fewer top-level items",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "6854a344",
@@ -3989,7 +3973,7 @@
     "message": "Run CLI bridge on host for reliable Claude auth, fix Docker fallback detection",
     "date": "2026-04-16",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "480632d1",
@@ -4013,7 +3997,7 @@
     "message": "Fix Claude auth-login session dropping by avoiding PTY wrapper",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "8e81e8da",
@@ -4029,7 +4013,7 @@
     "message": "Add optional Claude code fallback on integrations sign-in",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "66f8f4aa",
@@ -4077,7 +4061,7 @@
     "message": "Support Claude code entry flow via PTY login bridge",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e79ba476",
@@ -4101,7 +4085,7 @@
     "message": "Add Claude callback URL completion UI and localhost/127 callback port detection",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4229108e",
@@ -4109,7 +4093,7 @@
     "message": "Fix Claude re-auth flow, popup login trigger, and 401 error handling",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "c4c07b56",
@@ -4117,7 +4101,7 @@
     "message": "Fix Claude CLI login/auth detection in bridge and service",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "da362fa8",
@@ -4133,7 +4117,7 @@
     "message": "Redesign integrations cards with new panel layout",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "a2306365",
@@ -4141,7 +4125,7 @@
     "message": "Fix task modals to stay centered and lock page scroll",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "b861813a",
@@ -4173,7 +4157,7 @@
     "message": "Polish integrations UI and add Sentry to landing",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "feafbddd",
@@ -4181,7 +4165,7 @@
     "message": "Add NewRelic-style Sentry mapping/import flow and auto-polling",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "d1fcc918",
@@ -4189,7 +4173,7 @@
     "message": "Add Sentry integration and issue import flow",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "b1181d2f",
@@ -4221,7 +4205,7 @@
     "message": "Add env-driven Sentry setup for Next.js frontend",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "fbe02b47",
@@ -4229,7 +4213,7 @@
     "message": "Add env-driven Sentry integration for API and worker",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f79d1130",
@@ -4253,7 +4237,7 @@
     "message": "Add transient auto-retry and clearer task failure source",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "0d22b2ef",
@@ -4261,7 +4245,7 @@
     "message": "Fix task modals layering and force-queue flow assigns",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "a2ca632d",
@@ -4330,7 +4314,7 @@
   {
     "hash": "aea6016d",
     "short": "aea6016d",
-    "message": "conflict modal positioning \u2014 always centered in viewport",
+    "message": "conflict modal positioning — always centered in viewport",
     "date": "2026-04-15",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -4370,7 +4354,7 @@
   {
     "hash": "542f0011",
     "short": "542f0011",
-    "message": "New Relic integration \u2014 auto-import errors, entity-repo mapping, flow node",
+    "message": "New Relic integration — auto-import errors, entity-repo mapping, flow node",
     "date": "2026-04-14",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4442,7 +4426,7 @@
   {
     "hash": "9ca7dea9",
     "short": "9ca7dea9",
-    "message": "git worktree per task \u2014 clean main copy, no branch pollution",
+    "message": "git worktree per task — clean main copy, no branch pollution",
     "date": "2026-04-11",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4450,7 +4434,7 @@
   {
     "hash": "a481eb21",
     "short": "a481eb21",
-    "message": "run flow in background \u2014 API returns immediately",
+    "message": "run flow in background — API returns immediately",
     "date": "2026-04-11",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4458,7 +4442,7 @@
   {
     "hash": "b19fb33e",
     "short": "b19fb33e",
-    "message": "detailed flow step logs \u2014 analyzer spec, planner files, PR url",
+    "message": "detailed flow step logs — analyzer spec, planner files, PR url",
     "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4474,7 +4458,7 @@
   {
     "hash": "013711a5",
     "short": "013711a5",
-    "message": "restrict CLI prompt \u2014 no compile/test/install, edit only",
+    "message": "restrict CLI prompt — no compile/test/install, edit only",
     "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -4514,7 +4498,7 @@
   {
     "hash": "4ac3d08c",
     "short": "4ac3d08c",
-    "message": "agent dropdown in flow node editor \u2014 select agent, auto-set model/provider",
+    "message": "agent dropdown in flow node editor — select agent, auto-set model/provider",
     "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4530,7 +4514,7 @@
   {
     "hash": "cb5f8dd3",
     "short": "cb5f8dd3",
-    "message": "send flow_id in doAssignFlow \u2014 was missing, flow never ran",
+    "message": "send flow_id in doAssignFlow — was missing, flow never ran",
     "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -4538,7 +4522,7 @@
   {
     "hash": "fb48203f",
     "short": "fb48203f",
-    "message": "unify Run button \u2014 single popup shows agents, CLI, and flows",
+    "message": "unify Run button — single popup shows agents, CLI, and flows",
     "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4690,7 +4674,7 @@
   {
     "hash": "ac667692",
     "short": "ac667692",
-    "message": "flow system overhaul \u2014 local_apply node, GitHub PR, Slack/Teams, execution timeline",
+    "message": "flow system overhaul — local_apply node, GitHub PR, Slack/Teams, execution timeline",
     "date": "2026-04-10",
     "author": "Ali Ozyildirim",
     "type": "feat"
@@ -4762,7 +4746,7 @@
   {
     "hash": "84c4df53",
     "short": "84c4df53",
-    "message": "Gemini auth \u2014 use standard Bearer header, add Vertex AI refresh token support",
+    "message": "Gemini auth — use standard Bearer header, add Vertex AI refresh token support",
     "date": "2026-04-09",
     "author": "root",
     "type": "fix"
@@ -4770,7 +4754,7 @@
   {
     "hash": "133d2c12",
     "short": "133d2c12",
-    "message": "Gemini OpenAI-compat auth \u2014 use x-goog-api-key header",
+    "message": "Gemini OpenAI-compat auth — use x-goog-api-key header",
     "date": "2026-04-09",
     "author": "root",
     "type": "fix"
@@ -4806,14 +4790,6 @@
     "date": "2026-04-08",
     "author": "root",
     "type": "feat"
-  },
-  {
-    "hash": "3f0066d6",
-    "short": "3f0066d6",
-    "message": "Merge pull request #7 from obfox/feat/hal-integration",
-    "date": "2026-04-08",
-    "author": "aozyildirim",
-    "type": "other"
   },
   {
     "hash": "cf362009",
@@ -4898,7 +4874,7 @@
   {
     "hash": "9be988a4",
     "short": "9be988a4",
-    "message": "unified item list for refinement \u2014 single responsive list for mobile+desktop",
+    "message": "unified item list for refinement — single responsive list for mobile+desktop",
     "date": "2026-04-05",
     "author": "root",
     "type": "fix"
@@ -4906,7 +4882,7 @@
   {
     "hash": "8a26fed5",
     "short": "8a26fed5",
-    "message": "mobile cards \u2014 remove inline display:none, explicit text colors, word-break",
+    "message": "mobile cards — remove inline display:none, explicit text colors, word-break",
     "date": "2026-04-05",
     "author": "root",
     "type": "fix"
@@ -4914,7 +4890,7 @@
   {
     "hash": "91e53bd8",
     "short": "91e53bd8",
-    "message": "refinement mobile \u2014 portal overlay, title wrap, z-index boost",
+    "message": "refinement mobile — portal overlay, title wrap, z-index boost",
     "date": "2026-04-05",
     "author": "root",
     "type": "fix"
@@ -4946,7 +4922,7 @@
   {
     "hash": "f5bde0ce",
     "short": "f5bde0ce",
-    "message": "improve refinement prompts \u2014 no more 0 points, unique per-item analysis",
+    "message": "improve refinement prompts — no more 0 points, unique per-item analysis",
     "date": "2026-04-05",
     "author": "root",
     "type": "fix"
@@ -4997,7 +4973,7 @@
     "message": "update changelog-data.json with today's features",
     "date": "2026-04-05",
     "author": "root",
-    "type": "other"
+    "type": "chore"
   },
   {
     "hash": "f7f6a066",
@@ -5010,7 +4986,7 @@
   {
     "hash": "221dfef8",
     "short": "221dfef8",
-    "message": "fix task dependencies \u2014 runtime check, auto-unblock, full UI",
+    "message": "fix task dependencies — runtime check, auto-unblock, full UI",
     "date": "2026-04-05",
     "author": "root",
     "type": "feat"
@@ -5026,7 +5002,7 @@
   {
     "hash": "81ddf05d",
     "short": "81ddf05d",
-    "message": "multi-repo orchestration \u2014 1 task, N repos, parallel PRs",
+    "message": "multi-repo orchestration — 1 task, N repos, parallel PRs",
     "date": "2026-04-05",
     "author": "root",
     "type": "feat"
@@ -5069,7 +5045,7 @@
     "message": "add SDK docs translations for 6 languages",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f374ebee",
@@ -5093,7 +5069,7 @@
     "message": "update TR docs with improved translations",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "e4c2d983",
@@ -5101,7 +5077,7 @@
     "message": "i18n: docs content in 7 languages + navbar links translated",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "8c1d46b6",
@@ -5109,7 +5085,7 @@
     "message": "i18n: docs page sidebar and navigation translated in 7 languages (38 keys)",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "31a287bd",
@@ -5125,7 +5101,7 @@
     "message": "i18n: footer fully translated in 7 languages, add roadmap + API docs links",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "99ccd41a",
@@ -5181,7 +5157,7 @@
     "message": "add 10 blog posts in 5 languages: ES, DE, ZH, IT, JA (2 per language)",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "685499ed",
@@ -5197,7 +5173,7 @@
     "message": "i18n: add 7-language translations for all public pages + fix contact mobile layout",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "9562ac67",
@@ -5237,7 +5213,7 @@
     "message": "add search to docs sidebar with instant results dropdown",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "fb46b80e",
@@ -5253,7 +5229,7 @@
     "message": "add reading progress bar, TOC sidebar, and share buttons to blog posts",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "54fde769",
@@ -5261,7 +5237,7 @@
     "message": "add fade-up page transition animation between routes",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "56c97729",
@@ -5269,7 +5245,7 @@
     "message": "add per-page OG images for docs, blog, contact, changelog, use-cases, status",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f463d7ff",
@@ -5277,7 +5253,7 @@
     "message": "add /status to sitemap, remove /pricing",
     "date": "2026-04-04",
     "author": "root",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "5a78613b",
@@ -5362,7 +5338,7 @@
   {
     "hash": "246e8be8",
     "short": "246e8be8",
-    "message": "SEO sitelinks \u2014 SearchAction, SiteNavigationElement, breadcrumbs",
+    "message": "SEO sitelinks — SearchAction, SiteNavigationElement, breadcrumbs",
     "date": "2026-04-03",
     "author": "root",
     "type": "feat"
@@ -5378,7 +5354,7 @@
   {
     "hash": "82a80f8a",
     "short": "82a80f8a",
-    "message": "resolve local dev issues \u2014 icon.svg 500, hydration mismatch, X-Frame-Options",
+    "message": "resolve local dev issues — icon.svg 500, hydration mismatch, X-Frame-Options",
     "date": "2026-04-03",
     "author": "Ali Ozyildirim",
     "type": "fix"
@@ -5402,7 +5378,7 @@
   {
     "hash": "98cc0a5a",
     "short": "98cc0a5a",
-    "message": "full ChatOps \u2014 Slack Events API + Teams Bot Framework + UI fields",
+    "message": "full ChatOps — Slack Events API + Teams Bot Framework + UI fields",
     "date": "2026-04-03",
     "author": "root",
     "type": "feat"
@@ -5426,7 +5402,7 @@
   {
     "hash": "2fb9fb13",
     "short": "2fb9fb13",
-    "message": "Teams ChatOps \u2014 command tasks from Teams channel",
+    "message": "Teams ChatOps — command tasks from Teams channel",
     "date": "2026-04-03",
     "author": "root",
     "type": "feat"
@@ -5466,7 +5442,7 @@
   {
     "hash": "bc15d09f",
     "short": "bc15d09f",
-    "message": "hide org-level nav for platform admins \u2014 admin-only sidebar",
+    "message": "hide org-level nav for platform admins — admin-only sidebar",
     "date": "2026-04-03",
     "author": "root",
     "type": "fix"
@@ -5482,7 +5458,7 @@
   {
     "hash": "241bc2c3",
     "short": "241bc2c3",
-    "message": "admin-first sidebar \u2014 platform admins see admin nav on top",
+    "message": "admin-first sidebar — platform admins see admin nav on top",
     "date": "2026-04-03",
     "author": "root",
     "type": "feat"
@@ -5490,7 +5466,7 @@
   {
     "hash": "d01cd547",
     "short": "d01cd547",
-    "message": "agena CLI tool \u2014 admin:user:create, admin:user:list, admin:user:promote",
+    "message": "agena CLI tool — admin:user:create, admin:user:list, admin:user:promote",
     "date": "2026-04-03",
     "author": "root",
     "type": "feat"
@@ -5514,7 +5490,7 @@
   {
     "hash": "06c27864",
     "short": "06c27864",
-    "message": "platform admin panel \u2014 orgs, users, contact, newsletter management",
+    "message": "platform admin panel — orgs, users, contact, newsletter management",
     "date": "2026-04-03",
     "author": "root",
     "type": "feat"
@@ -5541,7 +5517,7 @@
     "message": "seo: 3 Turkish blog posts + README backlinks for keyword targeting",
     "date": "2026-04-03",
     "author": "root",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "ceda9bf6",
@@ -5557,7 +5533,7 @@
     "message": "Redis cache for Azure/Jira sprint endpoints + parallel Azure requests",
     "date": "2026-04-03",
     "author": "root",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "3360162e",
@@ -5594,7 +5570,7 @@
   {
     "hash": "7120f694",
     "short": "7120f694",
-    "message": "Azure DevOps node \u2014 project/repo dropdowns + preset template",
+    "message": "Azure DevOps node — project/repo dropdowns + preset template",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
@@ -5642,7 +5618,7 @@
   {
     "hash": "7eb2560f",
     "short": "7eb2560f",
-    "message": "improved sidebar menu \u2014 colored group headers, separators, hover effects",
+    "message": "improved sidebar menu — colored group headers, separators, hover effects",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
@@ -5650,10 +5626,10 @@
   {
     "hash": "299cdf0d",
     "short": "299cdf0d",
-    "message": "revert: restore office page to pre-height-fix state",
+    "message": "restore office page to pre-height-fix state",
     "date": "2026-04-02",
     "author": "root",
-    "type": "other"
+    "type": "revert"
   },
   {
     "hash": "64d34525",
@@ -5714,7 +5690,7 @@
   {
     "hash": "2b8801b5",
     "short": "2b8801b5",
-    "message": "agent prompt selector \u2014 choose from Prompt Studio or write custom",
+    "message": "agent prompt selector — choose from Prompt Studio or write custom",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
@@ -5741,7 +5717,7 @@
     "message": "remove old source directories after package migration",
     "date": "2026-04-02",
     "author": "root",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "7fc1d17f",
@@ -5762,7 +5738,7 @@
   {
     "hash": "bfe0d647",
     "short": "bfe0d647",
-    "message": "monorepo package split \u2014 6 pip-installable packages",
+    "message": "monorepo package split — 6 pip-installable packages",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
@@ -5792,14 +5768,6 @@
     "type": "feat"
   },
   {
-    "hash": "c5c528d2",
-    "short": "c5c528d2",
-    "message": "Merge obfox/feat/prompts-as-db-records (PR #5): DB-backed LLM prompts",
-    "date": "2026-04-02",
-    "author": "root",
-    "type": "other"
-  },
-  {
     "hash": "d9cd5e29",
     "short": "d9cd5e29",
     "message": "prompt studio shows default prompts in editor for direct editing",
@@ -5808,17 +5776,9 @@
     "type": "feat"
   },
   {
-    "hash": "568953a5",
-    "short": "568953a5",
-    "message": "Merge pull request #6 from aozyildirim/feat/team-health-pr-details",
-    "date": "2026-04-02",
-    "author": "aozyildirim",
-    "type": "other"
-  },
-  {
     "hash": "dfe5ab37",
     "short": "dfe5ab37",
-    "message": "sync all locale files \u2014 add missing translations for ES, ZH, IT, DE, JA",
+    "message": "sync all locale files — add missing translations for ES, ZH, IT, DE, JA",
     "date": "2026-04-02",
     "author": "root",
     "type": "feat"
@@ -5848,22 +5808,6 @@
     "type": "fix"
   },
   {
-    "hash": "5a89c824",
-    "short": "5a89c824",
-    "message": "Merge pull request #3 from obfox/fix/alembic-env-path",
-    "date": "2026-04-02",
-    "author": "aozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "cbf58c02",
-    "short": "cbf58c02",
-    "message": "Merge pull request #4 from obfox/feat/flows-page-update",
-    "date": "2026-04-02",
-    "author": "aozyildirim",
-    "type": "other"
-  },
-  {
     "hash": "f585f5c6",
     "short": "f585f5c6",
     "message": "optimize node dragging with deferred state update",
@@ -5878,22 +5822,6 @@
     "date": "2026-04-02",
     "author": "Omer",
     "type": "fix"
-  },
-  {
-    "hash": "6678608b",
-    "short": "6678608b",
-    "message": "Merge pull request #2 from aozyildirim/feat/team-health-pr-details",
-    "date": "2026-04-02",
-    "author": "aozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "b1a44cd8",
-    "short": "b1a44cd8",
-    "message": "Merge pull request #1 from aozyildirim/feat/prompt-studio",
-    "date": "2026-04-02",
-    "author": "aozyildirim",
-    "type": "other"
   },
   {
     "hash": "9335fc12",
@@ -5957,15 +5885,15 @@
     "message": "Add video",
     "date": "2026-03-31",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "93d75098",
     "short": "93d75098",
-    "message": "revert: remove file excerpt trimming, send full file contents to developer",
+    "message": "remove file excerpt trimming, send full file contents to developer",
     "date": "2026-03-31",
     "author": "root",
-    "type": "other"
+    "type": "revert"
   },
   {
     "hash": "b9c3a003",
@@ -5973,7 +5901,7 @@
     "message": "shrink large files to 20K char excerpts before developer batching",
     "date": "2026-03-31",
     "author": "root",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "00896962",
@@ -5989,7 +5917,7 @@
     "message": "cap remote file reading at 80K to prevent mini model refusal",
     "date": "2026-03-31",
     "author": "root",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "d5079ebb",
@@ -5997,7 +5925,7 @@
     "message": "lightweight file tree for agents.md repos + always show real paths",
     "date": "2026-03-31",
     "author": "root",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "0d6bd970",
@@ -6005,7 +5933,7 @@
     "message": "skip full repo context scan when agents.md exists",
     "date": "2026-03-31",
     "author": "root",
-    "type": "other"
+    "type": "perf"
   },
   {
     "hash": "0c4a7cf8",
@@ -6061,7 +5989,7 @@
     "message": "move extra_description append logic from frontend to backend assign endpoint",
     "date": "2026-03-31",
     "author": "root",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "c7e02f58",
@@ -6098,7 +6026,7 @@
   {
     "hash": "4cd5fa96",
     "short": "4cd5fa96",
-    "message": "Run Config popup on task detail \u2014 repo + agent selection before run",
+    "message": "Run Config popup on task detail — repo + agent selection before run",
     "date": "2026-03-30",
     "author": "root",
     "type": "feat"
@@ -6114,7 +6042,7 @@
   {
     "hash": "c5a1b0b9",
     "short": "c5a1b0b9",
-    "message": "RemoteRepoSelector component \u2014 project \u2192 repo \u2192 branch flow",
+    "message": "RemoteRepoSelector component — project → repo → branch flow",
     "date": "2026-03-30",
     "author": "root",
     "type": "feat"
@@ -6130,7 +6058,7 @@
   {
     "hash": "1056718a",
     "short": "1056718a",
-    "message": "remote repo support \u2014 read repo via GitHub/Azure API, no clone needed",
+    "message": "remote repo support — read repo via GitHub/Azure API, no clone needed",
     "date": "2026-03-30",
     "author": "root",
     "type": "feat"
@@ -6205,7 +6133,7 @@
     "message": "Add readme screenshots for documentation",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "527a8ca9",
@@ -6261,7 +6189,7 @@
     "message": "Fix: bypass CrewAI entirely for codex models, use direct LLM",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d7ebc493",
@@ -6269,7 +6197,7 @@
     "message": "Fix: disable CrewAI reasoning for codex models + navbar auth reactivity",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "78474e45",
@@ -6333,7 +6261,7 @@
     "message": "Add per-item result modal links and persist refinement snapshots locally",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ee991f4e",
@@ -6341,15 +6269,7 @@
     "message": "Add refinement writeback for Azure/Jira with comment signature and links",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "111da6fb",
-    "short": "111da6fb",
-    "message": "Merge branch 'refinement-flow-yaml'",
-    "date": "2026-03-30",
-    "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "8bd7ccad",
@@ -6357,15 +6277,7 @@
     "message": "Add refinement workflow UI/API and harden model parameter handling",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "77f605bc",
-    "short": "77f605bc",
-    "message": "Merge branch 'real-crewai-runtime'",
-    "date": "2026-03-30",
-    "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "2b221820",
@@ -6389,7 +6301,7 @@
     "message": "Harden AI planning and add task image vision inputs",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ffdb886d",
@@ -6405,7 +6317,7 @@
     "message": "Do not auto-queue imported/new tasks; require manual start",
     "date": "2026-03-30",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "37c1745f",
@@ -6477,7 +6389,7 @@
     "message": "read directly from locale json dictionaries",
     "date": "2026-03-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "a6c23b61",
@@ -6493,7 +6405,7 @@
     "message": "move base dictionaries into locale json files",
     "date": "2026-03-29",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "65481c55",
@@ -6610,7 +6522,7 @@
   {
     "hash": "9e19b7d5",
     "short": "9e19b7d5",
-    "message": "\u23fa fix: route all agent steps through LLMProvider, drop CrewAI runtime",
+    "message": "⏺ fix: route all agent steps through LLMProvider, drop CrewAI runtime",
     "date": "2026-03-29",
     "author": "Kadir",
     "type": "other"
@@ -6666,7 +6578,7 @@
   {
     "hash": "82ddc53d",
     "short": "82ddc53d",
-    "message": "enable qdrant write \u2014 upsert memory after task completion, embed input only",
+    "message": "enable qdrant write — upsert memory after task completion, embed input only",
     "date": "2026-03-28",
     "author": "Kadir",
     "type": "other"
@@ -6797,7 +6709,7 @@
     "message": "Fix: ext_id is now pure number, prefix goes in pattern",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "517c1ddd",
@@ -6829,7 +6741,7 @@
     "message": "Fix create_pr from agent config + agents page layout swap",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "9a40fe9d",
@@ -6861,7 +6773,7 @@
     "message": "Add debug log for repo context in flow mode",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "758b0161",
@@ -6877,7 +6789,7 @@
     "message": "Fix patch parser: tolerant whitespace matching + better logging",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "93458c6e",
@@ -6885,7 +6797,7 @@
     "message": "Fix: pass correct params to _build_effective_description in flow mode",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "63c42379",
@@ -6893,15 +6805,15 @@
     "message": "Fix: build repo context BEFORE flow starts (was missing entirely)",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d7187366",
     "short": "d7187366",
-    "message": "Fix critical bug: self.db \u2192 self.db_session in agents.md reader",
+    "message": "Fix critical bug: self.db → self.db_session in agents.md reader",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "0fc138ec",
@@ -6909,12 +6821,12 @@
     "message": "Fix parser: handle patch output without fenced code blocks",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "fc6afc85",
     "short": "fc6afc85",
-    "message": "Remove reviewer step \u2014 developer output goes directly to final_code",
+    "message": "Remove reviewer step — developer output goes directly to final_code",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
     "type": "other"
@@ -6925,7 +6837,7 @@
     "message": "Fix patch parser: full context sequence matching + unique positioning",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "9f3e1e84",
@@ -6933,7 +6845,7 @@
     "message": "Fix local repo writes + pixel office build script + clean bundles",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "1f186cf4",
@@ -6957,7 +6869,7 @@
     "message": "Fix: add missing logger to orchestration_service.py",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "83c78aa8",
@@ -6965,7 +6877,7 @@
     "message": "Fix: remove stale mapping_auto_attached reference",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "f0460334",
@@ -6989,7 +6901,7 @@
     "message": "Fix: add missing select/sa_delete imports to task delete endpoint",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "6f6ab178",
@@ -6997,7 +6909,7 @@
     "message": "Fix task delete: clean all FK references before deleting",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "fa466a13",
@@ -7005,7 +6917,7 @@
     "message": "Fix quota error surfacing + upgrade to pro plan",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "53c8ac07",
@@ -7021,7 +6933,7 @@
     "message": "Add task delete + single item import from sprint board",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "95f54e2a",
@@ -7029,7 +6941,7 @@
     "message": "Fix: fallback to developer output when reviewer breaks patch format",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "57288dad",
@@ -7037,7 +6949,7 @@
     "message": "Force patch-style output from AI agents, add patch parser",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "aa23a3eb",
@@ -7045,7 +6957,7 @@
     "message": "Default create_pr to false, add create_pr toggle to agents page",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "642ec327",
@@ -7053,7 +6965,7 @@
     "message": "Fix AI pipeline: models, context, relevance, review node, create_pr toggle",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "1deea1bf",
@@ -7061,7 +6973,7 @@
     "message": "Add branch selection to repo mappings",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "6798b3c5",
@@ -7085,7 +6997,7 @@
     "message": "Fix duplicate invites, add confirm on remove, sync org on team remove",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "229ec917",
@@ -7093,7 +7005,7 @@
     "message": "Fix duplicate invites + send invite emails on auto-add",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d9a4d0bb",
@@ -7109,7 +7021,7 @@
     "message": "Fix auto_add_team_members: handle duplicate pending invites",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "4f9d6686",
@@ -7125,7 +7037,7 @@
     "message": "Fix sync + Deployments tab + increase sync range to 1 year",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "dca61735",
@@ -7133,7 +7045,7 @@
     "message": "Fix DORA overview: repo cards with sync, MySQL YEARWEEK compat",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "e66b3fde",
@@ -7141,7 +7053,7 @@
     "message": "Fix: restore extract import for isoyear/week queries",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "f2ba96f4",
@@ -7149,7 +7061,7 @@
     "message": "Add Oobeya-style analytics: Git, PRs, Sprint details, Deployments",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "b7e689fa",
@@ -7157,7 +7069,7 @@
     "message": "Fix MySQL compatibility: replace PostgreSQL EXTRACT(epoch) with UNIX_TIMESTAMP",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "285e0a6f",
@@ -7165,7 +7077,7 @@
     "message": "Add real git-based DORA metrics with repo sync",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f6a0aeec",
@@ -7173,7 +7085,7 @@
     "message": "Add DORA Metrics section with 5 sub-pages",
     "date": "2026-03-27",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "b77c7191",
@@ -7197,7 +7109,7 @@
     "message": "Add permissions page, auto-invite from Azure/Jira, role change notifications",
     "date": "2026-03-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4eea0d14",
@@ -7205,7 +7117,7 @@
     "message": "Add WebSocket real-time updates, dashboard analytics, and RBAC",
     "date": "2026-03-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "fa41865c",
@@ -7269,7 +7181,7 @@
     "message": "Pixel agent refactor",
     "date": "2026-03-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "9d4c1994",
@@ -7277,7 +7189,7 @@
     "message": "Pixel agent refactor",
     "date": "2026-03-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "42a69d11",
@@ -7309,7 +7221,7 @@
     "message": "CLI Bridge: Docker-based codex/claude CLI with OAuth login flow",
     "date": "2026-03-26",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "d2c5fa3c",
@@ -7325,7 +7237,7 @@
     "message": "Agent selection pass-through + AI pipeline docs",
     "date": "2026-03-25",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "ae6cba14",
@@ -7357,7 +7269,7 @@
     "message": "Task add flow + ai append",
     "date": "2026-03-25",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "610b2867",
@@ -7365,14 +7277,6 @@
     "message": "asd",
     "date": "2026-03-25",
     "author": "Ali Ozyildirim",
-    "type": "other"
-  },
-  {
-    "hash": "0d26c3d4",
-    "short": "0d26c3d4",
-    "message": "Merge remote-tracking branch 'origin/main'",
-    "date": "2026-03-25",
-    "author": "Kadir",
     "type": "other"
   },
   {
@@ -7445,7 +7349,7 @@
     "message": "Fix Jira import fallback, auto-attach repo mappings, and PR routing",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "486afd87",
@@ -7453,7 +7357,7 @@
     "message": "Fix mappings edit selection and team provider-specific members",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d9f73649",
@@ -7469,7 +7373,7 @@
     "message": "Add provider-scoped guards to prevent stale Azure values in Jira sprint requests",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "afb03429",
@@ -7493,7 +7397,7 @@
     "message": "Stabilize sprint provider fallback and add task source filtering",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e168801d",
@@ -7509,7 +7413,7 @@
     "message": "Add bottom-right toast feedback for integration save actions",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "f9a0a52d",
@@ -7517,7 +7421,7 @@
     "message": "Add provider help popups to integrations cards with quick setup guides",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "2e957b7d",
@@ -7565,7 +7469,7 @@
     "message": "Fix GitHub owner prefill and Jira project-key normalization in mappings/sprints/profile",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "434127b9",
@@ -7589,7 +7493,7 @@
     "message": "Add GraphQL fallback for GitHub repository discovery",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "0a28bf39",
@@ -7613,7 +7517,7 @@
     "message": "Fix leftover manual GitHub mapping state reference",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "69421537",
@@ -7709,7 +7613,7 @@
     "message": "Fix Jira sprint key persistence and compact integrations grid",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "ba4f07b4",
@@ -7717,7 +7621,7 @@
     "message": "Add GitHub integration config and repo listing support",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "25c1c715",
@@ -7741,7 +7645,7 @@
     "message": "Fix Jira sprint tab visibility and project mapping",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "e34be254",
@@ -7749,7 +7653,7 @@
     "message": "Add Jira active sprint selectors to profile settings",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e79de167",
@@ -7757,7 +7661,7 @@
     "message": "Add Jira provider support to sprint board and filtered Jira import flow",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "dd828337",
@@ -7765,7 +7669,7 @@
     "message": "Add task-level Memory Impact panel with scored Qdrant retrieval insights",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "49ffc045",
@@ -7789,7 +7693,7 @@
     "message": "Fix flow canvas edge delete hitbox and node placement behavior",
     "date": "2026-03-23",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "8f55ee42",
@@ -7797,7 +7701,7 @@
     "message": "Fix assign race: persist queued status before enqueue",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "33252e78",
@@ -7805,7 +7709,7 @@
     "message": "Add git command timeout and disable terminal prompts in local exec",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "3c3c5a0c",
@@ -7813,7 +7717,7 @@
     "message": "Auto-clean stale queue locks in worker health cycle",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "refactor"
   },
   {
     "hash": "c814e484",
@@ -7837,7 +7741,7 @@
     "message": "Add PR comment webhook to auto-trigger lead review autofix loop",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "73abe93b",
@@ -7845,7 +7749,7 @@
     "message": "Use canonical external task id and rerun on any new reviewer comment",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "dc56e15b",
@@ -7853,7 +7757,7 @@
     "message": "Fix Azure PR URL parsing for org/project API URL format",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "d3a8da9c",
@@ -7861,7 +7765,7 @@
     "message": "Require explicit fix trigger in PR comments before auto-fix rerun",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "f0c16275",
@@ -7893,7 +7797,7 @@
     "message": "Fix PR review loop: only new comments, no phantom task creation",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "d323eec1",
@@ -7917,7 +7821,7 @@
     "message": "Add review-only flow mode and GitHub PR feedback loop",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "c6e7f337",
@@ -7925,7 +7829,7 @@
     "message": "Add real Azure PR review loop with feedback auto-fix",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "85d0575e",
@@ -7933,7 +7837,7 @@
     "message": "Fix task detail progress count when queued step is absent",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "3a0337f1",
@@ -7949,7 +7853,7 @@
     "message": "Fix sprint flow task creation and PR routing metadata",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "ffbccd18",
@@ -7989,7 +7893,7 @@
     "message": "Add PR review flow starter and default preset",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "c176e7ac",
@@ -7997,7 +7901,7 @@
     "message": "Fix flows run response, add flow delete confirm, and i18n task detail",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "a5dda4a8",
@@ -8013,7 +7917,7 @@
     "message": "Complete dashboard multilingual coverage and fix TS errors",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "62d0b6a7",
@@ -8021,7 +7925,7 @@
     "message": "Add detailed vector memory section to landing and update AGENTS.md discipline",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ea57fed3",
@@ -8029,7 +7933,7 @@
     "message": "Document Qdrant memory in docs/swagger and add memory status endpoints",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "02f46ec7",
@@ -8037,7 +7941,7 @@
     "message": "Enable Qdrant memory in Docker and document vector service",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "fe2f4f69",
@@ -8069,7 +7973,7 @@
     "message": "Add fast typing-style animation for flow showcase text",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "c9d11b59",
@@ -8077,7 +7981,7 @@
     "message": "Add animated flow showcase with desktop flow image and word-by-word text",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "6d6df396",
@@ -8085,7 +7989,7 @@
     "message": "Add animated multilingual landing section for latest platform features",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4819c501",
@@ -8109,7 +8013,7 @@
     "message": "Fix task step progress mapping for agent stage aliases",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "93616335",
@@ -8117,7 +8021,7 @@
     "message": "Add live task log streaming (SSE) and realtime detail updates",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "7d9b0a55",
@@ -8149,7 +8053,7 @@
     "message": "Add organization-wide usage analytics API and dashboard usage page with filters",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "72c501a2",
@@ -8157,7 +8061,7 @@
     "message": "Enhance repo scan prompt and add in-app AGENTS.md editor on mappings",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "faabbaad",
@@ -8181,7 +8085,7 @@
     "message": "Add repo profile scan flow on mappings with usage event logging",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4f9f8e10",
@@ -8189,7 +8093,7 @@
     "message": "Add AI usage event ledger with task usage-events endpoint and orchestration logging",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "148136ea",
@@ -8197,7 +8101,7 @@
     "message": "Add full feature catalog and export OpenAPI schema docs",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "2cf1ba82",
@@ -8221,7 +8125,7 @@
     "message": "Add persistent notifications center, event preferences, and UI polish",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "9112e8e9",
@@ -8237,7 +8141,7 @@
     "message": "Fix profile settings migration chain to 0008_story_guardrails",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "fcb619e8",
@@ -8245,7 +8149,7 @@
     "message": "Fix preferences DB column issue and add dashboard notification bell",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "be12392d",
@@ -8253,7 +8157,7 @@
     "message": "Add SMTP email alerts and dashboard web push notifications",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "161d552c",
@@ -8285,7 +8189,7 @@
     "message": "Fix tasks page fallback and readable API error messages",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "240e3ee8",
@@ -8301,7 +8205,7 @@
     "message": "Improve profile UX and add server-side task filtering/pagination",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "49821dd2",
@@ -8309,7 +8213,7 @@
     "message": "Add date range filter and pagination to dashboard tasks",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4573ab00",
@@ -8317,7 +8221,7 @@
     "message": "Add DB-backed profile preferences and profile settings UI",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4a6946b9",
@@ -8333,7 +8237,7 @@
     "message": "Add dashboard auth redirect with next return flow",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "50f59922",
@@ -8341,7 +8245,7 @@
     "message": "Fix queue panel mismatch by merging Redis and DB queued tasks",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "bb37110f",
@@ -8349,7 +8253,7 @@
     "message": "Add queue monitoring endpoint and queued-task removal panel",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "949e4f68",
@@ -8365,7 +8269,7 @@
     "message": "Add robust OpenAI output fallback and ignore empty cached generations",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "de9cdb52",
@@ -8397,7 +8301,7 @@
     "message": "Add Gemini integration and masked secret previews",
     "date": "2026-03-22",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e8d98d0a",
@@ -8405,7 +8309,7 @@
     "message": "Add repo-level playbook mapping, dependency multi-select, and mapping edit UX",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "aa65a800",
@@ -8421,7 +8325,7 @@
     "message": "Fix 0008 migration revision id length and make upgrade idempotent",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "dfb42927",
@@ -8429,7 +8333,7 @@
     "message": "Implement Task Story Mode and per-task Cost Guardrails end-to-end",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "4d305999",
@@ -8437,7 +8341,7 @@
     "message": "Add Task Story Mode and Cost Guardrails to landing showcase and docs",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "b3d96caf",
@@ -8453,7 +8357,7 @@
     "message": "Enhance landing with advanced capability showcase and document feature catalog",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "docs"
   },
   {
     "hash": "e26c57f6",
@@ -8461,7 +8365,7 @@
     "message": "Add task dependencies, PR risk scoring, and tenant playbook controls",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "1ae46c31",
@@ -8477,7 +8381,7 @@
     "message": "Add task queue insights to API and improve tasks list/detail observability",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "e812d557",
@@ -8485,7 +8389,7 @@
     "message": "Add worker stale-task watchdog and configurable lock retry limits",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "495d559d",
@@ -8493,7 +8397,7 @@
     "message": "Add task cancel endpoint, repo lock guard, and codex retry backoff",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "70f328ef",
@@ -8501,7 +8405,7 @@
     "message": "Stabilize codex worker auth/pipeline and add sprint execution prompt support",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "546c6662",
@@ -8533,7 +8437,7 @@
     "message": "Add local repo execution with mapping-based Azure PR flow",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "6ff373f7",
@@ -8549,7 +8453,7 @@
     "message": "Add repo-mapping driven sprint assignment flow and agent creation modal",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "ac8f4577",
@@ -8557,7 +8461,7 @@
     "message": "Add DB-backed flow assets and templates sidebar",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "269788a1",
@@ -8565,7 +8469,7 @@
     "message": "Add multilingual flow features (versioning, dry run, templates, approvals) and agent analytics",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "feat"
   },
   {
     "hash": "6de754a2",
@@ -8573,7 +8477,7 @@
     "message": "Fix onboarding/lang hydration, localize landing+navbar, and improve flows/sprints i18n",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
-    "type": "other"
+    "type": "fix"
   },
   {
     "hash": "8c05d085",
@@ -8610,7 +8514,7 @@
   {
     "hash": "1b83f701",
     "short": "1b83f701",
-    "message": "initial commit \u2014 tiqr AI agent system",
+    "message": "initial commit — tiqr AI agent system",
     "date": "2026-03-21",
     "author": "Ali Ozyildirim",
     "type": "feat"
