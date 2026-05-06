@@ -11,6 +11,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import GuidedTour from '@/components/GuidedTour';
 import SprintSwitcher from '@/components/SprintSwitcher';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
+import { PermissionsProvider } from '@/lib/permissions';
 import { useLocale } from '@/lib/i18n';
 import { RoleContext, canAccess, type Role } from '@/lib/rbac';
 import { WebSocketProvider } from '@/lib/useWebSocket';
@@ -86,6 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: '🗄', module: 'core' },
       { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints' },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'permissions' },
+      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: '🛂', permission: 'roles:manage' as const, module: 'permissions' },
       { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core' },
     ],
   },
@@ -993,9 +995,11 @@ function DashboardInner({ children }: { children: ReactNode }) {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <WebSocketProvider>
-      <Suspense fallback={null}>
-        <DashboardInner>{children}</DashboardInner>
-      </Suspense>
+      <PermissionsProvider>
+        <Suspense fallback={null}>
+          <DashboardInner>{children}</DashboardInner>
+        </Suspense>
+      </PermissionsProvider>
     </WebSocketProvider>
   );
 }

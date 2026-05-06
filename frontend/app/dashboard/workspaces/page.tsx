@@ -19,8 +19,17 @@ type WorkspaceMember = {
   email: string;
   full_name: string;
   role: string;
+  role_id?: number | null;
+  role_name?: string | null;
   title?: string | null;
   joined_at: string;
+};
+
+type Role = {
+  id: number;
+  name: string;
+  is_builtin: boolean;
+  is_default_for_new_members: boolean;
 };
 
 const GRADIENTS = [
@@ -51,6 +60,8 @@ export default function WorkspacesPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [memberRoleIds, setMemberRoleIds] = useState<Record<number, number | null>>({});
 
   const loadWorkspaces = useCallback(async () => {
     setLoading(true);
@@ -76,6 +87,9 @@ export default function WorkspacesPage() {
 
   useEffect(() => { void loadWorkspaces(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeId !== null) void loadMembers(activeId); }, [activeId, loadMembers]);
+  useEffect(() => {
+    apiFetch<Role[]>('/workspace-roles').then(setRoles).catch(() => {});
+  }, []);
 
   const active = useMemo(() => workspaces.find((w) => w.id === activeId) || null, [workspaces, activeId]);
 
@@ -136,6 +150,19 @@ export default function WorkspacesPage() {
       });
       await loadMembers(active.id);
     } catch (e) { /* ignore */ }
+  }
+
+  async function handleAssignRole(memberUserId: number, roleId: number) {
+    if (!active) return;
+    try {
+      await apiFetch(`/workspace-roles/assign/${active.id}/${memberUserId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ role_id: roleId }),
+      });
+      await loadMembers(active.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to assign role');
+    }
   }
 
   async function handleRemoveMember(memberUserId: number) {
@@ -255,8 +282,19 @@ export default function WorkspacesPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 13 }}>{m.full_name || m.email}</div>
-                        <div style={{ fontSize: 12, color: 'var(--ink-30)' }}>{m.email} · {m.role}</div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-30)' }}>{m.email}</div>
                       </div>
+                      <select
+                        value={m.role_id ?? ''}
+                        onChange={(e) => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) void handleAssignRole(m.user_id, v); }}
+                        style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-solid)', color: 'var(--ink-90)', fontSize: 12, minWidth: 120 }}
+                        title={t('workspaces.roleLabel')}
+                      >
+                        <option value="" disabled>{t('workspaces.roleLabel')}</option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
                       <input
                         type="text"
                         defaultValue={m.title || ''}

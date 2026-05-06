@@ -168,6 +168,18 @@ class WorkspaceService:
         )
         return [(row[0], row[1]) for row in result.all()]
 
+    async def list_members_with_roles(self, workspace_id: int) -> list[tuple[WorkspaceMember, User, str | None]]:
+        """Same as list_members but joins WorkspaceRole.name for the dropdown UI."""
+        from agena_models.models.workspace_role import WorkspaceRole
+        result = await self.db.execute(
+            select(WorkspaceMember, User, WorkspaceRole.name)
+            .join(User, User.id == WorkspaceMember.user_id)
+            .join(WorkspaceRole, WorkspaceRole.id == WorkspaceMember.role_id, isouter=True)
+            .where(WorkspaceMember.workspace_id == workspace_id)
+            .order_by(WorkspaceMember.joined_at.asc())
+        )
+        return [(row[0], row[1], row[2]) for row in result.all()]
+
     async def is_member(self, *, workspace_id: int, user_id: int) -> bool:
         row = await self.db.execute(
             select(func.count())

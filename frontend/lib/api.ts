@@ -180,6 +180,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
   const slug = getOrgSlug();
   if (slug) headers['X-Tenant-Slug'] = slug;
 
+  // Pass active workspace so server-side require_workspace_perm() can
+  // resolve the user's role and permission set for the right scope.
+  if (typeof window !== 'undefined') {
+    const wsId = window.localStorage.getItem('agena_active_workspace_id');
+    if (wsId) headers['X-Workspace-Id'] = wsId;
+  }
+
   let response: Response;
   let lastNetworkError: unknown = null;
   for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt += 1) {

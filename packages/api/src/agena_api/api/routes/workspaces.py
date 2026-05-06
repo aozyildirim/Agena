@@ -30,6 +30,8 @@ class WorkspaceMemberItem(BaseModel):
     email: str
     full_name: str
     role: str
+    role_id: Optional[int] = None
+    role_name: Optional[str] = None
     title: Optional[str] = None
     joined_at: datetime
 
@@ -121,17 +123,19 @@ async def list_members(
         raise HTTPException(status_code=404, detail='Workspace not found')
     if not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
         raise HTTPException(status_code=403, detail='Not a workspace member')
-    members = await service.list_members(workspace_id)
+    members = await service.list_members_with_roles(workspace_id)
     return [
         WorkspaceMemberItem(
             user_id=member.user_id,
             email=user.email,
             full_name=user.full_name or '',
             role=member.role,
+            role_id=member.role_id,
+            role_name=role_name,
             title=member.title,
             joined_at=member.joined_at,
         )
-        for member, user in members
+        for member, user, role_name in members
     ]
 
 
