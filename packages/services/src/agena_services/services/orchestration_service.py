@@ -382,14 +382,10 @@ class OrchestrationService:
             )
             if _skill_hits:
                 # Only strong + related tiers earn a slot in the prompt.
-                # Weak hits (score 0.55-0.72) are within the multilingual
-                # embedding's noise floor — short Turkish descriptions
-                # routinely match unrelated PHP/JS skills there because
-                # the band is so narrow. We keep them in the log so the
-                # user can see what got considered, but we don't sully
-                # the agent's context with them.
+                # Weak hits sit in the multilingual embedding's noise floor;
+                # we still log them so we can see what got considered.
                 _injectable = [h for h in _skill_hits if h.tier in ('strong', 'related')]
-                _skills_summary = ', '.join(f'#{h.id} {h.name[:60]}({h.tier})' for h in _skill_hits)
+                _skills_summary = ', '.join(f'#{h.id} {h.name[:60]}({h.tier}/{h.score:.2f})' for h in _skill_hits)
                 await task_service.add_log(task.id, organization_id, 'agent',
                     f'Retrieved {len(_skill_hits)} relevant skill(s) from catalog: {_skills_summary} '
                     f'(injected: {len(_injectable)})'
@@ -406,6 +402,15 @@ class OrchestrationService:
                         '--- END SKILLS ---\n\n'
                         f'{effective_description or ""}'
                     )
+            else:
+                # Log empty results too so silent zero-hit doesn't look
+                # like the feature is broken or disabled. Cheap call,
+                # immensely helpful when tuning thresholds.
+                await task_service.add_log(task.id, organization_id, 'agent',
+                    'Skill matching: no relevant skills found above threshold '
+                    f'(min={SkillService.SIMILAR_MIN_SCORE}). Agent will discover patterns from scratch.'
+                )
+                logger.info('Skill matching: 0 hits for task %s above threshold', task.id)
         except Exception as _se:
             logger.info('Skill retrieval skipped for task %s: %s', task.id, _se)
 

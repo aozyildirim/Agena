@@ -27,10 +27,14 @@ class SkillService:
     # Same tiering semantics as refinement similarity — short-text
     # multilingual embeddings compress into a narrow band, so absolute
     # score cutoffs + relative gap are what make the signal usable.
-    TIER_STRONG_SCORE = 0.82
-    TIER_RELATED_SCORE = 0.72
-    SIMILAR_MIN_SCORE = 0.55
-    SIMILAR_MAX_GAP = 0.06
+    # Cutoffs were tuned on Turkish task titles → English skill descriptions
+    # which sit in the 0.40–0.65 band; the previous 0.55 floor and 0.72/0.82
+    # tiers meant nothing ever cleared the bar in practice and the agent
+    # had to rediscover patterns every run.
+    TIER_STRONG_SCORE = 0.62
+    TIER_RELATED_SCORE = 0.50
+    SIMILAR_MIN_SCORE = 0.42
+    SIMILAR_MAX_GAP = 0.10
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
