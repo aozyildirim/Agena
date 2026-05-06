@@ -46,6 +46,7 @@ from agena_models.models.module import Module, OrganizationModule
 from agena_models.models.user_preference import UserPreference
 from agena_models.models.workspace import Workspace, WorkspaceMember
 from agena_models.models.workspace_role import WorkspaceRole
+from agena_models.models.workspace_invite_link import WorkspaceInviteLink
 
 __all__ = [
     'User', 'Organization', 'OrganizationMember', 'Subscription',
@@ -70,4 +71,5 @@ __all__ = [
     'Workspace',
     'WorkspaceMember',
     'WorkspaceRole',
+    'WorkspaceInviteLink',
 ]

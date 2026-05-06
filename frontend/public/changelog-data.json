@@ -1,5 +1,13 @@
 [
   {
+    "hash": "63831513",
+    "short": "63831513",
+    "message": "workspaces: phase B slice 6 — edit/delete + perm hardening + Owner lock-down",
+    "date": "2026-05-06",
+    "author": "root",
+    "type": "other"
+  },
+  {
     "hash": "b35da6f5",
     "short": "b35da6f5",
     "message": "workspaces: phase B slice 5 — wire backend permission enforcement + sidebar nav gating + Refine button gate",

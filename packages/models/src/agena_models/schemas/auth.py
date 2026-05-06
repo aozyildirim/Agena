@@ -9,8 +9,12 @@ class SignupRequest(BaseModel):
     email: EmailStr
     full_name: str
     password: str
-    organization_name: str
+    # When ``invite_token`` is set, the user joins the linked workspace +
+    # org instead of creating a new org. Org name / slug then become
+    # optional and are ignored.
+    organization_name: str = ''
     org_slug: str = ''
+    invite_token: str = ''
 
     @field_validator('org_slug')
     @classmethod

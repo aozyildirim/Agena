@@ -80,6 +80,15 @@ class AuthService:
         if existing_user.scalar_one_or_none():
             raise ValueError('Email already registered')
 
+        # Invite-driven path: user joins an existing workspace + org instead
+        # of creating a new one. We resolve the invite up-front so a bad
+        # token fails before any DB writes happen.
+        if (payload.invite_token or '').strip():
+            return await self._signup_via_invite(payload)
+
+        if not payload.organization_name.strip():
+            raise ValueError('Organization name is required')
+
         # Determine slug: use provided value or auto-generate from org name
         slug = payload.org_slug.strip().lower() if payload.org_slug else slugify(payload.organization_name)
 
@@ -146,6 +155,88 @@ class AuthService:
 
         token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin)
         return token, user, org
+
+    async def _signup_via_invite(self, payload: SignupRequest) -> tuple[str, User, Organization]:
+        """Create a user and join the workspace pre-bound by ``invite_token``.
+
+        Skips org creation, role seeding, and default-workspace bootstrapping
+        because the invitee is plugging into someone else's already-set-up
+        org. Org membership defaults to ``member`` (not owner).
+        """
+        from agena_models.models.workspace_invite_link import WorkspaceInviteLink
+
+        token = payload.invite_token.strip()
+        invite_row = await self.db.execute(
+            select(WorkspaceInviteLink, Workspace, Organization)
+            .join(Workspace, Workspace.id == WorkspaceInviteLink.workspace_id)
+            .join(Organization, Organization.id == Workspace.organization_id)
+            .where(WorkspaceInviteLink.token == token)
+        )
+        row = invite_row.first()
+        if row is None:
+            raise ValueError('Invite not found')
+        link, workspace, org = row
+
+        from datetime import datetime, timezone
+        if link.revoked_at is not None:
+            raise ValueError('Invite has been revoked')
+        if link.expires_at is not None and link.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+            raise ValueError('Invite has expired')
+        if link.max_uses is not None and link.uses >= link.max_uses:
+            raise ValueError('Invite usage limit reached')
+
+        user = User(
+            email=payload.email,
+            full_name=payload.full_name,
+            hashed_password=hash_password(payload.password),
+        )
+        self.db.add(user)
+        await self.db.flush()
+
+        self.db.add(OrganizationMember(organization_id=org.id, user_id=user.id, role='member'))
+
+        # When the invite didn't pre-bind a role, fall back to the org's
+        # ``is_default_for_new_members`` role so the new user actually
+        # inherits permissions instead of getting an empty set.
+        effective_role_id = link.role_id
+        if effective_role_id is None:
+            from agena_models.models.workspace_role import WorkspaceRole
+            default_row = await self.db.execute(
+                select(WorkspaceRole).where(
+                    WorkspaceRole.organization_id == org.id,
+                    WorkspaceRole.is_default_for_new_members.is_(True),
+                ).limit(1)
+            )
+            default_role = default_row.scalar_one_or_none()
+            if default_role is None:
+                fallback_row = await self.db.execute(
+                    select(WorkspaceRole).where(
+                        WorkspaceRole.organization_id == org.id,
+                        WorkspaceRole.is_builtin.is_(True),
+                        WorkspaceRole.name == 'Member',
+                    ).limit(1)
+                )
+                default_role = fallback_row.scalar_one_or_none()
+            if default_role is not None:
+                effective_role_id = default_role.id
+
+        self.db.add(WorkspaceMember(
+            workspace_id=workspace.id,
+            user_id=user.id,
+            role='member',
+            role_id=effective_role_id,
+        ))
+        link.uses = (link.uses or 0) + 1
+
+        await self.db.commit()
+
+        token_str = create_access_token(
+            subject=user.email,
+            org_id=org.id,
+            user_id=user.id,
+            is_platform_admin=user.is_platform_admin,
+        )
+        return token_str, user, org
 
     async def login(self, payload: LoginRequest) -> tuple[str, User, Organization]:
         result = await self.db.execute(select(User).where(User.email == payload.email))
