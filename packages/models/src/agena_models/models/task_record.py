@@ -14,6 +14,7 @@ class TaskRecord(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), index=True)
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey('workspaces.id', ondelete='SET NULL'), nullable=True, index=True)
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
     source: Mapped[str] = mapped_column(String(32), default='internal', index=True)
     external_id: Mapped[str] = mapped_column(String(128))

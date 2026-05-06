@@ -15,6 +15,7 @@ class RepoMapping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey('organizations.id', ondelete='CASCADE'), index=True)
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey('workspaces.id', ondelete='SET NULL'), nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String(32), index=True)  # github, azure
     owner: Mapped[str] = mapped_column(String(255))  # GitHub org/user or Azure project
     repo_name: Mapped[str] = mapped_column(String(255))

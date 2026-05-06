@@ -7,6 +7,7 @@ from agena_models.models.organization import Organization, slugify
 from agena_models.models.organization_member import OrganizationMember
 from agena_models.models.subscription import Subscription
 from agena_models.models.user import User
+from agena_models.models.workspace import Workspace, WorkspaceMember, generate_invite_code
 from agena_models.schemas.auth import LoginRequest, SignupRequest
 from agena_core.security.jwt import create_access_token
 from agena_core.security.passwords import hash_password, verify_password
@@ -44,6 +45,22 @@ class AuthService:
         membership = OrganizationMember(organization_id=org.id, user_id=user.id, role='owner')
         self.db.add(membership)
         self.db.add(Subscription(organization_id=org.id, plan_name='pro', status='active'))
+
+        # Auto-create a default workspace and add the new user as owner.
+        # Onboarding can later let them rename it or create more workspaces.
+        workspace = Workspace(
+            organization_id=org.id,
+            name=payload.organization_name,
+            slug='default',
+            description='Default workspace (auto-created)',
+            invite_code=generate_invite_code(),
+            is_default=True,
+            created_by_user_id=user.id,
+        )
+        self.db.add(workspace)
+        await self.db.flush()
+        self.db.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role='owner'))
+
         await self.db.commit()
 
         token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin)

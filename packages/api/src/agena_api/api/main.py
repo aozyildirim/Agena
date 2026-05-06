@@ -11,7 +11,7 @@ from agena_api.api.middleware.rate_limit import RateLimitMiddleware
 from agena_api.api.middleware.request_id import RequestIDMiddleware
 from agena_api.api.middleware.request_logger import RequestLoggerMiddleware
 from agena_api.api.middleware.tenant import TenantMiddleware
-from agena_api.api.routes import admin, agents, analytics, auth, billing, chatops, datadog, device_auth, flows, github, insights, integration_rules, integrations, memory, modules, newrelic, notifications, org, preferences, public, refinement, repo_mappings, review_backlog, reviews, runtimes, saas_tasks, sentry, share, skills, tasks, triage, usage_events, webhooks, workflow_settings, ws
+from agena_api.api.routes import admin, agents, analytics, auth, billing, chatops, datadog, device_auth, flows, github, insights, integration_rules, integrations, memory, modules, newrelic, notifications, org, preferences, public, refinement, repo_mappings, review_backlog, reviews, runtimes, saas_tasks, sentry, share, skills, tasks, triage, usage_events, webhooks, workflow_settings, workspaces, ws
 from agena_core.database import engine, SessionLocal
 from agena_core.logging import configure_logging
 from agena_core.observability import init_sentry
@@ -67,6 +67,7 @@ app.include_router(insights.router)
 app.include_router(triage.router)
 app.include_router(review_backlog.router)
 app.include_router(workflow_settings.router)
+app.include_router(workspaces.router)
 app.include_router(notifications.router)
 app.include_router(usage_events.router)
 app.include_router(memory.router)

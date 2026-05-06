@@ -44,6 +44,7 @@ from agena_models.models.review_backlog_nudge import ReviewBacklogNudge
 from agena_models.models.org_workflow_settings import OrgWorkflowSettings
 from agena_models.models.module import Module, OrganizationModule
 from agena_models.models.user_preference import UserPreference
+from agena_models.models.workspace import Workspace, WorkspaceMember
 
 __all__ = [
     'User', 'Organization', 'OrganizationMember', 'Subscription',
@@ -65,4 +66,6 @@ __all__ = [
     'Skill',
     'Runtime',
     'NudgeHistory',
+    'Workspace',
+    'WorkspaceMember',
 ]
