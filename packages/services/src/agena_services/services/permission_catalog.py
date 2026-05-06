@@ -104,6 +104,21 @@ PERMISSION_GROUPS: list[dict] = [
         ],
     },
     {
+        'group': 'pages',
+        'label': 'Pages',
+        'icon': '📑',
+        'permissions': [
+            ('pages:office', 'View the Office home dashboard'),
+            ('pages:triage', 'View the Triage inbox'),
+            ('pages:review-backlog', 'View the Review Backlog'),
+            ('pages:skills', 'View the Skills library'),
+            ('pages:runtimes', 'View Runtimes'),
+            ('pages:insights', 'View Insights'),
+            ('pages:reviews', 'View the Reviews list'),
+            ('pages:templates', 'View flow Templates'),
+        ],
+    },
+    {
         'group': 'settings',
         'label': 'Settings',
         'icon': '⚙',

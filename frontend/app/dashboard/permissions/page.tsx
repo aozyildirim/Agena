@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { useRole, canAccess, type Role, type Permission } from '@/lib/rbac';
+import Forbidden from '@/components/Forbidden';
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -166,6 +167,11 @@ export default function PermissionsPage() {
     }
     setChangingId(null);
   };
+
+  // Page-level guard — only org owners and admins can manage roles/team.
+  if (myRole !== 'owner' && myRole !== 'admin') {
+    return <Forbidden />;
+  }
 
   return (
     <div style={{ display: 'grid', gap: 32, maxWidth: 960 }}>

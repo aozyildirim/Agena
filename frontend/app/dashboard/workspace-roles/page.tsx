@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions';
+import Forbidden from '@/components/Forbidden';
 
 type PermissionItem = { key: string; label: string };
 type PermissionGroup = { group: string; label: string; icon: string; permissions: PermissionItem[] };
@@ -18,6 +20,7 @@ type Role = {
 
 export default function WorkspaceRolesPage() {
   const { t } = useLocale();
+  const { orgRole, loading: permLoading } = usePermissions();
   const [catalog, setCatalog] = useState<PermissionGroup[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -127,6 +130,16 @@ export default function WorkspaceRolesPage() {
   }
 
   const ownerLocked = active?.is_builtin && active?.name === 'Owner';
+
+  // Page-level guard — only org owners and admins can manage org-wide roles.
+  // Show a static "loading" frame while /auth/me is in flight so non-admins
+  // never see a flash of the editor before the redirect.
+  if (permLoading) {
+    return <div style={{ padding: 60, color: 'var(--ink-30)', fontSize: 13, textAlign: 'center' }}>…</div>;
+  }
+  if (orgRole !== 'owner' && orgRole !== 'admin') {
+    return <Forbidden />;
+  }
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
@@ -263,34 +276,51 @@ export default function WorkspaceRolesPage() {
                       {group.permissions.every((p) => pendingPerms.has(p.key)) ? t('workspaceRoles.deselectAll') : t('workspaceRoles.selectAll')}
                     </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {group.permissions.map((p) => {
                       const on = pendingPerms.has(p.key);
                       return (
-                        <label
+                        <button
+                          type="button"
                           key={p.key}
-                          onClick={(e) => { if (ownerLocked) e.preventDefault(); }}
+                          onClick={() => { if (!ownerLocked) togglePerm(p.key); }}
+                          disabled={ownerLocked}
+                          aria-pressed={on}
+                          className="wsr-perm-row"
                           style={{
-                            display: 'flex', alignItems: 'flex-start', gap: 10,
-                            padding: '8px 10px', borderRadius: 8,
-                            background: on ? 'rgba(124,58,237,0.08)' : 'var(--glass)',
+                            display: 'grid',
+                            gridTemplateColumns: '20px 1fr',
+                            alignItems: 'center',
+                            columnGap: 12,
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '8px 12px',
+                            borderRadius: 8,
+                            background: on ? 'rgba(124,58,237,0.08)' : 'transparent',
                             border: `1px solid ${on ? 'rgba(124,58,237,0.30)' : 'var(--panel-border-2)'}`,
                             cursor: ownerLocked ? 'not-allowed' : 'pointer',
                             opacity: ownerLocked ? 0.6 : 1,
+                            font: 'inherit',
+                            color: 'inherit',
                           }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={on}
-                            onChange={() => togglePerm(p.key)}
-                            disabled={ownerLocked}
-                            style={{ marginTop: 2 }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#a78bfa', fontWeight: 700 }}>{p.key}</div>
-                            <div style={{ fontSize: 12, color: 'var(--ink-78)', marginTop: 2, lineHeight: 1.45 }}>{p.label}</div>
-                          </div>
-                        </label>
+                          <span
+                            aria-hidden
+                            style={{
+                              width: 16, height: 16, borderRadius: 4,
+                              border: `1.5px solid ${on ? '#7c3aed' : 'var(--panel-border-3)'}`,
+                              background: on ? '#7c3aed' : 'transparent',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              color: '#fff', fontSize: 11, lineHeight: 1, fontWeight: 800,
+                            }}
+                          >
+                            {on ? '✓' : ''}
+                          </span>
+                          <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 10, rowGap: 2, minWidth: 0 }}>
+                            <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}>{p.key}</span>
+                            <span style={{ fontSize: 12, color: 'var(--ink-78)', lineHeight: 1.45 }}>{p.label}</span>
+                          </span>
+                        </button>
                       );
                     })}
                   </div>

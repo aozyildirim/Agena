@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { useCanDo } from '@/lib/permissions';
+import { useCanDo, usePermissions } from '@/lib/permissions';
+import Forbidden from '@/components/Forbidden';
 
 type Workspace = {
   id: number;
@@ -74,9 +75,11 @@ const gradFor = (name: string) => {
 export default function WorkspacesPage() {
   const { t } = useLocale();
   const canDo = useCanDo();
+  const { orgRole, loading: permLoading } = usePermissions();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [myEmail, setMyEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -130,6 +133,9 @@ export default function WorkspacesPage() {
   }, []);
 
   useEffect(() => { void loadWorkspaces(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    apiFetch<{ email: string }>('/auth/me').then((u) => setMyEmail(u.email || '')).catch(() => {});
+  }, []);
   useEffect(() => { if (activeId !== null) { void loadMembers(activeId); void loadInvites(activeId); } }, [activeId, loadMembers, loadInvites]);
   useEffect(() => {
     apiFetch<Role[]>('/workspace-roles').then(setRoles).catch(() => {});
@@ -302,6 +308,16 @@ export default function WorkspacesPage() {
     void navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 1500);
+  }
+
+  // Page-level guard — owners/admins always pass; everyone else needs the
+  // workspace:manage permission (the page is for managing workspaces, not for
+  // listing them — the sidebar workspace switcher already handles browsing).
+  if (permLoading) {
+    return <div style={{ padding: 60, color: 'var(--ink-30)', fontSize: 13, textAlign: 'center' }}>…</div>;
+  }
+  if (orgRole !== 'owner' && orgRole !== 'admin' && !canDo('workspace:manage')) {
+    return <Forbidden />;
   }
 
   return (
@@ -490,11 +506,14 @@ export default function WorkspacesPage() {
 
             <div style={{ marginTop: 8 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>{t('workspaces.membersTitle')}</h3>
-              {members.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--ink-30)' }}>{t('workspaces.noMembers')}</div>
-              ) : (
+              {(() => {
+                const otherMembers = members.filter((m) => !myEmail || m.email !== myEmail);
+                if (otherMembers.length === 0) {
+                  return <div style={{ fontSize: 13, color: 'var(--ink-30)' }}>{t('workspaces.noMembers')}</div>;
+                }
+                return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {members.map((m) => (
+                  {otherMembers.map((m) => (
                     <div key={m.user_id} style={memberRow}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: gradFor(m.full_name || m.email), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 12 }}>
                         {((m.full_name || m.email)[0] || '?').toUpperCase()}
@@ -527,7 +546,8 @@ export default function WorkspacesPage() {
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         ) : null}
