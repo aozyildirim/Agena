@@ -5,7 +5,7 @@
 import { createServer } from 'http';
 import { execFile, execSync, spawn } from 'child_process';
 import { promisify } from 'util';
-import { writeFileSync, readFileSync, unlinkSync, mkdirSync, createReadStream, existsSync } from 'fs';
+import { writeFileSync, readFileSync, unlinkSync, mkdirSync, createReadStream, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { homedir } from 'os';
@@ -107,6 +107,59 @@ const server = createServer(async (req, res) => {
       codex_auth: codexAuth,
       claude_auth: claudeAuth,
     }));
+    return;
+  }
+
+  // Suggest local repo paths matching a repo name. Scans common dev
+  // parent directories (~/sites, ~/code, ~/projects, ~/dev, ~/work,
+  // ~/Documents/code) one level deep, picks dirs whose name matches
+  // the query (or contains it as substring). Used by the Mappings
+  // page so the user doesn't have to type the full path by hand.
+  if (req.method === 'GET' && url.pathname === '/find-repo-paths') {
+    const repoName = (url.searchParams.get('repo_name') || '').trim().toLowerCase();
+    if (!repoName) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'repo_name required' }));
+      return;
+    }
+    const ROOTS = [
+      `${HOME}/sites`,
+      `${HOME}/code`,
+      `${HOME}/Code`,
+      `${HOME}/projects`,
+      `${HOME}/Projects`,
+      `${HOME}/dev`,
+      `${HOME}/Dev`,
+      `${HOME}/work`,
+      `${HOME}/Work`,
+      `${HOME}/Documents/code`,
+      `${HOME}/Documents/projects`,
+      `${HOME}/repos`,
+    ];
+    const matches = [];
+    for (const root of ROOTS) {
+      if (!existsSync(root)) continue;
+      let entries = [];
+      try { entries = readdirSync(root); } catch { continue; }
+      for (const name of entries) {
+        if (name.startsWith('.')) continue;
+        const lower = name.toLowerCase();
+        const score = lower === repoName ? 100
+          : lower.startsWith(repoName) ? 70
+          : lower.includes(repoName) ? 40
+          : 0;
+        if (score === 0) continue;
+        const fullPath = join(root, name);
+        try {
+          if (!statSync(fullPath).isDirectory()) continue;
+        } catch { continue; }
+        const isGit = existsSync(join(fullPath, '.git'));
+        matches.push({ path: fullPath, name, score: score + (isGit ? 5 : 0), is_git: isGit });
+      }
+    }
+    matches.sort((a, b) => b.score - a.score);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ matches: matches.slice(0, 8) }));
     return;
   }
 

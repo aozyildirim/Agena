@@ -59,6 +59,12 @@ export default function RepoMappingsPage() {
   const [githubRepoCount, setGithubRepoCount] = useState(0);
   const [githubRepoError, setGithubRepoError] = useState('');
   const [path, setPath] = useState('');
+  // Local-path autosuggest from the host bridge — populated whenever
+  // the user picks a repo. The bridge scans common dev folders
+  // (~/sites, ~/code, ~/projects, …) so the user can one-click set
+  // the path instead of typing the full absolute string by hand.
+  const [pathSuggestions, setPathSuggestions] = useState<{ path: string; is_git: boolean }[]>([]);
+  const [pathSuggestLoading, setPathSuggestLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [repoPlaybook, setRepoPlaybook] = useState('');
   const [analyzePrompt, setAnalyzePrompt] = useState('');
@@ -408,6 +414,36 @@ export default function RepoMappingsPage() {
     }
   }, [sourceProvider, selRepoUrl, selProject, selGithubRepo]);
 
+  // Ask the host bridge for likely local-path matches whenever the
+  // user picks a different repo. Bridge scans common dev folders (one
+  // level deep) and ranks dirs by how well their name matches the
+  // repo name, plus a small bonus when the dir is actually a git
+  // checkout. Failure is non-fatal — the user can still type the
+  // path by hand.
+  useEffect(() => {
+    let cancelled = false;
+    setPathSuggestions([]);
+    let repoName = '';
+    if (sourceProvider === 'azure') {
+      repoName = repos.find((r) => r.remote_url === selRepoUrl)?.name
+        || pendingRepoName
+        || (selRepoUrl ? selRepoUrl.split('/').pop() || '' : '');
+    } else if (sourceProvider === 'github') {
+      repoName = selGithubRepo.split('/')[1] || '';
+    }
+    if (!repoName.trim()) return;
+    setPathSuggestLoading(true);
+    fetch(`http://localhost:9876/find-repo-paths?repo_name=${encodeURIComponent(repoName.trim())}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`bridge ${r.status}`))))
+      .then((data: { matches?: { path: string; is_git: boolean }[] }) => {
+        if (cancelled) return;
+        setPathSuggestions(Array.isArray(data?.matches) ? data.matches : []);
+      })
+      .catch(() => { /* bridge offline — silent fallback */ })
+      .finally(() => { if (!cancelled) setPathSuggestLoading(false); });
+    return () => { cancelled = true; };
+  }, [sourceProvider, selRepoUrl, selGithubRepo, pendingRepoName, repos]);
+
   async function upsertMapping() {
     const currentEditing = editingId ? items.find((m) => m.id === editingId) : undefined;
     let mapping: RepoMapping;
@@ -603,6 +639,40 @@ export default function RepoMappingsPage() {
             <div>
               <div style={fieldLabelStyle}>{t('mappings.localPath')}</div>
               <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={t('mappings.pathPlaceholder')} style={fieldStyle} />
+              {/* Auto-suggested paths from the host bridge — one click
+                  fills the input so the user doesn't have to dig
+                  through Finder. Only renders when the bridge is
+                  reachable AND we found a likely match. */}
+              {(pathSuggestLoading || pathSuggestions.length > 0) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>
+                  {pathSuggestLoading && (
+                    <span style={{ fontSize: 10, color: 'var(--ink-35)' }}>{t('mappings.loading')}…</span>
+                  )}
+                  {pathSuggestions.map((s) => {
+                    const active = s.path === path;
+                    return (
+                      <button
+                        key={s.path}
+                        type='button'
+                        onClick={() => setPath(s.path)}
+                        title={s.path}
+                        style={{
+                          padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+                          border: `1px solid ${active ? 'rgba(94,234,212,0.55)' : 'var(--panel-border-2)'}`,
+                          background: active ? 'rgba(94,234,212,0.12)' : 'var(--panel-alt)',
+                          color: active ? '#5eead4' : 'var(--ink-58)',
+                          cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <span style={{ opacity: 0.7 }}>{s.is_git ? '⎇' : '📁'}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.path.replace(/^\/Users\/[^/]+/, '~')}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <div style={fieldLabelStyle}>{t('mappings.branch')}</div>
