@@ -529,17 +529,6 @@ export default function AgentsPage() {
         </button>
       </div>
 
-      {/* CLI hint */}
-      <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '12px 14px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-35)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>{t('agents.cliUsage')}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.6 }}>
-          {t('agents.cliDesc')}
-        </div>
-        <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.4)', border: '1px solid var(--panel-border-2)', fontFamily: 'monospace', fontSize: 11, color: '#5eead4', overflowX: 'auto' }}>
-          agena agent run --role lead_developer --task &lt;task-id&gt; --model {agents.find(a => a.role === 'lead_developer')?.model || 'gpt-4o'}
-        </div>
-      </div>
-
       {/* Agent Edit/Create Modal */}
       {(showNewAgent || editModalAgent) && (
         <AgentModal
