@@ -461,6 +461,75 @@ class JiraClient:
                     logger.info('Jira image fetch failed for %s: %s', url, exc)
         return results
 
+    async def fetch_issue_attachments(
+        self,
+        issue_key: str,
+        cfg: dict[str, str] | None = None,
+        *,
+        max_files: int = 6,
+        max_bytes_per_file: int = 8 * 1024 * 1024,
+    ) -> list[tuple[str, bytes, str]]:
+        """Pull non-image attachments declared on a Jira issue. Mirrors
+        Azure's `fetch_work_item_attachments` shape so the import path
+        can call both clients with the same downstream handling. Inline
+        screenshots are handled by `fetch_issue_images`; this method
+        covers PDFs, Word/Excel docs and the like that PMs hang off the
+        ticket. Best-effort — never raises."""
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(issue_key or '').strip()
+        if not base_url or not key:
+            return []
+        host = base_url.rstrip('/')
+        auth = (email, api_token)
+        results: list[tuple[str, bytes, str]] = []
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            try:
+                resp = await client.get(
+                    f"{host}/rest/api/3/issue/{key}",
+                    params={'fields': 'attachment'},
+                    auth=auth,
+                )
+            except Exception as exc:
+                logger.info('Jira attachment list fetch failed for %s: %s', key, exc)
+                return []
+            if resp.status_code != 200:
+                logger.info('Jira attachment list HTTP %s for %s', resp.status_code, key)
+                return []
+            data = resp.json() or {}
+            attachments = ((data.get('fields') or {}).get('attachment') or [])
+            for att in attachments:
+                if len(results) >= max_files:
+                    break
+                if not isinstance(att, dict):
+                    continue
+                content_url = str(att.get('content') or '').strip()
+                name = str(att.get('filename') or '').strip()
+                if not content_url:
+                    continue
+                # Skip image attachments — covered by fetch_issue_images
+                ext = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
+                if ext in {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'}:
+                    continue
+                size = int(att.get('size') or 0)
+                if size and size > max_bytes_per_file:
+                    logger.info('Skip Jira attachment %s: %s bytes', name, size)
+                    continue
+                try:
+                    bin_resp = await client.get(content_url, auth=auth)
+                except Exception as exc:
+                    logger.info('Jira attachment download failed for %s: %s', name, exc)
+                    continue
+                if bin_resp.status_code != 200:
+                    logger.info('Jira attachment %s HTTP %s', name, bin_resp.status_code)
+                    continue
+                if len(bin_resp.content) > max_bytes_per_file:
+                    continue
+                mime = str(att.get('mimeType') or bin_resp.headers.get('content-type') or '').split(';')[0].strip().lower()
+                if not name:
+                    name = f'jira-attachment-{len(results) + 1}.bin'
+                results.append((name, bin_resp.content, mime or 'application/octet-stream'))
+        return results
+
     async def fetch_issue_comments(
         self, *, cfg: dict[str, str] | None, issue_key: str,
     ) -> list[dict[str, Any]]:

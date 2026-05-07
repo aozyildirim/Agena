@@ -269,7 +269,7 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
 // Conflict dialog replaced by inline state-based modal (see repoConflict state)
 
 export default function TaskDetailPage() {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const params = useParams<{ id: string }>();
   const taskId = params.id;
   const enabledModules = useEnabledModules();
@@ -464,6 +464,48 @@ export default function TaskDetailPage() {
       setAttachments((prev) => [...prev, ...uploaded]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
+    }
+  }
+
+  const [refreshingFromSource, setRefreshingFromSource] = useState(false);
+  async function onDownloadAttachment(attachmentId: number, filename: string) {
+    if (!taskId) return;
+    try {
+      const blob = await apiDownloadBlob(`/tasks/${taskId}/attachments/${attachmentId}/download`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'attachment';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed');
+    }
+  }
+
+  async function onRefreshFromSource() {
+    if (!taskId || refreshingFromSource) return;
+    setRefreshingFromSource(true);
+    try {
+      const r = await apiFetch<{ new_attachments: number; description_updated: boolean }>(
+        `/tasks/${taskId}/refresh-from-source`,
+        { method: 'POST' },
+      );
+      // Re-pull task + attachments so fresh data + any new screenshots
+      // / docs render without a manual reload.
+      await loadData(true);
+      const tr = lang === 'tr';
+      const parts: string[] = [];
+      if (r.description_updated) parts.push(tr ? 'Açıklama güncellendi' : 'Description refreshed');
+      if (r.new_attachments > 0) parts.push(tr ? `${r.new_attachments} yeni ek` : `${r.new_attachments} new attachment(s)`);
+      if (parts.length === 0) parts.push(tr ? 'Yeni veri yok' : 'Nothing new');
+      setError(parts.join(' · '));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Refresh failed');
+    } finally {
+      setRefreshingFromSource(false);
     }
   }
 
@@ -1153,26 +1195,45 @@ export default function TaskDetailPage() {
                   <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>
                     {t('tasks.attachments.title' as TranslationKey)} {attachments.length > 0 ? `(${attachments.length})` : ''}
                   </div>
-                  <label style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
-                    + {t('tasks.attachments.add' as TranslationKey)}
-                    <input
-                      type='file'
-                      multiple
-                      accept='image/*,.pdf,.txt,.md,.log,.json,.csv,.zip'
-                      style={{ display: 'none' }}
-                      onChange={(e) => { void onUploadAttachments(e.target.files); e.target.value = ''; }}
-                    />
-                  </label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {(task.source === 'azure' || task.source === 'jira') && task.external_id && (
+                      <button
+                        type='button'
+                        onClick={() => void onRefreshFromSource()}
+                        disabled={refreshingFromSource}
+                        title={lang === 'tr' ? 'Kaynaktan yorumları + ekleri tekrar çek' : 'Re-pull comments + attachments from source'}
+                        style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: refreshingFromSource ? 'wait' : 'pointer', fontWeight: 600, opacity: refreshingFromSource ? 0.6 : 1 }}
+                      >
+                        {refreshingFromSource ? '⏳' : '🔄'} {lang === 'tr' ? 'Kaynaktan yenile' : 'Refresh from source'}
+                      </button>
+                    )}
+                    <label style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
+                      + {t('tasks.attachments.add' as TranslationKey)}
+                      <input
+                        type='file'
+                        multiple
+                        accept='image/*,.pdf,.txt,.md,.log,.json,.csv,.zip'
+                        style={{ display: 'none' }}
+                        onChange={(e) => { void onUploadAttachments(e.target.files); e.target.value = ''; }}
+                      />
+                    </label>
+                  </div>
                 </div>
                 {attachments.length === 0 ? (
                   <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('tasks.attachments.none' as TranslationKey)}</div>
                 ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {attachments.map((a) => {
                       const isImg = a.content_type.startsWith('image/');
                       const previewUrl = attachmentPreviews[a.id];
+                      // Images render at a useful preview size so PMs
+                      // can see screenshots without opening each one.
+                      // Documents stay compact since their icon doesn't
+                      // gain anything from real estate.
+                      const tileW = isImg ? 240 : 120;
+                      const mediaH = isImg ? 160 : 72;
                       return (
-                        <div key={a.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 10, color: 'var(--ink-72)', width: 96 }}>
+                        <div key={a.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 10, color: 'var(--ink-72)', width: tileW }}>
                           {isImg && previewUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             // <a target="_blank" rel="noreferrer" href={blob:...}> doesn't work in
@@ -1182,14 +1243,21 @@ export default function TaskDetailPage() {
                               type='button'
                               onClick={() => window.open(previewUrl, '_blank')}
                               title={a.filename}
-                              style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in' }}
+                              style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', width: '100%' }}
                             >
-                              <img src={previewUrl} alt={a.filename} style={{ width: 84, height: 64, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                              <img src={previewUrl} alt={a.filename} style={{ width: '100%', height: mediaH, objectFit: 'contain', background: 'var(--panel)', borderRadius: 4, display: 'block' }} />
                             </button>
                           ) : (
-                            <div style={{ width: 84, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--panel)', borderRadius: 4, fontSize: 22 }}>📄</div>
+                            <button
+                              type='button'
+                              onClick={() => void onDownloadAttachment(a.id, a.filename)}
+                              title={lang === 'tr' ? 'Eki indir' : 'Download attachment'}
+                              style={{ width: '100%', height: mediaH, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--panel)', borderRadius: 4, fontSize: 28, border: 'none', cursor: 'pointer', padding: 0 }}
+                            >
+                              📄
+                            </button>
                           )}
-                          <span title={a.filename} style={{ maxWidth: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{a.filename}</span>
+                          <span title={a.filename} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{a.filename}</span>
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                             <span style={{ color: 'var(--ink-35)', fontSize: 9 }}>{(a.size_bytes / 1024).toFixed(0)} KB</span>
                             <button
