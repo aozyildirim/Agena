@@ -14,6 +14,27 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 
 ---
 
+<table align="center">
+  <tr>
+    <td align="center" width="640">
+      <h3>❤️ Sponsor AGENA</h3>
+      <p>
+        AGENA is built and maintained in the open by a small team. If it
+        ships PRs for your team, consider sponsoring — every tier helps
+        keep the project independent, ad-free, and moving fast.
+      </p>
+      <p>
+        <a href="https://github.com/sponsors/aozyildirim">
+          <img src="https://img.shields.io/badge/Sponsor%20on%20GitHub-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" />
+        </a>
+      </p>
+      <sub>github.com/sponsors/aozyildirim · MIT-licensed forever</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Table of Contents
 
 - [Key Features](#key-features)
@@ -907,6 +928,5 @@ This repository is open-source under the MIT License.
 
 ## Sponsor
 
-If AGENA helps your team, support development:
-
-- GitHub Sponsors: https://github.com/sponsors/aozyildirim
+The Sponsor card at the top of this README is the canonical entry point.
+Direct link: [github.com/sponsors/aozyildirim](https://github.com/sponsors/aozyildirim)

@@ -390,7 +390,7 @@ class MCPAgentEngine:
             {'role': 'user', 'content': user_message},
         ]
 
-        total_usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
+        total_usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0}
         tool_calls_count = 0
         iteration = 0
         started = time.perf_counter()
@@ -441,13 +441,17 @@ class MCPAgentEngine:
                 # bucket — they're real tokens the provider charged
                 # for, even if discounted, and most cost dashboards
                 # group them with input.
-                _prompt += int(_extra.get('cache_read_input_tokens') or 0)
-                _prompt += int(_extra.get('cache_creation_input_tokens') or 0)
+                _cache_read = int(_extra.get('cache_read_input_tokens') or 0)
+                _cache_creation = int(_extra.get('cache_creation_input_tokens') or 0)
+                _prompt += _cache_read + _cache_creation
                 if not _total:
                     _total = _prompt + _completion
                 total_usage['prompt_tokens'] += _prompt
                 total_usage['completion_tokens'] += _completion
                 total_usage['total_tokens'] += _total
+                # cache_read is the only piece that gets the discount —
+                # cache_creation is full-rate (we paid to populate it).
+                total_usage['cached_input_tokens'] += _cache_read
 
             choice = response.choices[0]
             msg = choice.message

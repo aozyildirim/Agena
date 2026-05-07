@@ -778,17 +778,18 @@ class OrchestrationService:
                 flow_state: dict[str, Any] = {
                     'task': payload_with_context,
                     'mode': mode,
-                    'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
+                    'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0},
                     'model_usage': [],
                 }
                 def _get_usage(fs: dict) -> dict:
-                    return dict(fs.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}))
+                    return dict(fs.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0}))
 
                 def _usage_delta(before: dict, after: dict) -> dict:
                     return {
                         'prompt_tokens': after.get('prompt_tokens', 0) - before.get('prompt_tokens', 0),
                         'completion_tokens': after.get('completion_tokens', 0) - before.get('completion_tokens', 0),
                         'total_tokens': after.get('total_tokens', 0) - before.get('total_tokens', 0),
+                        'cached_input_tokens': after.get('cached_input_tokens', 0) - before.get('cached_input_tokens', 0),
                     }
 
                 async def _step_event(step_name: str, delta: dict, step_model: str, step_start: datetime, step_dur: float):
@@ -796,6 +797,7 @@ class OrchestrationService:
                         prompt_tokens=int(delta.get('prompt_tokens', 0)),
                         completion_tokens=int(delta.get('completion_tokens', 0)),
                         model=step_model or routing.preferred_agent_model or 'gpt-4o-mini',
+                        cached_input_tokens=int(delta.get('cached_input_tokens', 0)),
                     )
                     await usage_event_service.create_event(
                         organization_id=organization_id,
@@ -1228,6 +1230,7 @@ class OrchestrationService:
             estimated_cost = self.cost_tracker.estimate_cost_usd(
                 prompt_tokens=int(usage.get('prompt_tokens', 0)),
                 completion_tokens=int(usage.get('completion_tokens', 0)),
+                cached_input_tokens=int(usage.get('cached_input_tokens', 0)),
                 model=model_for_cost,
             )
             guardrail_error = self._validate_cost_guardrails(
@@ -1821,6 +1824,7 @@ class OrchestrationService:
             estimated_cost = self.cost_tracker.estimate_cost_usd(
                 prompt_tokens=int(usage.get('prompt_tokens', 0)),
                 completion_tokens=int(usage.get('completion_tokens', 0)),
+                cached_input_tokens=int(usage.get('cached_input_tokens', 0)),
                 model=model_name or provider_name or 'gpt-4o-mini',
             )
             await usage_event_service.create_event(
