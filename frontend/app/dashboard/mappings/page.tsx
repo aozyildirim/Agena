@@ -63,7 +63,12 @@ export default function RepoMappingsPage() {
   // the user picks a repo. The bridge scans common dev folders
   // (~/sites, ~/code, ~/projects, …) so the user can one-click set
   // the path instead of typing the full absolute string by hand.
-  const [pathSuggestions, setPathSuggestions] = useState<{ path: string; is_git: boolean }[]>([]);
+  const [pathSuggestions, setPathSuggestions] = useState<{ path: string; is_git: boolean; score: number }[]>([]);
+  // Track whether the path was auto-filled from a single high-confidence
+  // suggestion vs. typed/clicked manually. We use this purely so the UI
+  // can render a tiny "auto" hint next to the input — clobber prevention
+  // is handled inside the suggest effect.
+  const [pathAutoFilled, setPathAutoFilled] = useState(false);
   const [pathSuggestLoading, setPathSuggestLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [repoPlaybook, setRepoPlaybook] = useState('');
@@ -435,14 +440,32 @@ export default function RepoMappingsPage() {
     setPathSuggestLoading(true);
     fetch(`http://localhost:9876/find-repo-paths?repo_name=${encodeURIComponent(repoName.trim())}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`bridge ${r.status}`))))
-      .then((data: { matches?: { path: string; is_git: boolean }[] }) => {
+      .then((data: { matches?: { path: string; is_git: boolean; score: number }[] }) => {
         if (cancelled) return;
-        setPathSuggestions(Array.isArray(data?.matches) ? data.matches : []);
+        const matches = Array.isArray(data?.matches) ? data.matches : [];
+        setPathSuggestions(matches);
+        // Hybrid: when there's a single high-confidence match (exact
+        // name match, score ≥ 100) AND the user hasn't typed
+        // anything yet, just fill the path. Anything else (multiple
+        // candidates, partial match, or existing user input) we
+        // leave the chips visible so the user picks consciously.
+        const top = matches[0];
+        const isHighConfidence = matches.length === 1 && top && top.score >= 100;
+        setPath((current) => {
+          if (current.trim()) return current;
+          if (!isHighConfidence) return current;
+          setPathAutoFilled(true);
+          return top.path;
+        });
       })
       .catch(() => { /* bridge offline — silent fallback */ })
       .finally(() => { if (!cancelled) setPathSuggestLoading(false); });
     return () => { cancelled = true; };
   }, [sourceProvider, selRepoUrl, selGithubRepo, pendingRepoName, repos]);
+
+  // Any manual edit clears the "auto-filled" flag so the hint stops
+  // claiming credit for a value the user has changed.
+  useEffect(() => { setPathAutoFilled(false); }, [editingId]);
 
   async function upsertMapping() {
     const currentEditing = editingId ? items.find((m) => m.id === editingId) : undefined;
@@ -637,13 +660,25 @@ export default function RepoMappingsPage() {
 
           <div className="dash-grid-responsive mappings-two-col" style={{ display: 'grid', gap: 10 }}>
             <div>
-              <div style={fieldLabelStyle}>{t('mappings.localPath')}</div>
-              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={t('mappings.pathPlaceholder')} style={fieldStyle} />
-              {/* Auto-suggested paths from the host bridge — one click
-                  fills the input so the user doesn't have to dig
-                  through Finder. Only renders when the bridge is
-                  reachable AND we found a likely match. */}
-              {(pathSuggestLoading || pathSuggestions.length > 0) && (
+              <div style={fieldLabelStyle}>
+                {t('mappings.localPath')}
+                {pathAutoFilled && (
+                  <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(94,234,212,0.14)', color: '#5eead4', textTransform: 'uppercase', letterSpacing: 0.5, verticalAlign: 'middle' }}>
+                    auto
+                  </span>
+                )}
+              </div>
+              <input
+                value={path}
+                onChange={(e) => { setPath(e.target.value); if (pathAutoFilled) setPathAutoFilled(false); }}
+                placeholder={t('mappings.pathPlaceholder')}
+                style={fieldStyle}
+              />
+              {/* Suggestion chips — only render when the bridge found
+                  multiple plausible candidates. A single
+                  high-confidence match has already been auto-filled
+                  above, so we suppress the chips to avoid noise. */}
+              {(pathSuggestLoading || pathSuggestions.length > 1) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>
                   {pathSuggestLoading && (
                     <span style={{ fontSize: 10, color: 'var(--ink-35)' }}>{t('mappings.loading')}…</span>
@@ -654,7 +689,7 @@ export default function RepoMappingsPage() {
                       <button
                         key={s.path}
                         type='button'
-                        onClick={() => setPath(s.path)}
+                        onClick={() => { setPath(s.path); setPathAutoFilled(false); }}
                         title={s.path}
                         style={{
                           padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
