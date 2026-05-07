@@ -136,25 +136,57 @@ const server = createServer(async (req, res) => {
       `${HOME}/Documents/projects`,
       `${HOME}/repos`,
     ];
+    const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', '.next', 'dist', 'build', 'target', '.venv', 'venv', '__pycache__', '.cache', 'tmp', 'temp', '.idea', '.vscode']);
     const matches = [];
+    const scoreOf = (name) => {
+      const lower = name.toLowerCase();
+      if (lower === repoName) return 100;
+      if (lower.startsWith(repoName)) return 70;
+      if (lower.includes(repoName)) return 40;
+      return 0;
+    };
+    const considerDir = (fullPath, name, parentPenalty = 0) => {
+      const score = scoreOf(name);
+      if (score === 0) return;
+      const isGit = existsSync(join(fullPath, '.git'));
+      matches.push({
+        path: fullPath,
+        name,
+        score: score + (isGit ? 5 : 0) - parentPenalty,
+        is_git: isGit,
+      });
+    };
     for (const root of ROOTS) {
       if (!existsSync(root)) continue;
       let entries = [];
       try { entries = readdirSync(root); } catch { continue; }
       for (const name of entries) {
-        if (name.startsWith('.')) continue;
-        const lower = name.toLowerCase();
-        const score = lower === repoName ? 100
-          : lower.startsWith(repoName) ? 70
-          : lower.includes(repoName) ? 40
-          : 0;
-        if (score === 0) continue;
+        if (name.startsWith('.') || SKIP_DIRS.has(name)) continue;
         const fullPath = join(root, name);
         try {
           if (!statSync(fullPath).isDirectory()) continue;
         } catch { continue; }
-        const isGit = existsSync(join(fullPath, '.git'));
-        matches.push({ path: fullPath, name, score: score + (isGit ? 5 : 0), is_git: isGit });
+        // Level 1: direct child of a root.
+        considerDir(fullPath, name, 0);
+        // Level 2: descend one more so umbrella folders like
+        // ~/sites/Flo/webservice or ~/code/personal/foo are
+        // discoverable. Skip the same heavy/noise dirs as above.
+        // Stop early once we've collected enough hits to keep this
+        // scan cheap.
+        if (matches.length >= 50) continue;
+        let nested = [];
+        try { nested = readdirSync(fullPath); } catch { continue; }
+        for (const child of nested) {
+          if (matches.length >= 50) break;
+          if (child.startsWith('.') || SKIP_DIRS.has(child)) continue;
+          const childPath = join(fullPath, child);
+          try {
+            if (!statSync(childPath).isDirectory()) continue;
+          } catch { continue; }
+          // -2 penalty so a level-1 match still wins ties over a
+          // level-2 match with the same base score.
+          considerDir(childPath, child, 2);
+        }
       }
     }
     matches.sort((a, b) => b.score - a.score);
