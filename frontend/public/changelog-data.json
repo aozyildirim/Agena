@@ -1,5 +1,125 @@
 [
   {
+    "hash": "ebd3ce03",
+    "short": "ebd3ce03",
+    "message": "workspaces: phase B slice 7 — token-based invite links + signup auto-join",
+    "date": "2026-05-06",
+    "author": "root",
+    "type": "other"
+  },
+  {
+    "hash": "63831513",
+    "short": "63831513",
+    "message": "workspaces: phase B slice 6 — edit/delete + perm hardening + Owner lock-down",
+    "date": "2026-05-06",
+    "author": "root",
+    "type": "other"
+  },
+  {
+    "hash": "b35da6f5",
+    "short": "b35da6f5",
+    "message": "workspaces: phase B slice 5 — wire backend permission enforcement + sidebar nav gating + Refine button gate",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "60fbbdaf",
+    "short": "60fbbdaf",
+    "message": "workspaces: phase B slice 3+4 — matrix UI + role dropdown + permissions context",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "db8d5187",
+    "short": "db8d5187",
+    "message": "workspaces: phase B slice 1+2 — workspace_roles model + migration seed + Roles API + require_workspace_perm",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "849d5d5b",
+    "short": "849d5d5b",
+    "message": "workspaces: fix bleed-through on dropdown + modal — add --panel-solid CSS var",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "feat"
+  },
+  {
+    "hash": "887b7205",
+    "short": "887b7205",
+    "message": "workspaces: phase 4 — landing page + OG image + sitemap + mobile fixes",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "ecf7ed0a",
+    "short": "ecf7ed0a",
+    "message": "workspaces: phase 3 — onboarding gate + WorkspaceSwitcher + settings page + i18n",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "1d6a04ee",
+    "short": "1d6a04ee",
+    "message": "workspaces: phase 1+2 — ORM, migration with default seed/backfill, service + API routes",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "d12af915",
+    "short": "d12af915",
+    "message": "ws: await cancelled tasks before aclose() to avoid 'already running' RuntimeError",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "other"
+  },
+  {
+    "hash": "e7b7e09e",
+    "short": "e7b7e09e",
+    "message": "drop similarity floor to 0.42 + log zero-hit retrievals",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "perf"
+  },
+  {
+    "hash": "fcd5d5b9",
+    "short": "fcd5d5b9",
+    "message": "tighten exploration cap to 5 reads, mark as HARD LIMIT",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "perf"
+  },
+  {
+    "hash": "a15d1ed2",
+    "short": "a15d1ed2",
+    "message": "drop forced [AI] prefix from default template",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
+    "hash": "d05ea92b",
+    "short": "d05ea92b",
+    "message": "drop platform_admin gate on public library toggle/import",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "chore"
+  },
+  {
+    "hash": "b22b652a",
+    "short": "b22b652a",
+    "message": "persist nudge_comment_language prefill to DB",
+    "date": "2026-05-06",
+    "author": "Ali Ozyildirim",
+    "type": "fix"
+  },
+  {
     "hash": "d5cf321f",
     "short": "d5cf321f",
     "message": "import select in trigger_review's multi-repo branch — was throwing NameError on /reviews POST",

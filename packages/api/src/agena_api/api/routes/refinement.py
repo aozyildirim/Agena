@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_models.models.refinement_record import RefinementRecord
 from agena_models.schemas.refinement import (
@@ -111,7 +111,11 @@ async def list_refinement_items(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post('/analyze', response_model=RefinementAnalyzeResponse)
+@router.post(
+    '/analyze',
+    response_model=RefinementAnalyzeResponse,
+    dependencies=[Depends(require_workspace_perm('refinement:run'))],
+)
 async def analyze_refinement(
     payload: RefinementAnalyzeRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -170,7 +174,11 @@ def _serialize_job(job) -> RefinementJobStatusResponse:
     )
 
 
-@router.post('/analyze/start', response_model=RefinementJobStartResponse)
+@router.post(
+    '/analyze/start',
+    response_model=RefinementJobStartResponse,
+    dependencies=[Depends(require_workspace_perm('refinement:run'))],
+)
 async def start_analyze_job(
     payload: RefinementAnalyzeRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -443,7 +451,11 @@ async def assign_recommended_author(
     raise HTTPException(status_code=400, detail='source must be azure or jira')
 
 
-@router.post('/writeback', response_model=RefinementWritebackResponse)
+@router.post(
+    '/writeback',
+    response_model=RefinementWritebackResponse,
+    dependencies=[Depends(require_workspace_perm('refinement:approve'))],
+)
 async def writeback_refinement(
     payload: RefinementWritebackRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),

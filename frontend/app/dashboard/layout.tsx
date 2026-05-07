@@ -10,12 +10,15 @@ import LangToggle from '@/components/LangToggle';
 import ThemeToggle from '@/components/ThemeToggle';
 import GuidedTour from '@/components/GuidedTour';
 import SprintSwitcher from '@/components/SprintSwitcher';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
+import { PermissionsProvider, useCanDo, usePermissions } from '@/lib/permissions';
+import Forbidden from '@/components/Forbidden';
 import { useLocale } from '@/lib/i18n';
 import { RoleContext, canAccess, type Role } from '@/lib/rbac';
 import { WebSocketProvider } from '@/lib/useWebSocket';
 
-type NavChild = { href: string; key: string; icon: string; permission?: string; module?: string };
-type NavItem = { href: string; key: string; icon: string; permission?: string; children?: NavChild[]; module?: string };
+type NavChild = { href: string; key: string; icon: string; permission?: string; module?: string; wsPerm?: string };
+type NavItem = { href: string; key: string; icon: string; permission?: string; children?: NavChild[]; module?: string; wsPerm?: string };
 
 const NOTIF_EVENT = 'agena:notification';
 const NOTIF_SYNC_EVENT = 'agena:notification-sync';
@@ -30,14 +33,14 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     module: 'core',
     items: [
-      { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'boss_mode' },
+      { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'boss_mode', wsPerm: 'pages:office' },
       { href: '/dashboard/tasks', key: 'nav.tasks', icon: '📋', permission: 'tasks:read' as const, module: 'core' },
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const, module: 'sprints' },
-      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement' },
-      { href: '/dashboard/triage', key: 'nav.triage', icon: '🧹', permission: 'tasks:read' as const, module: 'triage' },
-      { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: '⏱', permission: 'tasks:read' as const, module: 'review_backlog' },
-      { href: '/dashboard/skills', key: 'nav.skills', icon: '📚', permission: 'tasks:read' as const, module: 'skills' },
-      { href: '/dashboard/runtimes', key: 'nav.runtimes', icon: '💻', permission: 'tasks:read' as const, module: 'runtimes' },
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'refinement:run' },
+      { href: '/dashboard/triage', key: 'nav.triage', icon: '🧹', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },
+      { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: '⏱', permission: 'tasks:read' as const, module: 'review_backlog', wsPerm: 'pages:review-backlog' },
+      { href: '/dashboard/skills', key: 'nav.skills', icon: '📚', permission: 'tasks:read' as const, module: 'skills', wsPerm: 'pages:skills' },
+      { href: '/dashboard/runtimes', key: 'nav.runtimes', icon: '💻', permission: 'tasks:read' as const, module: 'runtimes', wsPerm: 'pages:runtimes' },
     ],
   },
   {
@@ -45,20 +48,20 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     module: 'core',
     items: [
-      { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖', module: 'core' },
-      { href: '/dashboard/reviews', key: 'nav.reviews', icon: '🔎', permission: 'tasks:read' as const, module: 'reviews' },
-      { href: '/dashboard/insights', key: 'nav.insights', icon: '🧠', module: 'insights' },
-      { href: '/dashboard/flows', key: 'nav.flows', icon: '🔀', module: 'flows' },
-      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '✏️', module: 'prompt_studio' },
-      { href: '/dashboard/templates', key: 'nav.templates', icon: '📦', module: 'flows' },
+      { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖', module: 'core', wsPerm: 'agents:manage' },
+      { href: '/dashboard/reviews', key: 'nav.reviews', icon: '🔎', permission: 'tasks:read' as const, module: 'reviews', wsPerm: 'pages:reviews' },
+      { href: '/dashboard/insights', key: 'nav.insights', icon: '🧠', module: 'insights', wsPerm: 'pages:insights' },
+      { href: '/dashboard/flows', key: 'nav.flows', icon: '🔀', module: 'flows', wsPerm: 'flows:manage' },
+      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '✏️', module: 'prompt_studio', wsPerm: 'prompts:edit' },
+      { href: '/dashboard/templates', key: 'nav.templates', icon: '📦', module: 'flows', wsPerm: 'pages:templates' },
     ],
   },
   {
     labelKey: 'nav.group.analytics',
     defaultOpen: false,
     items: [
-      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const, module: 'sprints' },
-      { href: '/dashboard/dora', key: 'nav.dora', icon: '📊', module: 'dora', children: [
+      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
+      { href: '/dashboard/dora', key: 'nav.dora', icon: '📊', module: 'dora', wsPerm: 'analytics:read', children: [
         { href: '/dashboard/dora', key: 'nav.doraOverview', icon: '📊' },
         { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: '📋' },
         { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: '⚡' },
@@ -73,7 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     module: 'core',
     items: [
-      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, module: 'core', children: [
+      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'integrations:manage', children: [
         { href: '/dashboard/integrations', key: 'nav.integrationsOverview', icon: '⚙️', permission: 'integrations:manage' as const },
         { href: '/dashboard/integrations/rules', key: 'nav.integrationRules', icon: '📐', permission: 'integrations:manage' as const },
         { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: '📡', permission: 'integrations:manage' as const, module: 'newrelic' },
@@ -81,16 +84,54 @@ const NAV_GROUPS: NavGroup[] = [
         { href: '/dashboard/integrations/datadog', key: 'nav.datadog', icon: '🐶', permission: 'integrations:manage' as const, module: 'datadog' },
         { href: '/dashboard/integrations/appdynamics', key: 'nav.appdynamics', icon: '📊', permission: 'integrations:manage' as const, module: 'appdynamics' },
       ]},
-      { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🗺', module: 'core' },
-      { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints' },
-      { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'permissions' },
-      { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core' },
+      { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🗺', module: 'core', wsPerm: 'repo:manage' },
+      { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: '🗄', module: 'core', wsPerm: 'workspace:manage' },
+      { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
+      { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'core' },
+      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: '🛂', permission: 'roles:manage' as const, module: 'core' },
+      { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
     ],
   },
 ];
 
 // Flat list for backward compat (tourAttr, etc.)
 const PRIMARY_NAV_KEYS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+
+// Paths that exist outside NAV_GROUPS but should always be reachable as
+// long as the user is logged in — admin console, the user's own profile,
+// notifications inbox, etc. The page-level guard skips these so we don't
+// accidentally lock people out of basic UX surfaces.
+const ALWAYS_ALLOWED_PREFIXES = [
+  '/dashboard/admin',
+  '/dashboard/profile',
+  '/dashboard/notifications',
+  '/dashboard/usage',
+  '/dashboard/onboarding',
+];
+
+// Resolve the most-specific NAV item for a path. Returns the matched item
+// (or child) so the guard can read its module / permission / wsPerm fields.
+function navMetaFor(path: string): NavItem | NavChild | null {
+  let bestMatch: NavItem | NavChild | null = null;
+  let bestLen = -1;
+  const consider = (candidate: NavItem | NavChild) => {
+    if (path === candidate.href || path.startsWith(candidate.href + '/')) {
+      if (candidate.href.length > bestLen) {
+        bestMatch = candidate;
+        bestLen = candidate.href.length;
+      }
+    }
+  };
+  for (const group of NAV_GROUPS) {
+    for (const item of group.items) {
+      consider(item);
+      if (item.children) {
+        for (const child of item.children) consider(child);
+      }
+    }
+  }
+  return bestMatch;
+}
 
 
 function DashboardInner({ children }: { children: ReactNode }) {
@@ -113,6 +154,11 @@ function DashboardInner({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const notifBellRef = useRef<HTMLButtonElement>(null);
   const [userRole, setUserRole] = useState<Role>('viewer');
+  const { canDo, orgRole: serverOrgRole } = usePermissions();
+  // Trust /auth/me's org_role as the source of truth — it's set inside
+  // PermissionsProvider before /org/members ever returns. The legacy
+  // /org/members fallback stays for cases where /auth/me has not loaded yet.
+  const effectiveRole: Role = (serverOrgRole as Role) || userRole;
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [enabledModules, setEnabledModules] = useState<Set<string> | null>(null);
   const [orgSlug, setOrgSlugState] = useState('');
@@ -489,7 +535,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
   if (!checked) return null;
 
   return (
-    <RoleContext.Provider value={{ role: userRole }}>
+    <RoleContext.Provider value={{ role: effectiveRole }}>
     <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 56 }}>
       {/* Mobile sidebar toggle — fixed in top-left, below navbar */}
       <button
@@ -561,6 +607,14 @@ function DashboardInner({ children }: { children: ReactNode }) {
           </div>
         )}
 
+        {/* Workspace switcher — visible to non-platform-admins, gives a Slack-style
+            dropdown to swap the active workspace (or jump to /dashboard/workspaces). */}
+        {!isPlatformAdmin && (
+          <div style={{ marginBottom: 10 }}>
+            <WorkspaceSwitcher collapsed={sidebarCollapsed} />
+          </div>
+        )}
+
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {/* Platform Admin — dedicated nav */}
           {isPlatformAdmin && (() => {
@@ -605,7 +659,15 @@ function DashboardInner({ children }: { children: ReactNode }) {
             const modules = enabledModules;
             const visibleItems = group.items
               .filter((item) => !item.module || modules.has(item.module))
-              .filter((item) => !item.permission || canAccess(userRole, item.permission as Parameters<typeof canAccess>[1]))
+              // wsPerm wins over the legacy org-role matrix (see the page
+              // guard below for the same rule). If a workspace permission
+              // is declared we trust it; only fall back to `permission`
+              // when no wsPerm is set on the nav entry.
+              .filter((item) => {
+                if (item.wsPerm) return canDo(item.wsPerm);
+                if (item.permission) return canAccess(effectiveRole, item.permission as Parameters<typeof canAccess>[1]);
+                return true;
+              })
               .map((item) => item.children ? { ...item, children: item.children.filter((c) => !c.module || modules.has(c.module)) } : item);
             if (!visibleItems.length) return null;
             const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
@@ -963,7 +1025,30 @@ function DashboardInner({ children }: { children: ReactNode }) {
 
       {/* Main */}
       <main className='dashboard-main' style={{ flex: 1, marginLeft: sidebarWidth, padding: '32px 40px', minWidth: 0, transition: 'margin-left 0.2s ease' }}>
-        {children}
+        {(() => {
+          // Page-level guard — applied for any path declared in NAV_GROUPS.
+          // Platform admins bypass entirely; otherwise the path's module /
+          // permission / wsPerm requirements must all be satisfied.
+          if (isPlatformAdmin) return children;
+          if (ALWAYS_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))) return children;
+          if (pathname === '/dashboard') return children;
+          // Wait until /auth/me + /modules have answered, otherwise the user
+          // sees a transient Forbidden flash on first paint.
+          if (enabledModules === null) return children;
+          const meta = navMetaFor(pathname);
+          if (!meta) return children;
+          if (meta.module && !enabledModules.has(meta.module)) return <Forbidden />;
+          // wsPerm wins — when a workspace permission is declared, that's
+          // the source of truth and the legacy org-role matrix is skipped.
+          // (The two used to AND, which made it impossible to grant a
+          // Member an integration that the legacy matrix forbade.)
+          if (meta.wsPerm) {
+            if (!canDo(meta.wsPerm)) return <Forbidden />;
+          } else if (meta.permission && !canAccess(effectiveRole, meta.permission as Parameters<typeof canAccess>[1])) {
+            return <Forbidden />;
+          }
+          return children;
+        })()}
       </main>
 
       {/* Onboarding modal */}
@@ -983,9 +1068,11 @@ function DashboardInner({ children }: { children: ReactNode }) {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <WebSocketProvider>
-      <Suspense fallback={null}>
-        <DashboardInner>{children}</DashboardInner>
-      </Suspense>
+      <PermissionsProvider>
+        <Suspense fallback={null}>
+          <DashboardInner>{children}</DashboardInner>
+        </Suspense>
+      </PermissionsProvider>
     </WebSocketProvider>
   );
 }

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_models.models.repo_mapping import RepoMapping
 
@@ -65,7 +65,12 @@ async def list_repo_mappings(
     return rows
 
 
-@router.post('', response_model=RepoMappingResponse, status_code=201)
+@router.post(
+    '',
+    response_model=RepoMappingResponse,
+    status_code=201,
+    dependencies=[Depends(require_workspace_perm('repo:manage'))],
+)
 async def create_repo_mapping(
     body: RepoMappingCreate,
     tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
@@ -122,7 +127,11 @@ async def create_repo_mapping(
     return mapping
 
 
-@router.put('/{mapping_id}', response_model=RepoMappingResponse)
+@router.put(
+    '/{mapping_id}',
+    response_model=RepoMappingResponse,
+    dependencies=[Depends(require_workspace_perm('repo:manage'))],
+)
 async def update_repo_mapping(
     mapping_id: int,
     body: RepoMappingUpdate,
@@ -157,7 +166,11 @@ async def update_repo_mapping(
     return mapping
 
 
-@router.delete('/{mapping_id}', status_code=204)
+@router.delete(
+    '/{mapping_id}',
+    status_code=204,
+    dependencies=[Depends(require_workspace_perm('repo:manage'))],
+)
 async def delete_repo_mapping(
     mapping_id: int,
     tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
