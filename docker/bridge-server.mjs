@@ -136,7 +136,11 @@ const server = createServer(async (req, res) => {
       `${HOME}/Documents/projects`,
       `${HOME}/repos`,
     ];
-    const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', '.next', 'dist', 'build', 'target', '.venv', 'venv', '__pycache__', '.cache', 'tmp', 'temp', '.idea', '.vscode']);
+    const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', '.next', 'dist', 'build', 'target', '.venv', 'venv', '__pycache__', '.cache', 'tmp', 'temp', '.idea', '.vscode', 'coverage', 'public', 'static', 'assets']);
+    const MAX_DEPTH = 3;       // root → grandchild → great-grandchild
+    const MAX_MATCHES = 50;    // hard cap so a misconfigured root can't hang the bridge
+    const MAX_DIRS_VISITED = 8000;  // total dir reads across all roots
+    let dirsVisited = 0;
     const matches = [];
     const scoreOf = (name) => {
       const lower = name.toLowerCase();
@@ -145,49 +149,38 @@ const server = createServer(async (req, res) => {
       if (lower.includes(repoName)) return 40;
       return 0;
     };
-    const considerDir = (fullPath, name, parentPenalty = 0) => {
-      const score = scoreOf(name);
-      if (score === 0) return;
-      const isGit = existsSync(join(fullPath, '.git'));
-      matches.push({
-        path: fullPath,
-        name,
-        score: score + (isGit ? 5 : 0) - parentPenalty,
-        is_git: isGit,
-      });
-    };
-    for (const root of ROOTS) {
-      if (!existsSync(root)) continue;
+    // Walk a directory tree, scoring each subdir against repoName.
+    // Each level adds a -2 score penalty so closer matches win ties.
+    const walk = (dir, depth) => {
+      if (depth > MAX_DEPTH) return;
+      if (matches.length >= MAX_MATCHES) return;
+      if (dirsVisited >= MAX_DIRS_VISITED) return;
       let entries = [];
-      try { entries = readdirSync(root); } catch { continue; }
+      try { entries = readdirSync(dir); } catch { return; }
+      dirsVisited += 1;
       for (const name of entries) {
+        if (matches.length >= MAX_MATCHES) break;
         if (name.startsWith('.') || SKIP_DIRS.has(name)) continue;
-        const fullPath = join(root, name);
+        const fullPath = join(dir, name);
         try {
           if (!statSync(fullPath).isDirectory()) continue;
         } catch { continue; }
-        // Level 1: direct child of a root.
-        considerDir(fullPath, name, 0);
-        // Level 2: descend one more so umbrella folders like
-        // ~/sites/Flo/webservice or ~/code/personal/foo are
-        // discoverable. Skip the same heavy/noise dirs as above.
-        // Stop early once we've collected enough hits to keep this
-        // scan cheap.
-        if (matches.length >= 50) continue;
-        let nested = [];
-        try { nested = readdirSync(fullPath); } catch { continue; }
-        for (const child of nested) {
-          if (matches.length >= 50) break;
-          if (child.startsWith('.') || SKIP_DIRS.has(child)) continue;
-          const childPath = join(fullPath, child);
-          try {
-            if (!statSync(childPath).isDirectory()) continue;
-          } catch { continue; }
-          // -2 penalty so a level-1 match still wins ties over a
-          // level-2 match with the same base score.
-          considerDir(childPath, child, 2);
+        const score = scoreOf(name);
+        if (score > 0) {
+          const isGit = existsSync(join(fullPath, '.git'));
+          matches.push({
+            path: fullPath,
+            name,
+            score: score + (isGit ? 5 : 0) - (depth - 1) * 2,
+            is_git: isGit,
+          });
         }
+        if (depth < MAX_DEPTH) walk(fullPath, depth + 1);
       }
+    };
+    for (const root of ROOTS) {
+      if (!existsSync(root)) continue;
+      walk(root, 1);
     }
     matches.sort((a, b) => b.score - a.score);
     res.writeHead(200, { 'Content-Type': 'application/json' });

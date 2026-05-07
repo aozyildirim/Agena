@@ -444,13 +444,19 @@ export default function RepoMappingsPage() {
         if (cancelled) return;
         const matches = Array.isArray(data?.matches) ? data.matches : [];
         setPathSuggestions(matches);
-        // Hybrid: when there's a single high-confidence match (exact
-        // name match, score ≥ 100) AND the user hasn't typed
-        // anything yet, just fill the path. Anything else (multiple
-        // candidates, partial match, or existing user input) we
-        // leave the chips visible so the user picks consciously.
+        // Hybrid: auto-fill when the top match is unambiguously the
+        // right one. That's either a single match with score ≥ 100,
+        // or multiple matches where the leader is a clean exact-name
+        // hit (≥100) AND clears the runner-up by at least 5 points
+        // — which is what happens when a level-1 ~/sites/Agena beats
+        // a level-3 ~/sites/Agena/skills/agena. Anything tighter
+        // than that keeps the chip picker so the user picks
+        // consciously.
         const top = matches[0];
-        const isHighConfidence = matches.length === 1 && top && top.score >= 100;
+        const second = matches[1];
+        const topIsExact = !!top && top.score >= 100;
+        const beatsRunnerUp = !second || (top.score - second.score) >= 5;
+        const isHighConfidence = topIsExact && beatsRunnerUp;
         setPath((current) => {
           if (current.trim()) return current;
           if (!isHighConfidence) return current;
@@ -674,11 +680,13 @@ export default function RepoMappingsPage() {
                 placeholder={t('mappings.pathPlaceholder')}
                 style={fieldStyle}
               />
-              {/* Suggestion chips — only render when the bridge found
-                  multiple plausible candidates. A single
-                  high-confidence match has already been auto-filled
-                  above, so we suppress the chips to avoid noise. */}
-              {(pathSuggestLoading || pathSuggestions.length > 1) && (
+              {/* Suggestion chips — only render when there's real
+                  ambiguity. A clear winner has already been
+                  auto-filled above (and the "auto" pill explains
+                  it), so we suppress the chips to keep the row
+                  quiet. We re-show them when the user manually
+                  cleared the input so they can re-pick. */}
+              {(pathSuggestLoading || (pathSuggestions.length > 0 && (!pathAutoFilled || !path))) && pathSuggestions.length > 1 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>
                   {pathSuggestLoading && (
                     <span style={{ fontSize: 10, color: 'var(--ink-35)' }}>{t('mappings.loading')}…</span>
