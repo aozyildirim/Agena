@@ -126,11 +126,19 @@ class LLMProvider:
     def _parse_usage(self, response: Any) -> dict[str, int]:
         usage = getattr(response, 'usage', None)
         if not usage:
-            return {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
+            return {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0}
+        # OpenAI Responses API exposes cache hits under input_tokens_details;
+        # surfacing them lets CostTracker bill the cheaper cache rate
+        # instead of the full input rate for the cached portion.
+        cached = 0
+        details = getattr(usage, 'input_tokens_details', None)
+        if details is not None:
+            cached = int(getattr(details, 'cached_tokens', 0) or 0)
         return {
             'prompt_tokens': int(getattr(usage, 'input_tokens', 0) or 0),
             'completion_tokens': int(getattr(usage, 'output_tokens', 0) or 0),
             'total_tokens': int(getattr(usage, 'total_tokens', 0) or 0),
+            'cached_input_tokens': cached,
         }
 
     def _mock_output(self, system_prompt: str, user_prompt: str) -> str:
