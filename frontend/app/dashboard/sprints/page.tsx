@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -1052,20 +1052,26 @@ export default function SprintsPage() {
   // applies on every board they switch to — they're hiding the same
   // categories everywhere, not configuring per-sprint policies.
   const _filterKey = 'agena_sprint_filters_global';
-  // Load once on mount.
+  // Gate the persist effect on the load having finished. Without this
+  // the persist runs on mount with the default empty Set and clobbers
+  // the saved value before the load effect's setHiddenStates re-render
+  // — under StrictMode's double-invoke that ate the filters on refresh.
+  const filtersHydrated = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') { filtersHydrated.current = true; return; }
     try {
       const raw = window.localStorage.getItem(_filterKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.states)) setHiddenStates(new Set(parsed.states));
-      if (Array.isArray(parsed.types)) setHiddenTypes(new Set(parsed.types));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.states)) setHiddenStates(new Set(parsed.states));
+        if (Array.isArray(parsed.types)) setHiddenTypes(new Set(parsed.types));
+      }
     } catch { /* malformed — keep defaults */ }
+    filtersHydrated.current = true;
   }, []);
-  // Persist on change.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!filtersHydrated.current) return;
     try {
       window.localStorage.setItem(_filterKey, JSON.stringify({
         states: Array.from(hiddenStates),
