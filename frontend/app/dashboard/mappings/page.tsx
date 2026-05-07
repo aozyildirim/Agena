@@ -425,6 +425,14 @@ export default function RepoMappingsPage() {
   // repo name, plus a small bonus when the dir is actually a git
   // checkout. Failure is non-fatal — the user can still type the
   // path by hand.
+  // We need to read pathAutoFilled inside the suggest effect without
+  // making the effect re-run on its own setter (that would cause an
+  // infinite loop where the auto-fill clears its own pill which clears
+  // the path which re-triggers the suggest…). A ref keeps the latest
+  // value readable from inside the async callback.
+  const pathAutoFilledRef = useRef(pathAutoFilled);
+  useEffect(() => { pathAutoFilledRef.current = pathAutoFilled; }, [pathAutoFilled]);
+
   useEffect(() => {
     let cancelled = false;
     setPathSuggestions([]);
@@ -437,6 +445,13 @@ export default function RepoMappingsPage() {
       repoName = selGithubRepo.split('/')[1] || '';
     }
     if (!repoName.trim()) return;
+    // When the repo selection changes, the previously auto-filled path
+    // is stale — clear it eagerly so the new repo's match can take
+    // over. A user-typed path (pathAutoFilled === false) is preserved.
+    if (pathAutoFilledRef.current) {
+      setPath('');
+      setPathAutoFilled(false);
+    }
     setPathSuggestLoading(true);
     fetch(`http://localhost:9876/find-repo-paths?repo_name=${encodeURIComponent(repoName.trim())}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`bridge ${r.status}`))))
@@ -458,6 +473,9 @@ export default function RepoMappingsPage() {
         const beatsRunnerUp = !second || (top.score - second.score) >= 5;
         const isHighConfidence = topIsExact && beatsRunnerUp;
         setPath((current) => {
+          // Preserve any text the user typed by hand. Auto-filled
+          // values were already wiped above, so an empty `current`
+          // here means "nothing manual to protect."
           if (current.trim()) return current;
           if (!isHighConfidence) return current;
           setPathAutoFilled(true);
