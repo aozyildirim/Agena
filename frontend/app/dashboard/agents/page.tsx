@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { apiFetch, loadPrefs, savePrefs, getAgentAnalytics, loadPromptCatalog, type PromptCatalog } from '@/lib/api';
+import { apiFetch, loadPrefs, savePrefs, loadPromptCatalog, type PromptCatalog } from '@/lib/api';
 import { useEnabledModules } from '@/lib/useEnabledModules';
 import { useLocale } from '@/lib/i18n';
 
@@ -108,13 +108,6 @@ function PixelCharPicker({ selected, onSelect, accent }: {
     </div>
   );
 }
-
-type AgentAnalytics = {
-  coveragePct: number;
-  activityPct: number;
-  latencySec: number;
-  successPct: number;
-};
 
 const OPENAI_MODELS = [
   { id: 'o3', name: 'o3' },
@@ -344,7 +337,6 @@ export default function AgentsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const [analytics, setAnalytics] = useState<Record<string, AgentAnalytics>>({});
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [draft, setDraft] = useState<AgentConfig>({
     role: '',
@@ -405,16 +397,6 @@ export default function AgentsPage() {
           setReviewStats(stats);
         }
       } catch { /* review stats optional */ }
-      try {
-        const analyticsRes = await getAgentAnalytics(true);
-        const map = {} as Record<string, AgentAnalytics>;
-        Object.entries(analyticsRes.data).forEach(([role, data]) => {
-          map[role] = data;
-        });
-        setAnalytics(map);
-      } catch {
-        // no analytics runs fallback
-      }
     };
     void boot();
   }, [defaults, t]);
@@ -524,49 +506,19 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {/* Agent Cards — minmax 165px so mobile fits 2 columns and desktop scales up cleanly */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))', gap: 8, alignItems: 'stretch' }}>
+      {/* Agent Cards — wider tiles (220px) with breathing room and hover. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, alignItems: 'stretch' }}>
         {agents.map((agent) => (
-          <div key={agent.role}>
-            <AgentCard
-              agent={agent}
-              isEditing={false}
-              onEdit={() => setEditModalAgent(agent)}
-              onUpdate={(patch) => updateAgent(agent.role, patch)}
-              promptSlugs={promptSlugs}
-              reviewStat={reviewStats[agent.role]}
-            />
-          </div>
+          <AgentCard
+            key={agent.role}
+            agent={agent}
+            isEditing={false}
+            onEdit={() => setEditModalAgent(agent)}
+            onUpdate={(patch) => updateAgent(agent.role, patch)}
+            promptSlugs={promptSlugs}
+            reviewStat={reviewStats[agent.role]}
+          />
         ))}
-      </div>
-
-      {/* Analytics — below agent cards */}
-      <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'linear-gradient(180deg, var(--panel-alt), var(--panel))', padding: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>
-          {t('agents.analyticsTitle')}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--ink-35)', marginBottom: 10 }}>
-          {t('agents.analyticsDesc')}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))', gap: 8, alignItems: 'stretch' }}>
-          {agents.map((a) => {
-            const m = analytics[a.role] ?? { coveragePct: 0, activityPct: 0, latencySec: 0, successPct: 0 };
-            return (
-              <div key={a.role} style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 8, minHeight: 128 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <AgentCharIcon palette={a.palette ?? 0} color={a.color} size={24} />
-                  <span style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 12 }}>{localizedAgentLabel(a, t)}</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 11 }}>
-                  <MetricChip label={t('agents.analyticsCoverage')} value={`${m.coveragePct}%`} />
-                  <MetricChip label={t('agents.analyticsActivity')} value={`${m.activityPct}%`} />
-                  <MetricChip label={t('agents.analyticsLatency')} value={`${m.latencySec}s`} />
-                  <MetricChip label={t('agents.analyticsSuccess')} value={`${m.successPct}%`} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Save button */}
@@ -910,35 +862,114 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate, promptSlugs, reviewStat
   const enabledModules = useEnabledModules();
   const reviewsEnabled = enabledModules?.has('reviews') ?? true;
 
+  const [hover, setHover] = useState(false);
+  const providerIcon = agent.provider === 'openai' ? '⚡'
+    : agent.provider === 'gemini' ? '✦'
+    : agent.provider === 'codex_cli' ? '⌘'
+    : agent.provider === 'claude_cli' ? '◆'
+    : '✎';
+  const modelLabel = (agent.model || agent.custom_model || '').trim();
+  const accent = agent.color;
+  const dim = !agent.enabled;
+
   return (
-    <div style={{ width: '100%', minWidth: 0, minHeight: isEditing ? 'auto' : 118, borderRadius: 14, border: '1px solid ' + (isEditing ? agent.color + '40' : 'var(--panel-border)'), background: isEditing ? agent.color + '08' : 'var(--panel)', overflow: 'hidden', transition: 'all 0.2s' }}>
-      {/* Card header */}
-      <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
-        <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={36} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, minWidth: 0, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-90)' }}>{localizedAgentLabel(agent, t)}</span>
-            {agent.provider && agent.model ? (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: agent.color + '18', border: '1px solid ' + agent.color + '35', color: agent.color, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {agent.provider === 'openai' ? '⚡' : agent.provider === 'gemini' ? '✦' : agent.provider === 'codex_cli' ? '⌘' : '✎'} {agent.model || agent.custom_model}
-              </span>
-            ) : (
-              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)', color: 'var(--ink-30)' }}>
-                {t('agents.noModel')}
-              </span>
-            )}
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink-25)', transform: isEditing ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block', flexShrink: 0 }}>⌄</span>
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'relative',
+        width: '100%',
+        minWidth: 0,
+        display: 'flex', flexDirection: 'column',
+        borderRadius: 16,
+        border: `1px solid ${isEditing ? accent + '50' : hover ? accent + '40' : 'var(--panel-border)'}`,
+        background: isEditing
+          ? `linear-gradient(180deg, ${accent}10, var(--panel))`
+          : hover
+            ? `linear-gradient(180deg, ${accent}08, var(--panel))`
+            : 'var(--panel)',
+        boxShadow: hover ? `0 6px 22px -8px ${accent}38` : '0 1px 0 rgba(0,0,0,0.04)',
+        transform: hover && !isEditing ? 'translateY(-2px)' : 'none',
+        overflow: 'hidden',
+        transition: 'all 0.18s ease',
+        opacity: dim ? 0.72 : 1,
+      }}
+    >
+      {/* Top accent strip — color-codes the agent at a glance */}
+      <div style={{ height: 3, background: `linear-gradient(90deg, ${accent}, ${accent}55)` }} />
+
+      {/* Card body — clickable area opens the editor */}
+      <div onClick={onEdit} style={{ padding: '14px 14px 10px', cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Top row: character + name + status toggle */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{
+            flexShrink: 0,
+            width: 56, height: 56,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 12,
+            background: `${accent}10`,
+            border: `1px solid ${accent}25`,
+          }}>
+            <AgentCharIcon palette={agent.palette ?? 0} color={accent} size={42} />
           </div>
-          <div style={{ fontSize: 11, color: 'var(--ink-35)', lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 30 }}>{localizedAgentDescription(agent, t)}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-90)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {localizedAgentLabel(agent, t)}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-35)', marginTop: 3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+              {agent.role}
+            </div>
+          </div>
+          <div
+            onClick={(e) => { e.stopPropagation(); onUpdate({ enabled: !agent.enabled }); }}
+            title={agent.enabled ? t('agents.enabled' as Parameters<typeof t>[0]) : t('agents.disabled' as Parameters<typeof t>[0])}
+            style={{
+              flexShrink: 0,
+              width: 36, height: 20, borderRadius: 999,
+              background: agent.enabled ? accent : 'var(--panel-border-3)',
+              position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+            }}
+          >
+            <div style={{ position: 'absolute', top: 2, left: agent.enabled ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+          </div>
         </div>
-        {/* Toggle */}
-        <div onClick={(e) => { e.stopPropagation(); onUpdate({ enabled: !agent.enabled }); }}
-          style={{ width: 34, height: 18, borderRadius: 999, background: agent.enabled ? agent.color : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-          <div style={{ position: 'absolute', top: 2, left: agent.enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+
+        {/* Description */}
+        <div style={{ fontSize: 12, color: 'var(--ink-35)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 34 }}>
+          {localizedAgentDescription(agent, t)}
+        </div>
+
+        {/* Model badge — bigger and more legible than the inline pill */}
+        <div style={{ marginTop: 'auto' }}>
+          {modelLabel ? (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 10px', borderRadius: 8,
+              background: `${accent}12`,
+              border: `1px solid ${accent}30`,
+              color: accent,
+              fontSize: 11, fontWeight: 700,
+              maxWidth: '100%',
+            }}>
+              <span style={{ fontSize: 12 }}>{providerIcon}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{modelLabel}</span>
+            </div>
+          ) : (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 10px', borderRadius: 8,
+              background: 'var(--panel-alt)',
+              border: '1px dashed var(--panel-border-3)',
+              color: 'var(--ink-30)',
+              fontSize: 11, fontWeight: 600,
+            }}>
+              {t('agents.noModel')}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Review history mini stat — gated on the Reviews module */}
+      {/* Review history footer — only when there's something to show */}
       {reviewsEnabled && reviewStat && reviewStat.count > 0 && !isEditing && (() => {
         const sevColors: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#60a5fa', clean: '#22c55e' };
         const sevColor = reviewStat.lastSeverity ? (sevColors[reviewStat.lastSeverity] || 'var(--ink-35)') : 'var(--ink-35)';
@@ -947,7 +978,8 @@ function AgentCard({ agent, isEditing, onEdit, onUpdate, promptSlugs, reviewStat
             onClick={(e) => e.stopPropagation()}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '6px 12px', borderTop: '1px dashed var(--panel-border)',
+              padding: '8px 14px',
+              borderTop: '1px solid var(--panel-border)',
               background: 'var(--glass)', textDecoration: 'none', fontSize: 11, color: 'var(--ink-50)',
             }}>
             <span style={{ fontSize: 13 }}>🔎</span>
@@ -1084,11 +1116,3 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 };
 
-function MetricChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: '5px 7px' }}>
-      <div style={{ color: 'var(--ink-35)', marginBottom: 2, fontSize: 10 }}>{label}</div>
-      <div style={{ color: 'var(--ink-90)', fontWeight: 700, fontSize: 11 }}>{value}</div>
-    </div>
-  );
-}
