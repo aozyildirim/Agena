@@ -10,9 +10,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     git openssh-client curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Corporate SSL certificate (FLO McAfee Web Gateway)
-COPY docker/InternalProxy.crt /usr/local/share/ca-certificates/InternalProxy.crt
-RUN update-ca-certificates
+# Optional corporate SSL certificate.
+# The cert is .gitignore'd so public/CI builds don't have it.
+# Copy the docker/ dir (always present in this repo) and install
+# the cert only if it exists.
+COPY docker/ /tmp/docker/
+RUN if [ -f /tmp/docker/InternalProxy.crt ]; then \
+      cp /tmp/docker/InternalProxy.crt /usr/local/share/ca-certificates/ && \
+      update-ca-certificates; \
+    fi && \
+    rm -rf /tmp/docker
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
