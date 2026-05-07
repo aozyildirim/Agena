@@ -3271,6 +3271,36 @@ class OrchestrationService:
                 'application/x-yaml', 'application/javascript',
             }
 
+        def _extract_office_text(path: str, filename: str, ct: str) -> str:
+            """Pull plain text out of .docx / .pdf attachments. Returns ''
+            if the file isn't a supported office format or the extraction
+            blew up — caller falls back to just listing the path."""
+            lower_name = (filename or '').lower()
+            lower_ct = (ct or '').lower()
+            try:
+                if lower_name.endswith('.docx') or 'wordprocessingml' in lower_ct:
+                    from docx import Document  # python-docx
+                    doc = Document(path)
+                    parts: list[str] = [p.text for p in doc.paragraphs if p.text]
+                    for table in doc.tables:
+                        for row in table.rows:
+                            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+                            if cells:
+                                parts.append(' | '.join(cells))
+                    return '\n'.join(parts).strip()
+                if lower_name.endswith('.pdf') or lower_ct == 'application/pdf':
+                    import pdfplumber
+                    parts: list[str] = []
+                    with pdfplumber.open(path) as pdf:
+                        for page in pdf.pages[:50]:  # cap at 50 pages
+                            txt = page.extract_text() or ''
+                            if txt.strip():
+                                parts.append(txt.strip())
+                    return '\n\n'.join(parts).strip()
+            except Exception as exc:
+                logger.info('Office text extract failed for %s: %s', filename, exc)
+            return ''
+
         # Count images upfront so the imperative header tells the agent
         # exactly how many screenshots are waiting on disk. Without an
         # explicit "you must Read these" cue agents tend to skim the path
@@ -3306,6 +3336,18 @@ class OrchestrationService:
                         lines.append(f'  {ln}')
                     lines.append('  ```')
                     continue
+            # docx / pdf: extract plain text in-process so the agent
+            # doesn't have to figure out how to crack a zipped XML file.
+            office_text = _extract_office_text(att.storage_path or '', att.filename or '', att.content_type or '')
+            if office_text:
+                truncated = office_text[:max_inline]
+                suffix = '' if len(office_text) <= max_inline else f'\n... (truncated, {len(office_text) - max_inline} chars omitted)'
+                lines.append(header)
+                lines.append('  ```')
+                for ln in (truncated + suffix).splitlines():
+                    lines.append(f'  {ln}')
+                lines.append('  ```')
+                continue
             if (att.content_type or '').lower().startswith('image/'):
                 lines.append(header + '  [SCREENSHOT — Read this file before writing any code]')
             else:
