@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 
 revision = '0059_workspace_invite_links'
@@ -22,6 +23,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    if inspect(bind).has_table('workspace_invite_links'):
+        return
     op.create_table(
         'workspace_invite_links',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),

@@ -17,6 +17,7 @@ import json
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 
 revision = '0058_workspace_roles'
@@ -91,32 +92,53 @@ LEGACY_ROLE_MAP = {
 }
 
 
+def _has_table(bind, name: str) -> bool:
+    return inspect(bind).has_table(name)
+
+
+def _has_column(bind, table: str, col: str) -> bool:
+    insp = inspect(bind)
+    if not insp.has_table(table):
+        return False
+    return any(c['name'] == col for c in insp.get_columns(table))
+
+
 def upgrade() -> None:
-    op.create_table(
-        'workspace_roles',
-        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('organization_id', sa.Integer, sa.ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('name', sa.String(80), nullable=False),
-        sa.Column('description', sa.String(255), nullable=True),
-        sa.Column('permissions_json', sa.Text, nullable=False),
-        sa.Column('is_builtin', sa.Boolean, nullable=False, server_default=sa.text('0')),
-        sa.Column('is_default_for_new_members', sa.Boolean, nullable=False, server_default=sa.text('0')),
-        sa.Column('sort_order', sa.Integer, nullable=False, server_default='100'),
-        sa.Column('created_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
-        sa.Column('updated_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
-        sa.UniqueConstraint('organization_id', 'name', name='uq_workspace_role_name'),
-    )
-
-    # Add role_id to workspace_members (nullable — backfilled below)
-    op.add_column('workspace_members', sa.Column('role_id', sa.Integer, sa.ForeignKey('workspace_roles.id', ondelete='SET NULL'), nullable=True, index=True))
-
     bind = op.get_bind()
 
-    # Seed 4 built-in roles per org and remember their ids per (org_id, role_name)
+    if not _has_table(bind, 'workspace_roles'):
+        op.create_table(
+            'workspace_roles',
+            sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
+            sa.Column('organization_id', sa.Integer, sa.ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True),
+            sa.Column('name', sa.String(80), nullable=False),
+            sa.Column('description', sa.String(255), nullable=True),
+            sa.Column('permissions_json', sa.Text, nullable=False),
+            sa.Column('is_builtin', sa.Boolean, nullable=False, server_default=sa.text('0')),
+            sa.Column('is_default_for_new_members', sa.Boolean, nullable=False, server_default=sa.text('0')),
+            sa.Column('sort_order', sa.Integer, nullable=False, server_default='100'),
+            sa.Column('created_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
+            sa.Column('updated_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
+            sa.UniqueConstraint('organization_id', 'name', name='uq_workspace_role_name'),
+        )
+
+    # Add role_id to workspace_members (nullable — backfilled below)
+    if not _has_column(bind, 'workspace_members', 'role_id'):
+        op.add_column('workspace_members', sa.Column('role_id', sa.Integer, sa.ForeignKey('workspace_roles.id', ondelete='SET NULL'), nullable=True, index=True))
+
+    # Seed 4 built-in roles per org. Skip rows that already exist (re-run safe)
+    # and remember each role id per (org_id, role_name) for the backfill below.
     orgs = bind.execute(sa.text('SELECT id FROM organizations')).fetchall()
     role_id_by_org_name: dict[tuple[int, str], int] = {}
     for (org_id,) in orgs:
         for role_def in BUILTIN_ROLES:
+            existing = bind.execute(
+                sa.text('SELECT id FROM workspace_roles WHERE organization_id = :org_id AND name = :name'),
+                {'org_id': org_id, 'name': role_def['name']},
+            ).scalar()
+            if existing is not None:
+                role_id_by_org_name[(org_id, role_def['name'])] = existing
+                continue
             result = bind.execute(
                 sa.text(
                     "INSERT INTO workspace_roles (organization_id, name, description, permissions_json, is_builtin, is_default_for_new_members, sort_order) "
@@ -133,10 +155,12 @@ def upgrade() -> None:
             )
             role_id_by_org_name[(org_id, role_def['name'])] = result.lastrowid
 
-    # Backfill workspace_members.role_id from the legacy `role` string
+    # Backfill workspace_members.role_id from the legacy `role` string —
+    # only touch rows that don't yet have a role_id so re-runs are no-op.
     member_rows = bind.execute(sa.text(
         "SELECT wm.id, wm.role, w.organization_id "
-        "FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id"
+        "FROM workspace_members wm JOIN workspaces w ON w.id = wm.workspace_id "
+        "WHERE wm.role_id IS NULL"
     )).fetchall()
     for member_id, legacy_role, org_id in member_rows:
         role_name = LEGACY_ROLE_MAP.get((legacy_role or 'member').lower(), 'Member')

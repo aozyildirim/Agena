@@ -23,6 +23,7 @@ import string
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 
 revision = '0057_add_workspaces'
@@ -40,66 +41,89 @@ def _generate_code(length: int = 6) -> str:
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
-def upgrade() -> None:
-    op.create_table(
-        'workspaces',
-        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('organization_id', sa.Integer, sa.ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('name', sa.String(255), nullable=False),
-        sa.Column('slug', sa.String(100), nullable=False),
-        sa.Column('description', sa.String(500), nullable=True),
-        sa.Column('invite_code', sa.String(16), nullable=False, unique=True, index=True),
-        sa.Column('is_default', sa.Boolean, nullable=False, server_default=sa.text('0')),
-        sa.Column('created_by_user_id', sa.Integer, sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('created_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
-        sa.UniqueConstraint('organization_id', 'slug', name='uq_workspace_org_slug'),
-    )
+def _has_table(bind, name: str) -> bool:
+    return inspect(bind).has_table(name)
 
-    op.create_table(
-        'workspace_members',
-        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('workspace_id', sa.Integer, sa.ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('user_id', sa.Integer, sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('role', sa.String(32), nullable=False, server_default='member'),
-        sa.Column('title', sa.String(80), nullable=True),
-        sa.Column('joined_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
-        sa.UniqueConstraint('workspace_id', 'user_id', name='uq_workspace_member'),
-    )
+
+def _has_column(bind, table: str, col: str) -> bool:
+    insp = inspect(bind)
+    if not insp.has_table(table):
+        return False
+    return any(c['name'] == col for c in insp.get_columns(table))
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+
+    if not _has_table(bind, 'workspaces'):
+        op.create_table(
+            'workspaces',
+            sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
+            sa.Column('organization_id', sa.Integer, sa.ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True),
+            sa.Column('name', sa.String(255), nullable=False),
+            sa.Column('slug', sa.String(100), nullable=False),
+            sa.Column('description', sa.String(500), nullable=True),
+            sa.Column('invite_code', sa.String(16), nullable=False, unique=True, index=True),
+            sa.Column('is_default', sa.Boolean, nullable=False, server_default=sa.text('0')),
+            sa.Column('created_by_user_id', sa.Integer, sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
+            sa.Column('created_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
+            sa.UniqueConstraint('organization_id', 'slug', name='uq_workspace_org_slug'),
+        )
+
+    if not _has_table(bind, 'workspace_members'):
+        op.create_table(
+            'workspace_members',
+            sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
+            sa.Column('workspace_id', sa.Integer, sa.ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False, index=True),
+            sa.Column('user_id', sa.Integer, sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True),
+            sa.Column('role', sa.String(32), nullable=False, server_default='member'),
+            sa.Column('title', sa.String(80), nullable=True),
+            sa.Column('joined_at', sa.DateTime, server_default=sa.func.now(), nullable=False),
+            sa.UniqueConstraint('workspace_id', 'user_id', name='uq_workspace_member'),
+        )
 
     # Add workspace_id (nullable) to the tables that should scope down to a workspace.
     for table in ('task_records', 'repo_mappings'):
-        op.add_column(table, sa.Column('workspace_id', sa.Integer, sa.ForeignKey('workspaces.id', ondelete='SET NULL'), nullable=True, index=True))
+        if not _has_column(bind, table, 'workspace_id'):
+            op.add_column(table, sa.Column('workspace_id', sa.Integer, sa.ForeignKey('workspaces.id', ondelete='SET NULL'), nullable=True, index=True))
 
-    # Seed a default workspace per organization and backfill rows.
-    bind = op.get_bind()
-
+    # Seed a default workspace per organization and backfill rows. Skip orgs
+    # that already have any workspace (e.g. from a partial prior run or a
+    # manual create) so re-running the migration won't double-seed.
     orgs = bind.execute(sa.text('SELECT id FROM organizations')).fetchall()
     used_codes: set[str] = set()
     for (org_id,) in orgs:
-        code = _generate_code()
-        while code in used_codes:
+        existing = bind.execute(
+            sa.text('SELECT id FROM workspaces WHERE organization_id = :org_id ORDER BY is_default DESC, id ASC LIMIT 1'),
+            {'org_id': org_id},
+        ).scalar()
+        if existing is not None:
+            ws_id = existing
+        else:
             code = _generate_code()
-        used_codes.add(code)
+            while code in used_codes:
+                code = _generate_code()
+            used_codes.add(code)
+            result = bind.execute(
+                sa.text(
+                    "INSERT INTO workspaces (organization_id, name, slug, description, invite_code, is_default) "
+                    "VALUES (:org_id, 'Default', 'default', 'Default workspace (auto-created)', :code, 1)"
+                ),
+                {'org_id': org_id, 'code': code},
+            )
+            ws_id = result.lastrowid
 
-        result = bind.execute(
-            sa.text(
-                "INSERT INTO workspaces (organization_id, name, slug, description, invite_code, is_default) "
-                "VALUES (:org_id, 'Default', 'default', 'Default workspace (auto-created)', :code, 1)"
-            ),
-            {'org_id': org_id, 'code': code},
-        )
-        ws_id = result.lastrowid
+            # Auto-add every org member to the default workspace
+            bind.execute(
+                sa.text(
+                    "INSERT INTO workspace_members (workspace_id, user_id, role) "
+                    "SELECT :ws_id, user_id, role FROM organization_members WHERE organization_id = :org_id"
+                ),
+                {'ws_id': ws_id, 'org_id': org_id},
+            )
 
-        # Auto-add every org member to the default workspace
-        bind.execute(
-            sa.text(
-                "INSERT INTO workspace_members (workspace_id, user_id, role) "
-                "SELECT :ws_id, user_id, role FROM organization_members WHERE organization_id = :org_id"
-            ),
-            {'ws_id': ws_id, 'org_id': org_id},
-        )
-
-        # Backfill workspace_id on the per-org tables
+        # Backfill workspace_id on the per-org tables (idempotent — only
+        # rows still NULL get touched)
         for table in ('task_records', 'repo_mappings'):
             bind.execute(
                 sa.text(f"UPDATE {table} SET workspace_id = :ws_id WHERE organization_id = :org_id AND workspace_id IS NULL"),
