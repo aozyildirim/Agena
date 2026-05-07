@@ -720,7 +720,14 @@ async def scan_for_org(
         }
 
     new_decisions = 0
+    # Hard cap: stop after N LLM-evaluated decisions in one scan so a
+    # runaway loop on a fresh org with 1000+ idle tickets can't drain
+    # credits in a single 6h tick.
+    max_decisions = int(getattr(settings, 'triage_max_decisions_per_scan', 50) or 50)
     for cand in candidates:
+        if new_decisions >= max_decisions:
+            logger.info('Triage scan: hit max_decisions_per_scan cap (%s) for org=%s', max_decisions, org_id)
+            break
         existing = (await db.execute(
             select(TriageDecision).where(
                 TriageDecision.organization_id == org_id,
