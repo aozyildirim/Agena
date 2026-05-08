@@ -523,12 +523,18 @@ cp frontend/.env.example frontend/.env.local
 
 ### 2. Set required environment variables in `.env`
 
+The only hard requirement is the JWT signing secret — everything else
+(LLM provider, GitHub / Azure DevOps / Jira credentials) is configured
+per-organization through the dashboard at `/dashboard/integrations`
+once the stack is running, so the same deployment can serve teams that
+use OpenAI alongside teams that use Claude CLI.
+
 ```env
-OPENAI_API_KEY=sk-...
 JWT_SECRET_KEY=your-secret-key
-GITHUB_TOKEN=ghp_...
-GITHUB_OWNER=your-org
-GITHUB_REPO=your-repo
+# Optional — only set if you want a global default LLM key. Most users
+# leave these empty and configure providers per-org from the UI.
+# OPENAI_API_KEY=sk-...
+# GEMINI_API_KEY=...
 ```
 
 ### 3. Start all services
@@ -590,13 +596,22 @@ All configuration is via environment variables. See `.env.example` for the full 
 
 | Variable | Description | Required |
 |---|---|---|
-| `OPENAI_API_KEY` | OpenAI API key | Yes |
 | `JWT_SECRET_KEY` | JWT signing secret | Yes |
-| `GITHUB_TOKEN` | GitHub PAT for PR creation | For GitHub PRs |
-| `GITHUB_OWNER` | GitHub org/user | For GitHub PRs |
-| `GITHUB_REPO` | Default repo name | For GitHub PRs |
+| `OPENAI_API_KEY` | OpenAI API key — global default if set | No (per-org override available in UI) |
+| `GEMINI_API_KEY` | Google Gemini API key — global default if set | No (per-org override available in UI) |
 | `MYSQL_HOST` | MySQL host | Default: `mysql` |
 | `MYSQL_DATABASE` | Database name | Default: `ai_agent_db` |
+
+GitHub, Azure DevOps, Jira, New Relic and Sentry credentials are **not
+read from environment variables**. They live in `integration_configs`
+and are managed per-organization from `/dashboard/integrations` so each
+team can connect its own accounts. A single Agena deployment can host
+many orgs without rebuilding the container.
+
+For Claude / Codex CLI usage the host bridge (`docker/bridge-server.mjs`,
+auto-started by `start.sh`) reuses the system keychain — no API key
+required at all if you sign in once with `claude auth login` or
+`codex auth login` on the host.
 | `REDIS_URL` | Redis connection URL | Default: `redis://redis:6379` |
 | `QDRANT_ENABLED` | Enable vector memory | Default: `false` |
 | `QDRANT_URL` | Qdrant server URL | Default: `http://qdrant:6333` |
