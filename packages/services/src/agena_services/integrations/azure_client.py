@@ -324,6 +324,60 @@ class AzureDevOpsClient:
                     continue
         return results
 
+    async def fetch_work_item_fields(
+        self,
+        work_item_id: int | str,
+        cfg: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Pull the latest title + description + acceptance criteria
+        + repro steps for a single work item. Used by the refresh-
+        from-source path so the task can be rebuilt against whatever
+        the PM has edited on Azure since import.
+
+        Returns None if the work item can't be fetched (auth, network,
+        404, etc.) so the caller can fall back gracefully.
+        """
+        cfg = cfg or {}
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not pat or not org_url:
+            return None
+        url = (
+            f'{org_url}/_apis/wit/workitems/{work_item_id}'
+            '?fields=System.Title,System.Description,System.TeamProject,'
+            'Microsoft.VSTS.Common.AcceptanceCriteria,'
+            'Microsoft.VSTS.TCM.ReproSteps,System.State,System.AssignedTo'
+            '&api-version=7.1-preview.3'
+        )
+        headers = self._headers(pat)
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=headers)
+        except Exception as exc:
+            logger.info('fetch_work_item_fields network error for %s: %s', work_item_id, exc)
+            return None
+        if resp.status_code != 200:
+            logger.info('fetch_work_item_fields HTTP %s for %s', resp.status_code, work_item_id)
+            return None
+        data = resp.json() or {}
+        fields = data.get('fields') or {}
+        description_parts = [
+            str(fields.get('System.Description') or '').strip(),
+            str(fields.get('Microsoft.VSTS.Common.AcceptanceCriteria') or '').strip(),
+            str(fields.get('Microsoft.VSTS.TCM.ReproSteps') or '').strip(),
+        ]
+        merged = '\n\n'.join(part for part in description_parts if part)
+        return {
+            'title': str(fields.get('System.Title') or '').strip(),
+            'description': merged,
+            'state': str(fields.get('System.State') or '').strip(),
+            # Surface the actual containing project — different from
+            # the integration's default project for orgs whose work
+            # items live in multiple Azure DevOps projects. The
+            # comments / attachments endpoints need this exact value.
+            'project': str(fields.get('System.TeamProject') or '').strip(),
+        }
+
     async def fetch_work_item_attachments(
         self,
         work_item_id: int | str,

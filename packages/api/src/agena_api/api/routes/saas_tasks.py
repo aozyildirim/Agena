@@ -1375,41 +1375,84 @@ async def refresh_task_from_source(
     tenant: CurrentTenant = Depends(require_permission('tasks:write')),
     db: AsyncSession = Depends(get_db_session),
 ) -> RefreshFromSourceResponse:
-    """Re-pull the source work item from Azure / Jira: refresh the
-    description (re-enriched with comments) and import any new
-    attachments. Existing attachments matched by (filename, size) are
-    skipped — this is additive, never destructive."""
+    """Re-pull the source work item from Azure / Jira: refresh title +
+    description (re-enriched with the latest comments) and import any
+    new attachments. Existing attachments matched by (filename, size)
+    are skipped — this is additive on attachments, but title and
+    description ARE replaced when upstream has changed since import."""
     task = await _load_task_for_org(db, tenant.organization_id, task_id)
     src = (task.source or '').lower()
     if src not in ('azure', 'jira') or not task.external_id:
         raise HTTPException(status_code=400, detail='Task has no Azure/Jira source to refresh from')
 
-    # Re-enrich description with the latest comments. Best-effort: if
-    # the upstream call fails, we keep the existing description and
-    # still try the attachment refresh.
     description_updated = False
+    title_updated = False
     try:
         service = TaskService(db)
         cfg_service = IntegrationConfigService(db)
         config = await cfg_service.get_config(tenant.organization_id, src)
-        if config and config.secret:
-            if src == 'azure':
-                cfg = {
-                    'org_url': config.base_url or '',
-                    'pat': config.secret,
-                    'project': config.project or '',
-                }
-                refreshed = await service._enrich_description_with_azure_comments(
-                    cfg, task.description or '', task.external_id,
+        if config and config.secret and src == 'azure':
+            from agena_services.integrations.azure_client import AzureDevOpsClient
+            cfg = {
+                'org_url': config.base_url or '',
+                'pat': config.secret,
+                'project': config.project or '',
+            }
+            client = AzureDevOpsClient()
+            fields = await client.fetch_work_item_fields(task.external_id, cfg=cfg)
+            if fields:
+                # Use the work item's own containing project for the
+                # downstream comments / attachments lookups — orgs
+                # with multiple Azure projects often import items from
+                # a project that isn't the integration default
+                # (e.g. integration is "Flo - Tech" but the ticket
+                # lives in "Boards Management"). Without this swap
+                # the comments endpoint 404s and the user sees
+                # "Nothing new" even when comments exist.
+                wi_project = (fields.get('project') or '').strip()
+                if wi_project:
+                    cfg['project'] = wi_project
+
+                # Title — strip the "[Azure #N]" prefix import added so
+                # we compare against the actual upstream value, then
+                # re-prefix when persisting (the prefix is what makes
+                # the task searchable / linkable).
+                upstream_title = (fields.get('title') or '').strip()
+                if upstream_title:
+                    prefix = f'[Azure #{task.external_id}] '
+                    current_core = (task.title or '').strip()
+                    if current_core.startswith(prefix):
+                        current_core = current_core[len(prefix):].strip()
+                    if upstream_title != current_core:
+                        # Preserve prefix iff the original title had one
+                        new_title = f'{prefix}{upstream_title}' if (task.title or '').startswith(prefix) else upstream_title
+                        task.title = new_title
+                        title_updated = True
+
+                # Description — fresh upstream + comments. Single-item
+                # imports tack a footer onto the description ("---\n
+                # External Source: …\nLocal Repo Mapping: …") so the
+                # context survives. Detect that footer and re-attach
+                # it after the refresh so it doesn't get blown away.
+                upstream_desc = fields.get('description') or ''
+                enriched = await service._enrich_description_with_azure_comments(
+                    cfg, upstream_desc, task.external_id,
                 )
-                if refreshed and refreshed != (task.description or ''):
-                    task.description = refreshed
+                footer = ''
+                marker = '\n\n---\nExternal Source:'
+                if task.description and marker in task.description:
+                    footer = task.description[task.description.index(marker):]
+                new_desc = f'{enriched}{footer}' if footer else enriched
+                if new_desc and new_desc != (task.description or ''):
+                    task.description = new_desc
+                    description_updated = True
+
+                if title_updated or description_updated:
                     db.add(task)
                     await db.commit()
-                    description_updated = True
     except Exception:
-        # Description refresh is opportunistic — never blocks the
-        # attachment side of the refresh.
+        # Title / description refresh is opportunistic — never blocks
+        # the attachment side of the refresh.
         pass
 
     new_count = 0
@@ -1428,7 +1471,7 @@ async def refresh_task_from_source(
 
     return RefreshFromSourceResponse(
         new_attachments=new_count,
-        description_updated=description_updated,
+        description_updated=(description_updated or title_updated),
     )
 
 
