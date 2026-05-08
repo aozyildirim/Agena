@@ -1106,6 +1106,27 @@ export default function TaskDetailPage() {
           items.push({ label: t('taskDetail.lastUpdate'), value: new Date(latestLog.created_at).toLocaleTimeString() });
         }
 
+        // Source work-item link (Azure / Jira) — gives the user a one-
+        // click jump back to the original ticket from the same strip
+        // they'd use to open the PR. Only shown when we can resolve a
+        // real URL (we know the org/project for Azure, or jira base
+        // url for Jira). For Azure we prefer the linked AB# id when
+        // present, falling back to external_id from the import.
+        const srcStr = (task?.source || '').toLowerCase();
+        const srcId = task?.external_work_item_id || task?.external_id || '';
+        let sourceHref = '';
+        let sourceLabel = '';
+        if (srcStr === 'azure' && azureOrgUrl && azureProject && /^\d+$/.test(String(srcId))) {
+          sourceHref = `${azureOrgUrl.replace(/\/$/, '')}/${encodeURIComponent(azureProject)}/_workitems/edit/${srcId}`;
+          sourceLabel = `Azure #${srcId}`;
+        } else if (srcStr === 'jira' && jiraBaseUrl && srcId) {
+          sourceHref = `${jiraBaseUrl.replace(/\/$/, '')}/browse/${encodeURIComponent(String(srcId))}`;
+          sourceLabel = `Jira ${srcId}`;
+        }
+        if (sourceHref) {
+          items.push({ label: t('taskDetail.source' as never) || 'Source', value: sourceLabel, href: sourceHref });
+        }
+
         // PR / Azure links — one chip per assignment with a PR URL,
         // or task.pr_url for legacy single-repo tasks. Stats strip is
         // the first thing the user looks at, so this is the right
@@ -1130,7 +1151,13 @@ export default function TaskDetailPage() {
           });
         }
 
-        if (items.length === 0) return null;
+        // Whether the strip should also render the Refresh-from-source
+        // button. Mirrors the gate on the attachments-section button
+        // so the two sit consistently — only Azure/Jira-sourced tasks
+        // can be re-pulled.
+        const showRefreshChip = !!task && (task.source === 'azure' || task.source === 'jira') && !!task.external_id;
+
+        if (items.length === 0 && !showRefreshChip) return null;
 
         return (
           <section
@@ -1167,11 +1194,34 @@ export default function TaskDetailPage() {
                 ) : (
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{it.value}</span>
                 )}
-                {i < items.length - 1 && !isMobile && (
+                {(i < items.length - 1 || showRefreshChip) && !isMobile && (
                   <span aria-hidden style={{ marginLeft: 12, color: 'var(--ink-22)' }}>·</span>
                 )}
               </div>
             ))}
+            {showRefreshChip && (
+              <button
+                type='button'
+                onClick={() => void onRefreshFromSource()}
+                disabled={refreshingFromSource}
+                title={lang === 'tr' ? 'Kaynaktan yorumları + ekleri tekrar çek' : 'Re-pull comments + attachments from source'}
+                style={{
+                  marginLeft: 'auto',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 11, fontWeight: 700,
+                  padding: '5px 10px', borderRadius: 8,
+                  border: '1px solid var(--panel-border-2)',
+                  background: 'var(--panel-alt)',
+                  color: 'var(--ink-78)',
+                  cursor: refreshingFromSource ? 'wait' : 'pointer',
+                  opacity: refreshingFromSource ? 0.6 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: 12 }}>{refreshingFromSource ? '⏳' : '🔄'}</span>
+                {lang === 'tr' ? 'Kaynaktan yenile' : 'Refresh from source'}
+              </button>
+            )}
           </section>
         );
       })()}
@@ -1196,17 +1246,6 @@ export default function TaskDetailPage() {
                     {t('tasks.attachments.title' as TranslationKey)} {attachments.length > 0 ? `(${attachments.length})` : ''}
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {(task.source === 'azure' || task.source === 'jira') && task.external_id && (
-                      <button
-                        type='button'
-                        onClick={() => void onRefreshFromSource()}
-                        disabled={refreshingFromSource}
-                        title={lang === 'tr' ? 'Kaynaktan yorumları + ekleri tekrar çek' : 'Re-pull comments + attachments from source'}
-                        style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: refreshingFromSource ? 'wait' : 'pointer', fontWeight: 600, opacity: refreshingFromSource ? 0.6 : 1 }}
-                      >
-                        {refreshingFromSource ? '⏳' : '🔄'} {lang === 'tr' ? 'Kaynaktan yenile' : 'Refresh from source'}
-                      </button>
-                    )}
                     <label style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
                       + {t('tasks.attachments.add' as TranslationKey)}
                       <input
