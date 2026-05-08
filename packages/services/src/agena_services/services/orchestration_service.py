@@ -218,6 +218,16 @@ class OrchestrationService:
             'task_id': task_id, 'status': 'running', 'title': task.title,
         })
 
+        # Best-effort: nudge the upstream tracker (Jira / Azure) into
+        # its "In Progress" state so the human assignee can see that
+        # the AI took the ticket. Failures are logged but never block
+        # the run — workflow sync is convenience, not correctness.
+        try:
+            from agena_services.services.workflow_sync_service import WorkflowSyncService
+            await WorkflowSyncService(self.db_session).on_task_start(task)
+        except Exception as _ws_exc:
+            logger.info('Workflow sync (start) skipped for task %s: %s', task.id, _ws_exc)
+
         repo_mapping = await self._resolve_repo_mapping(task, assignment_id=assignment_id)
         routing = self._extract_task_routing(task, repo_mapping)
 
@@ -379,6 +389,7 @@ class OrchestrationService:
                 description=(effective_description or '')[:3000],
                 touched_files=None,
                 limit=3,
+                local_repo_path=routing.local_repo_path,
             )
             if _skill_hits:
                 # Only strong + related tiers earn a slot in the prompt.
@@ -581,7 +592,42 @@ class OrchestrationService:
                 if not _is_local and not _is_remote:
                     raise ValueError('MCP Agent mode requires a repository (local path or remote repo mapping).')
 
-                _repo_label = routing.local_repo_path or routing.remote_repo or 'unknown'
+                # Worktree isolation — MCP agent edits files in place, so
+                # without a worktree two concurrent runs against the same
+                # checkout would clobber each other (and the user's own
+                # working tree). Mirrors what claude_cli does. Local-only;
+                # remote MCP runs operate over an HTTP file API and have
+                # nothing on disk to isolate.
+                _mcp_workspace_path = routing.local_repo_path
+                _mcp_worktree_path: str | None = None
+                if _is_local:
+                    _mcp_base_ref: str | None = None
+                    if revision_id and revision_assignment and revision_assignment.branch_name:
+                        _mcp_base_ref = revision_assignment.branch_name
+                    try:
+                        _mcp_worktree_path = ClaudeCLIService._create_worktree(
+                            routing.local_repo_path,
+                            str(task.id),
+                            base_ref=_mcp_base_ref,
+                        )
+                    except Exception as _wt_exc:
+                        # Best-effort: fall back to direct repo if worktree
+                        # creation fails. Logged so the user can debug
+                        # (most common cause: repo isn't a git repo, or
+                        # disk space).
+                        await task_service.add_log(
+                            task.id, organization_id, 'agent',
+                            f'MCP worktree create failed, falling back to repo root: {str(_wt_exc)[:200]}',
+                        )
+                        _mcp_worktree_path = None
+                    if _mcp_worktree_path:
+                        _mcp_workspace_path = _mcp_worktree_path
+                        await task_service.add_log(
+                            task.id, organization_id, 'agent',
+                            f'MCP worktree created: {_mcp_worktree_path}',
+                        )
+
+                _repo_label = _mcp_workspace_path or routing.remote_repo or 'unknown'
                 await task_service.add_log(
                     task.id, organization_id, 'agent',
                     f"MCP Agent started (model={routing.preferred_agent_model or 'default'}, "
@@ -623,7 +669,7 @@ class OrchestrationService:
                 # Load CLAUDE.md / agents.md for initial orientation
                 _mcp_agents_md: str | None = None
                 if _is_local:
-                    _mcp_repo_root = Path(routing.local_repo_path).expanduser().resolve()
+                    _mcp_repo_root = Path(_mcp_workspace_path).expanduser().resolve()
                     for _guide_name in ('CLAUDE.md', 'agents.md', 'AGENTS.md'):
                         _mcp_agents_path = _mcp_repo_root / _guide_name
                         if _mcp_agents_path.is_file():
@@ -1616,6 +1662,18 @@ class OrchestrationService:
             task.status = 'completed'
             task.pr_url = pr_url
             task.branch_name = branch_name
+
+            # PR landed → mirror to upstream tracker (Jira / Azure).
+            # Guarded on a non-empty pr_url because completion without
+            # a remote PR (unmapped repo, push fail, dry-run) must
+            # NOT advance the ticket to "In Review" — that would lie
+            # to the human assignee about a PR that doesn't exist.
+            if (pr_url or '').strip():
+                try:
+                    from agena_services.services.workflow_sync_service import WorkflowSyncService
+                    await WorkflowSyncService(self.db_session).on_pr_opened(task)
+                except Exception as _ws_exc:
+                    logger.info('Workflow sync (pr_opened) skipped for task %s: %s', task.id, _ws_exc)
 
             # Mirror the completion onto the matching TaskRepoAssignment row
             # (multi-repo path creates one row per mapping at import time).
