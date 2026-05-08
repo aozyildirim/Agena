@@ -244,5 +244,168 @@ async def pr_merged_webhook(
             logger.warning('Failed to auto-resolve Sentry issue for task #%s: %s', task.id, exc)
             result['sentry_error'] = str(exc)
 
+    # Mirror the merge to the upstream tracker (Jira / Azure) so the
+    # ticket lands in its terminal state without any manual click.
+    # Best-effort, separate try/except so a failure here cannot mask
+    # the Sentry resolve result returned above.
+    if task.source in ('jira', 'azure') and task.external_id:
+        try:
+            from agena_services.services.workflow_sync_service import WorkflowSyncService
+            await WorkflowSyncService(db).on_pr_merged(task)
+            result['workflow_synced'] = True
+        except Exception as exc:
+            logger.warning('Workflow sync (pr_merged) failed for task #%s: %s', task.id, exc)
+            result['workflow_sync_error'] = str(exc)
+
     return result
 
+
+def _extract_jira_status_change(payload: dict[str, Any]) -> tuple[str, str] | None:
+    """Pull (issue_key, new_status_name) from a Jira issue webhook.
+
+    Jira fires this on every issue update; we only care about the ones that
+    moved status. Detection: a `changelog.items[]` entry with field=='status',
+    or an `issue_event_type_name` of 'issue_generic'/'issue_status_changed'.
+    """
+    issue = payload.get('issue') if isinstance(payload.get('issue'), dict) else {}
+    key = str(issue.get('key') or '').strip()
+    if not key:
+        return None
+
+    changelog = payload.get('changelog') if isinstance(payload.get('changelog'), dict) else {}
+    items = changelog.get('items') if isinstance(changelog.get('items'), list) else []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get('field') or '').strip().lower() == 'status':
+            new_value = str(item.get('toString') or item.get('to') or '').strip()
+            if new_value:
+                return key, new_value
+    # Fallback: take the issue's *current* status if the changelog wasn't sent
+    # (some Jira automation rules omit it). We still only get here from a
+    # webhook subscription the customer wired specifically for status changes.
+    fields = issue.get('fields') if isinstance(issue.get('fields'), dict) else {}
+    status = fields.get('status') if isinstance(fields.get('status'), dict) else {}
+    name = str((status or {}).get('name') or '').strip()
+    if name:
+        return key, name
+    return None
+
+
+@router.post('/jira-issue-changed')
+async def jira_issue_changed_webhook(
+    request: Request,
+    x_agena_webhook_secret: str | None = Header(default=None, alias='X-Agena-Webhook-Secret'),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """Inbound Jira webhook — when an issue's status changes externally,
+    sync the linked Agena task to the matching Kanban column.
+
+    Configure Jira: System → WebHooks → URL
+        https://api.agena.dev/webhooks/jira-issue-changed
+    Events: 'Issue Updated' (and optionally 'Issue Created'). Set the
+    secret in the X-Agena-Webhook-Secret header if PR_WEBHOOK_SECRET is
+    configured server-side.
+    """
+    settings = get_settings()
+    expected = (settings.pr_webhook_secret or '').strip()
+    if expected:
+        provided = (x_agena_webhook_secret or '').strip()
+        if provided != expected:
+            raise HTTPException(status_code=401, detail='Invalid webhook secret')
+
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail='Invalid payload')
+
+    extracted = _extract_jira_status_change(payload)
+    if not extracted:
+        return {'status': 'ignored', 'reason': 'no_status_change'}
+    issue_key, new_status = extracted
+
+    from agena_services.services.kanban_sync_service import KanbanSyncService
+
+    sync = KanbanSyncService(db)
+    result = await sync.apply_remote_change(
+        source='jira', external_id=issue_key, external_status=new_status,
+    )
+    return {'status': 'ok', **result}
+
+
+def _extract_azure_status_change(payload: dict[str, Any]) -> tuple[str, str] | None:
+    """Pull (work_item_id, new_state) from an Azure DevOps work-item webhook.
+
+    Azure fires `workitem.updated` with `resource.fields['System.State']` as
+    `{'oldValue': ..., 'newValue': ...}` whenever the State changes. The
+    `workitem.created` event sends a flat `resource.fields` dict instead.
+    """
+    resource = payload.get('resource') if isinstance(payload.get('resource'), dict) else {}
+    work_item_id = str(
+        resource.get('workItemId')
+        or resource.get('id')
+        or (resource.get('revision') or {}).get('id')
+        or ''
+    ).strip()
+    if not work_item_id:
+        # Some service hooks nest the work item under resource.revision
+        rev = resource.get('revision') if isinstance(resource.get('revision'), dict) else {}
+        work_item_id = str(rev.get('id') or '').strip()
+    if not work_item_id:
+        return None
+
+    fields = resource.get('fields') if isinstance(resource.get('fields'), dict) else {}
+    state_field = fields.get('System.State')
+    new_value = ''
+    if isinstance(state_field, dict):
+        new_value = str(state_field.get('newValue') or '').strip()
+    elif isinstance(state_field, str):
+        new_value = state_field.strip()
+    if not new_value:
+        # `workitem.updated` sometimes only carries the changed-fields delta;
+        # fall back to the full revision snapshot in resource.revision.fields
+        rev = resource.get('revision') if isinstance(resource.get('revision'), dict) else {}
+        rev_fields = rev.get('fields') if isinstance(rev.get('fields'), dict) else {}
+        new_value = str(rev_fields.get('System.State') or '').strip()
+    if not new_value:
+        return None
+    return work_item_id, new_value
+
+
+@router.post('/azure-work-item-changed')
+async def azure_work_item_changed_webhook(
+    request: Request,
+    x_agena_webhook_secret: str | None = Header(default=None, alias='X-Agena-Webhook-Secret'),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """Inbound Azure DevOps webhook — when a work item's State changes
+    externally, sync the linked Agena task.
+
+    Configure Azure DevOps: Project Settings → Service Hooks → New
+    subscription → 'Work item updated' → URL
+        https://api.agena.dev/webhooks/azure-work-item-changed
+    Filter to State changes if you want to keep traffic low. Use the
+    custom HTTP header X-Agena-Webhook-Secret to authenticate.
+    """
+    settings = get_settings()
+    expected = (settings.pr_webhook_secret or '').strip()
+    if expected:
+        provided = (x_agena_webhook_secret or '').strip()
+        if provided != expected:
+            raise HTTPException(status_code=401, detail='Invalid webhook secret')
+
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail='Invalid payload')
+
+    extracted = _extract_azure_status_change(payload)
+    if not extracted:
+        return {'status': 'ignored', 'reason': 'no_state_change'}
+    work_item_id, new_state = extracted
+
+    from agena_services.services.kanban_sync_service import KanbanSyncService
+
+    sync = KanbanSyncService(db)
+    result = await sync.apply_remote_change(
+        source='azure', external_id=work_item_id, external_status=new_state,
+    )
+    return {'status': 'ok', **result}

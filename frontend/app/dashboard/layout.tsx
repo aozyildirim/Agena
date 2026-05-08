@@ -35,6 +35,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'boss_mode', wsPerm: 'pages:office' },
       { href: '/dashboard/tasks', key: 'nav.tasks', icon: '📋', permission: 'tasks:read' as const, module: 'core' },
+      { href: '/dashboard/board', key: 'nav.board', icon: '📌', permission: 'tasks:read' as const, module: 'core' },
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const, module: 'sprints' },
       { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'refinement:run' },
       { href: '/dashboard/triage', key: 'nav.triage', icon: '🧹', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },

@@ -10,6 +10,7 @@ near the top.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
@@ -21,6 +22,64 @@ from agena_models.models.skill import Skill
 from agena_models.schemas.skill import SkillCreate, SkillHit, SkillUpdate
 
 logger = logging.getLogger(__name__)
+
+
+# File extensions that unambiguously imply a programming language.
+# Documentation / config / data extensions are intentionally absent —
+# a `.md` or `.json` doesn't tell us whether a PHP-specific skill is
+# applicable to a Python or TS repo.
+_EXT_TO_LANG: dict[str, str] = {
+    '.php': 'php',
+    '.py': 'python',
+    '.go': 'go',
+    '.rb': 'ruby',
+    '.rs': 'rust',
+    '.java': 'java',
+    '.kt': 'kotlin',
+    '.scala': 'scala',
+    '.cs': 'csharp',
+    '.swift': 'swift',
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.js': 'javascript',
+    '.jsx': 'javascript',
+    '.cpp': 'cpp', '.cc': 'cpp', '.hpp': 'cpp',
+    '.c': 'c', '.h': 'c',
+}
+
+# In-memory cache of {abs_path → frozenset[lang]}. Skills are looked
+# up on every task run; a repo's file-extension distribution doesn't
+# shift minute-to-minute, so memoising the walk keeps this cheap.
+_REPO_LANG_CACHE: dict[str, frozenset[str]] = {}
+
+_LANG_SCAN_SKIP_DIRS = {
+    '.git', 'node_modules', 'vendor', 'venv', '.venv',
+    'dist', 'build', '__pycache__', '.next', 'target',
+}
+
+# Maps a tag / pattern_type token (case-folded) to a normalised language
+# id. The structured `tags` array on each Skill is the publisher's
+# declaration of intent — when a tag like "php" or "django" is present
+# we trust it instead of guessing from prose. Aliases collapse the
+# common framework / variant names onto their host language.
+_TAG_TO_LANG: dict[str, str] = {
+    'php': 'php',
+    'python': 'python', 'py': 'python', 'django': 'python',
+    'flask': 'python', 'fastapi': 'python',
+    'go': 'go', 'golang': 'go',
+    'ruby': 'ruby', 'rails': 'ruby',
+    'rust': 'rust',
+    'java': 'java', 'spring': 'java',
+    'kotlin': 'kotlin',
+    'scala': 'scala',
+    'csharp': 'csharp', 'c#': 'csharp', '.net': 'csharp', 'dotnet': 'csharp',
+    'swift': 'swift',
+    'typescript': 'typescript', 'ts': 'typescript', 'tsx': 'typescript',
+    'javascript': 'javascript', 'js': 'javascript',
+    'node': 'javascript', 'nodejs': 'javascript', 'node.js': 'javascript',
+    'cpp': 'cpp', 'c++': 'cpp',
+    'c': 'c',
+}
 
 
 class SkillService:
@@ -158,10 +217,17 @@ class SkillService:
         description: str = '',
         touched_files: list[str] | None = None,
         limit: int = 3,
+        local_repo_path: str | None = None,
     ) -> list[SkillHit]:
         """Top-K skills most relevant to an incoming task. Called by agents
         before they plan or write code, so prior solutions reach the LLM
-        as grounding."""
+        as grounding.
+
+        ``local_repo_path`` enables a language gate: a skill whose
+        touched_files imply (say) PHP is dropped when the target repo
+        contains zero ``.php`` files. Prevents cross-language bleed-over
+        when the embedding model rates a Turkish title as 0.6+ similar to
+        a PHP skill purely on linguistic shape."""
         if not self.memory.enabled:
             return []
         query = self._embed_text(
@@ -213,6 +279,13 @@ class SkillService:
             for s in (await self.db.execute(stmt)).scalars().all():
                 skills_by_id[s.id] = s
 
+        # Language gate — drop skills whose touched_files imply a
+        # language the target repo doesn't contain. We only filter when
+        # the skill's language signal is unambiguous AND we successfully
+        # scanned the repo; absent either signal we keep the hit (the
+        # vector score already cleared the threshold).
+        repo_langs = self._repo_languages(local_repo_path)
+
         out: list[SkillHit] = []
         for r in filtered[:limit]:
             try:
@@ -222,6 +295,23 @@ class SkillService:
             skill = skills_by_id.get(sid)
             if skill is None:
                 continue
+
+            if repo_langs is not None:
+                # Use the skill's own structured metadata (tags +
+                # pattern_type) as the primary language signal, with
+                # touched_files as a secondary fallback. Skills whose
+                # publisher didn't tag a language stay unfiltered — we
+                # never invent a signal from free-form text.
+                skill_langs = (
+                    self._lang_from_tags(skill.tags, skill.pattern_type)
+                    | self._lang_from_paths(skill.touched_files)
+                )
+                if skill_langs and not (skill_langs & repo_langs):
+                    logger.info(
+                        'Skill %s (%s) dropped by language gate: skill=%s repo=%s',
+                        skill.id, (skill.name or '')[:60], sorted(skill_langs), sorted(repo_langs),
+                    )
+                    continue
             score = float(r.get('_score') or 0.0)
             if score >= self.TIER_STRONG_SCORE:
                 tier = 'strong'
@@ -301,6 +391,71 @@ class SkillService:
         return '\n'.join(lines)
 
     # ----- Internals -----
+
+    @staticmethod
+    def _lang_from_paths(paths: list[str] | None) -> set[str]:
+        """Map a list of file paths to the set of languages they imply,
+        using extension. Empty when none of the paths have a recognised
+        source extension (e.g. all .md / .json — language-agnostic skill)."""
+        out: set[str] = set()
+        for p in paths or []:
+            ext = os.path.splitext(str(p))[1].lower()
+            lang = _EXT_TO_LANG.get(ext)
+            if lang:
+                out.add(lang)
+        return out
+
+    @staticmethod
+    def _lang_from_tags(tags: list[str] | None, pattern_type: str | None) -> set[str]:
+        """Resolve languages declared by the publisher in the skill's
+        ``tags`` array (and ``pattern_type`` as a single-token fallback).
+        Unknown tokens are ignored — generic skills like
+        ``tags=['error-handling']`` produce the empty set, so the gate
+        leaves them alone."""
+        out: set[str] = set()
+        for tok in list(tags or []) + ([pattern_type] if pattern_type else []):
+            norm = str(tok or '').strip().lower()
+            lang = _TAG_TO_LANG.get(norm)
+            if lang:
+                out.add(lang)
+        return out
+
+    @staticmethod
+    def _repo_languages(local_repo_path: str | None) -> frozenset[str] | None:
+        """Walk the checkout once and cache the set of languages with
+        at least one source file. Returns None when the path is missing
+        or unusable so callers can fall back to no-filter behaviour
+        (better to keep a possibly-irrelevant skill than to silently
+        drop everything)."""
+        if not local_repo_path:
+            return None
+        cached = _REPO_LANG_CACHE.get(local_repo_path)
+        if cached is not None:
+            return cached
+        if not os.path.isdir(local_repo_path):
+            return None
+        found: set[str] = set()
+        file_count = 0
+        # Cap the walk: we only need to know which languages are
+        # present, not enumerate every file. Vendor / build dirs are
+        # pruned because they routinely contain code in unrelated
+        # languages (e.g. node_modules in a Python repo).
+        for dirpath, dirnames, filenames in os.walk(local_repo_path):
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in _LANG_SCAN_SKIP_DIRS and not d.startswith('.')
+            ]
+            for fn in filenames:
+                ext = os.path.splitext(fn)[1].lower()
+                lang = _EXT_TO_LANG.get(ext)
+                if lang:
+                    found.add(lang)
+            file_count += len(filenames)
+            if file_count > 8000:
+                break
+        result = frozenset(found)
+        _REPO_LANG_CACHE[local_repo_path] = result
+        return result
 
     async def _get_owned(self, organization_id: int, skill_id: int) -> Skill | None:
         stmt = select(Skill).where(

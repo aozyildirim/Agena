@@ -606,6 +606,66 @@ class JiraClient:
             parts.append(JiraClient._flatten_adf_text(child))
         return ''.join(parts).strip()
 
+    async def transition_issue(
+        self,
+        *,
+        cfg: dict[str, str] | None,
+        issue_key: str,
+        target_status: str,
+    ) -> str | None:
+        """Move a Jira issue to the named workflow state.
+
+        Jira does not let you set `status` directly — you fetch the list of
+        available transitions for the current state and POST the transition
+        whose target status matches. Returns the transition id used, or
+        None when no matching transition exists (caller can decide whether
+        that is fatal for sync).
+        """
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(issue_key or '').strip()
+        target = str(target_status or '').strip()
+        if not base_url or not key or not target:
+            raise ValueError('Jira base_url, issue_key and target_status are required')
+
+        host = base_url.rstrip('/')
+        target_norm = self._normalize_status(target)
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(
+                f'{host}/rest/api/3/issue/{key}/transitions',
+                auth=(email, api_token),
+            )
+            resp.raise_for_status()
+            transitions = (resp.json() or {}).get('transitions', []) or []
+            picked: dict[str, Any] | None = None
+            for tr in transitions:
+                if not isinstance(tr, dict):
+                    continue
+                to = tr.get('to') if isinstance(tr.get('to'), dict) else {}
+                if self._normalize_status((to or {}).get('name')) == target_norm:
+                    picked = tr
+                    break
+                if self._normalize_status(tr.get('name')) == target_norm:
+                    picked = tr
+                    break
+            if not picked:
+                logger.info(
+                    'Jira: no transition to %r for %s (available: %s)',
+                    target, key,
+                    [str((t.get('to') or {}).get('name', '')) for t in transitions if isinstance(t, dict)],
+                )
+                return None
+            tr_id = str(picked.get('id') or '').strip()
+            if not tr_id:
+                return None
+            post = await client.post(
+                f'{host}/rest/api/3/issue/{key}/transitions',
+                json={'transition': {'id': tr_id}},
+                auth=(email, api_token),
+            )
+            if post.status_code >= 400:
+                raise RuntimeError(f'Jira transition {post.status_code}: {post.text[:200]}')
+        return tr_id
+
     async def writeback_refinement(
         self,
         *,

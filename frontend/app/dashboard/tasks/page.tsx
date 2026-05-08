@@ -77,6 +77,8 @@ function sourceLabel(s: string, t: (key: TranslationKey, vars?: Record<string, s
 // Six row buttons made the actions cell wrap onto two lines and hurt
 // readability — Run + Review stay inline as primary, Details/Edit/Share/
 // Delete collapse in here so the row stays one-line at any width.
+// The dropdown is portal-rendered (position:fixed) so it escapes any
+// overflow:hidden ancestor and always floats above the task list.
 function RowActionsKebab({
   items,
   ariaLabel,
@@ -93,11 +95,40 @@ function RowActionsKebab({
   ariaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const compute = () => {
+      if (!btnRef.current) return;
+      const rect = btnRef.current.getBoundingClientRect();
+      const menuH = menuRef.current?.offsetHeight ?? 200;
+      const menuW = 180;
+      const margin = 8;
+      const fitsBelow = rect.bottom + menuH + margin <= window.innerHeight;
+      const top = fitsBelow ? rect.bottom + 4 : Math.max(margin, rect.top - menuH - 4);
+      let left = Math.min(rect.right - menuW, window.innerWidth - menuW - margin);
+      if (left < margin) left = margin;
+      setCoords({ top, left });
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    window.addEventListener('scroll', compute, true);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', compute, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        btnRef.current && !btnRef.current.contains(e.target as Node) &&
+        menuRef.current && !menuRef.current.contains(e.target as Node)
+      ) setOpen(false);
     }
     function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false); }
     document.addEventListener('mousedown', handleClickOutside);
@@ -107,11 +138,64 @@ function RowActionsKebab({
       document.removeEventListener('keydown', handleKey);
     };
   }, [open]);
+
   const visible = items.filter((it) => !it.hidden);
   if (visible.length === 0) return null;
+
+  const menu = open && coords ? createPortal(
+    <div
+      ref={menuRef}
+      role='menu'
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'fixed', top: coords.top, left: coords.left, zIndex: 9999,
+        minWidth: 160, padding: 4, borderRadius: 10,
+        border: '1px solid var(--panel-border-3)', background: 'var(--surface, var(--panel))',
+        boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+        display: 'grid', gap: 1,
+      }}
+    >
+      {visible.map((it) => {
+        const inner = (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 16, display: 'inline-flex', justifyContent: 'center' }}>{it.icon}</span>
+            {it.label}
+          </span>
+        );
+        const baseStyle: React.CSSProperties = {
+          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+          borderRadius: 8, border: 'none', background: 'transparent', textAlign: 'left',
+          fontSize: 12, fontWeight: 600,
+          color: it.danger ? '#f87171' : 'var(--ink-78)',
+          cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none',
+        };
+        if (it.href) {
+          return (
+            <a key={it.key} href={it.href} style={baseStyle}
+              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              {inner}
+            </a>
+          );
+        }
+        return (
+          <button key={it.key} type='button' style={baseStyle}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick(); }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            {inner}
+          </button>
+        );
+      })}
+    </div>,
+    document.body,
+  ) : null;
+
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+    <div style={{ display: 'inline-flex' }}>
       <button
+        ref={btnRef}
         type='button'
         aria-label={ariaLabel}
         aria-expanded={open}
@@ -125,52 +209,7 @@ function RowActionsKebab({
       >
         ⋮
       </button>
-      {open && (
-        <div
-          role='menu'
-          style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 30,
-            minWidth: 160, padding: 4, borderRadius: 10,
-            border: '1px solid var(--panel-border-3)', background: 'var(--surface, var(--panel))',
-            boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
-            display: 'grid', gap: 1,
-          }}
-        >
-          {visible.map((it) => {
-            const inner = (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 16, display: 'inline-flex', justifyContent: 'center' }}>{it.icon}</span>
-                {it.label}
-              </span>
-            );
-            const baseStyle: React.CSSProperties = {
-              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
-              borderRadius: 8, border: 'none', background: 'transparent', textAlign: 'left',
-              fontSize: 12, fontWeight: 600,
-              color: it.danger ? '#f87171' : 'var(--ink-78)',
-              cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none',
-            };
-            if (it.href) {
-              return (
-                <a key={it.key} href={it.href} style={baseStyle}
-                  onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                  {inner}
-                </a>
-              );
-            }
-            return (
-              <button key={it.key} type='button' style={baseStyle}
-                onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick(); }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                {inner}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {menu}
     </div>
   );
 }
@@ -3046,4 +3085,3 @@ function AttachedFilePreview({ file, onRemove }: { file: File; onRemove: () => v
     </div>
   );
 }
-

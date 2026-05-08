@@ -218,6 +218,15 @@ class OrchestrationService:
             'task_id': task_id, 'status': 'running', 'title': task.title,
         })
 
+        # Best-effort: nudge the upstream tracker (Jira / Azure) into its
+        # "In Progress" state so the human assignee can see the AI took
+        # the ticket. Failures here are logged but never block the run.
+        try:
+            from agena_services.services.workflow_sync_service import WorkflowSyncService
+            await WorkflowSyncService(self.db_session).on_task_start(task)
+        except Exception as _ws_exc:
+            logger.info('Workflow sync (start) skipped for task %s: %s', task.id, _ws_exc)
+
         repo_mapping = await self._resolve_repo_mapping(task, assignment_id=assignment_id)
         routing = self._extract_task_routing(task, repo_mapping)
 
@@ -379,6 +388,7 @@ class OrchestrationService:
                 description=(effective_description or '')[:3000],
                 touched_files=None,
                 limit=3,
+                local_repo_path=routing.local_repo_path,
             )
             if _skill_hits:
                 # Only strong + related tiers earn a slot in the prompt.
@@ -1616,6 +1626,15 @@ class OrchestrationService:
             task.status = 'completed'
             task.pr_url = pr_url
             task.branch_name = branch_name
+
+            # PR is live → mirror to the upstream tracker. Done before
+            # commit so the state push and the local row land in the
+            # same logical "PR opened" moment from the user's POV.
+            try:
+                from agena_services.services.workflow_sync_service import WorkflowSyncService
+                await WorkflowSyncService(self.db_session).on_pr_opened(task)
+            except Exception as _ws_exc:
+                logger.info('Workflow sync (pr_opened) skipped for task %s: %s', task.id, _ws_exc)
 
             # Mirror the completion onto the matching TaskRepoAssignment row
             # (multi-repo path creates one row per mapping at import time).

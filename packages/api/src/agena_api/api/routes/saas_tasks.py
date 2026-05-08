@@ -797,6 +797,91 @@ async def update_task(
     return await _to_task_response(service, tenant.organization_id, task)
 
 
+class KanbanCardItem(BaseModel):
+    id: int
+    title: str
+    column: str
+    status: str
+    source: str
+    external_id: str | None = None
+    assigned_to: str | None = None
+    pr_url: str | None = None
+    priority: str | None = None
+    repo_mapping_name: str | None = None
+
+
+class KanbanBoardResponse(BaseModel):
+    columns: list[str]
+    cards_by_column: dict[str, list[KanbanCardItem]]
+
+
+@router.get('/kanban/board', response_model=KanbanBoardResponse)
+async def get_kanban_board(
+    tenant: CurrentTenant = Depends(require_permission('tasks:read')),
+    db: AsyncSession = Depends(get_db_session),
+) -> KanbanBoardResponse:
+    """Return all tasks for the active org grouped by Kanban column."""
+    from agena_models.models.task_record import TaskRecord
+    from agena_services.services.kanban_sync_service import KANBAN_COLUMNS, KanbanSyncService
+
+    rows = list((await db.execute(
+        select(TaskRecord)
+        .where(TaskRecord.organization_id == tenant.organization_id)
+        .order_by(TaskRecord.id.desc())
+    )).scalars().all())
+
+    cards_by_column: dict[str, list[KanbanCardItem]] = {col: [] for col in KANBAN_COLUMNS}
+    for r in rows:
+        col = KanbanSyncService.column_for_internal_status(r.status)
+        cards_by_column.setdefault(col, []).append(KanbanCardItem(
+            id=r.id,
+            title=r.title or '',
+            column=col,
+            status=r.status or '',
+            source=r.source or 'internal',
+            external_id=r.external_id,
+            assigned_to=getattr(r, 'assigned_to', None),
+            pr_url=getattr(r, 'pr_url', None),
+            priority=getattr(r, 'priority', None),
+            repo_mapping_name=await _get_repo_mapping_name(db, getattr(r, 'repo_mapping_id', None)),
+        ))
+    return KanbanBoardResponse(columns=list(KANBAN_COLUMNS), cards_by_column=cards_by_column)
+
+
+class KanbanStatusUpdateRequest(BaseModel):
+    column: str  # one of: todo | in_progress | review | done
+
+
+@router.patch('/{task_id}/kanban-status', response_model=TaskResponse)
+async def update_task_kanban_status(
+    task_id: int,
+    payload: KanbanStatusUpdateRequest,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> TaskResponse:
+    """Move a task between Kanban columns. Updates the local status and
+    pushes the matching workflow state to the linked Jira issue / Azure
+    DevOps work item. The external push is best-effort — the local status
+    update always lands.
+    """
+    from agena_services.services.kanban_sync_service import KANBAN_COLUMNS, KanbanSyncService
+
+    column = (payload.column or '').strip().lower()
+    if column not in KANBAN_COLUMNS:
+        raise HTTPException(status_code=400, detail=f'Invalid column. Expected one of: {", ".join(KANBAN_COLUMNS)}')
+
+    service = TaskService(db)
+    task = await service.get_task(tenant.organization_id, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail='Task not found')
+
+    sync = KanbanSyncService(db)
+    await sync.apply_local_change(task, column)
+    await db.commit()
+    await db.refresh(task)
+    return await _to_task_response(service, tenant.organization_id, task)
+
+
 class LinkWorkItemRequest(BaseModel):
     external_work_item_id: str | None = None
 
