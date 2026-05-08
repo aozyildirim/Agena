@@ -1039,23 +1039,29 @@ async def cancel_task(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    # Kill active CLI stream on bridge so the process stops immediately
+    # Kill active CLI stream on bridge so the process stops immediately.
+    # task_id alone is enough — the bridge keys activeStreams by
+    # `task:<id>` whenever the worker passes one, which it always does
+    # for orchestrated runs. We log every step explicitly so a silent
+    # cancel-but-process-still-running regression doesn't repeat:
+    # the old except: pass swallowed the error and made it impossible
+    # to tell whether the bridge call even left the API container.
+    import logging
     import os
+    logger = logging.getLogger(__name__)
     bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://host.docker.internal:9876')
     try:
-        repo_path = None
-        if task.repo_mapping_id:
-            from agena_models.models.repo_mapping import RepoMapping
-            rm = await db.get(RepoMapping, task.repo_mapping_id)
-            if rm and rm.local_path:
-                repo_path = rm.local_path
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(
+        async with httpx.AsyncClient(timeout=10) as client:
+            kill_resp = await client.post(
                 f'{bridge_url}/kill-stream',
-                json={'task_id': str(task_id), 'repo_path': repo_path or ''},
+                json={'task_id': str(task_id)},
             )
-    except Exception:
-        pass  # best effort — task is already cancelled in DB
+            logger.info(
+                'cancel_task: kill-stream task_id=%s status=%s body=%s',
+                task_id, kill_resp.status_code, (kill_resp.text or '')[:200],
+            )
+    except Exception as exc:
+        logger.warning('cancel_task: kill-stream failed for task_id=%s: %s', task_id, exc)
 
     return await _to_task_response(service, tenant.organization_id, task)
 
