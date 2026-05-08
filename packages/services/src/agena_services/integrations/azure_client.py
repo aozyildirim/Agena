@@ -610,6 +610,53 @@ class AzureDevOpsClient:
             details_payload = details_payload[:max_items]
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
 
+    async def update_work_item_state(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+        state: str,
+        comment: str | None = None,
+    ) -> None:
+        """Move a work item to the named ``System.State`` value (e.g.
+        ``'Active'``, ``'Resolved'``, ``'Closed'``). Optional comment
+        goes into ``System.History`` so the change is traceable in the
+        Azure UI. Mirrors the writeback pattern in
+        ``writeback_refinement`` but scoped to the state field — used
+        by the workflow sync path which only ever shifts state.
+
+        Raises on 4xx/5xx responses so the caller can fall back to the
+        next candidate state name.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        project = (cfg.get('project') or self.settings.azure_project or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        item_id = str(work_item_id or '').strip()
+        new_state = str(state or '').strip()
+        if not item_id or not new_state:
+            raise ValueError('work_item_id and state are required')
+
+        patch_ops: list[dict[str, Any]] = [
+            {'op': 'add', 'path': '/fields/System.State', 'value': new_state},
+        ]
+        if comment and comment.strip():
+            patch_ops.append({
+                'op': 'add',
+                'path': '/fields/System.History',
+                'value': self._format_comment_html(comment.strip()),
+            })
+
+        prefix = f"{org_url.rstrip('/')}/{project}" if project else org_url.rstrip('/')
+        url = f'{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3'
+        headers = self._headers(pat)
+        headers['Content-Type'] = 'application/json-patch+json'
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.patch(url, headers=headers, json=patch_ops)
+            if response.status_code >= 400:
+                raise RuntimeError(f'Azure {response.status_code}: {response.text[:300]}')
+
     async def writeback_refinement(
         self,
         *,

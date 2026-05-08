@@ -93,25 +93,123 @@ function RowActionsKebab({
   ariaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+  // Position is recomputed from the trigger's bounding rect on every
+  // open. Portaling the menu to <body> via fixed coords escapes any
+  // parent `overflow: hidden` / scroll containers that previously
+  // clipped the dropdown when the row sat near the page bottom.
+  const [pos, setPos] = useState<{ top: number; left: number; flipped: boolean } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  function computePosition() {
+    const btn = triggerRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    // Match the original right-aligned placement: anchor menu's right
+    // edge to the trigger's right edge.
+    const menuWidthEstimate = 200;
+    const menuHeightEstimate = Math.min(items.filter((it) => !it.hidden).length, 6) * 36 + 16;
+    const margin = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    // Flip up when the menu doesn't fully fit below AND there's enough room
+    // above. Falls back to "more-space-wins" so rows near the viewport
+    // bottom open upward instead of getting visually clipped/buried under
+    // sticky chrome or page containers.
+    const fitsBelow = spaceBelow >= menuHeightEstimate + margin;
+    const fitsAbove = spaceAbove >= menuHeightEstimate + margin;
+    const flipUp = !fitsBelow && (fitsAbove || spaceAbove > spaceBelow);
+    const top = flipUp
+      ? Math.max(margin, rect.top - menuHeightEstimate - 6)
+      : Math.min(rect.bottom + 4, window.innerHeight - menuHeightEstimate - margin);
+    const left = Math.min(
+      Math.max(margin, rect.right - menuWidthEstimate),
+      window.innerWidth - menuWidthEstimate - margin,
+    );
+    setPos({ top, left, flipped: flipUp });
+  }
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setPos(null); return; }
+    computePosition();
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
     function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false); }
+    function handleReposition() { computePosition(); }
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKey);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
     };
   }, [open]);
+
   const visible = items.filter((it) => !it.hidden);
   if (visible.length === 0) return null;
+  const menu = (
+    <div
+      ref={menuRef}
+      role='menu'
+      style={{
+        // zIndex sits above the page's modals (10000–10010) so the menu
+        // never disappears behind sticky chrome, overlays, or row hover
+        // effects — a 3-dot click on a row near the bottom of the list
+        // used to render the menu under the next container, making it
+        // look like "nothing happened".
+        position: 'fixed', top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: 10020,
+        minWidth: 180, padding: 4, borderRadius: 10,
+        border: '1px solid var(--panel-border-3)', background: 'var(--surface, var(--panel))',
+        boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+        display: 'grid', gap: 1,
+      }}
+    >
+      {visible.map((it) => {
+        const inner = (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 16, display: 'inline-flex', justifyContent: 'center' }}>{it.icon}</span>
+            {it.label}
+          </span>
+        );
+        const baseStyle: React.CSSProperties = {
+          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+          borderRadius: 8, border: 'none', background: 'transparent', textAlign: 'left',
+          fontSize: 12, fontWeight: 600,
+          color: it.danger ? '#f87171' : 'var(--ink-78)',
+          cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none',
+        };
+        if (it.href) {
+          return (
+            <a key={it.key} href={it.href} style={baseStyle}
+              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              {inner}
+            </a>
+          );
+        }
+        return (
+          <button key={it.key} type='button' style={baseStyle}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick(); }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            {inner}
+          </button>
+        );
+      })}
+    </div>
+  );
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+    <>
       <button
+        ref={triggerRef}
         type='button'
         aria-label={ariaLabel}
         aria-expanded={open}
@@ -125,53 +223,8 @@ function RowActionsKebab({
       >
         ⋮
       </button>
-      {open && (
-        <div
-          role='menu'
-          style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 30,
-            minWidth: 160, padding: 4, borderRadius: 10,
-            border: '1px solid var(--panel-border-3)', background: 'var(--surface, var(--panel))',
-            boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
-            display: 'grid', gap: 1,
-          }}
-        >
-          {visible.map((it) => {
-            const inner = (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 16, display: 'inline-flex', justifyContent: 'center' }}>{it.icon}</span>
-                {it.label}
-              </span>
-            );
-            const baseStyle: React.CSSProperties = {
-              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
-              borderRadius: 8, border: 'none', background: 'transparent', textAlign: 'left',
-              fontSize: 12, fontWeight: 600,
-              color: it.danger ? '#f87171' : 'var(--ink-78)',
-              cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none',
-            };
-            if (it.href) {
-              return (
-                <a key={it.key} href={it.href} style={baseStyle}
-                  onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                  {inner}
-                </a>
-              );
-            }
-            return (
-              <button key={it.key} type='button' style={baseStyle}
-                onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick(); }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                {inner}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+      {open && pos && typeof document !== 'undefined' && createPortal(menu, document.body)}
+    </>
   );
 }
 
@@ -3046,4 +3099,3 @@ function AttachedFilePreview({ file, onRemove }: { file: File; onRemove: () => v
     </div>
   );
 }
-
