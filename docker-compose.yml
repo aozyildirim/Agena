@@ -18,9 +18,18 @@ services:
       - ./alembic:/app/alembic
       - ./data:/app/data
       - ${HOST_REPO_ROOT:-/Users}:${HOST_REPO_ROOT:-/Users}
+    # NOTE: alembic upgrade head runs on every (re)start. The migrations
+    # are written to be idempotent (each one guards CREATE TABLE / ADD
+    # COLUMN with an inspect() check), so this is safe to repeat. We
+    # used to only run migrations from start.sh which meant a plain
+    # `docker-compose restart backend` (or the `--reload` watcher
+    # picking up a fresh checkout) would leave the schema lagging
+    # behind the model and every endpoint that touched the affected
+    # table would 500. Running it at container start time fixes that.
     command: >
       bash -c "pip install -q -e packages/core -e packages/models -e packages/services
       -e packages/agents -e packages/api -e packages/worker
+      && (alembic upgrade head || echo 'WARN: alembic upgrade head failed; starting uvicorn anyway')
       && uvicorn agena_api.api.main:app --host 0.0.0.0 --port 8010 --reload"
     depends_on:
       - mysql
