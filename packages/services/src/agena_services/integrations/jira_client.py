@@ -530,6 +530,43 @@ class JiraClient:
                 results.append((name, bin_resp.content, mime or 'application/octet-stream'))
         return results
 
+    async def fetch_issue_fields(
+        self,
+        *,
+        cfg: dict[str, str] | None,
+        issue_key: str,
+    ) -> dict[str, Any] | None:
+        """Pull the latest summary + description (+ status / assignee) for
+        a single Jira issue. Used by the refresh-from-source path so the
+        task can be rebuilt against whatever has been edited upstream
+        since import. Returns None if the issue can't be fetched.
+        """
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(issue_key or '').strip()
+        if not base_url or not key:
+            return None
+        url = f"{base_url.rstrip('/')}/rest/api/3/issue/{key}"
+        params = {'fields': 'summary,description,status,assignee'}
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, params=params, auth=(email, api_token))
+        except Exception as exc:
+            logger.info('fetch_issue_fields network error for %s: %s', key, exc)
+            return None
+        if resp.status_code != 200:
+            logger.info('fetch_issue_fields HTTP %s for %s', resp.status_code, key)
+            return None
+        data = resp.json() or {}
+        fields = data.get('fields') or {}
+        status = fields.get('status') if isinstance(fields.get('status'), dict) else {}
+        assignee = fields.get('assignee') if isinstance(fields.get('assignee'), dict) else {}
+        return {
+            'title': str(fields.get('summary') or '').strip(),
+            'description': self._parse_jira_description(fields.get('description')),
+            'state': str((status or {}).get('name') or '').strip(),
+            'assigned_to': str((assignee or {}).get('displayName') or '').strip(),
+        }
+
     async def fetch_issue_comments(
         self, *, cfg: dict[str, str] | None, issue_key: str,
     ) -> list[dict[str, Any]]:

@@ -437,6 +437,51 @@ class TaskService:
         )
         return (description or '') + block
 
+    async def _enrich_description_with_jira_comments(
+        self,
+        cfg: dict,
+        description: str,
+        issue_key: str,
+    ) -> str:
+        """Jira mirror of the Azure helper above — pulls the issue's
+        comment thread and appends it to the description so the AI sees
+        clarifications. Best-effort; if fetch fails returns input as-is."""
+        try:
+            comments = await self.jira_client.fetch_issue_comments(
+                cfg=cfg, issue_key=issue_key,
+            )
+        except Exception:
+            return description
+        if not comments:
+            return description
+        # Jira returns newest-first (orderBy=-created); flip to chronological.
+        ordered = list(reversed(comments))
+        import re as _re
+        lines: list[str] = []
+        for idx, c in enumerate(ordered, start=1):
+            text = (c.get('text') or '').strip()
+            if not text:
+                continue
+            text = _re.sub(r'<[^>]+>', '', text)
+            text = (
+                text.replace('&nbsp;', ' ')
+                .replace('&amp;', '&')
+                .replace('&lt;', '<')
+                .replace('&gt;', '>')
+            )
+            text = _re.sub(r'\n{3,}', '\n\n', text).strip()
+            who = c.get('created_by') or 'unknown'
+            when = (c.get('created_at') or '')[:19].replace('T', ' ')
+            header = f'### Comment {idx} — {who}' + (f' ({when})' if when else '')
+            lines.append(f'{header}\n{text}')
+        if not lines:
+            return description
+        block = (
+            f'\n\n---\n## Discussion ({len(lines)} comment{"" if len(lines) == 1 else "s"})\n'
+            + '\n\n'.join(lines)
+        )
+        return (description or '') + block
+
     async def import_from_jira(
         self,
         organization_id: int,

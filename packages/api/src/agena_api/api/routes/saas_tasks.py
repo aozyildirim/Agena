@@ -1456,6 +1456,40 @@ async def refresh_task_from_source(
                 if title_updated or description_updated:
                     db.add(task)
                     await db.commit()
+        elif config and config.secret and src == 'jira':
+            from agena_services.integrations.jira_client import JiraClient
+            jira_cfg = {
+                'base_url': config.base_url or '',
+                'email': config.username or '',
+                'api_token': config.secret,
+            }
+            client = JiraClient()
+            fields = await client.fetch_issue_fields(
+                cfg=jira_cfg, issue_key=task.external_id,
+            )
+            if fields:
+                upstream_title = (fields.get('title') or '').strip()
+                if upstream_title and upstream_title != (task.title or '').strip():
+                    task.title = upstream_title
+                    title_updated = True
+
+                upstream_desc = fields.get('description') or ''
+                enriched = await service._enrich_description_with_jira_comments(
+                    jira_cfg, upstream_desc, task.external_id,
+                )
+                # Preserve the import footer if present (mirrors Azure).
+                footer = ''
+                marker = '\n\n---\nExternal Source:'
+                if task.description and marker in task.description:
+                    footer = task.description[task.description.index(marker):]
+                new_desc = f'{enriched}{footer}' if footer else enriched
+                if new_desc and new_desc != (task.description or ''):
+                    task.description = new_desc
+                    description_updated = True
+
+                if title_updated or description_updated:
+                    db.add(task)
+                    await db.commit()
     except Exception:
         # Title / description refresh is opportunistic — never blocks
         # the attachment side of the refresh.
