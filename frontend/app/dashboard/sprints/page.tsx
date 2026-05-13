@@ -9,6 +9,7 @@ import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
 import { SPRINT_CHANGED_EVENT } from '@/components/SprintSwitcher';
+import RichDescription from '@/components/RichDescription';
 
 type Opt = {
   id: string;
@@ -141,68 +142,6 @@ function toPlainText(input?: string): string {
     .replace(/\u00A0/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function sanitizeWorkItemDescriptionHtml(input?: string): string {
-  if (!input || typeof window === 'undefined') return '';
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(input, 'text/html');
-  const allowedTags = new Set([
-    'a', 'b', 'blockquote', 'br', 'code', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td',
-    'th', 'thead', 'tr', 'u', 'ul',
-  ]);
-  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta']);
-  const allowedUrl = (value: string): boolean => /^(https?:|mailto:|tel:|#|\/)/i.test(value);
-  const allowedImgSrc = (value: string): boolean => /^(https?:|data:image\/|blob:|\/)/i.test(value);
-
-  const elements = Array.from(doc.body.querySelectorAll('*'));
-  elements.forEach((el) => {
-    const tag = el.tagName.toLowerCase();
-    if (blockedTags.has(tag)) {
-      el.remove();
-      return;
-    }
-    if (!allowedTags.has(tag)) {
-      const parent = el.parentNode;
-      while (el.firstChild) parent?.insertBefore(el.firstChild, el);
-      parent?.removeChild(el);
-      return;
-    }
-    Array.from(el.attributes).forEach((attr) => {
-      const name = attr.name.toLowerCase();
-      const value = attr.value.trim();
-      if (name.startsWith('on') || name === 'style') {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag === 'a' && name === 'href' && !allowedUrl(value)) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag === 'img' && name === 'src' && !allowedImgSrc(value)) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag === 'img' && !['src', 'alt', 'title', 'width', 'height'].includes(name)) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag !== 'img' && !['href', 'title', 'target', 'rel', 'colspan', 'rowspan'].includes(name) && name !== 'class') {
-        el.removeAttribute(attr.name);
-      }
-    });
-    if (tag === 'a' && el.getAttribute('href')) {
-      el.setAttribute('target', '_blank');
-      el.setAttribute('rel', 'noopener noreferrer');
-    }
-    if (tag === 'img' && el.getAttribute('src')) {
-      el.setAttribute('loading', 'lazy');
-      el.setAttribute('style', 'max-width:100%;height:auto;border-radius:6px;display:block;margin:8px 0;');
-    }
-  });
-
-  return doc.body.innerHTML.trim();
 }
 
 function truncateText(input: string, max = 110): string {
@@ -1751,7 +1690,6 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   const openDuration  = elapsed(item.created_date);
   const toActiveDuration = item.activated_date ? elapsed(item.created_date, item.activated_date) : null;
   const plainDescription = toPlainText(item.description);
-  const sanitizedDescriptionHtml = useMemo(() => sanitizeWorkItemDescriptionHtml(item.description), [item.description]);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Array<{ id: number; text: string; created_by: string; created_at: string }> | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -1856,10 +1794,10 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-25)', marginBottom: 6 }}>{t('sprints.description')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.6, background: 'var(--panel-alt)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--panel-border)' }}>
-            {sanitizedDescriptionHtml ? (
-              <div
+            {(item.description || '').trim() ? (
+              <RichDescription
+                html={item.description}
                 style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}
-                dangerouslySetInnerHTML={{ __html: sanitizedDescriptionHtml }}
               />
             ) : (
               plainDescription || t('sprints.noDescriptionFound')
@@ -1909,9 +1847,9 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
                       <span style={{ fontWeight: 600, color: 'var(--ink-50)' }}>{c.created_by || '—'}</span>
                       <span>{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
                     </div>
-                    <div
+                    <RichDescription
+                      html={c.text}
                       style={{ fontSize: 12, color: 'var(--ink-78)', lineHeight: 1.5, overflowWrap: 'anywhere' }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeWorkItemDescriptionHtml(c.text) }}
                     />
                   </div>
                 ))
