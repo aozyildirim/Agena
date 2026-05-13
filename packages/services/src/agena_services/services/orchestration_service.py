@@ -440,6 +440,14 @@ class OrchestrationService:
                     async def _codex_log(msg: str) -> None:
                         await task_service.add_log(task.id, organization_id, 'agent', msg)
 
+                    candidate_files = await self._narrow_candidates(
+                        task=task,
+                        task_service=task_service,
+                        organization_id=organization_id,
+                        repo_path=routing.local_repo_path,
+                        effective_description=effective_description,
+                    )
+
                     final_code = await self.codex_cli_service.generate_file_markdown(
                         repo_path=routing.local_repo_path,
                         task_title=task.title,
@@ -449,6 +457,7 @@ class OrchestrationService:
                         api_base_url=None,
                         log_callback=_codex_log,
                         task_id=str(task.id),
+                        candidate_files=candidate_files,
                     )
                     parsed_blocks = self._parse_reviewed_output_to_files(final_code, local_repo_path=routing.local_repo_path)
                     if not parsed_blocks:
@@ -469,6 +478,7 @@ class OrchestrationService:
                                 api_base_url=None,
                                 log_callback=_codex_log,
                                 task_id=str(task.id),
+                                candidate_files=candidate_files,
                             )
                 except Exception as codex_exc:
                     await task_service.add_log(
@@ -508,6 +518,14 @@ class OrchestrationService:
                 async def _cli_log(msg: str) -> None:
                     await task_service.add_log(task.id, organization_id, 'agent', msg)
 
+                candidate_files = await self._narrow_candidates(
+                    task=task,
+                    task_service=task_service,
+                    organization_id=organization_id,
+                    repo_path=routing.local_repo_path,
+                    effective_description=effective_description,
+                )
+
                 try:
                     # Revision flow: branch the worktree off the
                     # existing feature branch so the PR auto-updates
@@ -523,6 +541,7 @@ class OrchestrationService:
                         log_callback=_cli_log,
                         task_id=str(task.id),
                         base_ref=_cli_base_ref,
+                        candidate_files=candidate_files,
                     )
                     parsed_blocks = self._parse_reviewed_output_to_files(final_code, local_repo_path=routing.local_repo_path)
                     if not parsed_blocks:
@@ -541,6 +560,7 @@ class OrchestrationService:
                                 model=routing.preferred_agent_model,
                                 log_callback=_cli_log,
                                 task_id=str(task.id),
+                                candidate_files=candidate_files,
                             )
                 except Exception as claude_exc:
                     await task_service.add_log(
@@ -2192,6 +2212,65 @@ class OrchestrationService:
         if 'api key invalid' in low or 'unauthorized' in low:
             return 'CLI authentication failed: unauthorized'
         return None
+
+    async def _narrow_candidates(
+        self,
+        *,
+        task: Any,
+        task_service: Any,
+        organization_id: int,
+        repo_path: str,
+        effective_description: str,
+    ) -> list[str]:
+        """Embed-based candidate file shortlist for CLI subagents.
+
+        Failure is non-fatal — the CLI just falls back to its own
+        exploration (the previous behavior).
+        """
+        candidate_files: list[str] = []
+        try:
+            from agena_agents.memory.repo_index import RepoFileIndexer
+            indexer = RepoFileIndexer()
+            if not indexer.enabled:
+                return []
+
+            async def _index_log(msg: str) -> None:
+                await task_service.add_log(task.id, organization_id, 'agent', msg)
+
+            await indexer.ensure_indexed(
+                repo_path=repo_path,
+                organization_id=organization_id,
+                log_fn=_index_log,
+            )
+            # Use raw task.description (without the orchestration metadata
+            # appended into effective_description). The indexer strips HTML
+            # internally; we only cap length so a 50KB description doesn't
+            # drown the title's signal.
+            raw_desc = (getattr(task, 'description', '') or '')[:2000]
+            candidate_files = await indexer.query_candidates(
+                task_text=f'{task.title}\n\n{raw_desc}',
+                repo_path=repo_path,
+                organization_id=organization_id,
+                top_k=8,
+            )
+            if candidate_files:
+                preview = ', '.join(candidate_files[:5])
+                suffix = '…' if len(candidate_files) > 5 else ''
+                await task_service.add_log(
+                    task.id, organization_id, 'agent',
+                    f'Candidate files: {preview}{suffix}',
+                )
+            else:
+                await task_service.add_log(
+                    task.id, organization_id, 'agent',
+                    'No semantic candidates returned; CLI will self-explore.',
+                )
+        except Exception as idx_exc:
+            await task_service.add_log(
+                task.id, organization_id, 'agent',
+                f'Repo index unavailable, CLI will self-explore: {str(idx_exc)[:200]}',
+            )
+        return candidate_files
 
     def _with_strict_file_block_format(self, description: str) -> str:
         return (

@@ -181,3 +181,101 @@ async def delete_repo_mapping(
         raise HTTPException(404, 'Repo mapping not found')
     await db.delete(mapping)
     await db.commit()
+
+
+class RepoIndexStatus(BaseModel):
+    indexed: bool
+    points_count: int
+    head_sha: str | None
+    local_repo_path: str | None
+    current_head_sha: str | None
+    is_fresh: bool
+
+
+@router.get('/index-status', response_model=RepoIndexStatus)
+async def get_repo_index_status(
+    path: str,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+) -> RepoIndexStatus:
+    """Inspect the repo_files index for a given on-disk repo path. The
+    indexer keys points by `(organization_id, repo_root)`, so the same
+    path string the orchestrator passes in is the lookup key here.
+    """
+    if not path:
+        return RepoIndexStatus(
+            indexed=False, points_count=0, head_sha=None,
+            local_repo_path=None, current_head_sha=None, is_fresh=False,
+        )
+
+    from agena_agents.memory.repo_index import RepoFileIndexer
+    indexer = RepoFileIndexer()
+    if not indexer.enabled:
+        return RepoIndexStatus(
+            indexed=False, points_count=0, head_sha=None,
+            local_repo_path=path, current_head_sha=None, is_fresh=False,
+        )
+
+    current_sha = indexer._head_sha(path)
+    stored_sha: str | None = None
+    points_count = 0
+    try:
+        await indexer.ensure_collection()
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+        flt = Filter(must=[
+            FieldCondition(key='organization_id', match=MatchValue(value=int(tenant.organization_id))),
+            FieldCondition(key='repo_root', match=MatchValue(value=indexer._normalize_path(path))),
+        ])
+        count_resp = await indexer.client.count(
+            collection_name='repo_files', count_filter=flt, exact=True,
+        )
+        points_count = int(getattr(count_resp, 'count', 0) or 0)
+        if points_count > 0:
+            batch, _ = await indexer.client.scroll(
+                collection_name='repo_files',
+                scroll_filter=flt,
+                limit=1, with_payload=True, with_vectors=False,
+            )
+            if batch:
+                stored_sha = (batch[0].payload or {}).get('head_sha')
+    except Exception:
+        pass
+
+    return RepoIndexStatus(
+        indexed=points_count > 0,
+        points_count=points_count,
+        head_sha=stored_sha,
+        local_repo_path=path,
+        current_head_sha=current_sha or None,
+        is_fresh=bool(stored_sha and current_sha and stored_sha == current_sha),
+    )
+
+
+@router.post('/reindex', status_code=202)
+async def reindex_repo_mapping(
+    path: str,
+    tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
+):
+    """Fire-and-forget reindex: drops the existing points for this repo
+    and rebuilds from the current on-disk source. Returns 202; poll
+    `/repo-mappings/index-status` to watch progress.
+    """
+    import asyncio
+    if not path:
+        raise HTTPException(400, 'path query param is required')
+
+    from agena_agents.memory.repo_index import RepoFileIndexer
+    indexer = RepoFileIndexer()
+    if not indexer.enabled:
+        raise HTTPException(503, 'Qdrant is disabled; cannot reindex')
+
+    org_id = tenant.organization_id
+
+    async def _bg():
+        try:
+            await indexer._delete_for_repo(repo_path=path, organization_id=org_id)
+            await indexer.ensure_indexed(repo_path=path, organization_id=org_id)
+        except Exception:
+            pass
+
+    asyncio.create_task(_bg())
+    return {'status': 'reindex_started', 'path': path}

@@ -23,10 +23,20 @@ class CodexCLIService:
         api_base_url: str | None = None,
         log_callback=None,
         task_id: str = '',
+        candidate_files: list[str] | None = None,
     ) -> str:
         # Always let Codex CLI pick its own default model —
         # ChatGPT accounts don't support explicit model selection
         model = None
+
+        candidate_section = ''
+        if candidate_files:
+            bullets = '\n'.join(f'- {p}' for p in candidate_files[:10])
+            candidate_section = (
+                '\nCANDIDATE FILES (semantic match on this task — open these first, '
+                'do NOT scan the whole repo):\n'
+                f'{bullets}\n'
+            )
 
         codex_bin = shutil.which('codex')
         if not codex_bin:
@@ -41,6 +51,7 @@ class CodexCLIService:
                 api_base_url=api_base_url,
                 log_callback=log_callback,
                 task_id=task_id,
+                candidate_files=candidate_files,
             )
 
         repo = Path(repo_path).expanduser().resolve()
@@ -65,6 +76,7 @@ class CodexCLIService:
             '- Do not output explanations, only file blocks.\n\n'
             f'Task title: {task_title}\n'
             f'Task description:\n{task_description}\n'
+            f'{candidate_section}'
         )
 
         with tempfile.NamedTemporaryFile(prefix='codex-last-', suffix='.txt', delete=False) as tmp:
@@ -308,11 +320,19 @@ class CodexCLIService:
         api_base_url: str | None = None,
         log_callback=None,
         task_id: str = '',
+        candidate_files: list[str] | None = None,
     ) -> str:
         """Call CLI bridge HTTP server running on host."""
         import httpx
 
         bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+        candidate_section = ''
+        if candidate_files:
+            bullets = '\n'.join(f'- {p}' for p in candidate_files[:10])
+            candidate_section = (
+                '\nCANDIDATE FILES (semantic match — open these first, do NOT scan the whole repo):\n'
+                f'{bullets}\n'
+            )
         prompt = (
             'Implement the task in the CURRENT repository and return ONLY markdown file blocks in this format:\n'
             '**File: relative/path.ext**\n'
@@ -329,6 +349,7 @@ class CodexCLIService:
             '- Do not output explanations, only file blocks.\n\n'
             f'Task title: {task_title}\n'
             f'Task description:\n{task_description}\n'
+            f'{candidate_section}'
         )
 
         payload: dict = {

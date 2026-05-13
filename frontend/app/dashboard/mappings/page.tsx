@@ -84,6 +84,8 @@ export default function RepoMappingsPage() {
   const [hasGithubIntegration, setHasGithubIntegration] = useState(false);
   const [repoProfiles, setRepoProfiles] = useState<Record<string, RepoProfileSummary>>({});
   const [scanningId, setScanningId] = useState<string | null>(null);
+  type IndexStatus = { indexed: boolean; points_count: number; head_sha: string | null; is_fresh: boolean; current_head_sha: string | null };
+  const [indexStatuses, setIndexStatuses] = useState<Record<string, IndexStatus | 'loading' | 'error' | 'reindexing'>>({});
   const [agentsMdContent, setAgentsMdContent] = useState<string | null>(null);
   const [agentsMdViewId, setAgentsMdViewId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Array<{ name: string; is_default: boolean }>>([]);
@@ -219,6 +221,53 @@ export default function RepoMappingsPage() {
     setPendingRepoUrl('');
     setPendingRepoName('');
   }, [pendingRepoUrl, repos]);
+
+  useEffect(() => {
+    const paths = items.map((m) => m.local_path).filter(Boolean);
+    if (!paths.length) return;
+    let cancelled = false;
+    setIndexStatuses((prev) => {
+      const next = { ...prev };
+      for (const p of paths) if (!next[p]) next[p] = 'loading';
+      return next;
+    });
+    Promise.all(paths.map((p) =>
+      apiFetch<IndexStatus>(`/repo-mappings/index-status?path=${encodeURIComponent(p)}`)
+        .then((res) => ({ p, res, err: null as Error | null }))
+        .catch((err) => ({ p, res: null, err }))
+    )).then((rows) => {
+      if (cancelled) return;
+      setIndexStatuses((prev) => {
+        const next = { ...prev };
+        for (const r of rows) {
+          if (r.res) next[r.p] = r.res;
+          else next[r.p] = 'error';
+        }
+        return next;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [items]);
+
+  async function reindexMapping(localPath: string) {
+    setIndexStatuses((prev) => ({ ...prev, [localPath]: 'reindexing' }));
+    try {
+      await apiFetch(`/repo-mappings/reindex?path=${encodeURIComponent(localPath)}`, { method: 'POST' });
+      const poll = async () => {
+        for (let i = 0; i < 60; i += 1) {
+          await new Promise((r) => setTimeout(r, 5000));
+          try {
+            const res = await apiFetch<IndexStatus>(`/repo-mappings/index-status?path=${encodeURIComponent(localPath)}`);
+            setIndexStatuses((prev) => ({ ...prev, [localPath]: res }));
+            if (res.is_fresh) return;
+          } catch { /* keep polling */ }
+        }
+      };
+      void poll();
+    } catch {
+      setIndexStatuses((prev) => ({ ...prev, [localPath]: 'error' }));
+    }
+  }
 
   async function persist(next: RepoMapping[]) {
     setSaving(true);
@@ -874,6 +923,48 @@ export default function RepoMappingsPage() {
                   ) : (
                     <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('mappings.notScanned')}</div>
                   )}
+                  {m.local_path && (() => {
+                    const st = indexStatuses[m.local_path];
+                    let badge: { label: string; color: string; bg: string; border: string };
+                    let title = '';
+                    if (st === 'loading' || st === undefined) {
+                      badge = { label: 'RAG · checking…', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.3)' };
+                    } else if (st === 'reindexing') {
+                      badge = { label: 'RAG · reindexing…', color: '#c4b5fd', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)' };
+                    } else if (st === 'error') {
+                      badge = { label: 'RAG · status unavailable', color: '#fca5a5', bg: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.3)' };
+                    } else if (!st.indexed) {
+                      badge = { label: 'RAG · not indexed yet', color: '#fcd34d', bg: 'rgba(252,211,77,0.10)', border: 'rgba(252,211,77,0.3)' };
+                    } else if (st.is_fresh) {
+                      badge = { label: `RAG · indexed (${st.points_count})`, color: '#86efac', bg: 'rgba(34,197,94,0.10)', border: 'rgba(34,197,94,0.3)' };
+                      title = `HEAD ${(st.head_sha || '').slice(0, 8)}`;
+                    } else {
+                      badge = { label: `RAG · stale (${st.points_count}, HEAD moved)`, color: '#fdba74', bg: 'rgba(249,115,22,0.10)', border: 'rgba(249,115,22,0.3)' };
+                      title = `indexed: ${(st.head_sha || '').slice(0, 8)} · current: ${(st.current_head_sha || '').slice(0, 8)}`;
+                    }
+                    const inProgress = st === 'reindexing' || st === 'loading';
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        <span title={title} style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: badge.color, background: badge.bg, border: `1px solid ${badge.border}` }}>
+                          {badge.label}
+                        </span>
+                        <button
+                          onClick={() => void reindexMapping(m.local_path)}
+                          disabled={inProgress}
+                          style={{
+                            padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                            border: '1px solid rgba(167,139,250,0.35)',
+                            background: 'rgba(167,139,250,0.10)',
+                            color: '#c4b5fd',
+                            cursor: inProgress ? 'not-allowed' : 'pointer',
+                            opacity: inProgress ? 0.6 : 1,
+                          }}
+                        >
+                          Reindex
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     <button
                       onClick={() => void runProfileScan(m)}

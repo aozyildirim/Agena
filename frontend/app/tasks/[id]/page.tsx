@@ -139,6 +139,47 @@ function stageColor(stage: string): string {
   return map[stage] ?? '#94a3b8';
 }
 
+function isRagLog(log: { stage: string; message: string }): boolean {
+  if (log.stage !== 'agent') return false;
+  const m = log.message;
+  return (
+    m.startsWith('Indexing ') ||
+    m.startsWith('Repo indexed') ||
+    m.startsWith('Repo index up to date') ||
+    m.startsWith('Repo index unavailable') ||
+    m.startsWith('Repo index skipped') ||
+    m.startsWith('Candidate files:') ||
+    m.startsWith('No semantic candidates')
+  );
+}
+
+function indexingProgress(logs: { stage: string; message: string; created_at?: string }[]): { active: boolean; done: number; total: number } | null {
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    const l = logs[i];
+    if (!isRagLog(l)) continue;
+    const m = l.message;
+    if (
+      m.startsWith('Repo indexed:') ||
+      m.startsWith('Repo index up to date') ||
+      m.startsWith('Candidate files:') ||
+      m.startsWith('No semantic') ||
+      m.startsWith('Repo index unavailable') ||
+      m.startsWith('Repo index skipped')
+    ) {
+      return null; // indexing settled; no banner
+    }
+    const batch = m.match(/batch \d+\/(\d+) \((\d+)\/(\d+) files\)/);
+    if (batch) {
+      return { active: true, done: Number(batch[2]), total: Number(batch[3]) };
+    }
+    const start = m.match(/^Indexing (\d+) files/);
+    if (start) {
+      return { active: true, done: 0, total: Number(start[1]) };
+    }
+  }
+  return null;
+}
+
 function parseRunMetrics(logs: TaskLog[]) {
   const item = [...logs].reverse().find((l) => l.stage === 'run_metrics');
   if (!item) return null;
@@ -1862,16 +1903,46 @@ export default function TaskDetailPage() {
                 maxHeight: 420,
               }}
             >
+              {(() => {
+                const progress = indexingProgress(activeRunLogs);
+                if (!progress) return null;
+                const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+                return (
+                  <div style={{
+                    marginBottom: 8, padding: '8px 10px', borderRadius: 8,
+                    border: '1px solid rgba(167,139,250,0.35)', background: 'rgba(167,139,250,0.08)',
+                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#c4b5fd',
+                  }}>
+                    <span style={{ fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase' }}>RAG Index</span>
+                    <span>
+                      First-time indexing this repo · {progress.done}/{progress.total} files ({pct}%)
+                      · subsequent tasks skip this step
+                    </span>
+                    <div style={{ flex: 1, height: 4, borderRadius: 4, background: 'rgba(167,139,250,0.15)', overflow: 'hidden', minWidth: 40 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: '#a78bfa', transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                );
+              })()}
               {activeRunLogs.length === 0 ? (
                 <div style={{ color: 'var(--ink-30)' }}>Waiting for agent output...</div>
               ) : (
                 activeRunLogs.map((log, idx) => {
-                  const color = stageColor(log.stage);
+                  const isRag = isRagLog(log);
+                  const color = isRag ? '#a78bfa' : stageColor(log.stage);
+                  const stageLabel = isRag ? 'RAG' : log.stage;
                   const ts = new Date(log.created_at).toLocaleTimeString();
                   return (
-                    <div key={`${log.id || idx}-term`} style={{ marginBottom: 2, display: 'flex', gap: 0 }}>
+                    <div key={`${log.id || idx}-term`} style={{
+                      marginBottom: 2,
+                      display: 'flex',
+                      gap: 0,
+                      background: isRag ? 'rgba(167,139,250,0.06)' : undefined,
+                      borderLeft: isRag ? '2px solid rgba(167,139,250,0.45)' : undefined,
+                      paddingLeft: isRag ? 6 : 0,
+                    }}>
                       <span style={{ color: 'var(--ink-25)', minWidth: 70, flexShrink: 0 }}>{ts}</span>
-                      <span style={{ color, fontWeight: 700, minWidth: 110, flexShrink: 0, textTransform: 'uppercase', fontSize: 11, paddingTop: 1 }}>{log.stage}</span>
+                      <span style={{ color, fontWeight: 700, minWidth: 110, flexShrink: 0, textTransform: 'uppercase', fontSize: 11, paddingTop: 1 }}>{stageLabel}</span>
                       <span style={{
                         color: log.stage === 'failed' ? '#fca5a5' : 'var(--ink-78)',
                         whiteSpace: 'pre-wrap',

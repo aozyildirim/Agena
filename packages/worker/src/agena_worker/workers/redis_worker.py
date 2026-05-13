@@ -560,8 +560,24 @@ async def _run_single_task(payload: dict) -> None:
                 await queue_service.release_lock(lock_key, lock_owner)
 
 
+async def _warmup_embedder() -> None:
+    """Load the local embedding model at worker startup so the first
+    task doesn't pay the ~2-minute download + load latency. Failure
+    is non-fatal — the indexer's exception path will surface it
+    again when a task actually needs it.
+    """
+    try:
+        from agena_agents.memory.local_embedder import EMBEDDING_MODEL, embed_texts
+        logger.info('Warming up fastembed model: %s', EMBEDDING_MODEL)
+        await embed_texts(['warmup'])
+        logger.info('Embedding model ready.')
+    except Exception as exc:
+        logger.warning('Embedder warmup failed (will retry lazily on first task): %s', exc)
+
+
 async def process_queue() -> None:
     queue_service = QueueService()
+    await _warmup_embedder()
     max_workers = max(1, settings.max_workers)
     active_tasks: set[asyncio.Task] = set()
     last_health_check = 0.0

@@ -22,6 +22,9 @@ services:
       # SSH alias forms (e.g. "git@github.com-<profile>:owner/repo.git")
       # via ~/.ssh/config and authenticate with the matching key.
       - ${HOME}/.ssh:/root/.ssh:ro
+      # Persist fastembed model cache across container recreates so the
+      # ~120MB MiniLM download only happens once on this machine.
+      - fastembed_cache:/root/.cache/fastembed
     # NOTE: alembic upgrade head runs on every (re)start. The migrations
     # are written to be idempotent (each one guards CREATE TABLE / ADD
     # COLUMN with an inspect() check), so this is safe to repeat. We
@@ -60,6 +63,9 @@ services:
       # SSH alias forms (e.g. "git@github.com-<profile>:owner/repo.git")
       # via ~/.ssh/config and authenticate with the matching key.
       - ${HOME}/.ssh:/root/.ssh:ro
+      # Persist fastembed model cache across container recreates so the
+      # ~120MB MiniLM download only happens once on this machine.
+      - fastembed_cache:/root/.cache/fastembed
     command: >
       bash -c "pip install -q -e packages/core -e packages/models -e packages/services
       -e packages/agents -e packages/api -e packages/worker
@@ -156,3 +162,4 @@ services:
 volumes:
   mysql_data:
   qdrant_data:
+  fastembed_cache:

@@ -14,6 +14,7 @@ dependencies = [
     "langgraph>=0.6",
     "qdrant-client>=1.15",
     "openai>=1.99",
+    "fastembed>=0.4",
 ]
 
 [tool.setuptools.packages.find]
