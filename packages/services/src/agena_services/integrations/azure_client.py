@@ -378,6 +378,50 @@ class AzureDevOpsClient:
             'project': str(fields.get('System.TeamProject') or '').strip(),
         }
 
+    async def fetch_work_item_match_fields(
+        self,
+        work_item_id: int | str,
+        cfg: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Pull only the fields the IntegrationRule engine matches on
+        (project, work-item type, reporter, tags) for a single work item.
+        Used by the rules "test against a work item" preview. Read-only;
+        returns None if the item can't be fetched."""
+        cfg = cfg or {}
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not pat or not org_url:
+            return None
+        url = (
+            f'{org_url}/_apis/wit/workitems/{work_item_id}'
+            '?fields=System.Title,System.TeamProject,System.WorkItemType,'
+            'System.CreatedBy,System.Tags'
+            '&api-version=7.1-preview.3'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=self._headers(pat))
+        except Exception as exc:
+            logger.info('fetch_work_item_match_fields network error for %s: %s', work_item_id, exc)
+            return None
+        if resp.status_code != 200:
+            logger.info('fetch_work_item_match_fields HTTP %s for %s', resp.status_code, work_item_id)
+            return None
+        fields = (resp.json() or {}).get('fields') or {}
+        created_by = fields.get('System.CreatedBy')
+        if not isinstance(created_by, dict):
+            created_by = {}
+        tags_raw = str(fields.get('System.Tags') or '').strip()
+        tags = [t.strip() for t in tags_raw.split(';') if t.strip()] if tags_raw else []
+        return {
+            'title': str(fields.get('System.Title') or '').strip(),
+            'project': str(fields.get('System.TeamProject') or '').strip(),
+            'work_item_type': str(fields.get('System.WorkItemType') or '').strip(),
+            'reporter_name': str(created_by.get('displayName') or '').strip(),
+            'reporter_email': str(created_by.get('uniqueName') or '').strip(),
+            'tags': tags,
+        }
+
     async def fetch_work_item_attachments(
         self,
         work_item_id: int | str,

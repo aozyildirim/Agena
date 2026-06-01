@@ -567,6 +567,41 @@ class JiraClient:
             'assigned_to': str((assignee or {}).get('displayName') or '').strip(),
         }
 
+    async def fetch_issue_match_fields(
+        self, *, cfg: dict[str, str] | None, issue_key: str,
+    ) -> dict[str, Any] | None:
+        """Pull only the fields the IntegrationRule engine matches on
+        (project, issue type, reporter, labels) for a single Jira issue.
+        Used by the rules 'test against an issue' preview. Read-only."""
+        base_url, email, api_token = self._resolve_config(cfg)
+        key = str(issue_key or '').strip()
+        if not base_url or not key:
+            return None
+        url = f"{base_url.rstrip('/')}/rest/api/3/issue/{key}"
+        params = {'fields': 'summary,project,issuetype,reporter,labels'}
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, params=params, auth=(email, api_token))
+        except Exception as exc:
+            logger.info('fetch_issue_match_fields network error for %s: %s', key, exc)
+            return None
+        if resp.status_code != 200:
+            logger.info('fetch_issue_match_fields HTTP %s for %s', resp.status_code, key)
+            return None
+        fields = (resp.json() or {}).get('fields') or {}
+        project = fields.get('project') if isinstance(fields.get('project'), dict) else {}
+        issuetype = fields.get('issuetype') if isinstance(fields.get('issuetype'), dict) else {}
+        reporter = fields.get('reporter') if isinstance(fields.get('reporter'), dict) else {}
+        labels = fields.get('labels') if isinstance(fields.get('labels'), list) else []
+        return {
+            'title': str(fields.get('summary') or '').strip(),
+            'project': str((project or {}).get('key') or (project or {}).get('name') or '').strip(),
+            'issue_type': str((issuetype or {}).get('name') or '').strip(),
+            'reporter_name': str((reporter or {}).get('displayName') or '').strip(),
+            'reporter_email': str((reporter or {}).get('emailAddress') or '').strip(),
+            'labels': [str(lbl).strip() for lbl in labels if str(lbl).strip()],
+        }
+
     async def fetch_issue_comments(
         self, *, cfg: dict[str, str] | None, issue_key: str,
     ) -> list[dict[str, Any]]:

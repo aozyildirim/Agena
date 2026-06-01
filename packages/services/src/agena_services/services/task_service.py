@@ -198,6 +198,79 @@ class TaskService:
             except Exception:
                 pass
 
+    async def preview_integration_rules(
+        self,
+        organization_id: int,
+        *,
+        provider: str,
+        external_id: str,
+    ) -> dict:
+        """Dry-run the IntegrationRule engine against a single live Jira issue
+        / Azure work item WITHOUT importing it. Returns the source fields, the
+        matched rule ids and the composed action so the UI can let users test
+        their rules. No DB writes — safe to call repeatedly."""
+        from agena_services.services.rule_engine import evaluate_rules
+        if self.db is None:
+            raise ValueError('DB session required')
+        provider = (provider or '').strip().lower()
+        if provider not in ('jira', 'azure'):
+            raise ValueError('provider must be jira or azure')
+        ext = str(external_id or '').strip()
+        if not ext:
+            raise ValueError('work item id / issue key is required')
+
+        config_service = IntegrationConfigService(self.db)
+        config = await config_service.get_config(organization_id, provider)
+        if config is None:
+            raise ValueError(f'{provider} integration is not configured for this organization')
+
+        if provider == 'azure':
+            cfg = {'org_url': config.base_url, 'pat': config.secret, 'project': config.project or ''}
+            fields = await self.azure_client.fetch_work_item_match_fields(ext, cfg)
+        else:
+            cfg = {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
+            fields = await self.jira_client.fetch_issue_match_fields(cfg=cfg, issue_key=ext)
+
+        if not fields:
+            return {'found': False, 'external_id': ext}
+
+        item_type = fields.get('work_item_type') or fields.get('issue_type') or ''
+        item_labels = fields.get('tags') or fields.get('labels') or []
+        payload = {
+            'reporter_email': fields.get('reporter_email'),
+            'reporter_name': fields.get('reporter_name'),
+            'created_by_email': fields.get('reporter_email'),
+            'created_by_name': fields.get('reporter_name'),
+            'created_by': fields.get('reporter_name'),
+            'work_item_type': item_type,
+            'issue_type': item_type,
+            'project': fields.get('project'),
+            'tags': item_labels,
+            'labels': item_labels,
+        }
+        action = await evaluate_rules(
+            self.db, organization_id=organization_id, provider=provider, payload=payload,
+        )
+        return {
+            'found': True,
+            'external_id': ext,
+            'title': fields.get('title') or '',
+            'fields': {
+                'project': fields.get('project') or '',
+                'type': item_type,
+                'reporter': fields.get('reporter_name') or fields.get('reporter_email') or '',
+                'labels': item_labels,
+            },
+            'matched_rule_ids': action.matched_rule_ids,
+            'action': {
+                'tags': action.tags,
+                'priority': action.priority,
+                'repo_mapping_id': action.repo_mapping_id,
+                'flow_id': action.flow_id,
+                'agent_role': action.agent_role,
+            },
+        }
+
     async def create_task_from_external(
         self,
         organization_id: int,

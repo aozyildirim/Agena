@@ -36,6 +36,14 @@ interface IntegrationRule {
 }
 
 interface RepoMapping { id: number; provider: string; owner: string; repo_name: string }
+interface RuleTestResult {
+  found: boolean;
+  external_id: string;
+  title?: string;
+  fields?: { project: string; type: string; reporter: string; labels: string[] };
+  matched_rule_ids?: number[];
+  action?: { tags: string[]; priority: string | null; repo_mapping_id: number | null; flow_id: string | null; agent_role: string | null };
+}
 interface JiraReporter { email: string; display_name: string }
 interface JiraIssueType { name: string; icon_url: string | null }
 interface JiraLabel { name: string }
@@ -169,6 +177,10 @@ export default function IntegrationRulesPage() {
   const [editingRule, setEditingRule] = useState<IntegrationRule | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
+  const [testInput, setTestInput] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<RuleTestResult | null>(null);
+
   useEffect(() => {
     void loadRules();
     void loadRepos();
@@ -257,6 +269,35 @@ export default function IntegrationRulesPage() {
       void loadRules();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Update failed');
+    }
+  }
+
+  function parseItemId(input: string): string {
+    const s = input.trim();
+    if (!s) return '';
+    if (/^https?:\/\//i.test(s)) {
+      const m = s.match(/([A-Za-z][A-Za-z0-9]*-\d+|\d+)(?:[/?#].*)?$/);
+      if (m) return m[1];
+      return s.split('/').filter(Boolean).pop() || '';
+    }
+    return s;
+  }
+
+  async function runTest() {
+    const id = parseItemId(testInput);
+    if (!id) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await apiFetch<RuleTestResult>('/integration-rules/test', {
+        method: 'POST',
+        body: JSON.stringify({ provider, work_item_id: id }),
+      });
+      setTestResult(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Test failed');
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -445,6 +486,57 @@ export default function IntegrationRulesPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Test against a live item (dry-run, no import) */}
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{ color: 'var(--acc)', display: 'inline-flex' }}><NavIcon name='activity' size={16} /></span>
+          <span style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13 }}>{t('integrationRules.testTitle')}</span>
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--ink-58)', lineHeight: 1.5, marginBottom: 10 }}>{t('integrationRules.testHint')}</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            value={testInput}
+            onChange={(e) => setTestInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void runTest(); }}
+            placeholder={provider === 'jira' ? 'PROJ-123  ·  https://…/browse/PROJ-123' : '63318  ·  https://dev.azure.com/…/_workitems/edit/63318'}
+            style={{ flex: 1, minWidth: 240, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-90)', fontSize: 13 }}
+          />
+          <button onClick={() => void runTest()} disabled={testing || !testInput.trim()} style={{ ...btnPrimary, opacity: testing || !testInput.trim() ? 0.5 : 1 }}>
+            {testing ? '…' : t('integrationRules.testBtn')}
+          </button>
+        </div>
+        {testResult && (testResult.found ? (
+          <div style={{ marginTop: 12, border: '1px solid var(--panel-border)', borderRadius: 8, background: 'var(--surface)', padding: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 6 }}>#{testResult.external_id} {testResult.title}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {testResult.fields?.project && <Pill color='#3f9d6a'><span style={{ opacity: 0.7 }}>project=</span>{testResult.fields.project}</Pill>}
+              {testResult.fields?.type && <Pill color='#5b9bd5'><span style={{ opacity: 0.7 }}>type=</span>{testResult.fields.type}</Pill>}
+              {testResult.fields?.reporter && <Pill color='#5b9bd5'><span style={{ opacity: 0.7 }}>reporter=</span>{testResult.fields.reporter}</Pill>}
+              {testResult.fields?.labels?.map((l) => <Pill key={l} color='#c98a2b'>{l}</Pill>)}
+            </div>
+            {(testResult.matched_rule_ids?.length ?? 0) === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--ink-50)' }}>{t('integrationRules.testNoMatch')}</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('integrationRules.testMatched')}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {testResult.matched_rule_ids!.map((id) => { const r = rules.find((x) => x.id === id); return <Pill key={id} color='#5b9bd5'>{r ? r.name : `#${id}`}</Pill>; })}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('integrationRules.testWillApply')}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {testResult.action?.tags?.map((tg) => <Pill key={tg} color='#3f9d6a'>tag:{tg}</Pill>)}
+                  {testResult.action?.priority && <Pill color='#cf5b57'>priority:{testResult.action.priority}</Pill>}
+                  {testResult.action?.repo_mapping_id != null && (() => { const r = repos.find((x) => x.id === testResult.action!.repo_mapping_id); return <Pill color='#5b9bd5'>repo:{r ? `${r.owner}/${r.repo_name}` : `#${testResult.action!.repo_mapping_id}`}</Pill>; })()}
+                  {testResult.action?.agent_role && <Pill color='#c98a2b'>agent:{testResult.action.agent_role}</Pill>}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div style={{ marginTop: 12, fontSize: 12, color: '#cf5b57' }}>{t('integrationRules.testNotFound')}</div>
+        ))}
       </div>
 
       {(showAdd || editingRule) && typeof document !== 'undefined' && createPortal(
