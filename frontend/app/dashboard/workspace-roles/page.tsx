@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions';
 import Forbidden from '@/components/Forbidden';
+import NavIcon from '@/components/NavIcon';
 
 type PermissionItem = { key: string; label: string };
 type PermissionGroup = { group: string; label: string; icon: string; permissions: PermissionItem[] };
@@ -144,7 +145,7 @@ export default function WorkspaceRolesPage() {
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink-90)' }}>{t('workspaceRoles.title')}</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)' }}>{t('workspaceRoles.title')}</h1>
         <p style={{ fontSize: 13, color: 'var(--ink-30)', marginTop: 4 }}>{t('workspaceRoles.subtitle')}</p>
       </div>
 
@@ -164,16 +165,16 @@ export default function WorkspaceRolesPage() {
                   style={{
                     textAlign: 'left',
                     padding: '12px 14px',
-                    borderRadius: 12,
-                    border: `1px solid ${activeId === r.id ? 'rgba(124,58,237,0.55)' : 'var(--panel-border-2)'}`,
-                    background: activeId === r.id ? 'rgba(124,58,237,0.10)' : 'var(--panel)',
+                    borderRadius: 10,
+                    border: `1px solid ${activeId === r.id ? 'var(--acc)' : 'var(--panel-border-2)'}`,
+                    background: activeId === r.id ? 'var(--acc-soft)' : 'var(--panel)',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 10,
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 14 }}>{r.name}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 14 }}>{r.name}</span>
                       {r.is_builtin ? <span style={pillBuiltin}>built-in</span> : null}
                       {r.is_default_for_new_members ? <span style={pillDefault}>default</span> : null}
                     </div>
@@ -184,12 +185,13 @@ export default function WorkspaceRolesPage() {
               <button
                 onClick={() => { setCreating(true); setError(''); }}
                 style={{
-                  textAlign: 'left', padding: '12px 14px', borderRadius: 12,
-                  border: '1px dashed var(--panel-border-3)', background: 'transparent',
+                  textAlign: 'left', padding: '12px 14px', borderRadius: 10,
+                  border: '1px dashed var(--panel-border)', background: 'transparent',
                   cursor: 'pointer', color: 'var(--ink-78)', fontWeight: 600, fontSize: 13,
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}
               >
-                + {t('workspaceRoles.addCustom')}
+                <NavIcon name="plus" size={16} /> {t('workspaceRoles.addCustom')}
               </button>
             </>
           )}
@@ -198,7 +200,7 @@ export default function WorkspaceRolesPage() {
         {/* Matrix editor */}
         {creating ? (
           <div style={detailPanel}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 16 }}>{t('workspaceRoles.newRoleTitle')}</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 16 }}>{t('workspaceRoles.newRoleTitle')}</h2>
             <div style={{ display: 'grid', gap: 12, maxWidth: 480 }}>
               <Input label={t('workspaceRoles.nameLabel')} value={newName} onChange={setNewName} placeholder={t('workspaceRoles.namePlaceholder')} />
               <Input label={t('workspaceRoles.descLabel')} value={newDesc} onChange={setNewDesc} placeholder={t('workspaceRoles.descPlaceholder')} />
@@ -217,18 +219,18 @@ export default function WorkspaceRolesPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 10 }}>
                   {active.is_builtin ? (
-                    <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>{active.name}</h2>
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>{active.name}</h2>
                   ) : (
                     <input
                       value={pendingName}
                       onChange={(e) => setPendingName(e.target.value)}
-                      style={{ fontSize: 18, fontWeight: 800, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', flex: 1, minWidth: 0, outline: 'none' }}
+                      style={{ fontSize: 18, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-90)', flex: 1, minWidth: 0, outline: 'none' }}
                     />
                   )}
                   {active.is_builtin ? <span style={pillBuiltin}>built-in</span> : null}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-78)', cursor: ownerLocked ? 'not-allowed' : 'pointer', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-78)', cursor: ownerLocked ? 'not-allowed' : 'pointer', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)' }}>
                     <input type="checkbox" checked={pendingDefault} onChange={(e) => setPendingDefault(e.target.checked)} disabled={ownerLocked} />
                     {t('workspaceRoles.defaultForNewMembers')}
                   </label>
@@ -245,22 +247,22 @@ export default function WorkspaceRolesPage() {
                 value={pendingDesc}
                 onChange={(e) => setPendingDesc(e.target.value)}
                 placeholder={t('workspaceRoles.descPlaceholder')}
-                style={{ marginTop: 10, width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-78)', fontSize: 13, outline: 'none' }}
+                style={{ marginTop: 10, width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-78)', fontSize: 13, outline: 'none' }}
               />
             </div>
 
             {ownerLocked ? (
-              <div style={{ padding: 12, borderRadius: 10, background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.30)', color: 'var(--ink-78)', fontSize: 13, marginBottom: 16 }}>
+              <div style={{ padding: 12, borderRadius: 10, background: 'rgba(201,138,43,0.10)', border: '1px solid rgba(201,138,43,0.30)', color: 'var(--ink-78)', fontSize: 13, marginBottom: 16 }}>
                 {t('workspaceRoles.ownerLocked')}
               </div>
             ) : null}
 
             <div style={{ display: 'grid', gap: 14 }}>
               {catalog.map((group) => (
-                <div key={group.group} style={{ borderRadius: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 14 }}>
+                <div key={group.group} style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <span style={{ fontSize: 18 }}>{group.icon}</span>
-                    <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-58)' }}>{group.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-58)' }}>{group.label}</span>
                     <button
                       onClick={() => {
                         if (ownerLocked) return;
@@ -271,7 +273,7 @@ export default function WorkspaceRolesPage() {
                         }
                         setPendingPerms(next);
                       }}
-                      style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-58)', cursor: ownerLocked ? 'not-allowed' : 'pointer' }}
+                      style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: ownerLocked ? 'not-allowed' : 'pointer' }}
                     >
                       {group.permissions.every((p) => pendingPerms.has(p.key)) ? t('workspaceRoles.deselectAll') : t('workspaceRoles.selectAll')}
                     </button>
@@ -296,8 +298,8 @@ export default function WorkspaceRolesPage() {
                             textAlign: 'left',
                             padding: '8px 12px',
                             borderRadius: 8,
-                            background: on ? 'rgba(124,58,237,0.08)' : 'transparent',
-                            border: `1px solid ${on ? 'rgba(124,58,237,0.30)' : 'var(--panel-border-2)'}`,
+                            background: on ? 'var(--acc-soft)' : 'transparent',
+                            border: `1px solid ${on ? 'var(--acc)' : 'var(--panel-border-2)'}`,
                             cursor: ownerLocked ? 'not-allowed' : 'pointer',
                             opacity: ownerLocked ? 0.6 : 1,
                             font: 'inherit',
@@ -308,8 +310,8 @@ export default function WorkspaceRolesPage() {
                             aria-hidden
                             style={{
                               width: 16, height: 16, borderRadius: 4,
-                              border: `1.5px solid ${on ? '#7c3aed' : 'var(--panel-border-3)'}`,
-                              background: on ? '#7c3aed' : 'transparent',
+                              border: `1.5px solid ${on ? 'var(--acc)' : 'var(--panel-border)'}`,
+                              background: on ? 'var(--acc)' : 'transparent',
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                               color: '#fff', fontSize: 11, lineHeight: 1, fontWeight: 800,
                             }}
@@ -317,7 +319,7 @@ export default function WorkspaceRolesPage() {
                             {on ? '✓' : ''}
                           </span>
                           <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 10, rowGap: 2, minWidth: 0 }}>
-                            <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, color: '#a78bfa', fontWeight: 700, whiteSpace: 'nowrap' }}>{p.key}</span>
+                            <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, color: 'var(--acc)', fontWeight: 700, whiteSpace: 'nowrap' }}>{p.key}</span>
                             <span style={{ fontSize: 12, color: 'var(--ink-78)', lineHeight: 1.45 }}>{p.label}</span>
                           </span>
                         </button>
@@ -351,16 +353,16 @@ function Input({ label, value, onChange, placeholder }: { label: string; value: 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-90)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
       />
     </div>
   );
 }
 
-const btnPrimary: React.CSSProperties = { padding: '8px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' };
-const btnSecondary: React.CSSProperties = { padding: '8px 14px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
-const btnDanger: React.CSSProperties = { padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.10)', color: '#dc2626', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
-const errorBox: React.CSSProperties = { padding: '10px 14px', borderRadius: 10, background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)', color: '#dc2626', fontSize: 13, marginBottom: 16 };
-const detailPanel: React.CSSProperties = { padding: 20, borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)' };
-const pillBuiltin: React.CSSProperties = { fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: 'rgba(124,58,237,0.15)', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1 };
-const pillDefault: React.CSSProperties = { fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: 'rgba(34,197,94,0.15)', color: '#22c55e', textTransform: 'uppercase', letterSpacing: 1 };
+const btnPrimary: React.CSSProperties = { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--acc)', background: 'var(--acc)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
+const btnSecondary: React.CSSProperties = { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-90)', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
+const btnDanger: React.CSSProperties = { padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.10)', color: '#cf5b57', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
+const errorBox: React.CSSProperties = { padding: '10px 14px', borderRadius: 8, background: 'rgba(207,91,87,0.10)', border: '1px solid rgba(207,91,87,0.35)', color: '#cf5b57', fontSize: 13, marginBottom: 16 };
+const detailPanel: React.CSSProperties = { padding: 20, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)' };
+const pillBuiltin: React.CSSProperties = { fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textTransform: 'uppercase', letterSpacing: 1 };
+const pillDefault: React.CSSProperties = { fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'rgba(63,157,106,0.15)', color: '#3f9d6a', textTransform: 'uppercase', letterSpacing: 1 };

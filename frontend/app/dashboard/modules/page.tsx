@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type ModuleItem = {
   slug: string;
@@ -104,7 +105,7 @@ export default function ModulesPage() {
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div>
-        <h1 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>
           {t('modules.pageTitle')}
           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-30)', marginLeft: 10 }}>
             {enabledCount}/{modules.length} {t('modules.active')}
@@ -116,7 +117,7 @@ export default function ModulesPage() {
       </div>
 
       {msg && (
-        <div style={{ padding: '8px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, color: '#86efac', background: 'rgba(20,83,45,0.9)', border: '1px solid rgba(34,197,94,0.35)' }}>
+        <div style={{ padding: '8px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: '#3f9d6a', background: 'var(--acc-soft)', border: '1px solid var(--panel-border)' }}>
           {msg}
         </div>
       )}
@@ -134,9 +135,9 @@ export default function ModulesPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
                   {groupModules.map((m) => (
             <div key={m.slug} style={{
-              borderRadius: 12,
-              border: `1px solid ${m.enabled ? 'rgba(34,197,94,0.3)' : 'var(--panel-border)'}`,
-              background: m.enabled ? 'rgba(34,197,94,0.04)' : 'var(--surface)',
+              borderRadius: 10,
+              border: `1px solid ${m.enabled ? 'var(--acc)' : 'var(--panel-border)'}`,
+              background: m.enabled ? 'var(--acc-soft)' : 'var(--surface)',
               padding: '14px 16px',
               display: 'flex',
               flexDirection: 'column',
@@ -149,15 +150,15 @@ export default function ModulesPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{m.name}</div>
                 </div>
-                <button onClick={() => setHelpModule(m)} style={{ width: 18, height: 18, borderRadius: 5, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-30)', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>?</button>
+                <button onClick={() => setHelpModule(m)} style={{ width: 18, height: 18, borderRadius: 6, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-30)', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>?</button>
                 {m.is_core ? (
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>{t('modules.coreBadge')}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 999, background: 'var(--acc-soft)', color: '#5b9bd5' }}>{t('modules.coreBadge')}</span>
                 ) : (
                   <div
                     onClick={() => !toggling && toggle(m.slug, !m.enabled)}
                     style={{
                       width: 36, height: 20, borderRadius: 999,
-                      background: m.enabled ? '#22c55e' : 'var(--panel-border-3)',
+                      background: m.enabled ? '#3f9d6a' : 'var(--panel-border-3)',
                       position: 'relative', cursor: toggling ? 'wait' : 'pointer',
                       transition: 'background 0.2s', flexShrink: 0,
                     }}>
@@ -181,15 +182,15 @@ export default function ModulesPage() {
         </div>
       )}
       {helpModule && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }} onClick={() => setHelpModule(null)}>
-          <div style={{ width: 'min(460px, calc(100% - 40px))', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--panel-border)', padding: 24, boxSizing: 'border-box', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }} onClick={() => setHelpModule(null)}>
+          <div style={{ width: 'min(460px, calc(100% - 40px))', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--panel-border)', padding: 24, boxSizing: 'border-box', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ fontSize: 28 }}>{helpModule.icon}</span>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)' }}>{helpModule.name}</div>
                 <div style={{ fontSize: 11, color: 'var(--ink-40)' }}>{helpModule.description}</div>
               </div>
-              <button onClick={() => setHelpModule(null)} style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+              <button onClick={() => setHelpModule(null)} style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={16} /></button>
             </div>
             {MODULE_HELP[helpModule.slug] && (
               <>
@@ -198,7 +199,7 @@ export default function ModulesPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {MODULE_HELP[helpModule.slug].features.map((f, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-70)' }}>
-                        <span style={{ color: '#22c55e', fontSize: 10 }}>✓</span> {f}
+                        <span style={{ color: '#3f9d6a', display: 'inline-flex' }}><NavIcon name="dot" size={10} /></span> {f}
                       </div>
                     ))}
                   </div>
@@ -208,7 +209,7 @@ export default function ModulesPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {MODULE_HELP[helpModule.slug].useCases.map((u, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-60)' }}>
-                        <span style={{ color: '#60a5fa', fontSize: 10 }}>→</span> {u}
+                        <span style={{ color: 'var(--acc)', display: 'inline-flex' }}><NavIcon name="chevron-right" size={10} /></span> {u}
                       </div>
                     ))}
                   </div>

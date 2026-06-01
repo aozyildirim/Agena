@@ -12,6 +12,7 @@ import RemoteRepoSelector from '@/components/RemoteRepoSelector';
 import RichDescription from '@/components/RichDescription';
 import ShareTaskModal from '@/components/ShareTaskModal';
 import AiFillButton from '@/components/AiFillButton';
+import NavIcon from '@/components/NavIcon';
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
@@ -29,7 +30,7 @@ const STATUS_FILTERS = ['all', 'new', 'queued', 'running', 'completed', 'failed'
 const SOURCE_FILTERS = ['all', 'internal', 'azure', 'jira', 'newrelic', 'sentry'];
 
 function statusColor(s: string) {
-  const m: Record<string, string> = { new: '#94a3b8', queued: '#f59e0b', running: '#38bdf8', completed: '#22c55e', failed: '#f87171' };
+  const m: Record<string, string> = { new: '#94a3b8', queued: '#c98a2b', running: '#5b9bd5', completed: '#3f9d6a', failed: '#cf5b57' };
   return m[s] ?? '#6b7280';
 }
 
@@ -167,7 +168,7 @@ function RowActionsKebab({
         position: 'fixed', top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: 10020,
         minWidth: 180, padding: 4, borderRadius: 10,
         border: '1px solid var(--panel-border-3)', background: 'var(--surface, var(--panel))',
-        boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
         display: 'grid', gap: 1,
       }}
     >
@@ -182,7 +183,7 @@ function RowActionsKebab({
           display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
           borderRadius: 8, border: 'none', background: 'transparent', textAlign: 'left',
           fontSize: 12, fontWeight: 600,
-          color: it.danger ? '#f87171' : 'var(--ink-78)',
+          color: it.danger ? '#cf5b57' : 'var(--ink-78)',
           cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none',
         };
         if (it.href) {
@@ -1094,7 +1095,7 @@ export default function DashboardTasksPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: mob ? 10 : 16 }}>
         <div>
           <div className='section-label'>{t('nav.tasks')}</div>
-          <h1 style={{ fontSize: mob ? 22 : 28, fontWeight: 800, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>
+          <h1 style={{ fontSize: mob ? 20 : 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>
             {t('tasks.title')}
           </h1>
           <p style={{ color: 'var(--ink-35)', fontSize: mob ? 12 : 14 }}>{t('tasks.total', { n: total.toLocaleString() })}</p>
@@ -1115,7 +1116,7 @@ export default function DashboardTasksPage() {
           onClick={() => !uploadingFiles && setShowCreate(false)}
           style={{
             position: 'fixed', inset: 0, zIndex: 10000,
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.6)',
             display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
             padding: '40px 16px', overflowY: 'auto',
           }}
@@ -1124,12 +1125,12 @@ export default function DashboardTasksPage() {
           onClick={(e) => e.stopPropagation()}
           style={{
             width: 880, maxWidth: '100%',
-            borderRadius: 20, border: '1px solid rgba(13,148,136,0.35)',
+            borderRadius: 10, border: '1px solid var(--panel-border-2)',
             background: 'var(--surface)', padding: 24,
-            position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+            position: 'relative', boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
           }}
         >
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.6), transparent)' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'var(--panel-border)' }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h3 style={{ color: 'var(--ink-90)', margin: 0 }}>{t('tasks.createTitle')}</h3>
             <button
@@ -1163,16 +1164,17 @@ export default function DashboardTasksPage() {
                       }
                     }}
                     style={{
-                      padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                      border: '1px solid ' + (active ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-3)'),
-                      background: active ? 'rgba(13,148,136,0.12)' : 'transparent',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      border: '1px solid ' + (active ? 'var(--acc)' : 'var(--panel-border-3)'),
+                      background: active ? 'var(--acc-soft)' : 'transparent',
                       color: active ? 'var(--ink-90)' : 'var(--ink-65)',
                     }}
                   >
-                    {src === 'empty' && '✏️ ' + t('tasks.picker.empty' as TranslationKey)}
+                    {src === 'empty' && (<><NavIcon name="pencil" size={14} /> {t('tasks.picker.empty' as TranslationKey)}</>)}
                     {src === 'azure' && (
                       <>
-                        📥 {t('tasks.picker.azure' as TranslationKey)}
+                        <NavIcon name="box" size={14} /> {t('tasks.picker.azure' as TranslationKey)}
                         {activeAzureSprintLabel && (
                           <span style={{ marginLeft: 6, fontWeight: 500, opacity: 0.75 }}>({activeAzureSprintLabel})</span>
                         )}
@@ -1180,7 +1182,7 @@ export default function DashboardTasksPage() {
                     )}
                     {src === 'jira' && (
                       <>
-                        📥 {t('tasks.picker.jira' as TranslationKey)}
+                        <NavIcon name="box" size={14} /> {t('tasks.picker.jira' as TranslationKey)}
                         {activeJiraSprintLabel && (
                           <span style={{ marginLeft: 6, fontWeight: 500, opacity: 0.75 }}>({activeJiraSprintLabel})</span>
                         )}
@@ -1214,7 +1216,7 @@ export default function DashboardTasksPage() {
                 {pickerLoading ? (
                   <div style={{ fontSize: 11, color: 'var(--ink-58)', padding: '8px 4px' }}>{t('tasks.picker.loading' as TranslationKey)}</div>
                 ) : pickerError ? (
-                  <div style={{ fontSize: 11, color: '#fca5a5', padding: '8px 4px' }}>{pickerError}</div>
+                  <div style={{ fontSize: 11, color: '#cf5b57', padding: '8px 4px' }}>{pickerError}</div>
                 ) : (
                   <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4 }}>
                     {pickerItems
@@ -1252,8 +1254,8 @@ export default function DashboardTasksPage() {
                               <span style={{ fontWeight: 600, color: isTaken ? 'var(--ink-50)' : 'var(--ink-90)', textDecoration: isTaken ? 'line-through' : 'none' }}>{it.title}</span>
                             </span>
                             {isTaken && (
-                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(245,158,11,0.14)', color: '#f59e0b', whiteSpace: 'nowrap', border: '1px solid rgba(245,158,11,0.35)' }}>
-                                ⚠ {t('tasks.picker.alreadyImportedBadge' as TranslationKey)} · #{existingId}
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(201,138,43,0.14)', color: '#c98a2b', whiteSpace: 'nowrap', border: '1px solid rgba(201,138,43,0.35)' }}>
+                                <NavIcon name="alert" size={11} /> {t('tasks.picker.alreadyImportedBadge' as TranslationKey)} · #{existingId}
                               </span>
                             )}
                           </button>
@@ -1294,10 +1296,10 @@ export default function DashboardTasksPage() {
                     <button
                       type='button'
                       onClick={() => setShowRawDescription(false)}
-                      style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-72)', cursor: 'pointer' }}
                       title={t('tasks.descriptionPreview' as TranslationKey)}
                     >
-                      👁
+                      <NavIcon name="search" size={12} />
                     </button>
                   )}
                 </div>
@@ -1306,10 +1308,10 @@ export default function DashboardTasksPage() {
                   <button
                     type='button'
                     onClick={() => setShowRawDescription(true)}
-                    style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-72)', cursor: 'pointer' }}
                     title={t('tasks.descriptionEdit' as TranslationKey)}
                   >
-                    ✏️
+                    <NavIcon name="pencil" size={12} />
                   </button>
                   <RichDescription
                     className='task-md'
@@ -1362,19 +1364,19 @@ export default function DashboardTasksPage() {
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ maxHeight: 160, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '4px 0' }}>
                     {createMappings.map((m) => (
-                      <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', background: selectedRepoMappingIds.includes(m.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                      <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', background: selectedRepoMappingIds.includes(m.id) ? 'var(--acc-soft)' : 'transparent' }}>
                         <input
                           type='checkbox'
                           checked={selectedRepoMappingIds.includes(m.id)}
                           onChange={() => setSelectedRepoMappingIds((prev) => prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id])}
-                          style={{ accentColor: '#0d9488', width: 14, height: 14 }}
+                          style={{ accentColor: 'var(--acc)', width: 14, height: 14 }}
                         />
                         <span style={{ fontWeight: 600 }}>{m.display_name || `${m.provider}:${m.owner}/${m.repo_name}`}</span>
                       </label>
                     ))}
                   </div>
                   {selectedRepoMappingIds.length > 0 && (
-                    <div style={{ fontSize: 11, color: '#5eead4', marginTop: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--acc)', marginTop: 4 }}>
                       {t('tasks.multiRepo.selected' as TranslationKey, { n: selectedRepoMappingIds.length })}
                     </div>
                   )}
@@ -1451,14 +1453,14 @@ export default function DashboardTasksPage() {
                     {depCandidates
                       .filter((c) => !depSearchQuery || c.title.toLowerCase().includes(depSearchQuery.toLowerCase()) || String(c.id).includes(depSearchQuery))
                       .map((c) => (
-                        <label key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', padding: '4px 4px', borderRadius: 6, background: selectedDepIds.includes(c.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                        <label key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', padding: '4px 4px', borderRadius: 6, background: selectedDepIds.includes(c.id) ? 'var(--acc-soft)' : 'transparent' }}>
                           <input
                             type='checkbox'
                             checked={selectedDepIds.includes(c.id)}
                             onChange={(e) => {
                               setSelectedDepIds((prev) => e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id));
                             }}
-                            style={{ accentColor: '#0d9488', width: 14, height: 14, flexShrink: 0 }}
+                            style={{ accentColor: 'var(--acc)', width: 14, height: 14, flexShrink: 0 }}
                           />
                           <span style={{ fontSize: 12, color: selectedDepIds.includes(c.id) ? 'var(--ink-90)' : 'var(--ink-65)' }}>
                             #{c.id} {c.title}{' '}
@@ -1514,7 +1516,7 @@ export default function DashboardTasksPage() {
           onClick={() => setAlreadyImportedPrompt(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 10010,
-            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
           }}
@@ -1524,13 +1526,13 @@ export default function DashboardTasksPage() {
             style={{
               width: 420, maxWidth: '100%',
               background: 'var(--surface)', color: 'var(--ink-90)',
-              border: '1px solid var(--panel-border-3)', borderRadius: 14,
-              padding: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+              border: '1px solid var(--panel-border-3)', borderRadius: 10,
+              padding: 20, boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
               display: 'grid', gap: 12,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 22 }}>⚠</span>
+              <span style={{ display: 'inline-flex', color: '#c98a2b' }}><NavIcon name="alert" size={22} /></span>
               <h3 style={{ margin: 0, fontSize: 16, color: 'var(--ink-90)' }}>
                 {t('tasks.picker.alreadyImportedBadge' as TranslationKey)}
               </h3>
@@ -1570,7 +1572,7 @@ export default function DashboardTasksPage() {
       )}
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: mob ? 8 : 10, background: 'var(--panel)' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--panel-border-2)', borderRadius: 10, padding: mob ? 8 : 10, background: 'var(--panel)' }}>
         <input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
@@ -1584,9 +1586,9 @@ export default function DashboardTasksPage() {
               onClick={() => { setFilter(s); setPage(1); }}
               style={{
                 padding: mob ? '5px 10px' : '6px 14px', borderRadius: 999, fontSize: mob ? 11 : 12, fontWeight: 600,
-                border: filter === s ? `1px solid ${s === 'all' ? '#5eead4' : statusColor(s)}` : '1px solid var(--panel-border-2)',
-                background: filter === s ? (s === 'all' ? 'rgba(94,234,212,0.12)' : `${statusColor(s)}18`) : 'transparent',
-                color: filter === s ? (s === 'all' ? '#5eead4' : statusColor(s)) : 'var(--ink-42)',
+                border: filter === s ? `1px solid ${s === 'all' ? 'var(--acc)' : statusColor(s)}` : '1px solid var(--panel-border-2)',
+                background: filter === s ? (s === 'all' ? 'var(--acc-soft)' : `${statusColor(s)}18`) : 'transparent',
+                color: filter === s ? (s === 'all' ? 'var(--acc)' : statusColor(s)) : 'var(--ink-42)',
                 cursor: 'pointer', textTransform: 'capitalize',
               }}
             >
@@ -1601,9 +1603,9 @@ export default function DashboardTasksPage() {
               onClick={() => { setSourceFilter(s); setPage(1); }}
               style={{
                 padding: mob ? '5px 8px' : '6px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                border: sourceFilter === s ? '1px solid rgba(129,140,248,0.5)' : '1px solid var(--panel-border-2)',
-                background: sourceFilter === s ? 'rgba(129,140,248,0.16)' : 'transparent',
-                color: sourceFilter === s ? '#c4b5fd' : 'var(--ink-45)',
+                border: sourceFilter === s ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)',
+                background: sourceFilter === s ? 'var(--acc-soft)' : 'transparent',
+                color: sourceFilter === s ? 'var(--acc)' : 'var(--ink-45)',
                 cursor: 'pointer', textTransform: 'capitalize',
               }}
             >
@@ -1657,10 +1659,10 @@ export default function DashboardTasksPage() {
       {/* Notification */}
       {(msg || error) && (
         <div style={{
-          padding: '12px 16px', borderRadius: 12, fontSize: 13,
-          background: error ? 'rgba(248,113,113,0.1)' : 'rgba(34,197,94,0.1)',
-          border: `1px solid ${error ? 'rgba(248,113,113,0.3)' : 'rgba(34,197,94,0.3)'}`,
-          color: error ? '#f87171' : '#22c55e',
+          padding: '12px 16px', borderRadius: 10, fontSize: 13,
+          background: error ? 'rgba(207,91,87,0.1)' : 'rgba(63,157,106,0.1)',
+          border: `1px solid ${error ? 'rgba(207,91,87,0.3)' : 'rgba(63,157,106,0.3)'}`,
+          color: error ? '#cf5b57' : '#3f9d6a',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           {error || msg}
@@ -1669,9 +1671,9 @@ export default function DashboardTasksPage() {
       )}
 
       {/* Queue panel */}
-      <div style={{ borderRadius: 16, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.06)', overflow: 'hidden' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(245,158,11,0.22)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#f59e0b' }}>
+      <div style={{ borderRadius: 10, border: '1px solid rgba(201,138,43,0.28)', background: 'rgba(201,138,43,0.06)', overflow: 'hidden' }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(201,138,43,0.22)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#c98a2b' }}>
             {t('tasks.col.queue')}
           </div>
           <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>{t('tasks.waiting', { n: queueItems.length })}</div>
@@ -1681,7 +1683,7 @@ export default function DashboardTasksPage() {
         ) : (
           queueItems.map((q) => (
             <div key={q.task_id} style={{ padding: mob ? '8px 10px' : '10px 14px', borderBottom: '1px solid var(--panel-border)', display: 'grid', gridTemplateColumns: mob ? '36px 1fr' : '52px minmax(0,1fr) auto auto', gap: mob ? 6 : 10, alignItems: mob ? 'start' : 'center' }}>
-              <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 800 }}>#{q.position}</div>
+              <div style={{ fontSize: 12, color: '#c98a2b', fontWeight: 700 }}>#{q.position}</div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: mob ? 12 : 13, color: 'var(--ink-90)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {q.title}
@@ -1692,7 +1694,7 @@ export default function DashboardTasksPage() {
                 {mob && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                     <Link href={`/tasks/${q.task_id}`} className='button button-outline' style={{ padding: '4px 8px', fontSize: 11 }}>{t('tasks.open')}</Link>
-                    <button className='button button-outline' onClick={() => void onRemoveFromQueue(q.task_id)} style={{ padding: '4px 8px', fontSize: 11, borderColor: 'rgba(248,113,113,0.35)', color: '#f87171' }}>{t('tasks.remove')}</button>
+                    <button className='button button-outline' onClick={() => void onRemoveFromQueue(q.task_id)} style={{ padding: '4px 8px', fontSize: 11, borderColor: 'rgba(207,91,87,0.35)', color: '#cf5b57' }}>{t('tasks.remove')}</button>
                   </div>
                 )}
               </div>
@@ -1701,7 +1703,7 @@ export default function DashboardTasksPage() {
                   <Link href={`/tasks/${q.task_id}`} className='button button-outline' style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap' }}>
                     {t('tasks.open')}
                   </Link>
-                  <button className='button button-outline' onClick={() => void onRemoveFromQueue(q.task_id)} style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap', borderColor: 'rgba(248,113,113,0.35)', color: '#f87171', minHeight: 30 }}>
+                  <button className='button button-outline' onClick={() => void onRemoveFromQueue(q.task_id)} style={{ padding: '5px 9px', fontSize: 12, whiteSpace: 'nowrap', borderColor: 'rgba(207,91,87,0.35)', color: '#cf5b57', minHeight: 30 }}>
                     {t('tasks.remove')}
                   </button>
                 </>
@@ -1712,7 +1714,7 @@ export default function DashboardTasksPage() {
       </div>
 
       {/* Task list */}
-      <div style={{ borderRadius: mob ? 14 : 20, border: '1px solid var(--panel-border)', background: 'var(--panel)', overflowX: mob ? 'hidden' : 'auto' }}>
+      <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', overflowX: mob ? 'hidden' : 'auto' }}>
         {!mob && (
           <div style={{ minWidth: 1040 }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--panel-border)', display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10 }}>
@@ -1735,8 +1737,8 @@ export default function DashboardTasksPage() {
               padding: '14px 20px', borderBottom: '1px solid var(--panel-border)',
               display: 'grid', gridTemplateColumns: 'minmax(0,1.45fr) 80px 98px 88px 88px 70px 92px 78px minmax(180px,0.85fr)', gap: 10, alignItems: 'center',
               transition: 'background 0.2s',
-              borderLeft: task.description?.includes('Status: resolved') ? '3px solid #a855f7' : task.status === 'running' ? '3px solid #38bdf8' : '3px solid transparent',
-              background: task.description?.includes('Status: resolved') ? 'rgba(168,85,247,0.04)' : task.status === 'running' ? 'rgba(56,189,248,0.04)' : undefined,
+              borderLeft: task.description?.includes('Status: resolved') ? '3px solid #5b9bd5' : task.status === 'running' ? '3px solid #5b9bd5' : '3px solid transparent',
+              background: task.description?.includes('Status: resolved') ? 'rgba(91,155,213,0.04)' : task.status === 'running' ? 'rgba(91,155,213,0.04)' : undefined,
               animation: task.status === 'running' ? 'running-glow 2s ease-in-out infinite' : undefined,
             }}>
               <div style={{ minWidth: 0 }}>
@@ -1744,20 +1746,20 @@ export default function DashboardTasksPage() {
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
                   {(task.dependency_blockers && task.dependency_blockers.length > 0) && (
                     <span title={`${t('tasks.deps.blockedBy' as TranslationKey)}: ${task.dependency_blockers.map((id: number) => '#' + id).join(', ')}`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 1L3 4v4c0 3.3 2.1 6.4 5 7.5 2.9-1.1 5-4.2 5-7.5V4L8 1z" stroke="#f59e0b" strokeWidth="1.5" fill="none"/><path d="M6 8h4M8 6v4" stroke="#f59e0b" strokeWidth="1.2"/></svg>
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.3)', color: '#c98a2b', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 1L3 4v4c0 3.3 2.1 6.4 5 7.5 2.9-1.1 5-4.2 5-7.5V4L8 1z" stroke="#c98a2b" strokeWidth="1.5" fill="none"/><path d="M6 8h4M8 6v4" stroke="#c98a2b" strokeWidth="1.2"/></svg>
                       {t('tasks.deps.depCount' as TranslationKey, { n: task.dependency_blockers.length })}
                     </span>
                   )}
                   {(task.dependent_task_ids && task.dependent_task_ids.length > 0) && (
                     <span title={`${t('tasks.deps.dependents' as TranslationKey)}: ${task.dependent_task_ids.map((id: number) => '#' + id).join(', ')}`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(94,234,212,0.1)', border: '1px solid rgba(94,234,212,0.25)', color: '#5eead4', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'var(--acc-soft)', border: '1px solid var(--acc)', color: 'var(--acc)', flexShrink: 0, whiteSpace: 'nowrap' }}>
                       &rarr;{task.dependent_task_ids.length}
                     </span>
                   )}
                   {(task.tags || []).map((tg) => (
                     <span key={tg} title={`Tag: ${tg}`}
-                      style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)', color: '#c084fc', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'var(--acc-soft)', border: '1px solid var(--acc)', color: 'var(--acc)', flexShrink: 0, whiteSpace: 'nowrap' }}>
                       {tg}
                     </span>
                   ))}
@@ -1774,15 +1776,15 @@ export default function DashboardTasksPage() {
                 }}>{stripHtmlForPreview(task.description)}</div>
                 {task.source === 'sentry' && (task.is_unhandled || task.substatus || task.fixability_score != null) && (
                   <div style={{ display: 'flex', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
-                    {task.is_unhandled && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>unhandled</span>}
-                    {task.substatus && task.substatus !== 'new' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: task.substatus === 'regressed' ? 'rgba(249,115,22,0.1)' : task.substatus === 'escalating' ? 'rgba(239,68,68,0.1)' : 'rgba(156,163,175,0.1)', color: task.substatus === 'regressed' ? '#f97316' : task.substatus === 'escalating' ? '#ef4444' : 'var(--ink-40)' }}>{task.substatus}</span>}
-                    {task.fixability_score != null && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>fix {Math.round(task.fixability_score * 100)}%</span>}
+                    {task.is_unhandled && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(207,91,87,0.1)', color: '#cf5b57' }}>unhandled</span>}
+                    {task.substatus && task.substatus !== 'new' && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: task.substatus === 'regressed' ? 'rgba(201,138,43,0.1)' : task.substatus === 'escalating' ? 'rgba(207,91,87,0.1)' : 'rgba(148,163,184,0.1)', color: task.substatus === 'regressed' ? '#c98a2b' : task.substatus === 'escalating' ? '#cf5b57' : 'var(--ink-40)' }}>{task.substatus}</span>}
+                    {task.fixability_score != null && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'var(--acc-soft)', color: 'var(--acc)' }}>fix {Math.round(task.fixability_score * 100)}%</span>}
                   </div>
                 )}
                 {(task.source === 'newrelic' || task.source === 'sentry') && (task.occurrences != null || task.last_seen_at) && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
                     {task.occurrences != null && (
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(207,91,87,0.12)', color: '#cf5b57' }}>
                         {task.occurrences.toLocaleString()}× {t('tasks.occurrences') || 'times'}
                       </span>
                     )}
@@ -1818,7 +1820,7 @@ export default function DashboardTasksPage() {
               </div>
               <div>
                 {task.priority ? (() => {
-                  const pc: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
+                  const pc: Record<string, string> = { critical: '#cf5b57', high: '#c98a2b', medium: '#c98a2b', low: '#3f9d6a' };
                   const c = pc[task.priority] || 'var(--ink-35)';
                   return <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -1836,7 +1838,7 @@ export default function DashboardTasksPage() {
                 {task.repo_assignments && task.repo_assignments.length > 0 ? (
                   task.repo_assignments.length === 1 ? (
                     (task.repo_assignments[0].pr_url || task.pr_url) ? (
-                      <a href={task.repo_assignments[0].pr_url || task.pr_url!} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
+                      <a href={task.repo_assignments[0].pr_url || task.pr_url!} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: 'var(--acc)', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
                     ) : (
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: `${statusColor(task.repo_assignments[0].status)}18`, color: statusColor(task.repo_assignments[0].status), fontWeight: 600 }}>
                         {statusLabel(task.repo_assignments[0].status, t)}
@@ -1851,19 +1853,19 @@ export default function DashboardTasksPage() {
                     const _total = task.repo_assignments.length;
                     const _allDone = _withPr === _total && _total > 0;
                     const _none = _withPr === 0;
-                    const _color = _allDone ? '#22c55e' : _none ? 'var(--ink-50)' : '#f59e0b';
+                    const _color = _allDone ? '#3f9d6a' : _none ? 'var(--ink-50)' : '#c98a2b';
                     return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: _color }}>
-                        {_allDone ? '✓' : _none ? '⏳' : '⏳'} {t('tasks.multiPrCount', { n: _withPr, total: _total })}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: _color }}>
+                        <NavIcon name={_allDone ? 'dot' : 'clock'} size={11} /> {t('tasks.multiPrCount', { n: _withPr, total: _total })}
                       </span>
                       {task.repo_assignments.slice(0, 2).map((ra: RepoAssignment) => (
-                        <span key={ra.id} style={{ fontSize: 10, color: ra.pr_url ? '#22c55e' : (ra.status === 'running' || ra.status === 'queued') ? '#f59e0b' : 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
+                        <span key={ra.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, color: ra.pr_url ? '#3f9d6a' : (ra.status === 'running' || ra.status === 'queued') ? '#c98a2b' : 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 70 }}>
                           {ra.pr_url ? (
-                            <a href={ra.pr_url} target='_blank' rel='noreferrer' style={{ color: '#22c55e', textDecoration: 'none' }}>✓ {ra.repo_display_name.split('/').pop()}</a>
+                            <a href={ra.pr_url} target='_blank' rel='noreferrer' style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#3f9d6a', textDecoration: 'none' }}><NavIcon name="dot" size={10} /> {ra.repo_display_name.split('/').pop()}</a>
                           ) : (
                             <>
-                              {(ra.status === 'running' || ra.status === 'queued') ? '⏳ ' : ''}
+                              {(ra.status === 'running' || ra.status === 'queued') ? <NavIcon name="clock" size={10} /> : null}
                               {ra.repo_display_name.split('/').pop()}
                             </>
                           )}
@@ -1873,7 +1875,7 @@ export default function DashboardTasksPage() {
                     );
                   })()
                 ) : task.pr_url ? (
-                  <a href={task.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#5eead4', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
+                  <a href={task.pr_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: 'var(--acc)', textDecoration: 'none' }}>{t('tasks.viewPr')} ↗</a>
                 ) : (
                   <span style={{ fontSize: 12, color: 'var(--ink-25)' }}>—</span>
                 )}
@@ -1881,7 +1883,7 @@ export default function DashboardTasksPage() {
               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                 {task.source === 'sentry' && (
                   <button onClick={() => void toggleSentryResolve(task.id)}
-                    style={{ padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.08)', color: '#a855f7', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    style={{ padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     {task.description?.includes('Status: resolved') ? 'Unresolve' : 'Resolve'}
                   </button>
                 )}
@@ -1906,13 +1908,14 @@ export default function DashboardTasksPage() {
                             data-review-trigger
                             title={t('reviews.inProgress' as TranslationKey) || 'Review in progress…'}
                             style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5,
                               padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
-                              border: '1px solid rgba(168,85,247,0.45)',
-                              background: 'rgba(168,85,247,0.18)',
-                              color: '#c084fc',
+                              border: '1px solid var(--acc)',
+                              background: 'var(--acc-soft)',
+                              color: 'var(--acc)',
                               textDecoration: 'none', whiteSpace: 'nowrap',
                             }}>
-                            ⏳ {t('reviews.running' as TranslationKey) || 'Reviewing…'}
+                            <NavIcon name="clock" size={12} /> {t('reviews.running' as TranslationKey) || 'Reviewing…'}
                           </Link>
                         );
                       }
@@ -1922,21 +1925,22 @@ export default function DashboardTasksPage() {
                       // a duplicate run.
                       if (latest && !reviewing && (latest.status === 'completed' || latest.status === 'failed')) {
                         const sevColors: Record<string, string> = {
-                          critical: '#ef4444', high: '#f97316', medium: '#eab308',
-                          low: '#60a5fa', clean: '#22c55e',
+                          critical: '#cf5b57', high: '#c98a2b', medium: '#c98a2b',
+                          low: '#5b9bd5', clean: '#3f9d6a',
                         };
-                        const c = sevColors[latest.severity || 'clean'] || '#a78bfa';
+                        const c = sevColors[latest.severity || 'clean'] || '#5b9bd5';
                         return (
                           <Link href={`/dashboard/reviews/${latest.id}`}
                             data-review-trigger
                             title={t('reviews.openReview' as TranslationKey) || 'Open review'}
                             style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5,
                               padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
                               border: `1px solid ${c}55`,
                               background: `${c}15`, color: c,
                               textDecoration: 'none', whiteSpace: 'nowrap',
                             }}>
-                            ✓ {t('reviews.reviewed' as TranslationKey) || 'Reviewed'}
+                            <NavIcon name="dot" size={11} /> {t('reviews.reviewed' as TranslationKey) || 'Reviewed'}
                             {latest.findings_count != null && latest.findings_count > 0 ? ` · ${latest.findings_count}` : ''}
                           </Link>
                         );
@@ -1950,21 +1954,22 @@ export default function DashboardTasksPage() {
                             : (t('reviews.runReview' as TranslationKey) || 'Run review')}
                           data-review-trigger
                           style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
                             padding: '6px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
-                            border: '1px solid rgba(168,85,247,0.4)',
-                            background: reviewing ? 'rgba(168,85,247,0.22)' : 'rgba(168,85,247,0.10)',
-                            color: '#c084fc',
+                            border: '1px solid var(--panel-border-2)',
+                            background: reviewing ? 'var(--acc-soft)' : 'var(--acc-soft)',
+                            color: 'var(--acc)',
                             cursor: reviewing ? 'wait' : 'pointer',
                             whiteSpace: 'nowrap',
                           }}>
                           {reviewing
-                            ? `⏳ ${t('reviews.running' as TranslationKey) || 'Reviewing…'}`
-                            : `🔎 ${t('reviews.review' as TranslationKey) || 'Review'}`}
+                            ? (<><NavIcon name="clock" size={12} /> {t('reviews.running' as TranslationKey) || 'Reviewing…'}</>)
+                            : (<><NavIcon name="search" size={12} /> {t('reviews.review' as TranslationKey) || 'Review'}</>)}
                         </button>
                       );
                     })()}
                     <button onClick={() => void onAssignMCP(task.id)}
-                      style={{ padding: '6px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      style={{ padding: '6px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       Run
                     </button>
                   </>
@@ -1972,10 +1977,10 @@ export default function DashboardTasksPage() {
                 <RowActionsKebab
                   ariaLabel={t('tasks.actionsMenu' as TranslationKey) || 'More actions'}
                   items={[
-                    { key: 'details', label: t('tasks.details'), icon: '🔍', href: `/tasks/${task.id}` },
-                    { key: 'edit', label: t('tasks.actions.edit' as TranslationKey) || 'Edit', icon: '✏️', onClick: () => openEditTask(task) },
-                    { key: 'share', label: t('taskDetail.share.button' as TranslationKey) || 'Share', icon: '🔗', onClick: () => setShareTask(task) },
-                    { key: 'delete', label: t('tasks.actions.delete' as TranslationKey) || 'Delete', icon: '🗑', onClick: () => setDeleteConfirmTask(task), danger: true, hidden: task.status === 'running' },
+                    { key: 'details', label: t('tasks.details'), icon: <NavIcon name="search" size={14} />, href: `/tasks/${task.id}` },
+                    { key: 'edit', label: t('tasks.actions.edit' as TranslationKey) || 'Edit', icon: <NavIcon name="pencil" size={14} />, onClick: () => openEditTask(task) },
+                    { key: 'share', label: t('taskDetail.share.button' as TranslationKey) || 'Share', icon: <NavIcon name="send" size={14} />, onClick: () => setShareTask(task) },
+                    { key: 'delete', label: t('tasks.actions.delete' as TranslationKey) || 'Delete', icon: <NavIcon name="close" size={14} />, onClick: () => setDeleteConfirmTask(task), danger: true, hidden: task.status === 'running' },
                   ]}
                 />
               </div>
@@ -1999,8 +2004,8 @@ export default function DashboardTasksPage() {
                 return (
                   <div key={task.id} style={{
                     padding: '10px 12px', borderBottom: '1px solid var(--panel-border)',
-                    borderLeft: task.description?.includes('Status: resolved') ? '3px solid #a855f7' : task.status === 'running' ? '3px solid #38bdf8' : '3px solid transparent',
-                    background: task.description?.includes('Status: resolved') ? 'rgba(168,85,247,0.04)' : task.status === 'running' ? 'rgba(56,189,248,0.04)' : undefined,
+                    borderLeft: task.description?.includes('Status: resolved') ? '3px solid #5b9bd5' : task.status === 'running' ? '3px solid #5b9bd5' : '3px solid transparent',
+                    background: task.description?.includes('Status: resolved') ? 'rgba(91,155,213,0.04)' : task.status === 'running' ? 'rgba(91,155,213,0.04)' : undefined,
                   }}>
                     {/* Row 1: title + status */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -2016,7 +2021,7 @@ export default function DashboardTasksPage() {
                       </span>
                       <span style={{ fontSize: 10, color: 'var(--ink-35)', fontWeight: 600, textTransform: 'capitalize' }}>{sourceLabel(task.source, t)}</span>
                       {prUrl && (
-                        <a href={prUrl} target='_blank' rel='noreferrer' style={{ fontSize: 10, color: '#5eead4', textDecoration: 'none', marginLeft: 'auto', flexShrink: 0 }}>PR ↗</a>
+                        <a href={prUrl} target='_blank' rel='noreferrer' style={{ fontSize: 10, color: 'var(--acc)', textDecoration: 'none', marginLeft: 'auto', flexShrink: 0 }}>PR ↗</a>
                       )}
                     </div>
                     {/* Row 2: title — clamped to 13px so long titles don't blow out the layout on small phones */}
@@ -2026,27 +2031,27 @@ export default function DashboardTasksPage() {
                     {/* Row 3: badges */}
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 2 }}>
                       {task.priority && (() => {
-                        const pc: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
+                        const pc: Record<string, string> = { critical: '#cf5b57', high: '#c98a2b', medium: '#c98a2b', low: '#3f9d6a' };
                         const c = pc[task.priority] || 'var(--ink-35)';
                         return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: `${c}15`, color: c, textTransform: 'capitalize' }}>{task.priority}</span>;
                       })()}
                       {task.description?.includes('Status: resolved') && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.35)', color: '#a855f7' }}>
-                          ✓ Resolved
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'var(--acc-soft)', border: '1px solid var(--acc)', color: 'var(--acc)' }}>
+                          <NavIcon name="dot" size={10} /> Resolved
                         </span>
                       )}
                       {(task.dependency_blockers && task.dependency_blockers.length > 0) && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.3)', color: '#c98a2b' }}>
                           {t('tasks.deps.depCount' as TranslationKey, { n: task.dependency_blockers.length })}
                         </span>
                       )}
                       {(task.dependent_task_ids && task.dependent_task_ids.length > 0) && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'rgba(94,234,212,0.1)', border: '1px solid rgba(94,234,212,0.25)', color: '#5eead4' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'var(--acc-soft)', border: '1px solid var(--acc)', color: 'var(--acc)' }}>
                           &rarr;{task.dependent_task_ids.length}
                         </span>
                       )}
                       {(task.tags || []).map((tg) => (
-                        <span key={tg} style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)', color: '#c084fc' }}>
+                        <span key={tg} style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 7px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: 'var(--acc-soft)', border: '1px solid var(--acc)', color: 'var(--acc)' }}>
                           {tg}
                         </span>
                       ))}
@@ -2066,19 +2071,19 @@ export default function DashboardTasksPage() {
                           {reviewsEnabled && (
                             <button onClick={(e) => openReviewPicker(task.id, e.currentTarget)}
                               data-review-trigger
-                              style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.4)', background: 'rgba(168,85,247,0.10)', color: '#c084fc', cursor: 'pointer' }}>
-                              🔎 Review
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: 'pointer' }}>
+                              <NavIcon name="search" size={12} /> Review
                             </button>
                           )}
                           <button onClick={() => void onAssignMCP(task.id)}
-                            style={{ padding: '7px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #0d9488, #7c3aed)', color: '#fff', cursor: 'pointer' }}>
+                            style={{ padding: '7px 14px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', cursor: 'pointer' }}>
                             Run
                           </button>
                         </>
                       )}
                       {task.source === 'sentry' && (
                         <button onClick={() => void toggleSentryResolve(task.id)}
-                          style={{ padding: '7px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(168,85,247,0.3)', background: 'rgba(168,85,247,0.08)', color: '#a855f7', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          style={{ padding: '7px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           {task.description?.includes('Status: resolved') ? 'Unresolve' : 'Resolve'}
                         </button>
                       )}
@@ -2086,10 +2091,10 @@ export default function DashboardTasksPage() {
                         <RowActionsKebab
                           ariaLabel={t('tasks.actionsMenu' as TranslationKey) || 'More actions'}
                           items={[
-                            { key: 'details', label: t('tasks.details'), icon: '🔍', href: `/tasks/${task.id}` },
-                            { key: 'edit', label: t('tasks.actions.edit' as TranslationKey) || 'Edit', icon: '✏️', onClick: () => openEditTask(task) },
-                            { key: 'share', label: t('taskDetail.share.button' as TranslationKey) || 'Share', icon: '🔗', onClick: () => setShareTask(task) },
-                            { key: 'delete', label: t('tasks.actions.delete' as TranslationKey) || 'Delete', icon: '🗑', onClick: () => setDeleteConfirmTask(task), danger: true, hidden: task.status === 'running' },
+                            { key: 'details', label: t('tasks.details'), icon: <NavIcon name="search" size={14} />, href: `/tasks/${task.id}` },
+                            { key: 'edit', label: t('tasks.actions.edit' as TranslationKey) || 'Edit', icon: <NavIcon name="pencil" size={14} />, onClick: () => openEditTask(task) },
+                            { key: 'share', label: t('taskDetail.share.button' as TranslationKey) || 'Share', icon: <NavIcon name="send" size={14} />, onClick: () => setShareTask(task) },
+                            { key: 'delete', label: t('tasks.actions.delete' as TranslationKey) || 'Delete', icon: <NavIcon name="close" size={14} />, onClick: () => setDeleteConfirmTask(task), danger: true, hidden: task.status === 'running' },
                           ]}
                         />
                       </span>
@@ -2224,29 +2229,30 @@ export default function DashboardTasksPage() {
         (() => {
           const r = reviewResultModal;
           const sevColors: Record<string, string> = {
-            critical: '#ef4444', high: '#f97316', medium: '#eab308',
-            low: '#60a5fa', clean: '#22c55e',
+            critical: '#cf5b57', high: '#c98a2b', medium: '#c98a2b',
+            low: '#5b9bd5', clean: '#3f9d6a',
           };
-          const c = sevColors[r.severity || 'clean'] || '#a78bfa';
+          const c = sevColors[r.severity || 'clean'] || '#5b9bd5';
           return (
             <div onClick={() => setReviewResultModal(null)}
-              style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}>
+              style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}>
               <div onClick={(e) => e.stopPropagation()}
                 style={{
                   width: 'min(540px, calc(100vw - 24px))',
-                  borderRadius: 18, background: 'var(--surface)',
-                  border: `1px solid ${c}55`, padding: 24,
-                  boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+                  borderRadius: 10, background: 'var(--surface)',
+                  border: `1px solid var(--panel-border-2)`, padding: 24,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
                   display: 'grid', gap: 14, maxHeight: '90vh', overflowY: 'auto',
                 }}>
                 <div style={{
-                  width: 56, height: 56, borderRadius: 16,
-                  background: r.status === 'failed' ? 'rgba(239,68,68,0.12)' : `${c}18`,
-                  border: r.status === 'failed' ? '1px solid rgba(239,68,68,0.45)' : `1px solid ${c}55`,
+                  width: 56, height: 56, borderRadius: 10,
+                  background: r.status === 'failed' ? 'rgba(207,91,87,0.12)' : `${c}18`,
+                  border: r.status === 'failed' ? '1px solid rgba(207,91,87,0.45)' : `1px solid ${c}55`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 26, margin: '0 auto',
-                }}>{r.status === 'failed' ? '⚠' : (r.severity === 'clean' ? '✅' : '🔎')}</div>
-                <div style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, color: r.status === 'failed' ? '#f87171' : 'var(--ink-90)' }}>
+                  color: r.status === 'failed' ? '#cf5b57' : c,
+                  margin: '0 auto',
+                }}><NavIcon name={r.status === 'failed' ? 'alert' : (r.severity === 'clean' ? 'shield' : 'search')} size={26} /></div>
+                <div style={{ textAlign: 'center', fontSize: 18, fontWeight: 700, color: r.status === 'failed' ? '#cf5b57' : 'var(--ink-90)' }}>
                   {r.status === 'failed'
                     ? (t('reviews.failed' as TranslationKey) || 'Review failed')
                     : (t('reviews.completed' as TranslationKey) || 'Review completed')}
@@ -2279,7 +2285,7 @@ export default function DashboardTasksPage() {
                   </button>
                   <Link href={`/dashboard/reviews/${r.id}`}
                     onClick={() => setReviewResultModal(null)}
-                    style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                    style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
                     {t('reviews.openDetails' as TranslationKey) || 'Open details'} →
                   </Link>
                 </div>
@@ -2292,26 +2298,26 @@ export default function DashboardTasksPage() {
 
       {/* Delete confirmation modal */}
       {deleteConfirmTask && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}
           onClick={() => setDeleteConfirmTask(null)}>
-          <div style={{ width: 'min(400px, calc(100vw - 24px))', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.4)', maxHeight: '92vh', overflowY: 'auto' }}
+          <div style={{ width: 'min(400px, calc(100vw - 24px))', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 28, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '92vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>🗑</div>
-            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>{t('tasks.deleteConfirm')}</div>
+            <div style={{ width: 56, height: 56, borderRadius: 10, background: 'rgba(207,91,87,0.1)', border: '1px solid rgba(207,91,87,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', margin: '0 auto 16px' }}><NavIcon name="alert" size={24} /></div>
+            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 8 }}>{t('tasks.deleteConfirm')}</div>
             <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-35)', lineHeight: 1.5, marginBottom: 20 }}>
               <strong style={{ color: 'var(--ink-78)' }}>{deleteConfirmTask.title}</strong>
               {' '}{t('tasks.deleteDesc')}
             </div>
-            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--panel)', border: '1px solid var(--panel-border)', marginBottom: 20, fontSize: 12, color: 'var(--ink-50)' }}>
+            <div style={{ padding: '12px 14px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border)', marginBottom: 20, fontSize: 12, color: 'var(--ink-50)' }}>
               #{deleteConfirmTask.id} · {statusLabel(deleteConfirmTask.status, t)}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDeleteConfirmTask(null)}
-                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
                 {t('tasks.cancelAction')}
               </button>
               <button onClick={() => { void onDeleteTask(deleteConfirmTask.id); setDeleteConfirmTask(null); }}
-                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', color: '#fff' }}>
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#cf5b57', border: 'none', color: '#fff' }}>
                 {t('tasks.deleteAction')}
               </button>
             </div>
@@ -2321,15 +2327,15 @@ export default function DashboardTasksPage() {
       )}
       {/* Edit task modal */}
       {editTask && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}
           onClick={() => setEditTask(null)}>
-          <div style={{ width: 'min(880px, calc(100vw - 24px))', borderRadius: 20, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+          <div style={{ width: 'min(880px, calc(100vw - 24px))', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', overflow: 'hidden', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
             onClick={(e) => e.stopPropagation()}>
-            <div style={{ height: 3, background: 'linear-gradient(90deg, #38bdf8, #7c3aed)', flexShrink: 0 }} />
+            <div style={{ height: 3, background: 'var(--acc)', flexShrink: 0 }} />
             {/* Header — sticky so the Save / Cancel actions are reachable
                 without scrolling on small screens. */}
             <div style={{ padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--panel-border-2)', flexShrink: 0 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>Edit Task #{editTask.id}</h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>Edit Task #{editTask.id}</h3>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {editLoading && (
                   <span style={{ fontSize: 11, color: 'var(--ink-50)' }}>{t('tasks.picker.loading' as TranslationKey)}</span>
@@ -2339,7 +2345,7 @@ export default function DashboardTasksPage() {
                   {t('tasks.cancel')}
                 </button>
                 <button onClick={() => void saveEditTask()}
-                  style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #0d9488, #22c55e)', border: 'none', color: '#fff' }}>
+                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--acc)', border: 'none', color: '#fff' }}>
                   {t('common.save')}
                 </button>
                 <button onClick={() => setEditTask(null)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>×</button>
@@ -2372,9 +2378,9 @@ export default function DashboardTasksPage() {
                           <button
                             type='button'
                             onClick={() => setEditShowRawDescription(false)}
-                            style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-72)', cursor: 'pointer' }}
                             title={t('tasks.descriptionPreview' as TranslationKey)}
-                          >👁</button>
+                          ><NavIcon name="search" size={12} /></button>
                         )}
                       </div>
                     ) : (
@@ -2382,9 +2388,9 @@ export default function DashboardTasksPage() {
                         <button
                           type='button'
                           onClick={() => setEditShowRawDescription(true)}
-                          style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-72)', cursor: 'pointer' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-72)', cursor: 'pointer' }}
                           title={t('tasks.descriptionEdit' as TranslationKey)}
-                        >✏️</button>
+                        ><NavIcon name="pencil" size={12} /></button>
                         <RichDescription
                           className='task-md'
                           style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ink-78)', maxHeight: 360, overflowY: 'auto', wordBreak: 'break-word' }}
@@ -2434,19 +2440,19 @@ export default function DashboardTasksPage() {
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ maxHeight: 140, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: '4px 0' }}>
                         {createMappings.map((m) => (
-                          <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', background: editRepoMappingIds.includes(m.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                          <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', background: editRepoMappingIds.includes(m.id) ? 'var(--acc-soft)' : 'transparent' }}>
                             <input
                               type='checkbox'
                               checked={editRepoMappingIds.includes(m.id)}
                               onChange={() => setEditRepoMappingIds((prev) => prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id])}
-                              style={{ accentColor: '#0d9488', width: 14, height: 14 }}
+                              style={{ accentColor: 'var(--acc)', width: 14, height: 14 }}
                             />
                             <span style={{ fontWeight: 600 }}>{m.display_name || `${m.provider}:${m.owner}/${m.repo_name}`}</span>
                           </label>
                         ))}
                       </div>
                       {editRepoMappingIds.length > 0 && (
-                        <div style={{ fontSize: 11, color: '#5eead4', marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: 'var(--acc)', marginTop: 4 }}>
                           {t('tasks.multiRepo.selected' as TranslationKey, { n: editRepoMappingIds.length })}
                         </div>
                       )}
@@ -2509,7 +2515,7 @@ export default function DashboardTasksPage() {
                           title={`${a.filename} (${(a.size_bytes / 1024).toFixed(0)} KB)`}
                           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 11, color: 'var(--ink-72)', maxWidth: 180 }}
                         >
-                          <span style={{ fontSize: 13 }}>{a.content_type.startsWith('image/') ? '🖼' : '📄'}</span>
+                          <span style={{ display: 'inline-flex' }}><NavIcon name={a.content_type.startsWith('image/') ? 'box' : 'clipboard'} size={13} /></span>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.filename}</span>
                           <button
                             type='button'
@@ -2559,12 +2565,12 @@ export default function DashboardTasksPage() {
                           .filter((c) => c.id !== editTask?.id)
                           .filter((c) => !editDepSearch || c.title.toLowerCase().includes(editDepSearch.toLowerCase()) || String(c.id).includes(editDepSearch))
                           .map((c) => (
-                            <label key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', padding: '4px 4px', borderRadius: 6, background: editDepIds.includes(c.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                            <label key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', padding: '4px 4px', borderRadius: 6, background: editDepIds.includes(c.id) ? 'var(--acc-soft)' : 'transparent' }}>
                               <input
                                 type='checkbox'
                                 checked={editDepIds.includes(c.id)}
                                 onChange={(e) => setEditDepIds((prev) => e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id))}
-                                style={{ accentColor: '#0d9488', width: 14, height: 14, flexShrink: 0 }}
+                                style={{ accentColor: 'var(--acc)', width: 14, height: 14, flexShrink: 0 }}
                               />
                               <span style={{ fontSize: 12, color: editDepIds.includes(c.id) ? 'var(--ink-90)' : 'var(--ink-65)' }}>
                                 #{c.id} {c.title}{' '}
@@ -2599,19 +2605,19 @@ export default function DashboardTasksPage() {
       {conflictModal && typeof document !== 'undefined' && createPortal(
         <div onClick={() => setConflictModal(null)} style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10001,
-          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          background: 'rgba(0,0,0,0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 16, overflowY: 'auto',
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            width: '100%', maxWidth: 440, borderRadius: 16,
-            border: '1px solid var(--panel-border)',
+            width: '100%', maxWidth: 440, borderRadius: 10,
+            border: '1px solid var(--panel-border-2)',
             background: 'var(--surface)', padding: 24,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
             margin: 'auto',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>&#9888;</div>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(201,138,43,0.1)', border: '1px solid rgba(201,138,43,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c98a2b' }}><NavIcon name="alert" size={18} /></div>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{t('tasks.repoBusy')}</div>
             </div>
             <p style={{ fontSize: 13, color: 'var(--ink-58)', lineHeight: 1.6, margin: '0 0 8px' }}>
@@ -2630,7 +2636,7 @@ export default function DashboardTasksPage() {
               }}>{t('common.cancel')}</button>
               <button onClick={() => void _forceQueueConflict()} style={{
                 padding: '8px 20px', borderRadius: 8, border: 'none',
-                background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: 'var(--acc)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
               }}>{t('tasks.queueAnyway')}</button>
             </div>
           </div>
@@ -2680,7 +2686,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>{t('tasks.assignMcp' as TranslationKey)}</div>
-      <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(8,145,178,0.2)', background: 'rgba(8,145,178,0.06)', fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5 }}>
+      <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5 }}>
         {t('tasks.mcpDesc' as TranslationKey)}
       </div>
 
@@ -2690,7 +2696,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {MCP_MODELS.map((m, i) => {
             const active = i === selectedIdx;
-            const provColor = m.provider === 'openai' ? '#22c55e' : m.provider === 'anthropic' ? '#f59e0b' : m.provider === 'codex_cli' ? '#a78bfa' : m.provider === 'claude_cli' ? '#fb923c' : '#38bdf8';
+            const provColor = m.provider === 'openai' ? '#3f9d6a' : m.provider === 'anthropic' ? '#c98a2b' : m.provider === 'codex_cli' ? '#5b9bd5' : m.provider === 'claude_cli' ? '#c98a2b' : '#5b9bd5';
             return (
               <button key={m.model} type="button" onClick={() => setSelectedIdx(i)}
                 style={{
@@ -2712,7 +2718,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
       <button
         onClick={() => onAssignAI(taskId, { role: 'mcp_agent', model: chosen.model, provider: chosen.provider }, !hasRepo ? repoSel?.meta : undefined, mappingIds, createPr)}
         disabled={!canRun}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 10, border: 'none', background: canRun ? 'linear-gradient(135deg, #0891b2, #06b6d4)' : 'var(--panel)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: canRun ? '#fff' : 'var(--ink-35)', fontSize: 13, fontWeight: 700 }}>
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 8, border: 'none', background: canRun ? 'var(--acc)' : 'var(--panel)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: canRun ? '#fff' : 'var(--ink-35)', fontSize: 13, fontWeight: 700 }}>
         {t('tasks.runMcpAgent' as TranslationKey)} — {chosen.label}
         <span style={{ fontSize: 16 }}>→</span>
       </button>
@@ -2775,7 +2781,7 @@ function ReviewerPickerPopover({ anchor, options, repoOptions, onPick, t }: {
         position: 'fixed', top: coords.top, left: coords.left,
         width: 240, padding: 4, zIndex: 9999,
         background: 'var(--surface)', border: '1px solid var(--panel-border)',
-        borderRadius: 10, boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+        borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
       }}
     >
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', padding: '6px 10px 4px' }}>
@@ -2787,21 +2793,21 @@ function ReviewerPickerPopover({ anchor, options, repoOptions, onPick, t }: {
         // Two-stage flow: pick repo first, then role.
         (repoOptions || []).map((r) => (
           <button key={r.assignment_id} onClick={() => setPickedAssignment(r.assignment_id)}
-            style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
-            📦 {r.label}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+            <NavIcon name="box" size={13} /> {r.label}
           </button>
         ))
       ) : (
         <>
           <button onClick={() => onPick('auto', pickedAssignment)}
-            style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
-            ✨ Auto <span style={{ color: 'var(--ink-35)', fontWeight: 400 }}>(task config)</span>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+            <NavIcon name="zap" size={13} /> Auto <span style={{ color: 'var(--ink-35)', fontWeight: 400 }}>(task config)</span>
           </button>
           <div style={{ height: 1, background: 'var(--panel-border)', margin: '4px 0' }} />
           {options.map((opt) => (
             <button key={opt.role} onClick={() => onPick(opt.role, pickedAssignment)}
-              style={{ width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
-              🔎 {opt.label} <span style={{ color: 'var(--ink-35)', fontWeight: 400, fontFamily: 'monospace' }}>({opt.role})</span>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+              <NavIcon name="search" size={13} /> {opt.label} <span style={{ color: 'var(--ink-35)', fontWeight: 400, fontFamily: 'monospace' }}>({opt.role})</span>
             </button>
           ))}
           {_multi && pickedAssignment !== null && (
@@ -2894,19 +2900,19 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   const mappingIds = selectedMappingIds.length > 0 ? selectedMappingIds : undefined;
 
   return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, width: 'min(480px, calc(100vw - 24px))', maxHeight: '92vh', overflowY: 'auto' }}>
-        <div style={{ height: 3, background: mode === 'ai' ? 'linear-gradient(90deg, #0d9488, #22c55e)' : mode === 'mcp_agent' ? 'linear-gradient(90deg, #0891b2, #06b6d4)' : 'linear-gradient(90deg, #7c3aed, #a78bfa)' }} />
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, width: 'min(480px, calc(100vw - 24px))', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}>
+        <div style={{ height: 3, background: 'var(--acc)' }} />
         <div style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
             {mode === 'ai' ? t('tasks.selectAgent') : mode === 'mcp_agent' ? t('tasks.assignMcp' as TranslationKey) : t('tasks.assignFlow')}
           </h3>
 
           {/* Dependency blocker warning */}
           {task && task.dependency_blockers && task.dependency_blockers.length > 0 ? (
-            <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 4 }}>
-                &#9888; {t('tasks.deps.blockedBy' as TranslationKey)}
+            <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(201,138,43,0.35)', background: 'rgba(201,138,43,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#c98a2b', marginBottom: 4 }}>
+                <NavIcon name="alert" size={13} /> {t('tasks.deps.blockedBy' as TranslationKey)}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink-65)', lineHeight: 1.4 }}>
                 {task.dependency_blockers.map((id: number) => `#${id}`).join(', ')}
@@ -2916,9 +2922,9 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
               </div>
             </div>
           ) : task ? (
-            <div style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(34,197,94,0.25)', background: 'rgba(34,197,94,0.06)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ color: '#22c55e', fontSize: 13 }}>&#10003;</span>
-              <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>{t('tasks.deps.noBlockers' as TranslationKey)}</span>
+            <div style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(63,157,106,0.25)', background: 'rgba(63,157,106,0.06)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ display: 'inline-flex', color: '#3f9d6a' }}><NavIcon name="dot" size={12} /></span>
+              <span style={{ fontSize: 11, color: '#3f9d6a', fontWeight: 600 }}>{t('tasks.deps.noBlockers' as TranslationKey)}</span>
             </div>
           ) : null}
 
@@ -2928,19 +2934,19 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.multiRepo.title' as TranslationKey)}</div>
               <div style={{ maxHeight: 160, overflowY: 'auto', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '4px 0' }}>
                 {backendMappings.map((m) => (
-                  <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', transition: 'background 0.15s', background: selectedMappingIds.includes(m.id) ? 'rgba(94,234,212,0.08)' : 'transparent' }}>
+                  <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)', transition: 'background 0.15s', background: selectedMappingIds.includes(m.id) ? 'var(--acc-soft)' : 'transparent' }}>
                     <input
                       type='checkbox'
                       checked={selectedMappingIds.includes(m.id)}
                       onChange={() => toggleMapping(m.id)}
-                      style={{ accentColor: '#0d9488', width: 14, height: 14 }}
+                      style={{ accentColor: 'var(--acc)', width: 14, height: 14 }}
                     />
                     <span style={{ fontWeight: 600 }}>{m.display_name || `${m.provider}:${m.owner}/${m.repo_name}`}</span>
                   </label>
                 ))}
               </div>
               {selectedMappingIds.length > 0 && (
-                <div style={{ fontSize: 11, color: '#5eead4', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--acc)', marginTop: 4 }}>
                   {t('tasks.multiRepo.selected' as TranslationKey, { n: selectedMappingIds.length })}
                 </div>
               )}
@@ -2958,16 +2964,16 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
           )}
           {hasRepo && selectedMappingIds.length === 0 && !repoSel && (
             <div style={{ fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3f9d6a', flexShrink: 0 }} />
               {t('tasks.multiRepo.configured' as TranslationKey)}
             </div>
           )}
 
           {/* Create PR toggle */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 12px', borderRadius: 10, border: createPr ? '1px solid rgba(34,197,94,0.35)' : '1px solid var(--panel-border-2)', background: createPr ? 'rgba(34,197,94,0.06)' : 'var(--panel)' }}>
-            <input type='checkbox' checked={createPr} onChange={(e) => setCreatePr(e.target.checked)} style={{ accentColor: '#22c55e', width: 16, height: 16 }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 12px', borderRadius: 8, border: createPr ? '1px solid rgba(63,157,106,0.35)' : '1px solid var(--panel-border-2)', background: createPr ? 'rgba(63,157,106,0.06)' : 'var(--panel)' }}>
+            <input type='checkbox' checked={createPr} onChange={(e) => setCreatePr(e.target.checked)} style={{ accentColor: '#3f9d6a', width: 16, height: 16 }} />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: createPr ? '#22c55e' : 'var(--ink-58)' }}>{t('tasks.createPr')}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: createPr ? '#3f9d6a' : 'var(--ink-58)' }}>{t('tasks.createPr')}</div>
               <div style={{ fontSize: 10, color: 'var(--ink-35)' }}>{createPr ? t('tasks.prEnabled' as TranslationKey) : t('tasks.prDisabled' as TranslationKey)}</div>
             </div>
           </label>
@@ -2981,40 +2987,40 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
               return (
               <button key={agent.role}
                 onClick={() => setSelected({ type: 'agent', agent })}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10,
-                  border: isSelected ? '1px solid rgba(94,234,212,0.6)' : '1px solid var(--panel-border-3)',
-                  background: isSelected ? 'rgba(94,234,212,0.12)' : 'var(--panel)',
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 8,
+                  border: isSelected ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                  background: isSelected ? 'var(--acc-soft)' : 'var(--panel)',
                   cursor: 'pointer', textAlign: 'left', width: '100%',
                   transition: 'all 0.15s' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#5eead4' : 'var(--ink)', textTransform: 'capitalize' }}>{agent.role}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: isSelected ? 'var(--acc)' : 'var(--ink)', textTransform: 'capitalize' }}>{agent.role}</div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{agent.model || 'default'} {agent.provider ? `· ${agent.provider}` : ''}</div>
                 </div>
-                {isSelected && <span style={{ fontSize: 14, color: '#5eead4' }}>✓</span>}
+                {isSelected && <span style={{ display: 'inline-flex', color: 'var(--acc)' }}><NavIcon name="dot" size={13} /></span>}
               </button>
               );
             })}
             {/* CLI options */}
             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginTop: 6 }}>Local CLI</div>
             {[
-              { label: 'Claude CLI (Sonnet)', model: 'sonnet', provider: 'claude_cli', color: '#fb923c', icon: '✎' },
-              { label: 'Claude CLI (Opus)', model: 'opus', provider: 'claude_cli', color: '#a855f7', icon: '✎' },
-              { label: 'Codex CLI', model: 'gpt-4o', provider: 'codex_cli', color: '#a78bfa', icon: '⌘' },
+              { label: 'Claude CLI (Sonnet)', model: 'sonnet', provider: 'claude_cli', color: '#5b9bd5', icon: 'pencil' as const },
+              { label: 'Claude CLI (Opus)', model: 'opus', provider: 'claude_cli', color: '#5b9bd5', icon: 'pencil' as const },
+              { label: 'Codex CLI', model: 'gpt-4o', provider: 'codex_cli', color: '#5b9bd5', icon: 'terminal' as const },
             ].map((cli) => {
               const isSelected = selected?.type === 'cli' && selected.agent?.provider === cli.provider && selected.agent?.model === cli.model;
               return (
               <button key={`${cli.provider}:${cli.model}`}
                 onClick={() => setSelected({ type: 'cli', agent: { role: 'mcp_agent', model: cli.model, provider: cli.provider } })}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10,
-                  border: isSelected ? `1px solid ${cli.color}80` : `1px solid ${cli.color}40`,
-                  background: isSelected ? `${cli.color}1a` : `${cli.color}0a`,
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 8,
+                  border: isSelected ? `1px solid ${cli.color}80` : `1px solid var(--panel-border-2)`,
+                  background: isSelected ? `${cli.color}1a` : 'var(--panel)',
                   cursor: 'pointer', textAlign: 'left', width: '100%',
                   transition: 'all 0.15s' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: cli.color }}>{cli.icon} {cli.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: cli.color }}><NavIcon name={cli.icon} size={13} /> {cli.label}</div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{cli.provider} · {cli.model}</div>
                 </div>
-                {isSelected && <span style={{ fontSize: 14, color: cli.color }}>✓</span>}
+                {isSelected && <span style={{ display: 'inline-flex', color: cli.color }}><NavIcon name="dot" size={13} /></span>}
               </button>
               );
             })}
@@ -3027,15 +3033,15 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
                   return (
                   <button key={flow.id}
                     onClick={() => setSelected({ type: 'flow', flow })}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10,
-                      border: isSelected ? '1px solid rgba(168,85,247,0.6)' : '1px solid rgba(124,58,237,0.3)',
-                      background: isSelected ? 'rgba(168,85,247,0.15)' : 'rgba(124,58,237,0.06)',
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 8,
+                      border: isSelected ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)',
+                      background: isSelected ? 'var(--acc-soft)' : 'var(--panel)',
                       cursor: 'pointer', textAlign: 'left', width: '100%',
                       transition: 'all 0.15s' }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#c084fc' : 'var(--ink)' }}>{flow.name}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: isSelected ? 'var(--acc)' : 'var(--ink)' }}>{flow.name}</div>
                     </div>
-                    {isSelected && <span style={{ fontSize: 14, color: '#c084fc' }}>✓</span>}
+                    {isSelected && <span style={{ display: 'inline-flex', color: 'var(--acc)' }}><NavIcon name="dot" size={13} /></span>}
                   </button>
                   );
                 })}
@@ -3057,8 +3063,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
                   onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr);
                 }
               }}
-              style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
-                background: selected ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'var(--panel)',
+              style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
+                background: selected ? 'var(--acc)' : 'var(--panel)',
                 border: selected ? 'none' : '1px solid var(--panel-border)',
                 color: selected ? '#fff' : 'var(--ink-30)',
                 opacity: (!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)) ? 0.5 : 1 }}>

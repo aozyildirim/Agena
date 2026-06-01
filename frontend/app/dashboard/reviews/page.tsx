@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 interface Review {
   id: number;
@@ -26,11 +27,11 @@ interface Review {
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
-  critical: '#ef4444',
-  high: '#f97316',
-  medium: '#eab308',
-  low: '#60a5fa',
-  clean: '#22c55e',
+  critical: '#cf5b57',
+  high: '#c98a2b',
+  medium: '#c98a2b',
+  low: '#5b9bd5',
+  clean: '#3f9d6a',
 };
 
 const SEVERITY_RANK: Record<string, number> = {
@@ -196,8 +197,8 @@ export default function ReviewsPage() {
     setSearchQuery('');
   }
 
-  const cardStyle: React.CSSProperties = { background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 16 };
-  const inputStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--glass)', color: 'var(--ink)', height: 36 };
+  const cardStyle: React.CSSProperties = { background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 16 };
+  const inputStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink)', height: 36 };
 
   function renderReview(r: Review) {
     const isOpen = openId === r.id;
@@ -205,37 +206,37 @@ export default function ReviewsPage() {
     const isRunning = running === r.id;
     return (
       <div key={r.id} style={{
-        borderRadius: 12,
-        background: 'var(--glass)',
-        border: `1px solid ${isOpen ? 'rgba(168,85,247,0.5)' : 'var(--panel-border)'}`,
+        borderRadius: 10,
+        background: 'var(--surface)',
+        border: `1px solid ${isOpen ? 'var(--acc)' : 'var(--panel-border)'}`,
         borderLeft: `3px solid ${sevColor}`,
         overflow: 'hidden',
       }}>
         <div onClick={() => setOpenId(isOpen ? null : r.id)} style={{ cursor: 'pointer', padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: `${sevColor}1f`, border: `1px solid ${sevColor}66`, fontSize: 16,
+            background: `${sevColor}1f`, border: `1px solid ${sevColor}66`, color: sevColor,
           }}>
-            {r.severity === 'critical' ? '🚨' : r.severity === 'clean' ? '✅' : r.status === 'failed' ? '✗' : '🔎'}
+            <NavIcon name={r.severity === 'critical' ? 'alert' : r.severity === 'clean' ? 'shield' : r.status === 'failed' ? 'close' : 'search'} size={16} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {r.task_title || `Task #${r.task_id}`}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}>{r.reviewer_agent_role}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--acc-soft)', color: 'var(--acc)' }}>{r.reviewer_agent_role}</span>
               {r.severity && (
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: `${sevColor}1f`, color: sevColor, textTransform: 'uppercase' }}>{r.severity}</span>
               )}
-              {r.status === 'failed' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>FAILED</span>}
-              {r.status === 'running' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>RUNNING…</span>}
+              {r.status === 'failed' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(207,91,87,0.15)', color: '#cf5b57' }}>FAILED</span>}
+              {r.status === 'running' && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(201,138,43,0.15)', color: '#c98a2b' }}>RUNNING…</span>}
             </div>
             {/* Score progress bar */}
             {r.score != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <div style={{ flex: 1, maxWidth: 180, height: 4, background: 'var(--panel-border)', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ width: `${r.score}%`, height: '100%', background: r.score >= 70 ? '#22c55e' : r.score >= 40 ? '#eab308' : '#ef4444' }} />
+                  <div style={{ width: `${r.score}%`, height: '100%', background: r.score >= 70 ? '#3f9d6a' : r.score >= 40 ? '#c98a2b' : '#cf5b57' }} />
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-78)', minWidth: 40 }}>{r.score}/100</span>
               </div>
@@ -259,19 +260,19 @@ export default function ReviewsPage() {
               href={`/dashboard/reviews/${r.id}`}
               onClick={(e) => e.stopPropagation()}
               title={t('reviews.openDetails') || 'Open details'}
-              style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', textDecoration: 'none', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.10)', whiteSpace: 'nowrap' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: 'var(--acc)', textDecoration: 'none', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--acc)', background: 'var(--acc-soft)', whiteSpace: 'nowrap' }}
             >
-              📄 {t('reviews.details' as Parameters<typeof t>[0]) || 'Detail'}
+              <NavIcon name="clipboard" size={13} /> {t('reviews.details' as Parameters<typeof t>[0]) || 'Detail'}
             </Link>
-            <Link href={`/tasks/${r.task_id}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', textDecoration: 'none', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.08)', whiteSpace: 'nowrap' }}>
+            <Link href={`/tasks/${r.task_id}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: 11, fontWeight: 700, color: '#5b9bd5', textDecoration: 'none', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(91,155,213,0.3)', background: 'rgba(91,155,213,0.08)', whiteSpace: 'nowrap' }}>
               Task →
             </Link>
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(r); }}
               disabled={deletingId === r.id}
               title={t('reviews.delete') || 'Delete'}
-              style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent', color: '#f87171', cursor: deletingId === r.id ? 'wait' : 'pointer', fontSize: 13, opacity: deletingId === r.id ? 0.5 : 1 }}>
-              🗑
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, border: '1px solid rgba(207,91,87,0.3)', background: 'transparent', color: '#cf5b57', cursor: deletingId === r.id ? 'wait' : 'pointer', opacity: deletingId === r.id ? 0.5 : 1 }}>
+              <NavIcon name="close" size={14} />
             </button>
             <span style={{ fontSize: 14, color: 'var(--ink-35)', minWidth: 14 }}>{isOpen ? '▾' : '▸'}</span>
           </div>
@@ -285,7 +286,7 @@ export default function ReviewsPage() {
               </div>
             )}
             {r.error_message && (
-              <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 6, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 12, marginBottom: 10 }}>
+              <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 6, background: 'rgba(207,91,87,0.1)', border: '1px solid rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 12, marginBottom: 10 }}>
                 {r.error_message}
               </div>
             )}
@@ -319,16 +320,15 @@ export default function ReviewsPage() {
 
       {/* Hero */}
       <div style={{
-        position: 'relative', overflow: 'hidden', borderRadius: 16,
-        border: '1px solid var(--panel-border)', background: 'var(--panel)',
-        backgroundImage: 'linear-gradient(135deg, rgba(168,85,247,0.22), rgba(99,102,241,0.12) 60%, rgba(56,189,248,0.06))',
+        position: 'relative', overflow: 'hidden', borderRadius: 10,
+        border: '1px solid var(--panel-border)', background: 'var(--surface)',
         padding: '20px 22px',
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #a855f7, #6366f1, #38bdf8)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--acc)' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-          <div style={{ width: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(168,85,247,0.18)', border: '1px solid rgba(168,85,247,0.4)', fontSize: 22 }}>🔎</div>
+          <div style={{ width: 44, height: 44, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--acc-soft)', border: '1px solid var(--acc)', color: 'var(--acc)' }}><NavIcon name="search" size={22} /></div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: -0.3 }}>{t('reviews.title') || 'Code Reviews'}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', letterSpacing: -0.3 }}>{t('reviews.title') || 'Code Reviews'}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-58)', marginTop: 3, lineHeight: 1.5 }}>
               {t('reviews.heroSubtitle') || 'AI-driven adversarial code reviews. Track findings, severities, and per-agent verdict history without touching the code.'}
             </div>
@@ -338,15 +338,15 @@ export default function ReviewsPage() {
         {reviews.length > 0 && (
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             {[
-              { label: t('reviews.statTotal') || 'Reviews', value: reviews.length, color: 'var(--ink)' },
-              { label: t('reviews.statAgents') || 'Reviewer agents', value: Object.keys(stats.byRole).length, color: '#60a5fa' },
-              { label: t('reviews.statAvgScore') || 'Avg score', value: stats.avgScore != null ? `${stats.avgScore}` : '—', color: stats.avgScore != null && stats.avgScore >= 70 ? '#22c55e' : '#eab308' },
-              { label: t('reviews.statCritical') || 'Critical', value: stats.bySeverity['critical'] ?? 0, color: '#ef4444' },
-              { label: t('reviews.statCleanRate') || 'Clean rate', value: stats.cleanRate != null ? `${stats.cleanRate}%` : '—', color: '#22c55e' },
+              { label: t('reviews.statTotal') || 'Reviews', value: reviews.length, color: 'var(--ink-90)' },
+              { label: t('reviews.statAgents') || 'Reviewer agents', value: Object.keys(stats.byRole).length, color: '#5b9bd5' },
+              { label: t('reviews.statAvgScore') || 'Avg score', value: stats.avgScore != null ? `${stats.avgScore}` : '—', color: stats.avgScore != null && stats.avgScore >= 70 ? '#3f9d6a' : '#c98a2b' },
+              { label: t('reviews.statCritical') || 'Critical', value: stats.bySeverity['critical'] ?? 0, color: '#cf5b57' },
+              { label: t('reviews.statCleanRate') || 'Clean rate', value: stats.cleanRate != null ? `${stats.cleanRate}%` : '—', color: '#3f9d6a' },
             ].map((tile) => (
-              <div key={tile.label} style={{ flex: '1 1 130px', minWidth: 110, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--panel-border)' }}>
+              <div key={tile.label} style={{ flex: '1 1 130px', minWidth: 110, padding: '10px 14px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{tile.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: tile.color, marginTop: 4 }}>{tile.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: tile.color, marginTop: 4 }}>{tile.value}</div>
               </div>
             ))}
           </div>
@@ -376,7 +376,7 @@ export default function ReviewsPage() {
               return (
                 <button key={sev} onClick={() => setFilterSeverity(filterSeverity === sev ? '' : sev)} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '4px 10px',
-                  borderRadius: 999, background: filterSeverity === sev ? `${SEVERITY_COLOR[sev]}25` : 'var(--glass)',
+                  borderRadius: 999, background: filterSeverity === sev ? `${SEVERITY_COLOR[sev]}25` : 'var(--surface)',
                   color: SEVERITY_COLOR[sev], border: `1px solid ${SEVERITY_COLOR[sev]}55`, cursor: 'pointer',
                 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: SEVERITY_COLOR[sev] }} />
@@ -394,7 +394,7 @@ export default function ReviewsPage() {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>
             {t('reviews.filtersLabel') || 'Filter reviews'}
             {activeFilterCount > 0 && (
-              <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 7px', borderRadius: 999, background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}>{activeFilterCount}</span>
+              <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 7px', borderRadius: 999, background: 'var(--acc-soft)', color: 'var(--acc)' }}>{activeFilterCount}</span>
             )}
           </div>
           {activeFilterCount > 0 && (
@@ -442,9 +442,9 @@ export default function ReviewsPage() {
         {loading ? (
           <div style={{ fontSize: 12, color: 'var(--ink-35)', padding: 16, textAlign: 'center' }}>{t('integrations.common.loading') || 'Loading...'}</div>
         ) : filteredAndSorted.length === 0 ? (
-          <div style={{ padding: '32px 18px', textAlign: 'center', borderRadius: 12, background: 'var(--glass)', border: '1px dashed var(--panel-border)' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🔎</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+          <div style={{ padding: '32px 18px', textAlign: 'center', borderRadius: 10, background: 'var(--surface)', border: '1px dashed var(--panel-border)' }}>
+            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center', color: 'var(--ink-35)' }}><NavIcon name="search" size={32} /></div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>
               {activeFilterCount > 0 ? (t('reviews.noFilterMatch') || 'No reviews match the filter') : (t('reviews.emptyTitle') || 'No reviews yet')}
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4 }}>
@@ -486,10 +486,10 @@ export default function ReviewsPage() {
         // fixed positioning to that ancestor and push the modal
         // off-center).
         <div onClick={() => deletingId !== confirmDelete.id && setConfirmDelete(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}>
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(420px, calc(100vw - 24px))', borderRadius: 18, background: 'var(--surface)', border: '1px solid rgba(239,68,68,0.3)', padding: 24, display: 'grid', gap: 14, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto' }}>🗑</div>
+            style={{ width: 'min(420px, calc(100vw - 24px))', borderRadius: 10, background: 'var(--surface)', border: '1px solid rgba(207,91,87,0.3)', padding: 24, display: 'grid', gap: 14, boxShadow: '0 12px 32px rgba(0,0,0,0.28)' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 10, background: 'rgba(207,91,87,0.1)', border: '1px solid rgba(207,91,87,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', margin: '0 auto' }}><NavIcon name="alert" size={26} /></div>
             <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
               {t('reviews.deleteConfirm') || 'Delete this review?'}
             </div>
@@ -501,12 +501,12 @@ export default function ReviewsPage() {
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 4 }}>
               <button onClick={() => setConfirmDelete(null)} disabled={deletingId === confirmDelete.id}
-                style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', fontWeight: 600, fontSize: 13, cursor: deletingId === confirmDelete.id ? 'wait' : 'pointer' }}>
+                style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', fontWeight: 600, fontSize: 13, cursor: deletingId === confirmDelete.id ? 'wait' : 'pointer' }}>
                 {t('tasks.cancel') || 'Cancel'}
               </button>
               <button onClick={() => void confirmAndDelete()} disabled={deletingId === confirmDelete.id}
-                style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 13, cursor: deletingId === confirmDelete.id ? 'wait' : 'pointer' }}>
-                {deletingId === confirmDelete.id ? '⏳' : '🗑'} {t('reviews.delete') || 'Delete'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, border: 'none', background: '#cf5b57', color: '#fff', fontWeight: 700, fontSize: 13, cursor: deletingId === confirmDelete.id ? 'wait' : 'pointer' }}>
+                {deletingId === confirmDelete.id ? '…' : <NavIcon name="close" size={14} />} {t('reviews.delete') || 'Delete'}
               </button>
             </div>
           </div>

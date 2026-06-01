@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { useCanDo, usePermissions } from '@/lib/permissions';
 import Forbidden from '@/components/Forbidden';
+import NavIcon from '@/components/NavIcon';
 
 type Workspace = {
   id: number;
@@ -59,17 +60,9 @@ function inviteUrl(token: string): string {
   return `${window.location.origin}/invite/${token}`;
 }
 
-const GRADIENTS = [
-  ['#7c3aed', '#a78bfa'],
-  ['#0d9488', '#22c55e'],
-  ['#0ea5e9', '#38bdf8'],
-  ['#f59e0b', '#fb923c'],
-  ['#ec4899', '#f472b6'],
-  ['#14b8a6', '#06b6d4'],
-];
 const gradFor = (name: string) => {
-  const g = GRADIENTS[Math.abs(name.charCodeAt(0) || 0) % GRADIENTS.length];
-  return `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
+  void name;
+  return 'var(--acc)';
 };
 
 export default function WorkspacesPage() {
@@ -324,15 +317,15 @@ export default function WorkspacesPage() {
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink-90)' }}>{t('workspaces.title')}</h1>
-          <p style={{ fontSize: 13, color: 'var(--ink-30)', marginTop: 4 }}>{t('workspaces.subtitle')}</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)' }}>{t('workspaces.title')}</h1>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{t('workspaces.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => { setJoinOpen(true); setError(''); }} style={btnSecondary}>
             {t('workspaces.join')}
           </button>
           <button onClick={() => { setCreateOpen(true); setError(''); }} style={btnPrimary}>
-            + {t('workspaces.create')}
+            <NavIcon name="plus" size={16} /> {t('workspaces.create')}
           </button>
         </div>
       </div>
@@ -343,9 +336,9 @@ export default function WorkspacesPage() {
         {/* Left column: workspace list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {loading ? (
-            <div style={{ color: 'var(--ink-30)', fontSize: 13, padding: 12 }}>{t('common.loading')}…</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13, padding: 12 }}>{t('common.loading')}…</div>
           ) : workspaces.length === 0 ? (
-            <div style={{ color: 'var(--ink-30)', fontSize: 13, padding: 12 }}>{t('workspaces.empty')}</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13, padding: 12 }}>{t('workspaces.empty')}</div>
           ) : (
             workspaces.map((w) => (
               <button
@@ -354,22 +347,22 @@ export default function WorkspacesPage() {
                 style={{
                   textAlign: 'left',
                   padding: '12px 14px',
-                  borderRadius: 12,
-                  border: `1px solid ${activeId === w.id ? 'rgba(124,58,237,0.55)' : 'var(--panel-border-2)'}`,
-                  background: activeId === w.id ? 'rgba(124,58,237,0.08)' : 'var(--panel)',
+                  borderRadius: 10,
+                  border: `1px solid ${activeId === w.id ? 'var(--acc)' : 'var(--panel-border-2)'}`,
+                  background: activeId === w.id ? 'var(--acc-soft)' : 'var(--panel)',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 12,
                 }}
               >
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: gradFor(w.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: gradFor(w.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>
                   {(w.name[0] || 'W').toUpperCase()}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</span>
                     {w.is_default ? <span style={defaultPill}>default</span> : null}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2, fontFamily: 'monospace' }}>{w.slug}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, fontFamily: 'monospace' }}>{w.slug}</div>
                 </div>
               </button>
             ))
@@ -380,22 +373,22 @@ export default function WorkspacesPage() {
         {active ? (
           <div style={detailPanel}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 14, background: gradFor(active.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22, flexShrink: 0 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 10, background: gradFor(active.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 22, flexShrink: 0 }}>
                 {(active.name[0] || 'W').toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink-90)' }}>{active.name}</h2>
-                <div style={{ fontSize: 13, color: 'var(--ink-30)', marginTop: 2 }}>{active.description || ''}</div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)' }}>{active.name}</h2>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{active.description || ''}</div>
               </div>
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                 {canDo('workspace:manage') ? (
                   <button onClick={openEdit} style={btnGhost} title={t('workspaces.editTitle')}>
-                    ✎ {t('workspaces.edit')}
+                    <NavIcon name="pencil" size={14} /> {t('workspaces.edit')}
                   </button>
                 ) : null}
                 {canDo('workspace:delete') && !active.is_default ? (
                   <button onClick={handleDeleteWorkspace} disabled={busy} style={btnDangerLg} title={t('workspaces.delete')}>
-                    🗑 {t('workspaces.delete')}
+                    <NavIcon name="close" size={14} /> {t('workspaces.delete')}
                   </button>
                 ) : null}
               </div>
@@ -411,19 +404,19 @@ export default function WorkspacesPage() {
                   </button>
                 </div>
                 <button onClick={handleRegenerateCode} disabled={busy} style={{ ...btnGhost, marginTop: 8, fontSize: 12 }}>
-                  ↻ {t('workspaces.regenerate')}
+                  <NavIcon name="settings" size={13} /> {t('workspaces.regenerate')}
                 </button>
               </div>
               <div style={statCard}>
                 <div style={statLabel}>{t('workspaces.members')}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>{members.length}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6 }}>{members.length}</div>
               </div>
             </div>
 
             {canDo('workspace:invite') ? (
               <div style={{ marginTop: 8, marginBottom: 24 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{t('workspaces.inviteLinks')}</h3>
-                <p style={{ fontSize: 12, color: 'var(--ink-30)', marginBottom: 12 }}>{t('workspaces.inviteLinksHint')}</p>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>{t('workspaces.inviteLinksHint')}</p>
 
                 <div style={inviteCreator}>
                   <label style={inviteFieldLabel}>{t('workspaces.invitePreBindRole')}</label>
@@ -462,12 +455,12 @@ export default function WorkspacesPage() {
                   </select>
 
                   <button onClick={handleCreateInvite} disabled={busy} style={btnPrimarySmall}>
-                    + {t('workspaces.createInvite')}
+                    <NavIcon name="plus" size={14} /> {t('workspaces.createInvite')}
                   </button>
                 </div>
 
                 {invites.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 12 }}>{t('workspaces.inviteEmpty')}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12 }}>{t('workspaces.inviteEmpty')}</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
                     {invites.map((i) => {
@@ -509,23 +502,23 @@ export default function WorkspacesPage() {
               {(() => {
                 const otherMembers = members.filter((m) => !myEmail || m.email !== myEmail);
                 if (otherMembers.length === 0) {
-                  return <div style={{ fontSize: 13, color: 'var(--ink-30)' }}>{t('workspaces.noMembers')}</div>;
+                  return <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('workspaces.noMembers')}</div>;
                 }
                 return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {otherMembers.map((m) => (
                     <div key={m.user_id} style={memberRow}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: gradFor(m.full_name || m.email), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 12 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: gradFor(m.full_name || m.email), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 600, fontSize: 12 }}>
                         {((m.full_name || m.email)[0] || '?').toUpperCase()}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 13 }}>{m.full_name || m.email}</div>
-                        <div style={{ fontSize: 12, color: 'var(--ink-30)' }}>{m.email}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13 }}>{m.full_name || m.email}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.email}</div>
                       </div>
                       <select
                         value={m.role_id ?? ''}
                         onChange={(e) => { const v = parseInt(e.target.value, 10); if (Number.isFinite(v)) void handleAssignRole(m.user_id, v); }}
-                        style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-solid)', color: 'var(--ink-90)', fontSize: 12, minWidth: 120 }}
+                        style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: 'var(--ink-90)', fontSize: 12, minWidth: 120 }}
                         title={t('workspaces.roleLabel')}
                       >
                         <option value="" disabled>{t('workspaces.roleLabel')}</option>
@@ -541,7 +534,7 @@ export default function WorkspacesPage() {
                         style={titleInput}
                       />
                       <button onClick={() => handleRemoveMember(m.user_id)} style={btnDanger} title={t('workspaces.remove')}>
-                        ✕
+                        <NavIcon name="close" size={12} />
                       </button>
                     </div>
                   ))}
@@ -604,10 +597,10 @@ export default function WorkspacesPage() {
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(2,8,23,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--panel-solid)', borderRadius: 16, padding: 24, border: '1px solid var(--panel-border)', boxShadow: '0 18px 50px rgba(2,8,23,0.55)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', borderRadius: 10, padding: 24, border: '1px solid var(--panel-border)', boxShadow: '0 8px 24px rgba(2,8,23,0.18)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--ink-30)', cursor: 'pointer', fontSize: 22 }}>×</button>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-90)' }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 22, display: 'flex', alignItems: 'center' }}><NavIcon name="close" size={18} /></button>
         </div>
         {children}
       </div>
@@ -618,37 +611,37 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function Input({ label, value, onChange, placeholder, mono = false }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{label}</label>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-50)', marginBottom: 6 }}>{label}</label>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: mono ? 'monospace' : undefined, letterSpacing: mono ? 2 : undefined }}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-90)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: mono ? 'monospace' : undefined, letterSpacing: mono ? 2 : undefined }}
       />
     </div>
   );
 }
 
-const btnPrimary: React.CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' };
-const btnSecondary: React.CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontWeight: 600, fontSize: 14, cursor: 'pointer' };
-const btnGhost: React.CSSProperties = { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-78)', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
-const btnDanger: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.10)', color: '#dc2626', fontWeight: 700, fontSize: 12, cursor: 'pointer' };
-const btnDangerLg: React.CSSProperties = { padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.10)', color: '#dc2626', fontWeight: 700, fontSize: 13, cursor: 'pointer' };
-const btnPrimarySmall: React.CSSProperties = { padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' };
-const inviteCreator: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: 12, borderRadius: 10, border: '1px dashed var(--panel-border-3)', background: 'var(--glass)' };
-const inviteFieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--ink-58)' };
-const inviteSelect: React.CSSProperties = { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-solid)', color: 'var(--ink-90)', fontSize: 12 };
-const inviteRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--glass)', flexWrap: 'wrap' };
-const inviteTokenBox: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.20)', color: 'var(--ink-78)', fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all', flex: '1 1 280px', minWidth: 0 };
-const inviteMeta: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-30)' };
-const rolePill: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(124,58,237,0.10)', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1 };
-const statusPill: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(248,113,113,0.10)', color: '#dc2626', textTransform: 'uppercase' };
-const errorBox: React.CSSProperties = { padding: '10px 14px', borderRadius: 10, background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)', color: '#dc2626', fontSize: 13, marginBottom: 16 };
-const detailPanel: React.CSSProperties = { padding: 24, borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)' };
-const statCard: React.CSSProperties = { padding: 14, borderRadius: 12, border: '1px solid var(--panel-border-2)', background: 'var(--glass)' };
-const statLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' };
-const inviteCodeBox: React.CSSProperties = { padding: '6px 10px', borderRadius: 8, background: 'rgba(124,58,237,0.10)', border: '1px solid rgba(124,58,237,0.30)', color: 'var(--ink-90)', fontWeight: 800, fontSize: 14, letterSpacing: 2, fontFamily: 'monospace' };
-const memberRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--glass)' };
-const titleInput: React.CSSProperties = { width: 140, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-90)', fontSize: 12, outline: 'none' };
-const defaultPill: React.CSSProperties = { fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: 'rgba(34,197,94,0.15)', color: '#22c55e', textTransform: 'uppercase', letterSpacing: 1 };
+const btnPrimary: React.CSSProperties = { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 };
+const btnSecondary: React.CSSProperties = { padding: '10px 16px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: 'var(--ink-90)', fontWeight: 600, fontSize: 14, cursor: 'pointer' };
+const btnGhost: React.CSSProperties = { padding: '6px 10px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-78)', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
+const btnDanger: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.10)', color: '#cf5b57', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
+const btnDangerLg: React.CSSProperties = { padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.10)', color: '#cf5b57', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
+const btnPrimarySmall: React.CSSProperties = { padding: '6px 12px', borderRadius: 6, border: 'none', background: 'var(--acc)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
+const inviteCreator: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: 12, borderRadius: 10, border: '1px dashed var(--panel-border-3)', background: 'var(--panel-alt)' };
+const inviteFieldLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--ink-65)' };
+const inviteSelect: React.CSSProperties = { padding: '6px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: 'var(--ink-90)', fontSize: 12 };
+const inviteRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', flexWrap: 'wrap' };
+const inviteTokenBox: React.CSSProperties = { padding: '4px 8px', borderRadius: 6, background: 'var(--acc-soft)', border: '1px solid var(--panel-border-2)', color: 'var(--ink-78)', fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all', flex: '1 1 280px', minWidth: 0 };
+const inviteMeta: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' };
+const rolePill: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'var(--acc-soft)', color: 'var(--acc)', textTransform: 'uppercase', letterSpacing: 1 };
+const statusPill: React.CSSProperties = { fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(207,91,87,0.10)', color: '#cf5b57', textTransform: 'uppercase' };
+const errorBox: React.CSSProperties = { padding: '10px 14px', borderRadius: 10, background: 'rgba(207,91,87,0.10)', border: '1px solid rgba(207,91,87,0.35)', color: '#cf5b57', fontSize: 13, marginBottom: 16 };
+const detailPanel: React.CSSProperties = { padding: 24, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)' };
+const statCard: React.CSSProperties = { padding: 14, borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' };
+const statLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-50)' };
+const inviteCodeBox: React.CSSProperties = { padding: '6px 10px', borderRadius: 6, background: 'var(--acc-soft)', border: '1px solid var(--panel-border-2)', color: 'var(--ink-90)', fontWeight: 700, fontSize: 14, letterSpacing: 2, fontFamily: 'monospace' };
+const memberRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' };
+const titleInput: React.CSSProperties = { width: 140, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-90)', fontSize: 12, outline: 'none' };
+const defaultPill: React.CSSProperties = { fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: 'rgba(63,157,106,0.15)', color: '#3f9d6a', textTransform: 'uppercase', letterSpacing: 1 };
