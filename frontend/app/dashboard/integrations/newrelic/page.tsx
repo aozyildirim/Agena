@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import NavIcon from '@/components/NavIcon';
+import MappingHub from '@/components/integrations/MappingHub';
 
 interface NREntity {
   guid: string;
@@ -472,110 +473,58 @@ export default function NewRelicPage() {
         </div>
       </div>
 
-      {/* Entity results — searchable, filterable, one-step mapping list */}
-      {entities.length > 0 && (() => {
-        const q = entityFilter.trim().toLowerCase();
-        const isMapped = (e: NREntity) => {
+      {/* Entity → repo mapping (shared guided MappingHub) */}
+      <MappingHub
+        title='New Relic'
+        logo={<NavIcon name='signal' size={15} />}
+        loading={loading}
+        hint={t('integrations.newrelic.heroSubtitle') || 'Map an entity to a repo so AI can auto-fix its production errors and ship the patch.'}
+        searchPlaceholder={`Filter ${entities.length} entities…`}
+        onboardingSteps={[
+          'Connect New Relic with your API key in Integrations.',
+          'Search for the APM/Browser entities you run above.',
+          'Pick a repo on each entity to map it, then turn on auto-import.',
+        ]}
+        repos={repos.map((r) => ({ id: r.id, label: `${r.owner}/${r.repo_name}` }))}
+        items={entities.map((e) => {
           const m = mappings.find((mm) => mm.entity_guid === e.guid);
-          return !!(m && m.repo_mapping_id != null);
-        };
-        const mappedCount = entities.filter(isMapped).length;
-        const visible = entities.filter((e) => {
-          if (q && !e.name.toLowerCase().includes(q)) return false;
-          if (mapFilter === 'mapped' && !isMapped(e)) return false;
-          if (mapFilter === 'unmapped' && isMapped(e)) return false;
-          return true;
-        });
-        const segs: Array<{ k: typeof mapFilter; label: string }> = [
-          { k: 'all', label: `All · ${entities.length}` },
-          { k: 'unmapped', label: `Unmapped · ${entities.length - mappedCount}` },
-          { k: 'mapped', label: `Mapped · ${mappedCount}` },
-        ];
-        return (
-          <div style={cardStyle}>
-            {/* Filter bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-              <input
-                value={entityFilter}
-                onChange={(e) => setEntityFilter(e.target.value)}
-                placeholder={`${t('integrations.newrelic.entitiesCount').replace('{n}', String(entities.length))} — filter…`}
-                style={{ ...inputStyle, flex: 1, minWidth: 200, height: 34 }}
-              />
-              <div style={{ display: 'flex', gap: 4 }}>
-                {segs.map((s) => (
-                  <button key={s.k} type='button' onClick={() => setMapFilter(s.k)} style={{
-                    ...btnSmall, height: 34, padding: '0 12px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-                    color: mapFilter === s.k ? 'var(--acc)' : 'var(--ink-50)',
-                    borderColor: mapFilter === s.k ? 'var(--acc)' : 'var(--panel-border)',
-                    background: mapFilter === s.k ? 'var(--acc-soft)' : 'transparent',
-                  }}>{s.label}</button>
-                ))}
-              </div>
-            </div>
-
-            {/* Dense rows — repo dropdown is always visible (pick = map in one step) */}
-            <div style={{ display: 'grid', gap: 4 }}>
-              {visible.map((e) => {
-                const mapping = mappings.find((m) => m.entity_guid === e.guid);
-                return (
-                  <div key={e.guid} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '7px 10px', borderRadius: 8,
-                    background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
-                    flexWrap: 'wrap',
-                  }}>
-                    <span className='ent-dot' style={{ background: e.reporting ? '#3f9d6a' : 'var(--ink-30)' }} title={e.reporting ? 'live' : 'inactive'} />
-                    <div style={{ flex: 1, minWidth: 160 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--ink-42)', marginTop: 1 }}>
-                        {e.entity_type.replace('_APPLICATION', '').replace('_ENTITY', '')} · {e.reporting ? 'live' : 'inactive'}
-                        {mapping?.auto_import && <span style={{ color: 'var(--acc)', fontWeight: 600 }}> · auto-import</span>}
-                      </div>
-                    </div>
-                    <select
-                      value={mapping?.repo_mapping_id ?? ''}
-                      onChange={(ev) => {
-                        const val = ev.target.value ? parseInt(ev.target.value) : null;
-                        if (mapping) void updateMapping(mapping.id, { repo_mapping_id: val });
-                        else if (val != null) void mapEntityToRepo(e, val);
-                      }}
-                      style={{ ...inputStyle, width: 190, fontSize: 12, padding: '4px 8px', height: 32, borderColor: mapping?.repo_mapping_id != null ? 'var(--acc)' : 'var(--panel-border)' }}
-                    >
-                      <option value=''>{mapping ? (t('integrations.common.selectRepo') || 'Select repo…') : '+ Map to repo…'}</option>
-                      {repos.map((r) => (
-                        <option key={r.id} value={r.id}>{r.owner}/{r.repo_name}</option>
-                      ))}
-                    </select>
-                    {mapping && (
-                      <button onClick={() => void updateMapping(mapping.id, { auto_import: !mapping.auto_import })} title='Auto-import' style={{
-                        ...btnSmall, height: 32, padding: '0 10px', display: 'inline-flex', alignItems: 'center', gap: 5,
-                        color: mapping.auto_import ? 'var(--acc)' : 'var(--ink-50)',
-                        borderColor: mapping.auto_import ? 'var(--acc)' : 'var(--panel-border)',
-                        background: mapping.auto_import ? 'var(--acc-soft)' : 'transparent',
-                      }}><NavIcon name='zap' size={13} /> Auto</button>
-                    )}
-                    <button onClick={() => void fetchErrors(e.guid, e.name)} title={t('integrations.newrelic.errorsBtn')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name='bug' size={13} /></button>
-                    {mapping && (
-                      <button onClick={() => void importErrors(mapping.entity_guid)} disabled={runningGuid === mapping.entity_guid} title={t('integrations.common.import')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: runningGuid === mapping.entity_guid ? 0.6 : 1 }}>{runningGuid === mapping.entity_guid ? '…' : <NavIcon name='send' size={13} />}</button>
-                    )}
-                    {mapping && (
-                      <button onClick={() => void deleteMapping(mapping.id)} title={t('integrations.common.unmap') || 'Unmap'} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', borderColor: 'var(--panel-border)' }}><NavIcon name='close' size={13} /></button>
-                    )}
-                    {rowResult[e.guid] && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: rowResult[e.guid].kind === 'ok' ? '#3f9d6a' : '#cf5b57', whiteSpace: 'nowrap' }}>{rowResult[e.guid].text}</span>
-                    )}
-                  </div>
-                );
-              })}
-              {visible.length === 0 && (
-                <div style={{ padding: 14, textAlign: 'center', fontSize: 12.5, color: 'var(--ink-42)' }}>
-                  No entities match your filter.
-                </div>
+          return {
+            id: e.guid,
+            name: e.name,
+            sublabel: `${e.entity_type.replace('_APPLICATION', '').replace('_ENTITY', '')} · ${e.reporting ? 'live' : 'inactive'}`,
+            live: e.reporting,
+            mappedRepoId: m?.repo_mapping_id ?? null,
+            autoImport: m?.auto_import,
+          };
+        })}
+        onMapRepo={(item, repoId) => {
+          const e = entities.find((x) => x.guid === item.id);
+          const m = mappings.find((mm) => mm.entity_guid === item.id);
+          if (m) void updateMapping(m.id, { repo_mapping_id: repoId });
+          else if (e && repoId != null) void mapEntityToRepo(e, repoId);
+        }}
+        onToggleAuto={(item) => {
+          const m = mappings.find((mm) => mm.entity_guid === item.id);
+          if (m) void updateMapping(m.id, { auto_import: !m.auto_import });
+        }}
+        renderActions={(item) => {
+          const m = mappings.find((mm) => mm.entity_guid === item.id);
+          return (
+            <>
+              <button onClick={() => void fetchErrors(item.id, item.name)} title={t('integrations.newrelic.errorsBtn')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name='bug' size={13} /></button>
+              {m && (
+                <button onClick={() => void importErrors(m.entity_guid)} disabled={runningGuid === m.entity_guid} title={t('integrations.common.import')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: runningGuid === m.entity_guid ? 0.6 : 1 }}>{runningGuid === m.entity_guid ? '…' : <NavIcon name='send' size={13} />}</button>
               )}
-            </div>
-          </div>
-        );
-      })()}
+              {m && (
+                <button onClick={() => void deleteMapping(m.id)} title={t('integrations.common.unmap') || 'Unmap'} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', borderColor: 'var(--panel-border)' }}><NavIcon name='close' size={13} /></button>
+              )}
+              {rowResult[item.id] && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: rowResult[item.id].kind === 'ok' ? '#3f9d6a' : '#cf5b57', whiteSpace: 'nowrap' }}>{rowResult[item.id].text}</span>
+              )}
+            </>
+          );
+        }}
+      />
 
       {/* Error groups */}
       {selectedGuid && (
