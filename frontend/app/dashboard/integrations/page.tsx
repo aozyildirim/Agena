@@ -760,9 +760,9 @@ export default function IntegrationsPage() {
   return (
     <div className='integrations-root' style={{ display: 'grid', gap: 10 }}>
       <div className='int-hero'>
-        <h1 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', margin: 0, letterSpacing: -0.2 }}>
           {t('integrations.title')}
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-30)', marginLeft: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-35)', marginLeft: 10 }}>
             {connectedCount}/{totalCount} connected
           </span>
         </h1>
@@ -1778,22 +1778,20 @@ export default function IntegrationsPage() {
         }
         .integrations-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-          align-items: start;
+          grid-template-columns: 1fr;
+          gap: 8px;
+          align-items: stretch;
           position: relative;
           z-index: 1;
         }
         @media (max-width: 1500px) {
-          .integrations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .integrations-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
           .integrations-grid { grid-template-columns: 1fr; gap: 8px; }
         }
         .integrations-grid :global(.int-card:hover) {
-          border-color: color-mix(in oklab, var(--border) 82%, white 18%);
-          box-shadow: 0 8px 20px rgba(2, 6, 23, 0.1);
-          transform: translateY(-1px);
+          border-color: var(--panel-border-3);
         }
         .integrations-grid :global(.int-card) {
         }
@@ -1939,78 +1937,84 @@ function IntegrationCard({
   title: string; icon: string; color: string; connected: boolean; updatedAt?: string; children: React.ReactNode; onHelp?: () => void;
 }) {
   const { t } = useLocale();
+  const [open, setOpen] = useState(false);
   const statusText = connected ? t('integrations.connected') : t('integrations.notConfigured');
   return (
     <div className="int-card" style={{
       borderRadius: 10,
-      border: `1px solid ${connected ? 'color-mix(in oklab, #3f9d6a 40%, var(--panel-border))' : 'var(--panel-border)'}`,
+      border: '1px solid var(--panel-border)',
       background: 'var(--surface)',
-      padding: '10px 12px',
-      position: 'relative',
       overflow: 'hidden',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
+      transition: 'border-color 0.15s',
     }}>
-      <div style={{
-        position: 'absolute',
-        top: 8,
-        left: 4,
-        bottom: 8,
-        width: 2.5,
-        borderRadius: 999,
-        background: connected ? '#3f9d6a' : color,
-        opacity: connected ? 0.9 : 0.5,
-      }} />
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0 0 8px 6px',
-        borderBottom: '1px solid var(--panel-border)',
-      }}>
-        <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+      {/* Header row — click to expand/collapse the configuration */}
+      <div
+        role='button'
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((o) => !o); } }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '11px 14px',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{
+          width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16, lineHeight: 1,
+          background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
+        }}>{icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12 }}>{title}</div>
+          <div style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13 }}>{title}</div>
+          {updatedAt && <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 1 }}>{updatedAt}</div>}
         </div>
         <span style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          borderRadius: 999,
-          background: connected ? 'var(--acc-soft)' : 'transparent',
-          color: connected ? '#3f9d6a' : 'var(--ink-25)',
-          fontSize: 9,
-          fontWeight: 600,
-          padding: '2px 6px',
-          flexShrink: 0,
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          borderRadius: 6,
+          background: connected ? 'var(--acc-soft)' : 'var(--panel-alt)',
+          color: connected ? '#3f9d6a' : 'var(--ink-50)',
+          fontSize: 11, fontWeight: 600, padding: '3px 9px', flexShrink: 0,
         }}>
           <span className={connected ? 'connected-dot' : ''} style={{
-            width: 5, height: 5, borderRadius: '50%',
-            background: connected ? '#3f9d6a' : 'var(--ink-15)', flexShrink: 0,
+            width: 6, height: 6, borderRadius: '50%',
+            background: connected ? '#3f9d6a' : 'var(--ink-30)', flexShrink: 0,
           }} />
           {statusText}
         </span>
         {onHelp && (
-          <button type='button' onClick={onHelp} title={t('integrations.help')}
+          <button type='button' onClick={(e) => { e.stopPropagation(); onHelp(); }} title={t('integrations.help')}
             style={{
-              width: 18, height: 18, borderRadius: 5,
+              width: 22, height: 22, borderRadius: 6,
               border: '1px solid var(--panel-border-2)',
-              background: 'transparent', color: 'var(--ink-30)',
-              fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+              background: 'transparent', color: 'var(--ink-45)',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
             ?
           </button>
         )}
+        <span style={{
+          display: 'inline-flex', flexShrink: 0, color: 'var(--ink-35)',
+          transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none',
+        }}>
+          <NavIcon name='chevron-right' size={16} />
+        </span>
       </div>
-      <div style={{
-        display: 'grid',
-        gap: 6,
-        flex: 1,
-        padding: '8px 2px 2px 6px',
-      }}>{children}</div>
+      {/* Body — configuration form, revealed on expand */}
+      {open && (
+        <div style={{
+          borderTop: '1px solid var(--panel-border)',
+          background: 'var(--panel-alt)',
+          padding: '14px 16px',
+        }}>
+          <div style={{ display: 'grid', gap: 8, maxWidth: 560 }}>{children}</div>
+        </div>
+      )}
     </div>
   );
 }
