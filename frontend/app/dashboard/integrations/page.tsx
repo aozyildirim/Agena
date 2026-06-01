@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type IntegrationConfig = {
   provider: 'jira' | 'azure' | 'openai' | 'gemini' | 'github' | 'gitlab' | 'bitbucket' | 'playbook' | 'slack' | 'teams' | 'telegram' | 'hal' | 'newrelic' | 'sentry' | 'datadog' | 'appdynamics';
@@ -750,18 +751,18 @@ export default function IntegrationsPage() {
   const connectedCount = configs.filter((c) => c.has_secret).length;
   const totalCount = configs.length;
   const tabMeta = {
-    ai: { icon: '⚡', color: '#34d399', label: t('integrations.tabAi'), count: configs.filter((c) => aiProviders.includes(c.provider)).filter((c) => c.has_secret).length, visible: aiProviders.length > 0 },
-    task: { icon: '🔗', color: '#60a5fa', label: t('integrations.tabTask'), count: configs.filter((c) => taskProviders.includes(c.provider)).filter((c) => c.has_secret).length, visible: taskProviders.length > 0 },
-    notifications: { icon: '🔔', color: '#fb923c', label: t('integrations.tabNotifications'), count: configs.filter((c) => notificationProviders.includes(c.provider)).filter((c) => c.has_secret).length, visible: notificationProviders.length > 0 },
-    cli: { icon: '⌨', color: '#a855f7', label: t('integrations.tabCli'), count: Number(Boolean(cliBridgeStatus?.ok)), visible: enabledModules.has('cli_agents') },
+    ai: { icon: 'activity', color: 'var(--acc)', label: t('integrations.tabAi'), count: configs.filter((c) => aiProviders.includes(c.provider)).filter((c) => c.has_secret).length, visible: aiProviders.length > 0 },
+    task: { icon: 'plug', color: 'var(--acc)', label: t('integrations.tabTask'), count: configs.filter((c) => taskProviders.includes(c.provider)).filter((c) => c.has_secret).length, visible: taskProviders.length > 0 },
+    notifications: { icon: 'bell', color: 'var(--acc)', label: t('integrations.tabNotifications'), count: configs.filter((c) => notificationProviders.includes(c.provider)).filter((c) => c.has_secret).length, visible: notificationProviders.length > 0 },
+    cli: { icon: 'terminal', color: 'var(--acc)', label: t('integrations.tabCli'), count: Number(Boolean(cliBridgeStatus?.ok)), visible: enabledModules.has('cli_agents') },
   } as const;
 
   return (
     <div className='integrations-root' style={{ display: 'grid', gap: 10 }}>
       <div className='int-hero'>
-        <h1 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', margin: 0, letterSpacing: -0.2 }}>
           {t('integrations.title')}
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-30)', marginLeft: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-35)', marginLeft: 10 }}>
             {connectedCount}/{totalCount} connected
           </span>
         </h1>
@@ -778,17 +779,14 @@ export default function IntegrationsPage() {
             minWidth: 180,
             maxWidth: 'min(320px, calc(100vw - 24px))',
             padding: '8px 12px',
-            borderRadius: 10,
+            borderRadius: 8,
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: 0.2,
-            color: error ? '#fecaca' : '#86efac',
-            border: error ? '1px solid rgba(248,113,113,0.35)' : '1px solid rgba(34,197,94,0.35)',
-            background: error ? 'rgba(127,29,29,0.92)' : 'rgba(20,83,45,0.92)',
-            boxShadow: error
-              ? '0 10px 30px rgba(127,29,29,0.35)'
-              : '0 10px 30px rgba(20,83,45,0.35)',
-            backdropFilter: 'blur(8px)',
+            color: error ? '#cf5b57' : '#3f9d6a',
+            border: error ? '1px solid rgba(207,91,87,0.35)' : '1px solid rgba(63,157,106,0.35)',
+            background: 'var(--surface)',
+            boxShadow: '0 8px 20px rgba(2,6,23,0.12)',
             animation: 'toastSlideUp 180ms ease-out',
           }}
         >
@@ -814,7 +812,7 @@ export default function IntegrationsPage() {
               data-active={active ? '1' : '0'}
               style={{ ['--tab-color' as string]: tab.color }}
             >
-              <span className='int-tab-icon'>{tab.icon}</span>
+              <span className='int-tab-icon'><NavIcon name={tab.icon} size={14}/></span>
               <span>{tab.label}</span>
               {tab.count > 0 && <span className='int-tab-count'>{tab.count}</span>}
             </button>
@@ -827,7 +825,7 @@ export default function IntegrationsPage() {
         {activeTab === 'ai' && isProviderEnabled('openai') && <IntegrationCard
           title={t('integrations.providerOpenai')}
           icon='⚡'
-          color='#34d399'
+          color='var(--acc)'
           connected={openaiConfig?.has_secret ?? false}
           updatedAt={openaiConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.openai)}
@@ -847,7 +845,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveOpenai')}
           </button>
           {configs.find(c => c.provider === 'openai')?.has_secret && (
-            <button onClick={() => void deleteIntegration('openai')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('openai')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteOpenaiConnection')}
             </button>
           )}
@@ -857,7 +855,7 @@ export default function IntegrationsPage() {
         {activeTab === 'ai' && isProviderEnabled('gemini') && <IntegrationCard
           title={t('integrations.providerGemini')}
           icon='✨'
-          color='#22d3ee'
+          color='var(--acc)'
           connected={geminiConfig?.has_secret ?? false}
           updatedAt={geminiConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.gemini)}
@@ -882,7 +880,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('azure') && <IntegrationCard
           title={t('integrations.providerAzure')}
           icon='🔷'
-          color='#60a5fa'
+          color='var(--acc)'
           connected={azureConfig?.has_secret ?? false}
           updatedAt={azureConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.azure)}
@@ -917,7 +915,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveAzure')}
           </button>
           {configs.find(c => c.provider === 'azure')?.has_secret && (
-            <button onClick={() => void deleteIntegration('azure')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('azure')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteAzureConnection')}
             </button>
           )}
@@ -927,7 +925,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('github') && <IntegrationCard
           title={t('integrations.providerGithub')}
           icon='🐙'
-          color='#a78bfa'
+          color='var(--acc)'
           connected={githubConfig?.has_secret ?? false}
           updatedAt={githubConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.github)}
@@ -950,7 +948,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveGithub')}
           </button>
           {configs.find(c => c.provider === 'github')?.has_secret && (
-            <button onClick={() => void deleteIntegration('github')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('github')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteGithubConnection')}
             </button>
           )}
@@ -960,7 +958,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('jira') && <IntegrationCard
           title={t('integrations.providerJira')}
           icon='🟦'
-          color='#818cf8'
+          color='var(--acc)'
           connected={jiraConfig?.has_secret ?? false}
           updatedAt={jiraConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.jira)}
@@ -995,7 +993,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveJira')}
           </button>
           {configs.find(c => c.provider === 'jira')?.has_secret && (
-            <button onClick={() => void deleteIntegration('jira')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('jira')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteJiraConnection')}
             </button>
           )}
@@ -1005,7 +1003,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('newrelic') && <IntegrationCard
           title={t('integrations.providerNewrelic')}
           icon='📊'
-          color='#1CE783'
+          color='var(--acc)'
           connected={newrelicConfig?.has_secret ?? false}
           updatedAt={newrelicConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.newrelic)}
@@ -1031,7 +1029,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveNewrelic')}
           </button>
           {configs.find(c => c.provider === 'newrelic')?.has_secret && (
-            <button onClick={() => void deleteIntegration('newrelic')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('newrelic')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteNewrelicConnection')}
             </button>
           )}
@@ -1041,7 +1039,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('sentry') && <IntegrationCard
           title={t('integrations.providerSentry')}
           icon='🚨'
-          color='#f97316'
+          color='var(--acc)'
           connected={sentryConfig?.has_secret ?? false}
           updatedAt={sentryConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.sentry)}
@@ -1064,7 +1062,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveSentry')}
           </button>
           {configs.find(c => c.provider === 'sentry')?.has_secret && (
-            <button onClick={() => void deleteIntegration('sentry')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('sentry')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteSentryConnection')}
             </button>
           )}
@@ -1074,7 +1072,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('gitlab') && <IntegrationCard
           title="GitLab"
           icon='🦊'
-          color='#fc6d26'
+          color='var(--acc)'
           connected={configs.find(c => c.provider === 'gitlab')?.has_secret ?? false}
           updatedAt={configs.find(c => c.provider === 'gitlab')?.updated_at}
         >
@@ -1089,7 +1087,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveGitlabConfig')}
           </button>
           {configs.find(c => c.provider === 'gitlab')?.has_secret && (
-            <button onClick={() => void deleteIntegration('gitlab')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+            <button onClick={() => void deleteIntegration('gitlab')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
               {t('integrations.deleteGitlabConnection')}
             </button>
           )}
@@ -1099,7 +1097,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('bitbucket') && <IntegrationCard
           title="Bitbucket"
           icon='🪣'
-          color='#0052cc'
+          color='var(--acc)'
           connected={configs.find(c => c.provider === 'bitbucket')?.has_secret ?? false}
           updatedAt={configs.find(c => c.provider === 'bitbucket')?.updated_at}
         >
@@ -1114,7 +1112,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveBitbucketConfig')}
           </button>
           {configs.find(c => c.provider === 'bitbucket')?.has_secret && (
-            <button onClick={() => void deleteIntegration('bitbucket')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+            <button onClick={() => void deleteIntegration('bitbucket')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
               {t('integrations.deleteBitbucketConnection')}
             </button>
           )}
@@ -1124,7 +1122,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('appdynamics') && <IntegrationCard
           title="AppDynamics"
           icon='📊'
-          color='#00b4d8'
+          color='var(--acc)'
           connected={configs.find(c => c.provider === 'appdynamics')?.has_secret ?? false}
           updatedAt={configs.find(c => c.provider === 'appdynamics')?.updated_at}
         >
@@ -1156,7 +1154,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveAppdynamicsConfig')}
           </button>
           {configs.find(c => c.provider === 'appdynamics')?.has_secret && (
-            <button onClick={() => void deleteIntegration('appdynamics')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+            <button onClick={() => void deleteIntegration('appdynamics')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
               {t('integrations.deleteAppdynamicsConnection')}
             </button>
           )}
@@ -1166,7 +1164,7 @@ export default function IntegrationsPage() {
         {activeTab === 'task' && isProviderEnabled('datadog') && <IntegrationCard
           title="Datadog"
           icon='🐶'
-          color='#632ca6'
+          color='var(--acc)'
           connected={configs.find(c => c.provider === 'datadog')?.has_secret ?? false}
           updatedAt={configs.find(c => c.provider === 'datadog')?.updated_at}
         >
@@ -1196,7 +1194,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveDatadogConfig')}
           </button>
           {configs.find(c => c.provider === 'datadog')?.has_secret && (
-            <button onClick={() => void deleteIntegration('datadog')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+            <button onClick={() => void deleteIntegration('datadog')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
               {t('integrations.deleteDatadogConnection')}
             </button>
           )}
@@ -1206,7 +1204,7 @@ export default function IntegrationsPage() {
         {activeTab === 'ai' && isProviderEnabled('hal') && <IntegrationCard
           title={t('integrations.providerHal')}
           icon='🤖'
-          color='#f472b6'
+          color='var(--acc)'
           connected={halConfig?.has_secret ?? false}
           updatedAt={halConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.hal)}
@@ -1235,7 +1233,7 @@ export default function IntegrationsPage() {
             {t('integrations.saveHal')}
           </button>
           {halConfig?.has_secret && (
-            <button onClick={() => void deleteIntegration('hal')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.15)', background: 'transparent', color: '#f87171', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
+            <button onClick={() => void deleteIntegration('hal')} style={{ width: '100%', marginTop: 4, padding: '7px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s' }}>
               {t('integrations.deleteHalConnection')}
             </button>
           )}
@@ -1245,7 +1243,7 @@ export default function IntegrationsPage() {
         {activeTab === 'ai' && isProviderEnabled('playbook') && <IntegrationCard
           title={t('integrations.providerPlaybook')}
           icon='📘'
-          color='#f59e0b'
+          color='var(--acc)'
           connected={playbookConfig?.has_secret ?? false}
           updatedAt={playbookConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.playbook)}
@@ -1269,7 +1267,7 @@ export default function IntegrationsPage() {
         {activeTab === 'notifications' && isProviderEnabled('slack') && <IntegrationCard
           title={t('integrations.providerSlack')}
           icon='💬'
-          color='#22c55e'
+          color='var(--acc)'
           connected={slackConfig?.has_secret ?? false}
           updatedAt={slackConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.slack)}
@@ -1281,7 +1279,7 @@ export default function IntegrationsPage() {
               placeholder={slackConfig?.base_url && slackConfig.base_url !== 'https://hooks.slack.com/services' ? slackConfig.base_url : 'https://hooks.slack.com/services/T.../B.../xxx'}
             />
           </FieldGroup>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', margin: '10px 0 6px', letterSpacing: 0.5, textTransform: 'uppercase' }}>ChatOps (commands)</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc)', margin: '10px 0 6px', letterSpacing: 0.5, textTransform: 'uppercase' }}>ChatOps (commands)</div>
           <FieldGroup label='Bot User OAuth Token (xoxb-...)'>
             <input
               type='password'
@@ -1309,7 +1307,7 @@ export default function IntegrationsPage() {
         {activeTab === 'notifications' && isProviderEnabled('teams') && <IntegrationCard
           title={t('integrations.providerTeams')}
           icon='🟪'
-          color='#60a5fa'
+          color='var(--acc)'
           connected={teamsConfig?.has_secret ?? false}
           updatedAt={teamsConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.teams)}
@@ -1321,7 +1319,7 @@ export default function IntegrationsPage() {
               placeholder={teamsConfig?.base_url && teamsConfig.base_url !== 'https://outlook.office.com/webhook' ? teamsConfig.base_url : 'https://outlook.office.com/webhook/...'}
             />
           </FieldGroup>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', margin: '10px 0 6px', letterSpacing: 0.5, textTransform: 'uppercase' }}>ChatOps — Bot Framework</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc)', margin: '10px 0 6px', letterSpacing: 0.5, textTransform: 'uppercase' }}>ChatOps — Bot Framework</div>
           <FieldGroup label='Bot App ID'>
             <input
               value={teamsBotAppId}
@@ -1348,7 +1346,7 @@ export default function IntegrationsPage() {
         {activeTab === 'notifications' && <IntegrationCard
           title='Telegram ChatOps'
           icon='✈️'
-          color='#38bdf8'
+          color='var(--acc)'
           connected={telegramConfig?.has_secret ?? false}
           updatedAt={telegramConfig?.updated_at}
           onHelp={() => setHelp(helpByProvider.telegram)}
@@ -1371,7 +1369,7 @@ export default function IntegrationsPage() {
           <button className='button button-primary' onClick={() => void saveTelegram()} style={{ width: '100%', justifyContent: 'center', marginTop: 2 }}>
             {t('integrations.saveTelegram')}
           </button>
-          {telegramSetupMsg && <div style={{ fontSize: 11, color: '#5eead4', marginTop: 6 }}>{telegramSetupMsg}</div>}
+          {telegramSetupMsg && <div style={{ fontSize: 11, color: 'var(--acc)', marginTop: 6 }}>{telegramSetupMsg}</div>}
           <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 8, lineHeight: 1.5 }}>
             Commands: <code>/help</code> <code>/fix</code> <code>/status</code> <code>/queue</code> <code>/recent</code> <code>/stats</code> <code>/cancel</code>
           </div>
@@ -1380,7 +1378,7 @@ export default function IntegrationsPage() {
         {activeTab === 'notifications' && <IntegrationCard
           title={t('integrations.notificationRouter')}
           icon='🔔'
-          color='#fb923c'
+          color='var(--acc)'
           connected={Boolean(slackConfig?.has_secret || teamsConfig?.has_secret)}
         >
           <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5 }}>
@@ -1399,7 +1397,7 @@ export default function IntegrationsPage() {
         {/* CLI Agents */}
         {activeTab === 'cli' && (
           <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 16 }}>
-            <div style={{ borderRadius: 16, border: '1px solid rgba(168,85,247,0.25)', background: 'var(--surface)', padding: '20px 24px' }}>
+            <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--surface)', padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{t('integrations.cliBridgeTitle')}</h3>
@@ -1409,9 +1407,9 @@ export default function IntegrationsPage() {
                 </div>
                 <div style={{
                   padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                  background: cliBridgeStatus?.ok ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                  color: cliBridgeStatus?.ok ? '#22c55e' : '#f87171',
-                  border: `1px solid ${cliBridgeStatus?.ok ? 'rgba(34,197,94,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                  background: cliBridgeStatus?.ok ? 'rgba(63,157,106,0.12)' : 'rgba(207,91,87,0.12)',
+                  color: cliBridgeStatus?.ok ? '#3f9d6a' : '#cf5b57',
+                  border: `1px solid ${cliBridgeStatus?.ok ? 'rgba(63,157,106,0.3)' : 'rgba(207,91,87,0.3)'}`,
                 }}>
                   {cliBridgeStatus === null ? t('integrations.cliUnchecked') : cliBridgeStatus.ok ? t('integrations.cliConnected') : t('integrations.cliDisconnected')}
                 </div>
@@ -1420,20 +1418,20 @@ export default function IntegrationsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div style={{ borderRadius: 12, border: '1px solid var(--panel-border-2)', padding: '14px 16px', background: 'var(--panel)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 20 }}>⌘</span>
+                    <span style={{ display: 'inline-flex', color: 'var(--ink-72)' }}><NavIcon name="terminal" size={18}/></span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{t('integrations.codexCliTitle')}</span>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                      background: cliBridgeStatus?.codex ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                      color: cliBridgeStatus?.codex ? '#22c55e' : '#f87171',
+                      background: cliBridgeStatus?.codex ? 'rgba(63,157,106,0.12)' : 'rgba(207,91,87,0.12)',
+                      color: cliBridgeStatus?.codex ? '#3f9d6a' : '#cf5b57',
                     }}>
                       {cliBridgeStatus?.codex ? t('integrations.cliInstalled') : t('integrations.cliNotFound')}
                     </span>
                     {cliBridgeStatus?.codex && (
                       <span style={{
                         fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                        background: cliBridgeStatus?.codex_auth ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                        color: cliBridgeStatus?.codex_auth ? '#22c55e' : '#f59e0b',
+                        background: cliBridgeStatus?.codex_auth ? 'rgba(63,157,106,0.12)' : 'rgba(201,138,43,0.12)',
+                        color: cliBridgeStatus?.codex_auth ? '#3f9d6a' : '#c98a2b',
                       }}>
                         {cliBridgeStatus?.codex_auth ? t('integrations.cliAuthOk') : t('integrations.cliAuthRequired')}
                       </span>
@@ -1488,7 +1486,7 @@ export default function IntegrationsPage() {
                   )}
                   {cliBridgeStatus?.codex && !cliBridgeStatus?.codex_auth && (
                     <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                      <button style={{ width: '100%', padding: '11px 14px', fontSize: 13, fontWeight: 700, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => {
+                      <button style={{ width: '100%', padding: '11px 14px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => {
                         const popup = window.open('', '_blank');
                         setMsg('Starting device auth...');
                         fetch('http://localhost:9876/codex/device-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
@@ -1511,16 +1509,16 @@ export default function IntegrationsPage() {
                             else setMsg(d.message || 'Device auth started');
                           }).catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
                       }}>Connect with ChatGPT</button>
-                      <div id='codex-device-section' style={{ display: 'none', gap: 6, textAlign: 'center', padding: '16px', borderRadius: 12, border: '1px solid rgba(94,234,212,0.3)', background: 'rgba(94,234,212,0.06)' }}>
+                      <div id='codex-device-section' style={{ display: 'none', gap: 6, textAlign: 'center', padding: '16px', borderRadius: 10, border: '1px solid var(--acc-soft)', background: 'var(--acc-soft)' }}>
                         <div style={{ fontSize: 11, color: 'var(--muted)' }}>Enter this code in the browser:</div>
-                        <div id='codex-device-code' style={{ fontSize: 28, fontWeight: 800, letterSpacing: 6, color: '#5eead4', fontFamily: 'monospace', padding: '10px 0' }}>----</div>
+                        <div id='codex-device-code' style={{ fontSize: 28, fontWeight: 800, letterSpacing: 6, color: 'var(--acc)', fontFamily: 'monospace', padding: '10px 0' }}>----</div>
                         <div style={{ fontSize: 10, color: 'var(--muted)' }}>Waiting for confirmation...</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}><div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /> {t('integrations.or')} <div style={{ flex: 1, height: 1, background: 'var(--panel-border-3)' }} /></div>
                       <div style={{ display: 'none', gap: 6 }}>
-                        <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5 }}>{t('integrations.codexCallbackHint')}</div>
+                        <div style={{ fontSize: 11, color: '#c98a2b', lineHeight: 1.5 }}>{t('integrations.codexCallbackHint')}</div>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <input id='codex-callback-url' type='text' placeholder={t('integrations.codexCallbackPlaceholder')} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
+                          <input id='codex-callback-url' type='text' placeholder={t('integrations.codexCallbackPlaceholder')} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
                           <button className='button button-primary' style={{ padding: '7px 12px', fontSize: 11, flexShrink: 0 }} onClick={() => {
                             const cbUrl = (document.getElementById('codex-callback-url') as HTMLInputElement)?.value;
                             if (!cbUrl || !cbUrl.includes('code=')) { setError(t('integrations.validCallbackRequired')); return; }
@@ -1554,20 +1552,20 @@ export default function IntegrationsPage() {
 
                 <div style={{ borderRadius: 12, border: '1px solid var(--panel-border-2)', padding: '14px 16px', background: 'var(--panel)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 20 }}>◆</span>
+                    <span style={{ display: 'inline-flex', color: 'var(--ink-72)' }}><NavIcon name="terminal" size={18}/></span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{t('integrations.claudeCliTitle')}</span>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                      background: cliBridgeStatus?.claude ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                      color: cliBridgeStatus?.claude ? '#22c55e' : '#f87171',
+                      background: cliBridgeStatus?.claude ? 'rgba(63,157,106,0.12)' : 'rgba(207,91,87,0.12)',
+                      color: cliBridgeStatus?.claude ? '#3f9d6a' : '#cf5b57',
                     }}>
                       {cliBridgeStatus?.claude ? t('integrations.cliInstalled') : t('integrations.cliNotFound')}
                     </span>
                     {cliBridgeStatus?.claude && (
                       <span style={{
                         fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                        background: cliBridgeStatus?.claude_auth ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                        color: cliBridgeStatus?.claude_auth ? '#22c55e' : '#f59e0b',
+                        background: cliBridgeStatus?.claude_auth ? 'rgba(63,157,106,0.12)' : 'rgba(201,138,43,0.12)',
+                        color: cliBridgeStatus?.claude_auth ? '#3f9d6a' : '#c98a2b',
                       }}>
                         {cliBridgeStatus?.claude_auth ? t('integrations.cliAuthOk') : t('integrations.cliAuthRequired')}
                       </span>
@@ -1641,11 +1639,11 @@ export default function IntegrationsPage() {
                             else setMsg(d.message || t('integrations.cliLoginStarted'));
                           }).catch(() => setError(t('integrations.cliBridgeConnectionFailed')));
                       }}>{t('integrations.connectWithAnthropic')}</button>
-                      <div style={{ fontSize: 11, color: '#f59e0b', lineHeight: 1.5, padding: '6px 2px' }}>
+                      <div style={{ fontSize: 11, color: '#c98a2b', lineHeight: 1.5, padding: '6px 2px' }}>
                         Sign in from the opened browser tab. When complete, this status will update automatically.
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <input id='claude-login-code' type='text' placeholder='If Claude gave a code, paste it here' style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
+                        <input id='claude-login-code' type='text' placeholder='If Claude gave a code, paste it here' style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 10, fontFamily: 'monospace' }} />
                         <button className='button button-primary' style={{ padding: '7px 12px', fontSize: 11, flexShrink: 0 }} onClick={() => {
                           const code = ((document.getElementById('claude-login-code') as HTMLInputElement)?.value || '').trim();
                           if (!code) { setError('Login code is required'); return; }
@@ -1679,8 +1677,8 @@ export default function IntegrationsPage() {
                 </div>
               </div>
 
-              <div style={{ borderRadius: 12, border: '1px solid rgba(168,85,247,0.2)', background: 'rgba(168,85,247,0.05)', padding: '14px 16px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{t('integrations.bridgeHowToTitle')}</div>
+              <div style={{ borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: '14px 16px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--acc)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{t('integrations.bridgeHowToTitle')}</div>
                 <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--ink-72)', lineHeight: 1.8 }}>
                   <li>{t('integrations.bridgeStep1')}</li>
                 </ol>
@@ -1713,7 +1711,6 @@ export default function IntegrationsPage() {
             position: 'fixed',
             inset: 0,
             background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
             zIndex: 60,
             display: 'flex',
             alignItems: 'center',
@@ -1726,9 +1723,10 @@ export default function IntegrationsPage() {
             style={{
               width: '100%',
               maxWidth: 520,
-              borderRadius: 14,
+              borderRadius: 10,
               border: '1px solid var(--panel-border)',
               background: 'var(--surface)',
+              boxShadow: '0 12px 32px rgba(2,6,23,0.18)',
               padding: 16,
               color: 'var(--ink-90)',
               maxHeight: '85vh',
@@ -1741,7 +1739,7 @@ export default function IntegrationsPage() {
                 onClick={() => setHelp(null)}
                 style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               >
-                ×
+                <NavIcon name="close" size={14}/>
               </button>
             </div>
             <div style={{ display: 'grid', gap: 5 }}>
@@ -1753,7 +1751,7 @@ export default function IntegrationsPage() {
               ))}
             </div>
             {help.note && (
-              <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', fontSize: 11, color: 'rgba(251,191,36,0.85)', lineHeight: 1.5 }}>
+              <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(201,138,43,0.08)', border: '1px solid rgba(201,138,43,0.2)', fontSize: 11, color: '#c98a2b', lineHeight: 1.5 }}>
                 {help.note}
               </div>
             )}
@@ -1762,7 +1760,7 @@ export default function IntegrationsPage() {
                 href={help.link}
                 target='_blank'
                 rel='noreferrer'
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 10, color: '#93c5fd', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 10, color: 'var(--acc)', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}
               >
                 {t('integrations.openDocumentation')} ↗
               </a>
@@ -1780,25 +1778,22 @@ export default function IntegrationsPage() {
         }
         .integrations-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-          align-items: start;
+          grid-template-columns: 1fr;
+          gap: 8px;
+          align-items: stretch;
           position: relative;
           z-index: 1;
         }
         @media (max-width: 1500px) {
-          .integrations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .integrations-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
           .integrations-grid { grid-template-columns: 1fr; gap: 8px; }
         }
         .integrations-grid :global(.int-card:hover) {
-          border-color: color-mix(in oklab, var(--border) 82%, white 18%);
-          box-shadow: 0 8px 20px rgba(2, 6, 23, 0.1);
-          transform: translateY(-1px);
+          border-color: var(--panel-border-3);
         }
         .integrations-grid :global(.int-card) {
-          backdrop-filter: blur(8px);
         }
         .integrations-grid :global(input),
         .integrations-grid :global(select) {
@@ -1815,7 +1810,7 @@ export default function IntegrationsPage() {
         .integrations-grid :global(input:focus),
         .integrations-grid :global(select:focus) {
           border-color: var(--border);
-          box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+          box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.12);
           background: color-mix(in oklab, var(--surface) 92%, white 8%);
         }
         .integrations-grid :global(input::placeholder) {
@@ -1845,7 +1840,7 @@ export default function IntegrationsPage() {
           min-height: 32px;
           padding: 6px 10px !important;
           font-size: 11px !important;
-          border-radius: 10px;
+          border-radius: 8px;
         }
         .integrations-grid :global(textarea) {
           width: 100%;
@@ -1860,12 +1855,12 @@ export default function IntegrationsPage() {
         }
         .connected-dot {
           animation: connectedPulse 2s ease-out infinite;
-          box-shadow: 0 0 0 rgba(34, 197, 94, 0.55);
+          box-shadow: 0 0 0 rgba(63, 157, 106, 0.55);
         }
         @keyframes connectedPulse {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
-          70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(63, 157, 106, 0.55); }
+          70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(63, 157, 106, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(63, 157, 106, 0); }
         }
         @keyframes toastSlideUp {
           from { opacity: 0; transform: translateY(8px); }
@@ -1882,7 +1877,7 @@ export default function IntegrationsPage() {
           max-width: 100%;
         }
         .int-tab-btn {
-          --tab-color: #22d3ee;
+          --tab-color: #5b9bd5;
           border: 1px solid transparent;
           background: transparent;
           border-radius: 8px;
@@ -1942,78 +1937,84 @@ function IntegrationCard({
   title: string; icon: string; color: string; connected: boolean; updatedAt?: string; children: React.ReactNode; onHelp?: () => void;
 }) {
   const { t } = useLocale();
+  const [open, setOpen] = useState(false);
   const statusText = connected ? t('integrations.connected') : t('integrations.notConfigured');
   return (
     <div className="int-card" style={{
-      borderRadius: 12,
-      border: `1px solid ${connected ? 'color-mix(in oklab, #22c55e 40%, var(--panel-border))' : 'var(--panel-border)'}`,
+      borderRadius: 10,
+      border: '1px solid var(--panel-border)',
       background: 'var(--surface)',
-      padding: '10px 12px',
-      position: 'relative',
       overflow: 'hidden',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
+      transition: 'border-color 0.15s',
     }}>
-      <div style={{
-        position: 'absolute',
-        top: 8,
-        left: 4,
-        bottom: 8,
-        width: 2.5,
-        borderRadius: 999,
-        background: connected ? '#22c55e' : color,
-        opacity: connected ? 0.9 : 0.5,
-      }} />
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0 0 8px 6px',
-        borderBottom: '1px solid var(--panel-border)',
-      }}>
-        <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+      {/* Header row — click to expand/collapse the configuration */}
+      <div
+        role='button'
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((o) => !o); } }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '11px 14px',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{
+          width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16, lineHeight: 1,
+          background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
+        }}>{icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 12 }}>{title}</div>
+          <div style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13 }}>{title}</div>
+          {updatedAt && <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 1 }}>{updatedAt}</div>}
         </div>
         <span style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          borderRadius: 999,
-          background: connected ? 'rgba(34,197,94,0.1)' : 'transparent',
-          color: connected ? '#22c55e' : 'var(--ink-25)',
-          fontSize: 9,
-          fontWeight: 600,
-          padding: '2px 6px',
-          flexShrink: 0,
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          borderRadius: 6,
+          background: connected ? 'var(--acc-soft)' : 'var(--panel-alt)',
+          color: connected ? '#3f9d6a' : 'var(--ink-50)',
+          fontSize: 11, fontWeight: 600, padding: '3px 9px', flexShrink: 0,
         }}>
           <span className={connected ? 'connected-dot' : ''} style={{
-            width: 5, height: 5, borderRadius: '50%',
-            background: connected ? '#22c55e' : 'var(--ink-15)', flexShrink: 0,
+            width: 6, height: 6, borderRadius: '50%',
+            background: connected ? '#3f9d6a' : 'var(--ink-30)', flexShrink: 0,
           }} />
           {statusText}
         </span>
         {onHelp && (
-          <button type='button' onClick={onHelp} title={t('integrations.help')}
+          <button type='button' onClick={(e) => { e.stopPropagation(); onHelp(); }} title={t('integrations.help')}
             style={{
-              width: 18, height: 18, borderRadius: 5,
+              width: 22, height: 22, borderRadius: 6,
               border: '1px solid var(--panel-border-2)',
-              background: 'transparent', color: 'var(--ink-30)',
-              fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+              background: 'transparent', color: 'var(--ink-45)',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
             ?
           </button>
         )}
+        <span style={{
+          display: 'inline-flex', flexShrink: 0, color: 'var(--ink-35)',
+          transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none',
+        }}>
+          <NavIcon name='chevron-right' size={16} />
+        </span>
       </div>
-      <div style={{
-        display: 'grid',
-        gap: 6,
-        flex: 1,
-        padding: '8px 2px 2px 6px',
-      }}>{children}</div>
+      {/* Body — configuration form, revealed on expand */}
+      {open && (
+        <div style={{
+          borderTop: '1px solid var(--panel-border)',
+          background: 'var(--panel-alt)',
+          padding: '14px 16px',
+        }}>
+          <div style={{ display: 'grid', gap: 8, maxWidth: 560 }}>{children}</div>
+        </div>
+      )}
     </div>
   );
 }

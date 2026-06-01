@@ -500,7 +500,7 @@ export default function AgentsPage() {
 
       {/* Notice */}
       {notice && (
-        <div style={{ padding: '10px 14px', borderRadius: 10, background: notice.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${notice.type === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, color: notice.type === 'success' ? '#22c55e' : '#ef4444', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--panel-alt)', border: `1px solid ${notice.type === 'success' ? '#3f9d6a' : '#cf5b57'}`, color: notice.type === 'success' ? '#3f9d6a' : '#cf5b57', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>{notice.type === 'success' ? '✓' : '✕'}</span>
           {notice.msg}
         </div>
@@ -524,7 +524,7 @@ export default function AgentsPage() {
       {/* Save button */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={() => void handleSave()} disabled={saving}
-          style={{ height: 38, padding: '0 18px', borderRadius: 10, border: 'none', background: saved ? 'rgba(34,197,94,0.3)' : saving ? 'rgba(13,148,136,0.4)' : 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.3s' }}>
+          style={{ height: 38, padding: '0 18px', borderRadius: 8, border: 'none', background: saved ? '#3f9d6a' : saving ? 'var(--acc-soft)' : 'var(--acc)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.3s' }}>
           {saved ? t('agents.saved') : saving ? t('agents.saving') : t('agents.save')}
         </button>
       </div>

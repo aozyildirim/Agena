@@ -8,6 +8,7 @@ import OnboardingModal from '@/components/OnboardingModal';
 import WebPushBridge from '@/components/WebPushBridge';
 import LangToggle from '@/components/LangToggle';
 import ThemeToggle from '@/components/ThemeToggle';
+import NavIcon from '@/components/NavIcon';
 import GuidedTour from '@/components/GuidedTour';
 import SprintSwitcher from '@/components/SprintSwitcher';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
@@ -33,14 +34,19 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     module: 'core',
     items: [
-      { href: '/dashboard/office', key: 'nav.office', icon: '🏠', module: 'boss_mode', wsPerm: 'pages:office' },
-      { href: '/dashboard/tasks', key: 'nav.tasks', icon: '📋', permission: 'tasks:read' as const, module: 'core' },
-      { href: '/dashboard/sprints', key: 'nav.sprints', icon: '🗂', permission: 'tasks:read' as const, module: 'sprints' },
-      { href: '/dashboard/refinement', key: 'nav.refinement', icon: '🔬', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'refinement:run' },
-      { href: '/dashboard/triage', key: 'nav.triage', icon: '🧹', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },
-      { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: '⏱', permission: 'tasks:read' as const, module: 'review_backlog', wsPerm: 'pages:review-backlog' },
-      { href: '/dashboard/skills', key: 'nav.skills', icon: '📚', permission: 'tasks:read' as const, module: 'skills', wsPerm: 'pages:skills' },
-      { href: '/dashboard/runtimes', key: 'nav.runtimes', icon: '💻', permission: 'tasks:read' as const, module: 'runtimes', wsPerm: 'pages:runtimes' },
+      { href: '/dashboard/office', key: 'nav.office', icon: 'home', module: 'boss_mode', wsPerm: 'pages:office' },
+      { href: '/dashboard/tasks', key: 'nav.tasks', icon: 'tasks', permission: 'tasks:read' as const, module: 'core' },
+      { href: '/dashboard/reviews', key: 'nav.reviews', icon: 'search', permission: 'tasks:read' as const, module: 'reviews', wsPerm: 'pages:reviews' },
+    ],
+  },
+  {
+    labelKey: 'nav.group.backlog',
+    defaultOpen: false,
+    module: 'core',
+    items: [
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: 'refinement', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'refinement:run' },
+      { href: '/dashboard/triage', key: 'nav.triage', icon: 'triage', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },
+      { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: 'clock', permission: 'tasks:read' as const, module: 'review_backlog', wsPerm: 'pages:review-backlog' },
     ],
   },
   {
@@ -48,26 +54,29 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     module: 'core',
     items: [
-      { href: '/dashboard/agents', key: 'nav.agents', icon: '🤖', module: 'core', wsPerm: 'agents:manage' },
-      { href: '/dashboard/reviews', key: 'nav.reviews', icon: '🔎', permission: 'tasks:read' as const, module: 'reviews', wsPerm: 'pages:reviews' },
-      { href: '/dashboard/insights', key: 'nav.insights', icon: '🧠', module: 'insights', wsPerm: 'pages:insights' },
-      { href: '/dashboard/flows', key: 'nav.flows', icon: '🔀', module: 'flows', wsPerm: 'flows:manage' },
-      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: '✏️', module: 'prompt_studio', wsPerm: 'prompts:edit' },
-      { href: '/dashboard/templates', key: 'nav.templates', icon: '📦', module: 'flows', wsPerm: 'pages:templates' },
+      { href: '/dashboard/agents', key: 'nav.agents', icon: 'agents', module: 'core', wsPerm: 'agents:manage' },
+      { href: '/dashboard/insights', key: 'nav.insights', icon: 'insights', module: 'insights', wsPerm: 'pages:insights' },
+      { href: '/dashboard/flows', key: 'nav.flows', icon: 'flows', module: 'flows', wsPerm: 'flows:manage' },
+      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: 'pencil', module: 'prompt_studio', wsPerm: 'prompts:edit' },
+      { href: '/dashboard/templates', key: 'nav.templates', icon: 'box', module: 'flows', wsPerm: 'pages:templates' },
+      { href: '/dashboard/skills', key: 'nav.skills', icon: 'book', permission: 'tasks:read' as const, module: 'skills', wsPerm: 'pages:skills' },
+      { href: '/dashboard/runtimes', key: 'nav.runtimes', icon: 'terminal', permission: 'tasks:read' as const, module: 'runtimes', wsPerm: 'pages:runtimes' },
     ],
   },
   {
-    labelKey: 'nav.group.analytics',
+    labelKey: 'nav.group.delivery',
     defaultOpen: false,
     items: [
-      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: '📈', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
-      { href: '/dashboard/dora', key: 'nav.dora', icon: '📊', module: 'dora', wsPerm: 'analytics:read', children: [
-        { href: '/dashboard/dora', key: 'nav.doraOverview', icon: '📊' },
-        { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: '📋' },
-        { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: '⚡' },
-        { href: '/dashboard/dora/quality', key: 'nav.doraQuality', icon: '🛡' },
-        { href: '/dashboard/dora/bugs', key: 'nav.doraBugs', icon: '🐛' },
-        { href: '/dashboard/dora/team', key: 'nav.doraTeam', icon: '👥' },
+      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints' },
+      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
+      { href: '/dashboard/team', key: 'nav.team', icon: 'users', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
+      { href: '/dashboard/dora', key: 'nav.dora', icon: 'chart', module: 'dora', wsPerm: 'analytics:read', children: [
+        { href: '/dashboard/dora', key: 'nav.doraOverview', icon: 'chart' },
+        { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: 'clipboard' },
+        { href: '/dashboard/dora/development', key: 'nav.doraDev', icon: 'zap' },
+        { href: '/dashboard/dora/quality', key: 'nav.doraQuality', icon: 'shield' },
+        { href: '/dashboard/dora/bugs', key: 'nav.doraBugs', icon: 'bug' },
+        { href: '/dashboard/dora/team', key: 'nav.doraTeam', icon: 'users' },
       ]},
     ],
   },
@@ -76,20 +85,19 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     module: 'core',
     items: [
-      { href: '/dashboard/integrations', key: 'nav.integrations', icon: '🔌', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'integrations:manage', children: [
-        { href: '/dashboard/integrations', key: 'nav.integrationsOverview', icon: '⚙️', permission: 'integrations:manage' as const },
-        { href: '/dashboard/integrations/rules', key: 'nav.integrationRules', icon: '📐', permission: 'integrations:manage' as const },
-        { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: '📡', permission: 'integrations:manage' as const, module: 'newrelic' },
-        { href: '/dashboard/integrations/sentry', key: 'nav.sentry', icon: '🚨', permission: 'integrations:manage' as const, module: 'sentry' },
-        { href: '/dashboard/integrations/datadog', key: 'nav.datadog', icon: '🐶', permission: 'integrations:manage' as const, module: 'datadog' },
-        { href: '/dashboard/integrations/appdynamics', key: 'nav.appdynamics', icon: '📊', permission: 'integrations:manage' as const, module: 'appdynamics' },
+      { href: '/dashboard/integrations', key: 'nav.integrations', icon: 'plug', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'integrations:manage', children: [
+        { href: '/dashboard/integrations', key: 'nav.integrationsOverview', icon: 'settings', permission: 'integrations:manage' as const },
+        { href: '/dashboard/integrations/rules', key: 'nav.integrationRules', icon: 'sliders', permission: 'integrations:manage' as const },
+        { href: '/dashboard/integrations/newrelic', key: 'nav.newrelic', icon: 'signal', permission: 'integrations:manage' as const, module: 'newrelic' },
+        { href: '/dashboard/integrations/sentry', key: 'nav.sentry', icon: 'alert', permission: 'integrations:manage' as const, module: 'sentry' },
+        { href: '/dashboard/integrations/datadog', key: 'nav.datadog', icon: 'activity', permission: 'integrations:manage' as const, module: 'datadog' },
+        { href: '/dashboard/integrations/appdynamics', key: 'nav.appdynamics', icon: 'chart', permission: 'integrations:manage' as const, module: 'appdynamics' },
       ]},
-      { href: '/dashboard/mappings', key: 'nav.mappings', icon: '🗺', module: 'core', wsPerm: 'repo:manage' },
-      { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: '🗄', module: 'core', wsPerm: 'workspace:manage' },
-      { href: '/dashboard/team', key: 'nav.team', icon: '👥', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
-      { href: '/dashboard/permissions', key: 'nav.permissions', icon: '🔒', permission: 'roles:manage' as const, module: 'core' },
-      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: '🛂', permission: 'roles:manage' as const, module: 'core' },
-      { href: '/dashboard/modules', key: 'nav.modules', icon: '🧩', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
+      { href: '/dashboard/mappings', key: 'nav.mappings', icon: 'map', module: 'core', wsPerm: 'repo:manage' },
+      { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: 'layers', module: 'core', wsPerm: 'workspace:manage' },
+      { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core' },
+      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core' },
+      { href: '/dashboard/modules', key: 'nav.modules', icon: 'grid', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
     ],
   },
 ];
@@ -529,14 +537,14 @@ function DashboardInner({ children }: { children: ReactNode }) {
 
   function notifColor(n: NotificationItem): string {
     const failedLike = n.severity === 'error' || n.event_type.includes('failed') || n.title.toLowerCase().includes('failed');
-    return failedLike ? '#ef4444' : '#39ff88';
+    return failedLike ? '#d9534f' : '#5b9bd5';
   }
 
   if (!checked) return null;
 
   return (
     <RoleContext.Provider value={{ role: effectiveRole }}>
-    <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 56 }}>
+    <div className='agena-app' style={{ display: 'flex', height: '100vh', overflow: 'hidden', paddingTop: 56 }}>
       {/* Mobile sidebar toggle — fixed in top-left, below navbar */}
       <button
         className='dashboard-sidebar-toggle'
@@ -550,7 +558,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         }}
       >
-        {mobileSidebarOpen ? '✕' : '☰'}
+        <NavIcon name={mobileSidebarOpen ? 'close' : 'menu'} size={16} />
       </button>
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
@@ -564,10 +572,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
       <aside className={`dashboard-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`} style={{
         width: sidebarWidth, flexShrink: 0,
         borderRight: '1px solid var(--panel-border)',
-        background: 'var(--glass)', backdropFilter: 'blur(20px)',
+        background: 'var(--surface)',
         position: 'fixed', top: 56, bottom: 0, left: 0,
         display: 'flex', flexDirection: 'column',
-        padding: '24px 12px', zIndex: 50,
+        padding: '16px 10px', zIndex: 50,
         overflowY: 'auto', overflowX: 'hidden',
         transition: 'width 0.2s ease, transform 0.2s ease',
       }}>
@@ -578,19 +586,20 @@ function DashboardInner({ children }: { children: ReactNode }) {
             alignSelf: sidebarCollapsed ? 'center' : 'flex-end',
             width: 28,
             height: 28,
-            borderRadius: 8,
+            borderRadius: 6,
             border: '1px solid var(--panel-border-3)',
-            background: 'var(--glass)',
-            color: 'var(--ink)',
+            background: 'var(--panel-alt)',
+            color: 'var(--muted)',
             cursor: 'pointer',
             marginBottom: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          {sidebarCollapsed ? '→' : '←'}
+          <NavIcon name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={15} />
         </button>
         {/* Organization info */}
         {!sidebarCollapsed && (orgNameDisplay || orgSlug) && (
-          <div style={{ padding: '8px 12px', marginBottom: 8, borderRadius: 10, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.15)' }}>
+          <div style={{ padding: '8px 12px', marginBottom: 8, borderRadius: 6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {orgNameDisplay || orgSlug}
             </div>
@@ -602,7 +611,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
           </div>
         )}
         {sidebarCollapsed && orgSlug && (
-          <div title={`${t('tooltip.action.workspaceSlug')}: ${orgNameDisplay || orgSlug} (${orgSlug}.agena.app)`} style={{ textAlign: 'center', marginBottom: 8, fontSize: 14, fontWeight: 800, color: 'var(--nav-active)' }}>
+          <div title={`${t('tooltip.action.workspaceSlug')}: ${orgNameDisplay || orgSlug} (${orgSlug}.agena.app)`} style={{ textAlign: 'center', marginBottom: 8, fontSize: 14, fontWeight: 800, color: 'var(--ink)' }}>
             {(orgNameDisplay || orgSlug)[0]?.toUpperCase()}
           </div>
         )}
@@ -619,11 +628,11 @@ function DashboardInner({ children }: { children: ReactNode }) {
           {/* Platform Admin — dedicated nav */}
           {isPlatformAdmin && (() => {
             const adminItems = [
-              { href: '/dashboard/admin', label: 'Overview', icon: '📊' },
-              { href: '/dashboard/admin?tab=orgs', label: 'Organizations', icon: '🏢' },
-              { href: '/dashboard/admin?tab=users', label: 'Users', icon: '👥' },
-              { href: '/dashboard/admin?tab=contact', label: 'Contact', icon: '📩' },
-              { href: '/dashboard/admin?tab=newsletter', label: 'Newsletter', icon: '📧' },
+              { href: '/dashboard/admin', label: 'Overview', icon: 'chart' },
+              { href: '/dashboard/admin?tab=orgs', label: 'Organizations', icon: 'building' },
+              { href: '/dashboard/admin?tab=users', label: 'Users', icon: 'users' },
+              { href: '/dashboard/admin?tab=contact', label: 'Contact', icon: 'mail' },
+              { href: '/dashboard/admin?tab=newsletter', label: 'Newsletter', icon: 'send' },
             ];
             return (
               <div style={{ marginBottom: 8 }}>
@@ -638,15 +647,15 @@ function DashboardInner({ children }: { children: ReactNode }) {
                     : typeof window !== 'undefined' && window.location.search.includes(item.href.split('?')[1] || '___');
                   return (
                     <Link key={item.href} href={item.href} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
-                      fontWeight: isActive ? 600 : 400,
-                      color: isActive ? '#f87171' : 'var(--muted)',
-                      background: isActive ? 'rgba(248,113,113,0.1)' : 'transparent',
-                      border: isActive ? '1px solid rgba(248,113,113,0.3)' : '1px solid transparent',
-                      transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                      display: 'flex', alignItems: 'center', gap: 9,
+                      padding: sidebarCollapsed ? '8px 10px' : '7px 10px', borderRadius: 6, fontSize: 13.5,
+                      fontWeight: isActive ? 600 : 500,
+                      color: isActive ? '#e0696b' : 'var(--muted)',
+                      background: isActive ? 'rgba(224,105,107,0.10)' : 'transparent',
+                      border: isActive ? '1px solid rgba(224,105,107,0.25)' : '1px solid transparent',
+                      transition: 'all 0.15s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                     }}>
-                      <span style={{ fontSize: 16, opacity: isActive ? 1 : 0.5 }}>{item.icon}</span>
+                      <span style={{ opacity: isActive ? 1 : 0.7 }}><NavIcon name={item.icon} /></span>
                       {!sidebarCollapsed && item.label}
                     </Link>
                   );
@@ -672,8 +681,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             if (!visibleItems.length) return null;
             const groupHasActive = visibleItems.some((item) => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
             const isGroupOpen = collapsedGroups[group.labelKey] !== undefined ? !collapsedGroups[group.labelKey] : (groupHasActive || (group.defaultOpen ?? true));
-            const groupColors = ['var(--nav-active)', 'var(--purple)', 'var(--blue)', 'var(--muted)'];
-            const gc = groupColors[gi] || 'var(--muted)';
+            const gc = 'var(--ink-72)';
             return (
               <div key={group.labelKey} style={{ marginBottom: 2 }}>
                 {!sidebarCollapsed && (
@@ -708,18 +716,18 @@ function DashboardInner({ children }: { children: ReactNode }) {
                     title={navTooltip(item.key)}
                     data-tour={tourAttr(item.key)}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                      padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
-                      fontWeight: sectionActive ? 600 : 400,
+                      display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+                      padding: sidebarCollapsed ? '8px 10px' : '7px 10px', borderRadius: 6, fontSize: 13.5,
+                      fontWeight: sectionActive ? 600 : 500,
                       color: sectionActive ? 'var(--nav-active)' : 'var(--muted)',
                       background: sectionActive ? 'var(--nav-active-bg)' : 'transparent',
                       border: sectionActive ? '1px solid var(--nav-active-border)' : '1px solid transparent',
-                      transition: 'all 0.2s', cursor: 'pointer', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                      transition: 'all 0.15s', cursor: 'pointer', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                     }}
                   >
-                    <span style={{ fontSize: 16, opacity: sectionActive ? 1 : 0.5 }}>{item.icon}</span>
+                    <span style={{ opacity: sectionActive ? 1 : 0.72 }}><NavIcon name={item.icon} /></span>
                     {!sidebarCollapsed && t(item.key as Parameters<typeof t>[0])}
-                    {!sidebarCollapsed && <span style={{ marginLeft: 'auto', fontSize: 10, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>}
+                    {!sidebarCollapsed && <span style={{ marginLeft: 'auto', display: 'inline-flex', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', opacity: 0.5 }}><NavIcon name='chevron-right' size={13} /></span>}
                   </button>
                   {isExpanded && !sidebarCollapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingLeft: 18, marginTop: 2 }}>
@@ -730,16 +738,16 @@ function DashboardInner({ children }: { children: ReactNode }) {
                         return (
                           <Link key={child.key} href={child.href} title={navTooltip(child.key)} style={{
                             display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '7px 10px', borderRadius: 8, fontSize: 13,
-                            fontWeight: childActive ? 600 : 400,
+                            padding: '6px 10px', borderRadius: 6, fontSize: 12.5,
+                            fontWeight: childActive ? 600 : 500,
                             color: childActive ? 'var(--nav-active)' : 'var(--muted)',
                             background: childActive ? 'var(--nav-active-bg)' : 'transparent',
                             border: childActive ? '1px solid var(--nav-active-border)' : '1px solid transparent',
-                            transition: 'all 0.2s', textDecoration: 'none',
+                            transition: 'all 0.15s', textDecoration: 'none',
                           }}>
-                            <span style={{ fontSize: 14, opacity: childActive ? 1 : 0.5 }}>{child.icon}</span>
+                            <span style={{ opacity: childActive ? 1 : 0.7 }}><NavIcon name={child.icon} size={14} /></span>
                             {t(child.key as Parameters<typeof t>[0])}
-                            {childActive && <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: 'var(--nav-active)' }} />}
+                            {childActive && <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: 'var(--acc)' }} />}
                           </Link>
                         );
                       })}
@@ -751,16 +759,15 @@ function DashboardInner({ children }: { children: ReactNode }) {
             const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (
               <Link key={item.href} href={item.href} title={navTooltip(item.key)} data-tour={tourAttr(item.key)} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: sidebarCollapsed ? '9px 10px' : '9px 12px', borderRadius: 10, fontSize: 14,
-                fontWeight: active ? 600 : 400,
+                display: 'flex', alignItems: 'center', gap: 9,
+                padding: sidebarCollapsed ? '8px 10px' : '7px 10px', borderRadius: 6, fontSize: 13.5,
+                fontWeight: active ? 600 : 500,
                 color: active ? 'var(--nav-active)' : 'var(--muted)',
-                background: active ? 'var(--nav-active-bg)' : (item.href === '/dashboard/tasks' && hasRunningTasks) ? 'rgba(56,189,248,0.04)' : 'transparent',
-                border: active ? '1px solid var(--nav-active-border)' : (item.href === '/dashboard/tasks' && hasRunningTasks) ? '1px solid rgba(56,189,248,0.3)' : '1px solid transparent',
-                animation: (item.href === '/dashboard/tasks' && hasRunningTasks && !active) ? 'running-glow-nav 2s ease-in-out infinite' : undefined,
-                transition: 'all 0.2s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                background: active ? 'var(--nav-active-bg)' : (item.href === '/dashboard/tasks' && hasRunningTasks) ? 'var(--acc-soft)' : 'transparent',
+                border: active ? '1px solid var(--nav-active-border)' : (item.href === '/dashboard/tasks' && hasRunningTasks) ? '1px solid var(--panel-border-2)' : '1px solid transparent',
+                transition: 'all 0.15s', textDecoration: 'none', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
               }}>
-                <span style={{ fontSize: 16, opacity: active ? 1 : 0.5 }}>{item.icon}</span>
+                <span style={{ opacity: active ? 1 : 0.72 }}><NavIcon name={item.icon} /></span>
                 {!sidebarCollapsed && t(item.key as Parameters<typeof t>[0])}
                 {!sidebarCollapsed && item.href === '/dashboard/tasks' && (() => {
                   const badges: Array<{ count: number; color: string; bg: string; key: string }> = [];
@@ -793,10 +800,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
           Navbar is hidden under /dashboard, see components/Navbar.tsx). */}
       <div className='dashboard-topbar' style={{
         position: 'fixed', top: 0, left: 0, right: 0, height: 56, zIndex: 45,
-        background: 'var(--glass)', backdropFilter: 'blur(20px)',
+        background: 'var(--surface)',
         borderBottom: '1px solid var(--panel-border)',
         display: 'flex', alignItems: 'center',
-        padding: '0 20px', gap: 12,
+        padding: '0 16px', gap: 12,
       }}>
         {/* Brand — links back to dashboard home */}
         <Link href='/dashboard' title={t('tooltip.nav.dashboard')} style={{
@@ -836,15 +843,14 @@ function DashboardInner({ children }: { children: ReactNode }) {
           title={t('tasks.new')}
           className='topbar-new-task'
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '6px 12px', borderRadius: 8,
-            background: 'linear-gradient(135deg, #0d9488, #16a34a)',
-            color: '#fff', fontSize: 12, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '6px 11px', borderRadius: 6,
+            background: 'var(--acc)',
+            color: '#fff', fontSize: 12, fontWeight: 600,
             textDecoration: 'none', whiteSpace: 'nowrap',
-            boxShadow: '0 2px 10px rgba(13,148,136,0.25)',
           }}
         >
-          + <span className='topbar-new-task-label'>{t('tasks.new')}</span>
+          <NavIcon name='plus' size={14} /> <span className='topbar-new-task-label'>{t('tasks.new')}</span>
         </Link>
 
         {/* Active sprint switcher — gated on sprints module. Hidden on
@@ -868,9 +874,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
             background: pathname.startsWith('/dashboard/integrations/sentry') ? 'var(--nav-active-bg)' : 'transparent',
             border: pathname.startsWith('/dashboard/integrations/sentry') ? '1px solid var(--nav-active-border)' : '1px solid transparent',
             color: pathname.startsWith('/dashboard/integrations/sentry') ? 'var(--nav-active)' : 'var(--muted)',
-            textDecoration: 'none', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s',
+            textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s',
           }}>
-            🚨
+            <NavIcon name='alert' size={17} />
           </Link>
         )}
         {enabledModules?.has('newrelic') && (
@@ -879,9 +885,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
             background: pathname.startsWith('/dashboard/integrations/newrelic') ? 'var(--nav-active-bg)' : 'transparent',
             border: pathname.startsWith('/dashboard/integrations/newrelic') ? '1px solid var(--nav-active-border)' : '1px solid transparent',
             color: pathname.startsWith('/dashboard/integrations/newrelic') ? 'var(--nav-active)' : 'var(--muted)',
-            textDecoration: 'none', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s',
+            textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s',
           }}>
-            📡
+            <NavIcon name='signal' size={17} />
           </Link>
         )}
 
@@ -891,9 +897,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
           background: pathname.startsWith('/dashboard/usage') ? 'var(--nav-active-bg)' : 'transparent',
           border: pathname.startsWith('/dashboard/usage') ? '1px solid var(--nav-active-border)' : '1px solid transparent',
           color: pathname.startsWith('/dashboard/usage') ? 'var(--nav-active)' : 'var(--muted)',
-          textDecoration: 'none', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s',
+          textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s',
         }}>
-          📊
+          <NavIcon name='chart' size={17} />
         </Link>
 
         {/* Notification bell */}
@@ -907,10 +913,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: notifOpen ? 'var(--nav-active-bg)' : 'transparent',
             border: notifOpen ? '1px solid var(--nav-active-border)' : '1px solid transparent',
-            color: 'var(--muted)', cursor: 'pointer', fontSize: 16, transition: 'all 0.2s',
+            color: 'var(--muted)', cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
-          🔔
+          <NavIcon name='bell' size={17} />
           {unreadCount > 0 && (
             <span style={{
               position: 'absolute', right: -4, top: -4,
@@ -942,10 +948,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 title={t('tooltip.action.filterAllNotifications')}
                 onClick={() => setNotifFilter('all')}
                 style={{
-                  border: '1px solid rgba(57,255,136,0.35)',
-                  background: notifFilter === 'all' ? 'rgba(57,255,136,0.16)' : 'var(--glass)',
-                  color: notifFilter === 'all' ? '#39ff88' : 'var(--muted)',
-                  padding: '4px 8px', borderRadius: 999, fontSize: 11, cursor: 'pointer',
+                  border: '1px solid var(--panel-border-3)',
+                  background: notifFilter === 'all' ? 'var(--acc-soft)' : 'transparent',
+                  color: notifFilter === 'all' ? 'var(--acc)' : 'var(--muted)',
+                  padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
                 }}
               >
                 {t('notifications.all')}
@@ -954,10 +960,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 title={t('tooltip.action.filterFailedNotifications')}
                 onClick={() => setNotifFilter('failed')}
                 style={{
-                  border: '1px solid rgba(239,68,68,0.35)',
-                  background: notifFilter === 'failed' ? 'rgba(239,68,68,0.16)' : 'var(--glass)',
-                  color: notifFilter === 'failed' ? '#ef4444' : 'var(--muted)',
-                  padding: '4px 8px', borderRadius: 999, fontSize: 11, cursor: 'pointer',
+                  border: '1px solid var(--panel-border-3)',
+                  background: notifFilter === 'failed' ? 'rgba(217,83,79,0.14)' : 'transparent',
+                  color: notifFilter === 'failed' ? '#d9534f' : 'var(--muted)',
+                  padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
                 }}
               >
                 {t('notifications.group.failures')}
@@ -991,7 +997,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
                 <div style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleString()}</div>
               </Link>
             ))}
-            <Link href='/dashboard/notifications' title={t('tooltip.nav.notifications')} style={{ textDecoration: 'none', textAlign: 'center', padding: '7px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', color: '#39ff88', fontSize: 12, fontWeight: 700 }}>
+            <Link href='/dashboard/notifications' title={t('tooltip.nav.notifications')} style={{ textDecoration: 'none', textAlign: 'center', padding: '7px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', color: 'var(--acc)', fontSize: 12, fontWeight: 600 }}>
               {t('notifications.viewAll')}
             </Link>
           </div>
@@ -1003,10 +1009,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
             display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
             padding: '4px 8px', borderRadius: 8, transition: 'background 0.2s', cursor: 'pointer',
           }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(139,92,246,0.08)'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--panel-alt)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'; }}
           >
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--acc)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
               {userName[0]?.toUpperCase()}
             </div>
             <span className='topbar-username' style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
@@ -1017,14 +1023,14 @@ function DashboardInner({ children }: { children: ReactNode }) {
         <button onClick={logout} title={t('tooltip.action.logout')} style={{
           width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'transparent', border: '1px solid transparent',
-          color: 'var(--ink-30)', cursor: 'pointer', fontSize: 14, transition: 'all 0.2s',
+          color: 'var(--ink-45)', cursor: 'pointer', transition: 'all 0.2s',
         }}>
-          ↩
+          <NavIcon name='logout' size={16} />
         </button>
       </div>
 
       {/* Main */}
-      <main className='dashboard-main' style={{ flex: 1, marginLeft: sidebarWidth, padding: '32px 40px', minWidth: 0, transition: 'margin-left 0.2s ease' }}>
+      <main className='dashboard-main' style={{ flex: 1, marginLeft: sidebarWidth, padding: '32px 40px', minWidth: 0, height: 'calc(100vh - 56px)', overflowY: 'auto', overflowX: 'hidden', transition: 'margin-left 0.2s ease' }}>
         {(() => {
           // Page-level guard — applied for any path declared in NAV_GROUPS.
           // Platform admins bypass entirely; otherwise the path's module /

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +15,16 @@ from agena_models.schemas.integration_rule import (
     IntegrationRuleResponse,
     IntegrationRuleUpdate,
 )
+from agena_services.services.task_service import TaskService
 
 router = APIRouter(prefix='/integration-rules', tags=['integration-rules'])
 
 _ALLOWED_PROVIDERS = {'jira', 'azure'}
+
+
+class RuleTestRequest(BaseModel):
+    provider: str
+    work_item_id: str
 
 
 def _to_response(row: IntegrationRule) -> IntegrationRuleResponse:
@@ -67,6 +74,25 @@ async def list_rules(
     stmt = stmt.order_by(IntegrationRule.provider, IntegrationRule.sort_order, IntegrationRule.id)
     rows = (await db.execute(stmt)).scalars().all()
     return [_to_response(r) for r in rows]
+
+
+@router.post('/test', response_model=None)
+async def test_rules(
+    body: RuleTestRequest,
+    tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Dry-run: fetch a single live Jira issue / Azure work item and report
+    which rules would match and what action they'd apply — without importing."""
+    if body.provider not in _ALLOWED_PROVIDERS:
+        raise HTTPException(status_code=400, detail='provider must be jira or azure')
+    service = TaskService(db)
+    try:
+        return await service.preview_integration_rules(
+            tenant.organization_id, provider=body.provider, external_id=body.work_item_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post('', response_model=IntegrationRuleResponse, status_code=201)

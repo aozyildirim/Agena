@@ -5,7 +5,7 @@ import { listUsageEvents, UsageEventsResponse } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 const box: React.CSSProperties = {
-  borderRadius: 14,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
 };
@@ -62,7 +62,7 @@ export default function UsagePage() {
     <div className='usage-page' style={{ display: 'grid', gap: 16, maxWidth: '100%', overflow: 'hidden' }}>
       <div>
         <div className='section-label'>{t('nav.usage')}</div>
-        <h1 className='usage-title' style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>{t('usage.title')}</h1>
+        <h1 className='usage-title' style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6 }}>{t('usage.title')}</h1>
         <p style={{ fontSize: 13, color: 'var(--ink-35)', marginTop: 4 }}>{t('usage.subtitle')}</p>
       </div>
 
@@ -116,16 +116,16 @@ export default function UsagePage() {
           {loading ? (
             <div style={{ padding: 14, color: 'var(--ink-50)' }}>{t('usage.loading')}</div>
           ) : error ? (
-            <div style={{ padding: 14, color: '#f87171' }}>{error}</div>
+            <div style={{ padding: 14, color: '#cf5b57' }}>{error}</div>
           ) : !data || data.items.length === 0 ? (
             <div style={{ padding: 14, color: 'var(--ink-50)' }}>{t('usage.empty')}</div>
           ) : (
             data.items.map((x) => (
               <div key={x.id} className='usage-table-row' style={{ display: 'grid', gridTemplateColumns: '140px 190px 180px 100px 80px 110px 90px 1fr', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, alignItems: 'center', minWidth: 960 }}>
                 <span style={{ color: 'var(--ink-50)' }}>{new Date(x.created_at).toLocaleString()}</span>
-                <span style={{ color: '#93c5fd', fontFamily: 'monospace' }}>{x.operation_type}</span>
+                <span style={{ color: '#5b9bd5', fontFamily: 'monospace' }}>{x.operation_type}</span>
                 <span style={{ color: 'var(--ink-78)' }}>{x.provider} / {x.model || '-'}</span>
-                <span style={{ color: x.status === 'failed' ? '#ef4444' : '#22c55e' }}>{x.status}</span>
+                <span style={{ color: x.status === 'failed' ? '#cf5b57' : '#3f9d6a' }}>{x.status}</span>
                 <span style={{ color: 'var(--ink-78)' }}>{x.task_id ?? '-'}</span>
                 <span style={{ color: 'var(--ink-78)' }}>{x.total_tokens}</span>
                 <span style={{ color: 'var(--ink-78)' }}>${x.cost_usd.toFixed(4)}</span>
@@ -159,9 +159,9 @@ function Metric({ label, value }: { label: string; value: string }) {
 const field: React.CSSProperties = {
   width: '100%',
   height: 40,
-  borderRadius: 10,
+  borderRadius: 8,
   border: '1px solid var(--panel-border-3)',
-  background: 'var(--glass)',
+  background: 'var(--surface)',
   color: 'var(--ink-90)',
   padding: '0 10px',
   fontSize: 12,

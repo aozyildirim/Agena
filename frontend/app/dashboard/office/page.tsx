@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { apiFetch, loadPrefs, savePrefs, loadPromptCatalog } from '@/lib/api';
 import RemoteRepoSelector from '@/components/RemoteRepoSelector';
+import NavIcon from '@/components/NavIcon';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import { useWS } from '@/lib/useWebSocket';
 
@@ -480,8 +481,8 @@ function AssignTaskModal({
   const isActive = agent.status === 'active';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'safe center', justifyContent: 'center', zIndex: 100, padding: 20, overflowY: 'auto' }} onClick={onClose}>
-      <div style={{ width: 'min(480px, calc(100vw - 40px))', borderRadius: 20, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: '20px 22px', margin: 'auto 0', boxSizing: 'border-box', overflow: 'hidden', display: 'grid', gap: 0, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'safe center', justifyContent: 'center', zIndex: 100, padding: 20, overflowY: 'auto' }} onClick={onClose}>
+      <div style={{ width: 'min(480px, calc(100vw - 40px))', borderRadius: 10, border: `1px solid ${agent.color}40`, background: 'var(--surface)', padding: '20px 22px', margin: 'auto 0', boxSizing: 'border-box', overflow: 'hidden', display: 'grid', gap: 0, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, overflow: 'hidden' }}>
           <AgentCharIcon palette={agent.palette ?? 0} color={agent.color} size={38} />
@@ -491,11 +492,11 @@ function AssignTaskModal({
               {isActive ? `${agent.currentStage} · ${agent.currentTask?.slice(0, 30)}` : t('office.agentBusy')}
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={16} /></button>
         </div>
 
         {isActive && (
-          <div style={{ padding: '10px 12px', borderRadius: 12, marginBottom: 16, background: `${agent.color}10`, border: `1px solid ${agent.color}25`, fontSize: 12, color: agent.color }}>
+          <div style={{ padding: '10px 12px', borderRadius: 10, marginBottom: 16, background: `${agent.color}10`, border: `1px solid ${agent.color}25`, fontSize: 12, color: agent.color }}>
             {t('office.agentWorking')} <strong>{agent.currentTask}</strong>
             <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 2 }}>{t('office.agentStage')} {agent.currentStage}</div>
           </div>
@@ -507,8 +508,8 @@ function AssignTaskModal({
           <div style={{ display: 'flex', gap: 4, width: '100%' }}>
             {([
               { key: 'ai' as const, label: 'AI Agent', color: agent.color },
-              { key: 'mcp_agent' as const, label: 'Local CLI', color: '#22d3ee' },
-              { key: 'flow' as const, label: 'Flow', color: '#c084fc' },
+              { key: 'mcp_agent' as const, label: 'Local CLI', color: '#5b9bd5' },
+              { key: 'flow' as const, label: 'Flow', color: 'var(--acc)' },
             ]).map((m) => {
               const active = runMode === m.key;
               return (
@@ -558,7 +559,7 @@ function AssignTaskModal({
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.assignFlow')}</div>
             {flows.length > 0 ? (
               <select value={selFlowId} onChange={(e) => setSelFlowId(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(124,58,237,0.06)', color: selFlowId ? '#c084fc' : 'var(--ink-50)', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}>
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: selFlowId ? 'var(--acc)' : 'var(--ink-50)', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}>
                 <option value=''>— {t('tasks.assignFlow')} —</option>
                 {flows.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}</option>
@@ -566,7 +567,7 @@ function AssignTaskModal({
               </select>
             ) : (
               <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px dashed var(--panel-border)', background: 'var(--panel)', fontSize: 11, color: 'var(--ink-50)', textAlign: 'center' }}>
-                No saved flows yet — <a href='/dashboard/flows' style={{ color: '#c084fc', fontWeight: 600 }}>create one</a>
+                No saved flows yet — <a href='/dashboard/flows' style={{ color: 'var(--acc)', fontWeight: 600 }}>create one</a>
               </div>
             )}
           </div>
@@ -601,21 +602,21 @@ function AssignTaskModal({
               <div style={{ display: 'grid', gap: 6 }}>
                 {assignable.map((task) => (
                   <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border-2)', opacity: assigning === task.id ? 0.5 : 1, overflow: 'hidden' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, color: task.status === 'failed' ? '#f87171' : '#f59e0b' }}>{task.status === 'failed' ? '✕' : '⏳'}</span>
+                    <span style={{ display: 'flex', flexShrink: 0, color: task.status === 'failed' ? '#cf5b57' : '#c98a2b' }}><NavIcon name={task.status === 'failed' ? 'close' : 'clock'} size={14} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 12, color: 'var(--ink-78)' }}>{task.title}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 1 }}>#{task.id} · {task.status}</div>
                     </div>
                     {runMode === 'flow' ? (
                       <button onClick={() => handleAssign(task.id, 'flow')} disabled={assigning === task.id || !selFlowId}
-                        style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 10px', borderRadius: 8, background: selFlowId ? 'rgba(168,85,247,0.15)' : 'var(--panel-alt)', border: '1px solid rgba(168,85,247,0.35)', color: selFlowId ? '#c084fc' : 'var(--ink-25)', cursor: selFlowId ? 'pointer' : 'not-allowed' }}>
-                        {assigning === task.id ? '...' : '▶ Run Flow'}
+                        style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 10px', borderRadius: 8, background: selFlowId ? 'var(--acc-soft)' : 'var(--panel-alt)', border: '1px solid var(--panel-border)', color: selFlowId ? 'var(--acc)' : 'var(--ink-25)', cursor: selFlowId ? 'pointer' : 'not-allowed' }}>
+                        {assigning === task.id ? '...' : 'Run Flow'}
                       </button>
                     ) : (
                       <>
                         <button onClick={() => handleAssign(task.id, 'mcp_agent')} disabled={assigning === task.id}
-                          style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 8px', borderRadius: 8, background: 'rgba(8,145,178,0.12)', border: '1px solid rgba(6,182,212,0.3)', color: '#22d3ee', cursor: 'pointer' }}>
-                          {assigning === task.id ? '...' : '⚡ MCP'}
+                          style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 8px', borderRadius: 8, background: 'var(--acc-soft)', border: '1px solid var(--panel-border)', color: '#5b9bd5', cursor: 'pointer' }}>
+                          {assigning === task.id ? '...' : 'MCP'}
                         </button>
                         <button onClick={() => handleAssign(task.id)} disabled={assigning === task.id}
                           style={{ fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '4px 8px', borderRadius: 8, background: `${agent.color}15`, border: `1px solid ${agent.color}30`, color: agent.color, cursor: 'pointer' }}>
@@ -654,7 +655,7 @@ function AssignTaskModal({
               /* Step 2: Configure & assign */
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button onClick={() => setSelectedSprintItem(null)} style={{ background: 'none', border: 'none', color: 'var(--ink-35)', cursor: 'pointer', fontSize: 14, padding: 0 }}>←</button>
+                  <button onClick={() => setSelectedSprintItem(null)} style={{ background: 'none', border: 'none', color: 'var(--ink-35)', cursor: 'pointer', fontSize: 14, padding: 0, display: 'flex', alignItems: 'center' }}><NavIcon name="chevron-left" size={16} /></button>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', flex: 1 }}>{selectedSprintItem.title}</div>
                   <span style={{ fontSize: 10, color: 'var(--ink-25)' }}>#{selectedSprintItem.id}</span>
                 </div>
@@ -676,7 +677,7 @@ function AssignTaskModal({
                       </button>
                     )}
                     <button onClick={() => setRepoMode('remote')}
-                      style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoMode === 'remote' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)', background: repoMode === 'remote' ? 'rgba(94,234,212,0.12)' : 'transparent', color: repoMode === 'remote' ? '#5eead4' : 'var(--ink-45)' }}>
+                      style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoMode === 'remote' ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)', background: repoMode === 'remote' ? 'var(--acc-soft)' : 'transparent', color: repoMode === 'remote' ? 'var(--acc)' : 'var(--ink-45)' }}>
                       {t('common.remoteRepo')}
                     </button>
                   </div>
@@ -722,8 +723,8 @@ function AssignTaskModal({
                       onClose();
                     } catch { /* silent */ } finally { setSprintAssigning(null); }
                   }} disabled={sprintAssigning === selectedSprintItem.id}
-                    style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #0891b2, #06b6d4)', color: '#fff', border: 'none', opacity: sprintAssigning ? 0.6 : 1 }}>
-                    ⚡ MCP
+                    style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#5b9bd5', color: '#fff', border: 'none', opacity: sprintAssigning ? 0.6 : 1 }}>
+                    MCP
                   </button>
                 </div>
               </div>
@@ -819,8 +820,8 @@ function AddAgentModal({
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }} onClick={onClose}>
-      <div style={{ width: 'min(480px, 100%)', borderRadius: 24, border: `1px solid ${color}30`, background: 'var(--surface)', padding: 0, overflow: 'hidden', boxShadow: `0 32px 100px rgba(0,0,0,0.5), 0 0 0 1px ${color}10` }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }} onClick={onClose}>
+      <div style={{ width: 'min(480px, 100%)', borderRadius: 10, border: `1px solid ${color}30`, background: 'var(--surface)', padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
 
         {/* Progress bar */}
         <div style={{ height: 3, background: 'var(--panel-border)' }}>
@@ -836,7 +837,7 @@ function AddAgentModal({
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink-90)' }}>{stepTitles[step]}</div>
             </div>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={16} /></button>
           </div>
 
           {/* Step 0: Identity */}
@@ -853,7 +854,7 @@ function AddAgentModal({
                 style={inputSt} />
 
               {roleConflict && (
-                <div style={{ fontSize: 11, color: '#f87171', padding: '0 2px' }}>
+                <div style={{ fontSize: 11, color: '#cf5b57', padding: '0 2px' }}>
                   {t('office.roleConflict')}
                 </div>
               )}
@@ -879,12 +880,12 @@ function AddAgentModal({
               {PROVIDERS.map((p) => (
                 <button key={p.id} onClick={() => { setProvider(p.id); setModel(''); setCustomModel(''); }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'left', width: '100%',
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', width: '100%',
                     border: provider === p.id ? `2px solid ${color}` : '1px solid var(--panel-border-2)',
                     background: provider === p.id ? `${color}10` : 'var(--panel)',
                     transition: 'all 0.15s',
                   }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: provider === p.id ? `${color}20` : 'var(--panel-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{p.icon}</div>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: provider === p.id ? `${color}20` : 'var(--panel-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{p.icon}</div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: provider === p.id ? color : 'var(--ink-90)' }}>{t(`office.provider.${p.id}` as TranslationKey)}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink-35)', marginTop: 2 }}>{t(`office.providerDesc.${p.id}` as TranslationKey)}</div>
@@ -903,7 +904,7 @@ function AddAgentModal({
                   {availModels.map((m) => (
                     <button key={m.id} onClick={() => { setModel(m.id); setCustomModel(''); }}
                       style={{
-                        padding: '10px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                        padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
                         border: model === m.id && !customModel ? `2px solid ${color}` : '1px solid var(--panel-border-2)',
                         background: model === m.id && !customModel ? `${color}10` : 'var(--panel)',
                         transition: 'all 0.15s',
@@ -966,27 +967,27 @@ function AddAgentModal({
           <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
             {step > 0 && (
               <button onClick={() => setStep(step - 1)}
-                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
-                ← {t('office.back')}
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                {t('office.back')}
               </button>
             )}
             {step < 3 ? (
               <button onClick={() => setStep(step + 1)} disabled={!canNext()}
                 style={{
-                  flex: 2, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: canNext() ? 'pointer' : 'not-allowed',
-                  background: canNext() ? `linear-gradient(135deg, ${color}, ${color}cc)` : 'var(--panel-alt)',
+                  flex: 2, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: canNext() ? 'pointer' : 'not-allowed',
+                  background: canNext() ? color : 'var(--panel-alt)',
                   border: 'none', color: canNext() ? '#000' : 'var(--ink-25)', transition: 'all 0.2s',
                 }}>
-                {t('office.next')} →
+                {t('office.next')}
               </button>
             ) : (
               <button onClick={handleFinish} disabled={!label.trim()}
                 style={{
-                  flex: 2, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: label.trim() ? 'pointer' : 'not-allowed',
-                  background: label.trim() ? `linear-gradient(135deg, ${color}, ${color}cc)` : 'var(--panel-alt)',
+                  flex: 2, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: label.trim() ? 'pointer' : 'not-allowed',
+                  background: label.trim() ? color : 'var(--panel-alt)',
                   border: 'none', color: label.trim() ? '#000' : 'var(--ink-25)', transition: 'all 0.2s',
                 }}>
-                ✓ {t('office.create')}
+                {t('office.create')}
               </button>
             )}
           </div>
@@ -1022,15 +1023,15 @@ function FlowPickerPopup({ taskId, taskTitle, flows, onClose, t }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }} onClick={onClose}>
-      <div style={{ width: 'min(380px, 100%)', borderRadius: 18, border: '1px solid rgba(168,85,247,0.35)', background: 'var(--surface)', padding: 22 }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ height: 3, margin: '-22px -22px 16px', background: 'linear-gradient(90deg, #7c3aed, #a78bfa)', borderRadius: '18px 18px 0 0' }} />
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#c084fc', marginBottom: 6 }}>{t('tasks.assignFlow')}</div>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }} onClick={onClose}>
+      <div style={{ width: 'min(380px, 100%)', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--surface)', padding: 22 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ height: 3, margin: '-22px -22px 16px', background: 'var(--acc)', borderRadius: '10px 10px 0 0' }} />
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--acc)', marginBottom: 6 }}>{t('tasks.assignFlow')}</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>#{taskId} · {taskTitle}</div>
 
         {flows.length > 0 ? (
           <select value={selFlowId} onChange={(e) => setSelFlowId(e.target.value)}
-            style={{ width: '100%', padding: '9px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(124,58,237,0.06)', color: selFlowId ? '#c084fc' : 'var(--ink-50)', outline: 'none', boxSizing: 'border-box', cursor: 'pointer', marginBottom: 12 }}>
+            style={{ width: '100%', padding: '9px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: selFlowId ? 'var(--acc)' : 'var(--ink-50)', outline: 'none', boxSizing: 'border-box', cursor: 'pointer', marginBottom: 12 }}>
             <option value=''>— {t('tasks.assignFlow')} —</option>
             {flows.map((f) => (
               <option key={f.id} value={f.id}>{f.name}</option>
@@ -1038,13 +1039,13 @@ function FlowPickerPopup({ taskId, taskTitle, flows, onClose, t }: {
           </select>
         ) : (
           <div style={{ padding: '14px 12px', borderRadius: 10, border: '1px dashed var(--panel-border)', background: 'var(--panel)', fontSize: 11, color: 'var(--ink-50)', textAlign: 'center', marginBottom: 12 }}>
-            No saved flows — <a href='/dashboard/flows' style={{ color: '#c084fc', fontWeight: 600 }}>create one</a>
+            No saved flows — <a href='/dashboard/flows' style={{ color: 'var(--acc)', fontWeight: 600 }}>create one</a>
           </div>
         )}
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 12, color: 'var(--ink-60)', cursor: 'pointer', userSelect: 'none' }}>
           <input type='checkbox' checked={createPr} onChange={(e) => setCreatePr(e.target.checked)}
-            style={{ accentColor: '#c084fc', width: 16, height: 16, cursor: 'pointer' }} />
+            style={{ accentColor: 'var(--acc)', width: 16, height: 16, cursor: 'pointer' }} />
           {t('office.createPr')}
         </label>
 
@@ -1055,9 +1056,9 @@ function FlowPickerPopup({ taskId, taskTitle, flows, onClose, t }: {
           </button>
           <button onClick={handleRun} disabled={!selFlowId || running}
             style={{ flex: 2, padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: selFlowId && !running ? 'pointer' : 'not-allowed',
-              background: selFlowId && !running ? 'linear-gradient(135deg, #7c3aed, #a78bfa)' : 'var(--panel-alt)',
+              background: selFlowId && !running ? 'var(--acc)' : 'var(--panel-alt)',
               border: 'none', color: selFlowId && !running ? '#fff' : 'var(--ink-25)' }}>
-            {running ? '...' : `▶ ${t('office.run')}`}
+            {running ? '...' : t('office.run')}
           </button>
         </div>
       </div>
@@ -1264,17 +1265,17 @@ export default function OfficePage() {
           {/* Live status pills */}
           <div style={{ display: 'flex', gap: 6 }}>
             {running.length > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#38bdf8', background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', animation: 'pulse 2s infinite' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: 'var(--acc)', background: 'var(--acc-soft)', border: '1px solid var(--panel-border)', animation: 'pulse 2s infinite' }}>
                 {running.length} {t('office.running')}
               </span>
             )}
             {queued.length > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#c98a2b', background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.25)' }}>
                 {queued.length} {t('office.queued')}
               </span>
             )}
             {activeAgents.length > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: '#3f9d6a', background: 'rgba(63,157,106,0.12)', border: '1px solid rgba(63,157,106,0.25)' }}>
                 {activeAgents.length}/{officeAgents.length} {t('office.active')}
               </span>
             )}
@@ -1293,7 +1294,7 @@ export default function OfficePage() {
       {/* ── Main area ── */}
       <div style={{ display: 'grid', gridTemplateColumns: viewMode === 'split' ? (panelCollapsed ? '1fr 42px' : '1fr 320px') : '1fr', gap: 0, flex: 1, minHeight: 0, transition: 'grid-template-columns 0.2s ease' }}>
         {/* Pixel Office */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--panel-border)', overflow: 'hidden', position: 'relative', background: 'var(--surface)' }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', overflow: 'hidden', position: 'relative', background: 'var(--surface)' }}>
           {!iframeLoaded && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-25)', fontSize: 13, zIndex: 2 }}>
               {t('office.loading')}
@@ -1314,12 +1315,12 @@ export default function OfficePage() {
               background: 'transparent', cursor: 'pointer', color: 'var(--ink-35)', fontSize: 14,
               display: 'flex', alignItems: 'center', justifyContent: panelCollapsed ? 'center' : 'space-between', gap: 6,
             }}>
-              {panelCollapsed ? '◀' : (
+              {panelCollapsed ? <NavIcon name="chevron-left" size={16} /> : (
                 <>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--ink-25)' }}>
                     {t('office.teamTitle')} ({officeAgents.length})
                   </span>
-                  <span>▶</span>
+                  <NavIcon name="chevron-right" size={16} />
                 </>
               )}
             </button>
@@ -1339,7 +1340,7 @@ export default function OfficePage() {
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? agent.color : 'var(--ink-78)', display: 'flex', alignItems: 'center', gap: 5 }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.label}</span>
-                          {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', flexShrink: 0 }} />}
+                          {isActive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3f9d6a', flexShrink: 0 }} />}
                         </div>
                         {isActive && (
                           <div style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
@@ -1347,7 +1348,7 @@ export default function OfficePage() {
                           </div>
                         )}
                       </div>
-                      <span style={{ fontSize: 16, color: isActive ? agent.color : 'var(--ink-20)', flexShrink: 0, opacity: isActive ? 0.5 : 1 }}>{isActive ? '⟳' : '+'}</span>
+                      <span style={{ display: 'flex', color: isActive ? agent.color : 'var(--ink-20)', flexShrink: 0, opacity: isActive ? 0.5 : 1 }}><NavIcon name={isActive ? 'activity' : 'plus'} size={16} /></span>
                     </div>
                   );
                 })}
@@ -1357,14 +1358,14 @@ export default function OfficePage() {
             {/* Running */}
             {running.length > 0 && (
               <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#38bdf8', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--acc)', marginBottom: 8 }}>
                   {t('office.activeTasks')}
                 </div>
                 {running.map((task) => (
-                  <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 3, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.12)' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8', flexShrink: 0 }} />
+                  <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, marginBottom: 3, background: 'var(--acc-soft)', border: '1px solid var(--panel-border)' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--acc)', flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'var(--ink-78)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
-                    <span style={{ fontSize: 10, color: '#38bdf8', fontWeight: 600, flexShrink: 0 }}>{task.run_duration_sec ? `${Math.round(task.run_duration_sec)}s` : '...'}</span>
+                    <span style={{ fontSize: 10, color: 'var(--acc)', fontWeight: 600, flexShrink: 0 }}>{task.run_duration_sec ? `${Math.round(task.run_duration_sec)}s` : '...'}</span>
                   </div>
                 ))}
               </div>
@@ -1373,16 +1374,16 @@ export default function OfficePage() {
             {/* Queue */}
             {queued.length > 0 && (
               <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#c98a2b', marginBottom: 8 }}>
                   {t('office.queue')} ({queued.length})
                 </div>
                 {queued.slice(0, 5).map((task, i) => (
                   <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 8, marginBottom: 2, fontSize: 12, color: 'var(--ink-50)' }}>
-                    <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 10, width: 16, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ color: '#c98a2b', fontWeight: 700, fontSize: 10, width: 16, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
                     <span onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
                     <button onClick={(e) => { e.stopPropagation(); setFlowPickerTaskId(task.id); }} title={t('tasks.assignFlow')}
-                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(124,58,237,0.08)', color: '#c084fc', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                      ▶
+                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      <NavIcon name="chevron-right" size={12} />
                     </button>
                   </div>
                 ))}
@@ -1392,16 +1393,16 @@ export default function OfficePage() {
             {/* Failed */}
             {failed.length > 0 && (
               <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--panel-border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#ef4444', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#cf5b57', marginBottom: 8 }}>
                   {t('office.failed')}
                 </div>
                 {failed.map((task) => (
                   <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 8, marginBottom: 2, fontSize: 12, color: 'var(--ink-50)' }}>
-                    <span style={{ color: '#ef4444', fontSize: 11, flexShrink: 0 }}>✕</span>
+                    <span style={{ color: '#cf5b57', display: 'flex', flexShrink: 0 }}><NavIcon name="close" size={12} /></span>
                     <span onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
                     <button onClick={(e) => { e.stopPropagation(); setFlowPickerTaskId(task.id); }} title={t('tasks.assignFlow')}
-                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(124,58,237,0.08)', color: '#c084fc', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                      ▶
+                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, border: '1px solid var(--panel-border)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      <NavIcon name="chevron-right" size={12} />
                     </button>
                   </div>
                 ))}
@@ -1411,12 +1412,12 @@ export default function OfficePage() {
             {/* Completed */}
             {recentCompleted.length > 0 && (
               <div style={{ padding: '12px 14px' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#22c55e', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#3f9d6a', marginBottom: 8 }}>
                   {t('office.recentCompleted')}
                 </div>
                 {recentCompleted.map((task) => (
                   <div key={task.id} onClick={() => openTaskPreview(task.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', borderRadius: 8, marginBottom: 2, fontSize: 12, color: 'var(--ink-50)' }}>
-                    <span style={{ color: '#22c55e', fontSize: 11, flexShrink: 0 }}>✓</span>
+                    <span style={{ color: '#3f9d6a', fontSize: 11, flexShrink: 0 }}>✓</span>
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
                   </div>
                 ))}
@@ -1449,13 +1450,13 @@ export default function OfficePage() {
       {/* Task Preview Panel */}
       {previewTask && (
         <div onClick={() => setPreviewTaskId(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ width: 'min(520px, 90vw)', height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--panel-border)', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 30px rgba(0,0,0,0.3)' }}>
             {/* Header */}
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: previewTask.status === 'completed' ? '#22c55e' : previewTask.status === 'failed' ? '#ef4444' : previewTask.status === 'running' ? '#38bdf8' : '#f59e0b', marginBottom: 3 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: previewTask.status === 'completed' ? '#3f9d6a' : previewTask.status === 'failed' ? '#cf5b57' : previewTask.status === 'running' ? 'var(--acc)' : '#c98a2b', marginBottom: 3 }}>
                   {previewTask.status} · #{previewTask.id}
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewTask.title}</div>
@@ -1465,7 +1466,7 @@ export default function OfficePage() {
               </a>
               <button onClick={() => setPreviewTaskId(null)}
                 style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                ✕
+                <NavIcon name="close" size={16} />
               </button>
             </div>
             {/* Logs */}
@@ -1477,7 +1478,7 @@ export default function OfficePage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {previewLogs.map((log, i) => {
-                    const stageColor = log.stage === 'completed' ? '#22c55e' : log.stage === 'failed' ? '#ef4444' : log.stage === 'running' ? '#38bdf8' : log.stage === 'agent' ? '#a78bfa' : 'var(--ink-35)';
+                    const stageColor = log.stage === 'completed' ? '#3f9d6a' : log.stage === 'failed' ? '#cf5b57' : log.stage === 'running' ? 'var(--acc)' : log.stage === 'agent' ? 'var(--acc)' : 'var(--ink-35)';
                     return (
                       <div key={i} style={{ fontSize: 12, lineHeight: 1.5 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: stageColor, textTransform: 'uppercase', marginRight: 6 }}>{log.stage}</span>

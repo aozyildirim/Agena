@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch, cachedApiFetch, loadPrefs, loadPromptCatalog } from '@/lib/api';
 import { SPRINT_CHANGED_EVENT } from '@/components/SprintSwitcher';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type Provider = 'azure' | 'jira';
 type AgentProvider = 'openai' | 'gemini' | 'hal' | 'codex_cli' | 'claude_cli';
@@ -1514,16 +1515,16 @@ export default function RefinementPage() {
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
           zIndex: 99999, display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 20,
-          background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)',
+          background: 'rgba(0,0,0,0.82)',
         }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
-            border: '3px solid rgba(94,234,212,0.15)',
-            borderTopColor: '#5eead4',
+            border: '3px solid var(--acc-soft)',
+            borderTopColor: 'var(--acc)',
             animation: 'refinement-spin 0.8s linear infinite',
           }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#5eead4', marginBottom: 6 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--acc)', marginBottom: 6 }}>
               {copy.analyzingProgress
                 .replace('{done}', String(analyzedCount))
                 .replace('{total}', String(overlayTotal || selectedIds.length))}
@@ -1536,7 +1537,7 @@ export default function RefinementPage() {
           }}>
             <div style={{
               height: '100%', borderRadius: 2,
-              background: 'linear-gradient(90deg, #0d9488, #5eead4)',
+              background: 'var(--acc)',
               width: (overlayTotal || selectedIds.length) > 0
                 ? `${Math.max(5, (analyzedCount / (overlayTotal || selectedIds.length)) * 100)}%`
                 : '5%',
@@ -1552,7 +1553,7 @@ export default function RefinementPage() {
           style={{
             position: 'fixed', inset: 0, zIndex: 99998,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: 20,
+            background: 'rgba(0,0,0,0.6)', padding: 20,
           }}
           onClick={() => setRunModal(null)}
         >
@@ -1560,7 +1561,7 @@ export default function RefinementPage() {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 'min(460px, 100%)',
-              borderRadius: 16,
+              borderRadius: 10,
               background: 'var(--surface)',
               border: '1px solid var(--panel-border)',
               padding: 22,
@@ -1594,10 +1595,10 @@ export default function RefinementPage() {
               return (
                 <>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc)', textTransform: 'uppercase', letterSpacing: 0.8 }}>
                       {copy.analyze}
                     </div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', marginTop: 4 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', marginTop: 4 }}>
                       {runModal.single
                         ? (t('refinement.runModal.titleSingle' as Parameters<typeof t>[0])).replace('{id}', runModal.itemIds[0] || '')
                         : (t('refinement.runModal.titleBulk' as Parameters<typeof t>[0])).replace('{count}', String(filteredIds.length))}
@@ -1629,13 +1630,13 @@ export default function RefinementPage() {
                               style={{
                                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
                                 cursor: 'pointer',
-                                background: on ? 'rgba(94,234,212,0.18)' : 'var(--panel)',
-                                border: on ? '1px solid rgba(94,234,212,0.55)' : '1px solid var(--panel-border-2)',
-                                color: on ? '#5eead4' : 'var(--ink-50)',
+                                background: on ? 'var(--acc-soft)' : 'var(--panel)',
+                                border: on ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)',
+                                color: on ? 'var(--acc)' : 'var(--ink-50)',
                                 textTransform: 'uppercase', letterSpacing: 0.4,
                               }}
                             >
-                              {on ? '✓ ' : ''}{ty} <span style={{ opacity: 0.7, marginLeft: 2 }}>{counts[ty]}</span>
+                              {on ? <NavIcon name="dot" size={11} /> : null} {ty} <span style={{ opacity: 0.7, marginLeft: 2 }}>{counts[ty]}</span>
                             </button>
                           );
                         })}
@@ -1648,12 +1649,12 @@ export default function RefinementPage() {
 
             <div style={{
               display: 'flex', gap: 8, alignItems: 'center',
-              padding: '8px 10px', borderRadius: 10,
-              background: 'rgba(94,234,212,0.06)',
-              border: '1px solid rgba(94,234,212,0.25)',
+              padding: '8px 10px', borderRadius: 8,
+              background: 'var(--acc-soft)',
+              border: '1px solid var(--panel-border)',
               fontSize: 11, color: 'var(--ink-65)',
             }}>
-              💡 {t('refinement.runModal.hint' as Parameters<typeof t>[0])}
+              <NavIcon name="zap" size={16} /> {t('refinement.runModal.hint' as Parameters<typeof t>[0])}
             </div>
 
             <button
@@ -1754,15 +1755,15 @@ export default function RefinementPage() {
                     disabled={disabled}
                     title={!canRefine ? t('permissions.deniedRefine' as Parameters<typeof t>[0]) : undefined}
                     style={{
-                      padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 800,
-                      border: '1px solid rgba(13,148,136,0.6)',
-                      background: disabled ? 'var(--panel)' : 'linear-gradient(135deg, #0d9488, #5eead4)',
-                      color: disabled ? 'var(--ink-35)' : '#0a1815',
+                      padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                      border: '1px solid var(--acc)',
+                      background: disabled ? 'var(--panel)' : 'var(--acc)',
+                      color: disabled ? 'var(--ink-35)' : '#fff',
                       cursor: disabled ? 'not-allowed' : 'pointer',
                       opacity: disabled ? 0.6 : 1,
                     }}
                   >
-                    {!canRefine ? '🔒' : '▶'} {t('refinement.runModal.start' as Parameters<typeof t>[0])}
+                    {!canRefine ? <NavIcon name="lock" size={14} /> : <NavIcon name="chevron-right" size={14} />} {t('refinement.runModal.start' as Parameters<typeof t>[0])}
                   </button>
                 );
               })()}
@@ -1774,25 +1775,25 @@ export default function RefinementPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div className='section-label'>{copy.section}</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>{copy.title}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>{copy.title}</h1>
           <p style={{ fontSize: 12, color: 'var(--ink-30)', margin: 0 }}>{copy.subtitle}</p>
         </div>
         <Link
           href='/dashboard/refinement/runs'
           style={{
-            padding: '8px 14px', borderRadius: 10,
+            padding: '8px 14px', borderRadius: 8,
             border: '1px solid var(--panel-border-2)',
             background: 'var(--panel)', color: 'var(--ink-85)',
             fontSize: 12, fontWeight: 700, textDecoration: 'none',
             display: 'inline-flex', alignItems: 'center', gap: 6,
           }}
         >
-          📚 {t('refinement.myRuns' as Parameters<typeof t>[0])}
+          <NavIcon name="book" size={16} /> {t('refinement.myRuns' as Parameters<typeof t>[0])}
         </Link>
       </div>
 
       <div className="refinement-top-grid" style={{ display: 'grid', gap: 16 }}>
-        <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 10 }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 10 }}>
           <div className="ref-row-2" style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
             <Field label={copy.source}>
               <select value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setItemsData(null); setResults(null); setWrittenBackIds(new Set()); setExpandedItemId(''); }} style={inputStyle}>
@@ -1869,7 +1870,7 @@ export default function RefinementPage() {
                   if (validResults.length === 0) return;
                   setConfirmBulkWriteback(true);
                 }}
-                style={{ ...secondaryButton, background: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)', color: '#4ade80' }}
+                style={{ ...secondaryButton, background: 'rgba(63,157,106,0.1)', borderColor: 'rgba(63,157,106,0.3)', color: '#3f9d6a' }}
                 disabled={writebackItemId !== '' || !selectedIds.some(id => results.results.some(r => r.item_id === id && !r.error) && !writtenBackIds.has(id))}
               >
                 {copy.writebackSelected || 'Write Selected'} ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error) && !writtenBackIds.has(id)).length})
@@ -1903,10 +1904,10 @@ export default function RefinementPage() {
                   }
                   setRunMessage({ kind: ok > 0 ? 'success' : 'error', text: `MCP Agent: ${ok}/${validItems.length} task atandi` });
                 }}
-                style={{ ...secondaryButton, background: 'rgba(8,145,178,0.1)', borderColor: 'rgba(6,182,212,0.3)', color: '#22d3ee' }}
+                style={{ ...secondaryButton, background: 'var(--acc-soft)', borderColor: 'var(--acc)', color: 'var(--acc)' }}
                 disabled={running || !selectedIds.some(id => results.results.some(r => r.item_id === id && !r.error))}
               >
-                ⚡ MCP Agent ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error)).length})
+                <NavIcon name="zap" size={14} /> MCP Agent ({selectedIds.filter(id => results.results.some(r => r.item_id === id && !r.error)).length})
               </button>
               </>
             )}
@@ -1956,19 +1957,19 @@ export default function RefinementPage() {
 
           {backfillJob && backfillJob.status !== 'idle' && backfillJob.status !== 'completed' && (
             <div style={{
-              borderRadius: 12,
+              borderRadius: 8,
               padding: '10px 14px',
               fontSize: 12,
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              border: `1px solid ${backfillJob.status === 'failed' ? 'rgba(239,68,68,0.35)' : 'rgba(14,165,233,0.35)'}`,
-              background: backfillJob.status === 'failed' ? 'rgba(239,68,68,0.06)' : 'rgba(14,165,233,0.06)',
+              border: `1px solid ${backfillJob.status === 'failed' ? 'rgba(207,91,87,0.35)' : 'var(--panel-border)'}`,
+              background: backfillJob.status === 'failed' ? 'rgba(207,91,87,0.06)' : 'var(--panel-alt)',
               color: 'var(--ink-80)',
             }}>
               <div style={{
                 width: 8, height: 8, borderRadius: 999,
-                background: backfillJob.status === 'failed' ? '#f87171' : '#38bdf8',
+                background: backfillJob.status === 'failed' ? '#cf5b57' : '#5b9bd5',
                 flexShrink: 0,
                 animation: backfillJob.status !== 'failed' ? 'pulse-brand 1.4s ease-in-out infinite' : 'none',
               }} />
@@ -1999,13 +2000,13 @@ export default function RefinementPage() {
               href='/dashboard/refinement/history'
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 14px', borderRadius: 12,
+                padding: '10px 14px', borderRadius: 8,
                 border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
                 color: 'var(--ink-85)', textDecoration: 'none',
                 transition: 'background 0.15s',
               }}
             >
-              <span style={{ fontSize: 16 }}>📚</span>
+              <NavIcon name="book" size={16} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>
                   {t('refinement.indexLink.title' as Parameters<typeof t>[0]).replace('{count}', indexPreview.total.toLocaleString())}
@@ -2019,25 +2020,25 @@ export default function RefinementPage() {
           )}
 
           {error && (
-            <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
+            <div style={{ borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.08)', color: '#cf5b57', padding: '10px 12px', fontSize: 13 }}>
               {error}
             </div>
           )}
           {runMessage && (
             <div
               style={{
-                borderRadius: 12,
+                borderRadius: 8,
                 border: runMessage.kind === 'success'
-                  ? '1px solid rgba(34,197,94,0.35)'
+                  ? '1px solid rgba(63,157,106,0.35)'
                   : runMessage.kind === 'warning'
-                    ? '1px solid rgba(251,191,36,0.35)'
-                    : '1px solid rgba(239,68,68,0.35)',
+                    ? '1px solid rgba(201,138,43,0.35)'
+                    : '1px solid rgba(207,91,87,0.35)',
                 background: runMessage.kind === 'success'
-                  ? 'rgba(34,197,94,0.08)'
+                  ? 'rgba(63,157,106,0.08)'
                   : runMessage.kind === 'warning'
-                    ? 'rgba(251,191,36,0.08)'
-                    : 'rgba(239,68,68,0.08)',
-                color: runMessage.kind === 'success' ? '#86efac' : runMessage.kind === 'warning' ? '#fde68a' : '#fecaca',
+                    ? 'rgba(201,138,43,0.08)'
+                    : 'rgba(207,91,87,0.08)',
+                color: runMessage.kind === 'success' ? '#3f9d6a' : runMessage.kind === 'warning' ? '#c98a2b' : '#cf5b57',
                 padding: '10px 12px',
                 fontSize: 13,
                 fontWeight: 700,
@@ -2048,21 +2049,21 @@ export default function RefinementPage() {
           )}
         </div>
 
-        <div className="refinement-stats" style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <div className="refinement-stats" style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: 14, display: 'grid', gap: 8, gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <Stat label={copy.total} value={String(itemsData?.items.length || 0)} />
-          <Stat label={copy.unestimated} value={String(itemsData?.unestimated_count || 0)} accent='#fbbf24' />
-          <Stat label={copy.pointed} value={String(itemsData?.pointed_count || 0)} accent='#34d399' />
+          <Stat label={copy.unestimated} value={String(itemsData?.unestimated_count || 0)} accent='#c98a2b' />
+          <Stat label={copy.pointed} value={String(itemsData?.pointed_count || 0)} accent='#3f9d6a' />
           {results && (
             <>
-              <Stat label={copy.tokens} value={results.total_tokens.toLocaleString()} accent='#fca5a5' />
-              <Stat label={copy.cost} value={`$${results.estimated_cost_usd.toFixed(4)}`} accent='#c4b5fd' />
-              <Stat label={copy.skipped} value={String(results.skipped_count)} accent='#fcd34d' />
+              <Stat label={copy.tokens} value={results.total_tokens.toLocaleString()} accent='#cf5b57' />
+              <Stat label={copy.cost} value={`$${results.estimated_cost_usd.toFixed(4)}`} accent='var(--acc)' />
+              <Stat label={copy.skipped} value={String(results.skipped_count)} accent='#c98a2b' />
             </>
           )}
         </div>
       </div>
 
-      <div className="refinement-table-wrap" style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', overflow: 'hidden' }}>
+      <div className="refinement-table-wrap" style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', overflow: 'hidden' }}>
         <div style={{ ...panelHeader, padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <span>{t('sprints.items')}</span>
           {(itemsData?.items?.length || 0) > 0 && (
@@ -2079,9 +2080,9 @@ export default function RefinementPage() {
                     onClick={() => setEstimateFilter(tab.key)}
                     style={{
                       padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                      border: estimateFilter === tab.key ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border)',
-                      background: estimateFilter === tab.key ? 'rgba(94,234,212,0.12)' : 'transparent',
-                      color: estimateFilter === tab.key ? '#5eead4' : 'var(--ink-55)',
+                      border: estimateFilter === tab.key ? '1px solid var(--acc)' : '1px solid var(--panel-border)',
+                      background: estimateFilter === tab.key ? 'var(--acc-soft)' : 'transparent',
+                      color: estimateFilter === tab.key ? 'var(--acc)' : 'var(--ink-55)',
                     }}
                   >
                     {tab.label} <span style={{ opacity: 0.65, marginLeft: 2 }}>{tab.count}</span>
@@ -2103,9 +2104,9 @@ export default function RefinementPage() {
                       style={{
                         padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
                         cursor: 'pointer',
-                        background: active ? 'rgba(94,234,212,0.15)' : 'var(--panel)',
-                        border: active ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)',
-                        color: active ? '#5eead4' : 'var(--ink-65)',
+                        background: active ? 'var(--acc-soft)' : 'var(--panel)',
+                        border: active ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)',
+                        color: active ? 'var(--acc)' : 'var(--ink-65)',
                         textTransform: 'uppercase', letterSpacing: 0.5,
                       }}
                     >
@@ -2133,16 +2134,16 @@ export default function RefinementPage() {
                     title={eligibleIds.length === 0 ? '' : `${eligibleIds.length} item`}
                     style={{
                       marginLeft: 6,
-                      padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 800,
+                      padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700,
                       cursor: disabled ? 'not-allowed' : 'pointer',
-                      background: disabled ? 'var(--panel)' : 'linear-gradient(135deg, #0d9488, #5eead4)',
-                      border: '1px solid rgba(13,148,136,0.55)',
-                      color: disabled ? 'var(--ink-35)' : '#0a1815',
+                      background: disabled ? 'var(--panel)' : 'var(--acc)',
+                      border: '1px solid var(--acc)',
+                      color: disabled ? 'var(--ink-35)' : '#fff',
                       letterSpacing: 0.4, textTransform: 'uppercase',
                       opacity: disabled ? 0.6 : 1,
                     }}
                   >
-                    ▶ {running ? copy.analyzing : copy.analyze} ({eligibleIds.length})
+                    <NavIcon name="chevron-right" size={12} /> {running ? copy.analyzing : copy.analyze} ({eligibleIds.length})
                   </button>
                 );
               })()}
@@ -2195,7 +2196,7 @@ export default function RefinementPage() {
                       <span>{group.type}</span>
                       <span style={{ color: 'var(--ink-35)', fontWeight: 600 }}>· {group.items.length}</span>
                       {selectedInGroup.length > 0 && (
-                        <span style={{ color: '#5eead4', fontWeight: 700, marginLeft: 4 }}>
+                        <span style={{ color: 'var(--acc)', fontWeight: 700, marginLeft: 4 }}>
                           ({selectedInGroup.length} selected)
                         </span>
                       )}
@@ -2216,9 +2217,9 @@ export default function RefinementPage() {
                           padding: '12px 14px',
                           borderBottom: '1px solid var(--panel-border)',
                           background: isWrittenBack
-                            ? 'rgba(34,197,94,0.06)'
-                            : checked ? 'rgba(59,130,246,0.06)' : 'transparent',
-                          borderLeft: isWrittenBack ? '3px solid #22c55e' : '3px solid transparent',
+                            ? 'rgba(63,157,106,0.06)'
+                            : checked ? 'var(--acc-soft)' : 'transparent',
+                          borderLeft: isWrittenBack ? '3px solid #3f9d6a' : '3px solid transparent',
                           cursor: suggestion ? 'pointer' : 'default',
                         }}
                         onClick={() => { if (suggestion) setExpandedItemId(isExpanded ? '' : item.id); }}
@@ -2240,7 +2241,7 @@ export default function RefinementPage() {
                               <span style={{ ...suggestedPointsPill(suggestion.suggested_story_points), fontSize: 11, padding: '2px 8px' }}>
                                 {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })} pts
                               </span>
-                              <span style={{ fontSize: 10, fontWeight: 700, color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: suggestion.confidence >= 70 ? '#3f9d6a' : suggestion.confidence >= 40 ? '#c98a2b' : '#cf5b57' }}>
                                 {suggestion.confidence}%
                               </span>
                             </div>
@@ -2281,22 +2282,22 @@ export default function RefinementPage() {
                                   opacity: isImported ? 0.85 : 1,
                                   ...(isImported
                                     ? {
-                                      border: '1px solid rgba(34,197,94,0.45)',
-                                      background: 'rgba(34,197,94,0.10)',
-                                      color: '#22c55e',
+                                      border: '1px solid rgba(63,157,106,0.45)',
+                                      background: 'rgba(63,157,106,0.10)',
+                                      color: '#3f9d6a',
                                     }
                                     : {
-                                      border: '1px solid rgba(13,148,136,0.45)',
-                                      background: isImporting ? 'rgba(13,148,136,0.20)' : 'rgba(13,148,136,0.10)',
-                                      color: '#0d9488',
+                                      border: '1px solid var(--acc)',
+                                      background: 'var(--acc-soft)',
+                                      color: 'var(--acc)',
                                     }),
                                 }}
                               >
                                 {isImported
-                                  ? `✓ ${t('refinement.imported' as Parameters<typeof t>[0]) || 'Imported'}`
+                                  ? <><NavIcon name="dot" size={12} /> {t('refinement.imported' as Parameters<typeof t>[0]) || 'Imported'}</>
                                   : isImporting
-                                    ? '⏳'
-                                    : `📥 ${t('refinement.import' as Parameters<typeof t>[0]) || 'Import'}`}
+                                    ? <NavIcon name="clock" size={12} />
+                                    : <><NavIcon name="plus" size={12} /> {t('refinement.import' as Parameters<typeof t>[0]) || 'Import'}</>}
                               </button>
                             );
                           })()}
@@ -2308,9 +2309,9 @@ export default function RefinementPage() {
                                 marginLeft: suggestion ? 0 : 'auto',
                                 fontSize: 11, fontWeight: 700,
                                 padding: '4px 10px', borderRadius: 8,
-                                border: '1px solid rgba(94,234,212,0.35)',
-                                background: runningItemId === item.id ? 'rgba(94,234,212,0.15)' : 'rgba(94,234,212,0.08)',
-                                color: '#5eead4',
+                                border: '1px solid var(--acc)',
+                                background: 'var(--acc-soft)',
+                                color: 'var(--acc)',
                                 cursor: (running || runningItemId === item.id) ? 'wait' : 'pointer',
                                 opacity: (running && runningItemId !== item.id) ? 0.5 : 1,
                                 whiteSpace: 'nowrap',
@@ -2318,8 +2319,8 @@ export default function RefinementPage() {
                               title={suggestion ? copy.analyze : copy.analyze}
                             >
                               {runningItemId === item.id
-                                ? `⏳ ${copy.analyzing}`
-                                : suggestion ? `↻ ${copy.analyze}` : `▶ ${copy.analyze}`}
+                                ? <><NavIcon name="clock" size={12} /> {copy.analyzing}</>
+                                : suggestion ? <><NavIcon name="refinement" size={12} /> {copy.analyze}</> : <><NavIcon name="chevron-right" size={12} /> {copy.analyze}</>}
                             </button>
                           )}
                           {suggestion && (
@@ -2340,18 +2341,18 @@ export default function RefinementPage() {
                           <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                             {item.state && <span style={{ fontSize: 11, color: 'var(--ink-42)' }}>{item.state}</span>}
                             {item.assigned_to && <span style={{ fontSize: 11, color: 'var(--ink-42)' }}>{item.assigned_to}</span>}
-                            {item.refined_before && <span style={{ fontSize: 11, color: '#fde68a' }}>Refined ({item.refinement_count || 1}x)</span>}
+                            {item.refined_before && <span style={{ fontSize: 11, color: '#c98a2b' }}>Refined ({item.refinement_count || 1}x)</span>}
                           </div>
                         )}
                       </div>
                       {isExpanded && suggestion && (
-                        <div style={{ padding: '0 14px 14px', borderBottom: '1px solid rgba(13,148,136,0.15)' }}>
+                        <div style={{ padding: '0 14px 14px', borderBottom: '1px solid var(--panel-border)' }}>
                             <div style={expandedCard}>
                               {/* Header row: big points + confidence + write button */}
                               <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                                   <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: 36, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                                    <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--acc)', lineHeight: 1 }}>
                                       {displaySuggestionEstimate(suggestion.suggested_story_points, { allowZero: true })}
                                     </div>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
@@ -2364,7 +2365,7 @@ export default function RefinementPage() {
                                       fontSize: 24,
                                       fontWeight: 800,
                                       lineHeight: 1,
-                                      color: suggestion.confidence >= 70 ? '#86efac' : suggestion.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                                      color: suggestion.confidence >= 70 ? '#3f9d6a' : suggestion.confidence >= 40 ? '#c98a2b' : '#cf5b57',
                                     }}>
                                       {suggestion.confidence}%
                                     </div>
@@ -2372,7 +2373,7 @@ export default function RefinementPage() {
                                       {copy.confidence}
                                     </div>
                                     {suggestion.confidence < 40 && (
-                                      <div style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>{copy.lowConfidence}</div>
+                                      <div style={{ fontSize: 10, color: '#c98a2b', fontWeight: 600, marginTop: 2 }}>{copy.lowConfidence}</div>
                                     )}
                                   </div>
                                   <div style={{ width: 1, height: 40, background: 'var(--panel-border)' }} />
@@ -2393,12 +2394,12 @@ export default function RefinementPage() {
                                         title={lang === 'tr' ? `${providerLabel}'dan [${commentSignature}] yorumlarını sil` : `Delete [${commentSignature}] comments from ${providerLabel}`}
                                         style={{
                                           padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                                          border: '1px solid rgba(239,68,68,0.35)',
-                                          background: 'rgba(239,68,68,0.08)', color: '#fca5a5',
+                                          border: '1px solid rgba(207,91,87,0.35)',
+                                          background: 'rgba(207,91,87,0.08)', color: '#cf5b57',
                                           cursor: deletingWritebackId === item.id ? 'wait' : 'pointer',
                                         }}
                                       >
-                                        {deletingWritebackId === item.id ? '...' : `🗑 ${t('refinement.delete' as Parameters<typeof t>[0])}`}
+                                        {deletingWritebackId === item.id ? '...' : <><NavIcon name="close" size={12} /> {t('refinement.delete' as Parameters<typeof t>[0])}</>}
                                       </button>
                                     </>
                                   ) : (
@@ -2417,13 +2418,13 @@ export default function RefinementPage() {
                               </div>
 
                               {suggestion.error ? (
-                                <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
+                                <div style={{ borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.08)', color: '#cf5b57', padding: '10px 12px', fontSize: 13 }}>
                                   {suggestion.error}
                                 </div>
                               ) : (
                                 <>
                                   {suggestion.fallback_applied && suggestion.fallback_note && (
-                                    <div style={{ borderRadius: 10, border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.08)', color: '#fde68a', padding: '8px 10px', fontSize: 12 }}>
+                                    <div style={{ borderRadius: 8, border: '1px solid rgba(201,138,43,0.35)', background: 'rgba(201,138,43,0.08)', color: '#c98a2b', padding: '8px 10px', fontSize: 12 }}>
                                       {suggestion.fallback_note}
                                     </div>
                                   )}
@@ -2450,8 +2451,8 @@ export default function RefinementPage() {
                                           ...ghostButton,
                                           padding: '4px 10px',
                                           fontSize: 11,
-                                          border: copiedCommentId === item.id ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(148,163,184,0.25)',
-                                          color: copiedCommentId === item.id ? '#86efac' : '#cbd5e1',
+                                          border: copiedCommentId === item.id ? '1px solid rgba(63,157,106,0.4)' : '1px solid var(--panel-border-2)',
+                                          color: copiedCommentId === item.id ? '#3f9d6a' : 'var(--ink-78)',
                                         }}
                                         onClick={(e) => { e.stopPropagation(); copyToClipboard(suggestion.comment, item.id); }}
                                       >
@@ -2486,7 +2487,7 @@ export default function RefinementPage() {
                                             display: 'flex', flexDirection: 'column', gap: 4,
                                           }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: tf.action === 'create' ? 'rgba(34,197,94,0.15)' : tf.action === 'delete' ? 'rgba(248,113,113,0.15)' : 'rgba(56,189,248,0.15)', color: tf.action === 'create' ? '#22c55e' : tf.action === 'delete' ? '#f87171' : '#38bdf8', textTransform: 'uppercase' }}>{tf.action || 'modify'}</span>
+                                              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: tf.action === 'create' ? 'rgba(63,157,106,0.15)' : tf.action === 'delete' ? 'rgba(207,91,87,0.15)' : 'var(--acc-soft)', color: tf.action === 'create' ? '#3f9d6a' : tf.action === 'delete' ? '#cf5b57' : 'var(--acc)', textTransform: 'uppercase' }}>{tf.action || 'modify'}</span>
                                               <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-85)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tf.file}</span>
                                               {tf.repo_mapping_name && (
                                                 <span style={{ fontSize: 10, color: 'var(--ink-50)' }}>· {tf.repo_mapping_name}</span>
@@ -2511,7 +2512,7 @@ export default function RefinementPage() {
                                                   <div style={{ fontSize: 11, color: 'var(--ink-50)' }}>Yükleniyor...</div>
                                                 )}
                                                 {blame.error && (
-                                                  <div style={{ fontSize: 11, color: '#fca5a5' }}>{blame.error}</div>
+                                                  <div style={{ fontSize: 11, color: '#cf5b57' }}>{blame.error}</div>
                                                 )}
                                                 {blame.commits && blame.commits.length === 0 && (
                                                   <div style={{ fontSize: 11, color: 'var(--ink-50)' }}>Bu dosya için commit bulunamadı.</div>
@@ -2542,7 +2543,7 @@ export default function RefinementPage() {
                                       <div style={{
                                         fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.5,
                                         padding: '10px 12px', borderRadius: 10,
-                                        background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)',
+                                        background: 'var(--acc-soft)', border: '1px solid var(--panel-border)',
                                       }}>
                                         {!repoMappingId
                                           ? t('refinement.recommendedAuthor.empty.noRepo' as Parameters<typeof t>[0])
@@ -2570,11 +2571,11 @@ export default function RefinementPage() {
                                           <div key={`${a.email || a.name}-${i}`} style={{
                                             display: 'flex', alignItems: 'center', gap: 10,
                                             padding: '8px 10px', borderRadius: 10,
-                                            border: matched ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(168,85,247,0.25)',
-                                            background: matched ? 'rgba(34,197,94,0.06)' : 'rgba(168,85,247,0.06)',
+                                            border: matched ? '1px solid rgba(63,157,106,0.35)' : '1px solid var(--panel-border-2)',
+                                            background: matched ? 'rgba(63,157,106,0.06)' : 'var(--panel-alt)',
                                           }}>
-                                            <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 8, background: matched ? 'rgba(34,197,94,0.18)' : 'rgba(168,85,247,0.18)', color: matched ? '#22c55e' : '#c084fc', minWidth: 40, textAlign: 'center' }}>
-                                              {matched ? '✓' : `#${i + 1}`}
+                                            <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 8, background: matched ? 'rgba(63,157,106,0.18)' : 'var(--acc-soft)', color: matched ? '#3f9d6a' : 'var(--acc)', minWidth: 40, textAlign: 'center' }}>
+                                              {matched ? <NavIcon name="dot" size={12} /> : `#${i + 1}`}
                                             </span>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                               <div style={{ fontSize: 13, color: 'var(--ink-85)', fontWeight: 600 }}>
@@ -2586,11 +2587,11 @@ export default function RefinementPage() {
                                             {matched && alreadyAssigned && (
                                               <span style={{
                                                 padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                                                border: '1px solid rgba(34,197,94,0.35)',
-                                                background: 'rgba(34,197,94,0.08)',
-                                                color: '#86efac', whiteSpace: 'nowrap',
+                                                border: '1px solid rgba(63,157,106,0.35)',
+                                                background: 'rgba(63,157,106,0.08)',
+                                                color: '#3f9d6a', whiteSpace: 'nowrap',
                                               }}>
-                                                ✓ {t('refinement.alreadyAssigned' as Parameters<typeof t>[0])}
+                                                <NavIcon name="dot" size={12} /> {t('refinement.alreadyAssigned' as Parameters<typeof t>[0])}
                                               </span>
                                             )}
                                             {matched && !alreadyAssigned && (
@@ -2610,8 +2611,8 @@ export default function RefinementPage() {
                                                 }}
                                                 style={{
                                                   padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                                                  border: '1px solid rgba(34,197,94,0.5)', background: 'rgba(34,197,94,0.15)',
-                                                  color: '#22c55e', cursor: 'pointer', whiteSpace: 'nowrap',
+                                                  border: '1px solid rgba(63,157,106,0.5)', background: 'rgba(63,157,106,0.15)',
+                                                  color: '#3f9d6a', cursor: 'pointer', whiteSpace: 'nowrap',
                                                 }}
                                               >
                                                 Ata
@@ -2637,10 +2638,10 @@ export default function RefinementPage() {
                                             background: 'var(--panel)',
                                           }}>
                                             <span style={{
-                                              fontSize: 12, fontWeight: 800, color: '#5eead4',
+                                              fontSize: 12, fontWeight: 800, color: 'var(--acc)',
                                               minWidth: 48, textAlign: 'center',
                                               padding: '4px 8px', borderRadius: 8,
-                                              background: 'rgba(94,234,212,0.1)',
+                                              background: 'var(--acc-soft)',
                                             }}>
                                               {si.story_points} SP
                                             </span>
@@ -2657,19 +2658,19 @@ export default function RefinementPage() {
                                               </div>
                                               <div style={{ display: 'flex', gap: 8, marginTop: 3, flexWrap: 'wrap', fontSize: 11 }}>
                                                 {si.assigned_to && (
-                                                  <span style={{ color: 'var(--ink-42)' }}>👤 {si.assigned_to}</span>
+                                                  <span style={{ color: 'var(--ink-42)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><NavIcon name="user-check" size={12} /> {si.assigned_to}</span>
                                                 )}
                                                 {(si.pr_count ?? 0) > 0 && (
-                                                  <span style={{ color: '#7dd3fc' }} title={(si.pr_titles || []).join('\n')}>
-                                                    🔀 {si.pr_count} PR
+                                                  <span style={{ color: 'var(--acc)', display: 'inline-flex', alignItems: 'center', gap: 4 }} title={(si.pr_titles || []).join('\n')}>
+                                                    <NavIcon name="flows" size={12} /> {si.pr_count} PR
                                                   </span>
                                                 )}
                                                 {(si.commit_count ?? 0) > 0 && (
-                                                  <span style={{ color: 'var(--ink-42)' }}>⎘ {si.commit_count} commit</span>
+                                                  <span style={{ color: 'var(--ink-42)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><NavIcon name="box" size={12} /> {si.commit_count} commit</span>
                                                 )}
                                                 {(si.branches || []).slice(0, 2).map((b) => (
-                                                  <span key={b} style={{ color: '#a5b4fc', fontFamily: 'monospace', fontSize: 10, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b}>
-                                                    🌿 {b}
+                                                  <span key={b} style={{ color: 'var(--acc)', fontFamily: 'monospace', fontSize: 10, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }} title={b}>
+                                                    <NavIcon name="layers" size={12} /> {b}
                                                   </span>
                                                 ))}
                                               </div>
@@ -2687,10 +2688,10 @@ export default function RefinementPage() {
                                               const tier = si.tier || 'related';
                                               const pct = Math.round((si.score || 0) * 100);
                                               const meta = tier === 'strong'
-                                                ? { label: 'ÇOK YAKIN', color: '#86efac' }
+                                                ? { label: 'ÇOK YAKIN', color: '#3f9d6a' }
                                                 : tier === 'related'
-                                                  ? { label: 'yakın', color: '#fde68a' }
-                                                  : { label: 'uzak', color: '#fca5a5' };
+                                                  ? { label: 'yakın', color: '#c98a2b' }
+                                                  : { label: 'uzak', color: '#cf5b57' };
                                               return (
                                                 <span style={{
                                                   fontSize: 10, fontWeight: 700,
@@ -2747,7 +2748,7 @@ export default function RefinementPage() {
                                                     type='button'
                                                     onClick={(e) => { e.stopPropagation(); if (window.confirm(`"${a}" sorulsun mu?`)) void askLine(a); }}
                                                     title={'Work item’a comment olarak gönder'}
-                                                    style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'rgba(245,158,11,0.08)', color: '#f59e0b', cursor: 'pointer' }}
+                                                    style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'rgba(201,138,43,0.08)', color: '#c98a2b', cursor: 'pointer' }}
                                                   >Sor</button>
                                                 </div>
                                               ))}
@@ -2767,7 +2768,7 @@ export default function RefinementPage() {
                                                     type='button'
                                                     onClick={(e) => { e.stopPropagation(); if (window.confirm(`"${q}" sorulsun mu?`)) void askLine(q); }}
                                                     title={'Work item’a comment olarak gönder'}
-                                                    style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'rgba(56,189,248,0.08)', color: '#38bdf8', cursor: 'pointer' }}
+                                                    style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: 'pointer' }}
                                                   >Sor</button>
                                                 </div>
                                               ))}
@@ -2816,9 +2817,9 @@ export default function RefinementPage() {
                   <div
                     key={`${item.item_id}-summary`}
                     style={{
-                      borderRadius: 16, padding: 16, display: 'grid', gap: 10, cursor: 'pointer',
-                      border: isItemWritten ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--panel-border-2)',
-                      background: isItemWritten ? 'rgba(34,197,94,0.04)' : 'rgba(255,255,255,0.03)',
+                      borderRadius: 10, padding: 16, display: 'grid', gap: 10, cursor: 'pointer',
+                      border: isItemWritten ? '1px solid rgba(63,157,106,0.3)' : '1px solid var(--panel-border-2)',
+                      background: isItemWritten ? 'rgba(63,157,106,0.04)' : 'var(--surface)',
                       transition: 'border-color 0.2s',
                     }}
                     onClick={() => setExpandedItemId(expandedItemId === item.item_id ? '' : item.item_id)}
@@ -2841,14 +2842,14 @@ export default function RefinementPage() {
                     )}
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{
-                        fontSize: 22, fontWeight: 800, color: '#5eead4', lineHeight: 1,
+                        fontSize: 22, fontWeight: 700, color: 'var(--acc)', lineHeight: 1,
                       }}>
                         {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}
                         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-42)', marginLeft: 4 }}>{copy.pts}</span>
                       </span>
                       <span style={{
                         fontSize: 13, fontWeight: 700,
-                        color: item.confidence >= 70 ? '#86efac' : item.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                        color: item.confidence >= 70 ? '#3f9d6a' : item.confidence >= 40 ? '#c98a2b' : '#cf5b57',
                       }}>
                         {item.confidence}%
                       </span>
@@ -2866,9 +2867,9 @@ export default function RefinementPage() {
               const isItemWritten = writtenBackIds.has(item.item_id);
               return (
               <div key={item.item_id} style={{
-                borderRadius: 18, padding: 20, display: 'grid', gap: 14,
-                border: isItemWritten ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--panel-border-2)',
-                background: isItemWritten ? 'linear-gradient(180deg, rgba(34,197,94,0.04), var(--panel))' : 'var(--panel)',
+                borderRadius: 10, padding: 20, display: 'grid', gap: 14,
+                border: isItemWritten ? '1px solid rgba(63,157,106,0.3)' : '1px solid var(--panel-border-2)',
+                background: isItemWritten ? 'rgba(63,157,106,0.04)' : 'var(--panel)',
               }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                   <div>
@@ -2890,14 +2891,14 @@ export default function RefinementPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ textAlign: 'center', padding: '0 8px' }}>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--acc)', lineHeight: 1 }}>
                         {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}
                       </div>
                       <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 2 }}>{copy.pts}</div>
                     </div>
                     <span style={{
                       fontSize: 16, fontWeight: 700,
-                      color: item.confidence >= 70 ? '#86efac' : item.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                      color: item.confidence >= 70 ? '#3f9d6a' : item.confidence >= 40 ? '#c98a2b' : '#cf5b57',
                     }}>
                       {item.confidence}%
                     </span>
@@ -2908,13 +2909,13 @@ export default function RefinementPage() {
                 </div>
 
                 {item.error ? (
-                  <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
+                  <div style={{ borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.08)', color: '#cf5b57', padding: '10px 12px', fontSize: 13 }}>
                     {item.error}
                   </div>
                 ) : (
                   <>
                     {item.fallback_applied && item.fallback_note && (
-                      <div style={{ borderRadius: 10, border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.08)', color: '#fde68a', padding: '8px 10px', fontSize: 12 }}>
+                      <div style={{ borderRadius: 8, border: '1px solid rgba(201,138,43,0.35)', background: 'rgba(201,138,43,0.08)', color: '#c98a2b', padding: '8px 10px', fontSize: 12 }}>
                         {item.fallback_note}
                       </div>
                     )}
@@ -2929,8 +2930,8 @@ export default function RefinementPage() {
                             ...ghostButton,
                             padding: '4px 10px',
                             fontSize: 11,
-                            border: copiedCommentId === `detail-${item.item_id}` ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(148,163,184,0.25)',
-                            color: copiedCommentId === `detail-${item.item_id}` ? '#86efac' : '#cbd5e1',
+                            border: copiedCommentId === `detail-${item.item_id}` ? '1px solid rgba(63,157,106,0.4)' : '1px solid var(--panel-border-2)',
+                            color: copiedCommentId === `detail-${item.item_id}` ? '#3f9d6a' : 'var(--ink-78)',
                           }}
                           onClick={() => copyToClipboard(item.comment, `detail-${item.item_id}`)}
                         >
@@ -2961,12 +2962,12 @@ export default function RefinementPage() {
                             title={lang === 'tr' ? `${providerLabel}'dan [${commentSignature}] yorumlarını sil` : `Delete [${commentSignature}] comments from ${providerLabel}`}
                             style={{
                               padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                              border: '1px solid rgba(239,68,68,0.35)',
-                              background: 'rgba(239,68,68,0.08)', color: '#fca5a5',
+                              border: '1px solid rgba(207,91,87,0.35)',
+                              background: 'rgba(207,91,87,0.08)', color: '#cf5b57',
                               cursor: deletingWritebackId === item.item_id ? 'wait' : 'pointer',
                             }}
                           >
-                            {deletingWritebackId === item.item_id ? '...' : `🗑 ${t('refinement.delete' as Parameters<typeof t>[0])}`}
+                            {deletingWritebackId === item.item_id ? '...' : <><NavIcon name="close" size={12} /> {t('refinement.delete' as Parameters<typeof t>[0])}</>}
                           </button>
                         </>
                       ) : (
@@ -2992,13 +2993,14 @@ export default function RefinementPage() {
       {resultsModalOpen && typeof document !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)',
+          background: 'rgba(0,0,0,0.8)',
           zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
         }} onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}>
           <div style={{
-            width: 'min(560px, 96vw)', maxHeight: '90vh', borderRadius: 18,
+            width: 'min(560px, 96vw)', maxHeight: '90vh', borderRadius: 10,
             background: 'var(--surface)', border: '1px solid var(--border)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
           }} onClick={(e) => e.stopPropagation()}>
             {/* Header with navigation */}
             {(() => {
@@ -3021,11 +3023,11 @@ export default function RefinementPage() {
                         }} style={{ background: 'none', border: '1px solid var(--panel-border-2)', borderRadius: 8, color: 'var(--ink-50)', cursor: 'pointer', padding: '4px 10px', fontSize: 14 }}>→</button>
                       </>
                     )}
-                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)' }}>{copy.resultsTitle}</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{copy.resultsTitle}</span>
                   </div>
                   <button type='button' onClick={() => { setResultsModalOpen(false); setFocusedResultId(''); }}
                     style={{ background: 'none', border: '1px solid var(--panel-border-2)', borderRadius: 8, color: 'var(--ink-50)', cursor: 'pointer', padding: '6px 14px', fontSize: 12, fontWeight: 600 }}>
-                    ✕
+                    <NavIcon name="close" size={14} />
                   </button>
                 </div>
               );
@@ -3038,9 +3040,9 @@ export default function RefinementPage() {
                   const isItemWritten = writtenBackIds.has(item.item_id);
                   return (
                 <div key={`modal-${item.item_id}`} style={{
-                  borderRadius: 16, padding: 20, display: 'grid', gap: 14,
-                  border: isItemWritten ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--panel-border-2)',
-                  background: isItemWritten ? 'rgba(34,197,94,0.04)' : 'rgba(255,255,255,0.02)',
+                  borderRadius: 10, padding: 20, display: 'grid', gap: 14,
+                  border: isItemWritten ? '1px solid rgba(63,157,106,0.3)' : '1px solid var(--panel-border-2)',
+                  background: isItemWritten ? 'rgba(63,157,106,0.04)' : 'var(--panel-alt)',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                     <div>
@@ -3063,7 +3065,7 @@ export default function RefinementPage() {
                   {/* Big points display */}
                   <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 42, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                      <div style={{ fontSize: 42, fontWeight: 700, color: 'var(--acc)', lineHeight: 1 }}>
                         {displaySuggestionEstimate(item.suggested_story_points, { allowZero: true })}
                       </div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 4 }}>
@@ -3073,8 +3075,8 @@ export default function RefinementPage() {
                     <div style={{ width: 1, height: 40, background: 'var(--panel-border)' }} />
                     <div style={{ textAlign: 'center' }}>
                       <div style={{
-                        fontSize: 28, fontWeight: 800, lineHeight: 1,
-                        color: item.confidence >= 70 ? '#86efac' : item.confidence >= 40 ? '#fde68a' : '#fca5a5',
+                        fontSize: 28, fontWeight: 700, lineHeight: 1,
+                        color: item.confidence >= 70 ? '#3f9d6a' : item.confidence >= 40 ? '#c98a2b' : '#cf5b57',
                       }}>
                         {item.confidence}%
                       </div>
@@ -3097,13 +3099,13 @@ export default function RefinementPage() {
                   </div>
 
                   {item.error ? (
-                    <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fecaca', padding: '10px 12px', fontSize: 13 }}>
+                    <div style={{ borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.08)', color: '#cf5b57', padding: '10px 12px', fontSize: 13 }}>
                       {item.error}
                     </div>
                   ) : (
                     <>
                       {item.fallback_applied && item.fallback_note && (
-                        <div style={{ borderRadius: 10, border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.08)', color: '#fde68a', padding: '8px 10px', fontSize: 12 }}>
+                        <div style={{ borderRadius: 8, border: '1px solid rgba(201,138,43,0.35)', background: 'rgba(201,138,43,0.08)', color: '#c98a2b', padding: '8px 10px', fontSize: 12 }}>
                           {item.fallback_note}
                         </div>
                       )}
@@ -3118,8 +3120,8 @@ export default function RefinementPage() {
                               ...ghostButton,
                               padding: '4px 10px',
                               fontSize: 11,
-                              border: copiedCommentId === `modal-${item.item_id}` ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(148,163,184,0.25)',
-                              color: copiedCommentId === `modal-${item.item_id}` ? '#86efac' : '#cbd5e1',
+                              border: copiedCommentId === `modal-${item.item_id}` ? '1px solid rgba(63,157,106,0.4)' : '1px solid var(--panel-border-2)',
+                              color: copiedCommentId === `modal-${item.item_id}` ? '#3f9d6a' : 'var(--ink-78)',
                             }}
                             onClick={() => copyToClipboard(item.comment, `modal-${item.item_id}`)}
                           >
@@ -3175,7 +3177,7 @@ export default function RefinementPage() {
           onClick={() => setImportPickerItem(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 10000,
-            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
           }}
@@ -3185,7 +3187,7 @@ export default function RefinementPage() {
             style={{
               width: 460, maxWidth: '100%', maxHeight: '90vh',
               background: 'var(--surface)', color: 'var(--ink-90)',
-              border: '1px solid var(--panel-border-3)', borderRadius: 14,
+              border: '1px solid var(--panel-border-3)', borderRadius: 10,
               padding: 18, boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
               display: 'flex', flexDirection: 'column', minHeight: 0,
             }}
@@ -3207,8 +3209,8 @@ export default function RefinementPage() {
                     key={m.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-                      borderRadius: 8, border: '1px solid ' + (selected ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-2)'),
-                      background: selected ? 'rgba(13,148,136,0.1)' : 'var(--panel-alt)',
+                      borderRadius: 8, border: '1px solid ' + (selected ? 'var(--acc)' : 'var(--panel-border-2)'),
+                      background: selected ? 'var(--acc-soft)' : 'var(--panel-alt)',
                       cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)',
                     }}
                   >
@@ -3217,7 +3219,7 @@ export default function RefinementPage() {
                       name='refinement-import-repo'
                       checked={selected}
                       onChange={() => setImportPickerRepoId(String(m.id))}
-                      style={{ accentColor: '#0d9488', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
+                      style={{ accentColor: '#5b9bd5', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
                       <span style={{ fontWeight: 700, color: 'var(--ink-90)' }}>{m.display_name || `${m.owner}/${m.repo_name}`}</span>
@@ -3231,8 +3233,8 @@ export default function RefinementPage() {
             </div>
             <label style={{
               display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
-              borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)',
-              background: 'rgba(168,85,247,0.06)',
+              borderRadius: 8, border: '1px solid var(--panel-border)',
+              background: 'var(--acc-soft)',
               fontSize: 12, color: 'var(--ink-78)',
               cursor: 'pointer', marginBottom: 12,
             }}>
@@ -3240,10 +3242,10 @@ export default function RefinementPage() {
                 type='checkbox'
                 checked={importAiFill}
                 onChange={(e) => setImportAiFill(e.target.checked)}
-                style={{ accentColor: '#a855f7', marginTop: 2 }}
+                style={{ accentColor: '#5b9bd5', marginTop: 2 }}
               />
               <span>
-                <strong style={{ color: '#c084fc' }}>🪄 {t('tasks.aiFill.checkboxTitle' as Parameters<typeof t>[0]) || 'AI ile Doldur'}</strong>
+                <strong style={{ color: 'var(--acc)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><NavIcon name="zap" size={14} /> {t('tasks.aiFill.checkboxTitle' as Parameters<typeof t>[0]) || 'AI ile Doldur'}</strong>
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-50)', marginTop: 2 }}>
                   {t('tasks.aiFill.checkboxDesc' as Parameters<typeof t>[0]) || 'Story Context, Acceptance Criteria ve Edge Cases alanları AI ile doldurulur.'}
                 </span>
@@ -3296,15 +3298,15 @@ export default function RefinementPage() {
                 <div key={r.item_id} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '6px 10px', borderRadius: 8,
-                  background: writtenBackIds.has(r.item_id) ? 'rgba(34,197,94,0.08)' : 'rgba(0,0,0,0.2)',
+                  background: writtenBackIds.has(r.item_id) ? 'rgba(63,157,106,0.08)' : 'var(--panel-alt)',
                   fontSize: 12,
                   opacity: writtenBackIds.has(r.item_id) ? 0.5 : 1,
                 }}>
                   <span style={{ color: 'var(--ink-65)' }}>
-                    {writtenBackIds.has(r.item_id) && <span style={{ color: '#22c55e', marginRight: 6 }}>&#10003;</span>}
+                    {writtenBackIds.has(r.item_id) && <span style={{ color: '#3f9d6a', marginRight: 6 }}>&#10003;</span>}
                     {r.item_id} — {r.title?.slice(0, 40)}
                   </span>
-                  <span style={{ color: writtenBackIds.has(r.item_id) ? '#86efac' : '#5eead4', fontWeight: 700 }}>
+                  <span style={{ color: writtenBackIds.has(r.item_id) ? '#3f9d6a' : 'var(--acc)', fontWeight: 700 }}>
                     {writtenBackIds.has(r.item_id) ? copy.writtenBack : `${r.suggested_story_points} ${copy.pts}`}
                   </span>
                 </div>
@@ -3317,7 +3319,7 @@ export default function RefinementPage() {
               <button
                 type='button'
                 disabled={bulkWritebackRunning}
-                style={{ ...secondaryButton, background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.3)', color: '#4ade80' }}
+                style={{ ...secondaryButton, background: 'rgba(63,157,106,0.15)', borderColor: 'rgba(63,157,106,0.3)', color: '#3f9d6a' }}
                 onClick={async () => {
                   setBulkWritebackRunning(true);
                   const valid = results.results.filter(r => !r.error && selectedIds.includes(r.item_id) && !writtenBackIds.has(r.item_id));
@@ -3344,13 +3346,13 @@ export default function RefinementPage() {
       {deleteConfirm && typeof document !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          background: 'rgba(0,0,0,0.7)',
           zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }} onClick={() => deletingWritebackId !== deleteConfirm.itemId && setDeleteConfirm(null)}>
           <div style={{
-            width: 'min(420px, 92vw)', borderRadius: 16, padding: '20px 22px',
+            width: 'min(420px, 92vw)', borderRadius: 10, padding: '20px 22px',
             background: 'var(--surface)', border: '1px solid var(--border)',
-            display: 'grid', gap: 14,
+            display: 'grid', gap: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
           }} onClick={(e) => e.stopPropagation()}>
             <div>
               <div style={{ fontSize: 11, color: 'var(--ink-42)', fontFamily: 'monospace' }}>#{deleteConfirm.itemId}</div>
@@ -3359,11 +3361,11 @@ export default function RefinementPage() {
               </div>
             </div>
             <div style={{
-              padding: '12px 14px', borderRadius: 12,
-              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
+              padding: '12px 14px', borderRadius: 8,
+              background: 'rgba(207,91,87,0.08)', border: '1px solid rgba(207,91,87,0.3)',
               fontSize: 13, color: 'var(--ink-78)', lineHeight: 1.5,
             }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#cf5b57', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
                 {t('refinement.deleteCommentTitle' as Parameters<typeof t>[0])}
               </div>
               {(() => {
@@ -3402,16 +3404,16 @@ export default function RefinementPage() {
                   setDeleteConfirm(null);
                 }}
                 style={{
-                  flex: 2, padding: '10px 16px', borderRadius: 10,
-                  border: '1px solid rgba(239,68,68,0.5)',
-                  background: 'rgba(239,68,68,0.15)', color: '#fca5a5',
+                  flex: 2, padding: '10px 16px', borderRadius: 8,
+                  border: '1px solid rgba(207,91,87,0.5)',
+                  background: 'rgba(207,91,87,0.15)', color: '#cf5b57',
                   fontSize: 13, fontWeight: 700,
                   cursor: deletingWritebackId === deleteConfirm.itemId ? 'wait' : 'pointer',
                 }}
               >
                 {deletingWritebackId === deleteConfirm.itemId
                   ? '...'
-                  : `🗑 ${t('refinement.delete' as Parameters<typeof t>[0])}`}
+                  : <><NavIcon name="close" size={14} /> {t('refinement.delete' as Parameters<typeof t>[0])}</>}
               </button>
             </div>
           </div>
@@ -3422,13 +3424,13 @@ export default function RefinementPage() {
       {assignConfirm && typeof document !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          background: 'rgba(0,0,0,0.7)',
           zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }} onClick={() => !assigning && setAssignConfirm(null)}>
           <div style={{
-            width: 'min(420px, 92vw)', borderRadius: 16, padding: '20px 22px',
+            width: 'min(420px, 92vw)', borderRadius: 10, padding: '20px 22px',
             background: 'var(--surface)', border: '1px solid var(--border)',
-            display: 'grid', gap: 14,
+            display: 'grid', gap: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
           }} onClick={(e) => e.stopPropagation()}>
             <div>
               <div style={{ fontSize: 11, color: 'var(--ink-42)', fontFamily: 'monospace' }}>#{assignConfirm.itemId}</div>
@@ -3437,11 +3439,11 @@ export default function RefinementPage() {
               </div>
             </div>
             <div style={{
-              padding: '12px 14px', borderRadius: 12,
-              background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)',
+              padding: '12px 14px', borderRadius: 8,
+              background: 'rgba(63,157,106,0.08)', border: '1px solid rgba(63,157,106,0.3)',
               display: 'grid', gap: 4,
             }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#3f9d6a', textTransform: 'uppercase', letterSpacing: 0.6 }}>
                 {t('refinement.assignProposal' as Parameters<typeof t>[0])}
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
@@ -3496,9 +3498,9 @@ export default function RefinementPage() {
                   }
                 }}
                 style={{
-                  flex: 2, padding: '10px 16px', borderRadius: 10,
-                  border: '1px solid rgba(34,197,94,0.5)',
-                  background: 'rgba(34,197,94,0.15)', color: '#22c55e',
+                  flex: 2, padding: '10px 16px', borderRadius: 8,
+                  border: '1px solid rgba(63,157,106,0.5)',
+                  background: 'rgba(63,157,106,0.15)', color: '#3f9d6a',
                   fontSize: 13, fontWeight: 700,
                   cursor: assigning ? 'wait' : 'pointer',
                 }}
@@ -3517,13 +3519,13 @@ export default function RefinementPage() {
         return (
           <div style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+            background: 'rgba(0,0,0,0.7)',
             zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
           }} onClick={() => setConfirmWritebackItemId('')}>
             <div style={{
-              width: 'min(400px, 92vw)', borderRadius: 16, padding: '20px 22px',
+              width: 'min(400px, 92vw)', borderRadius: 10, padding: '20px 22px',
               background: 'var(--surface)', border: '1px solid var(--border)',
-              display: 'grid', gap: 14,
+              display: 'grid', gap: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
             }} onClick={(e) => e.stopPropagation()}>
               {/* Header with title + points */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -3534,8 +3536,8 @@ export default function RefinementPage() {
                   </div>
                 </div>
                 {confirmRow && (
-                  <div style={{ background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: '#5eead4', lineHeight: 1 }}>
+                  <div style={{ background: 'var(--acc-soft)', border: '1px solid var(--acc)', borderRadius: 8, padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--acc)', lineHeight: 1 }}>
                       {displaySuggestionEstimate(confirmRow.suggested_story_points, { allowZero: true })}
                     </div>
                     <div style={{ fontSize: 9, color: 'var(--ink-42)', textTransform: 'uppercase', marginTop: 2 }}>puan</div>
@@ -3550,7 +3552,7 @@ export default function RefinementPage() {
               )}
               {/* Provider indicator */}
               <div style={{ fontSize: 12, color: 'var(--ink-42)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: 3, background: provider === 'azure' ? '#38bdf8' : '#a78bfa' }} />
+                <span style={{ width: 6, height: 6, borderRadius: 3, background: provider === 'azure' ? '#5b9bd5' : 'var(--acc)' }} />
                 {providerLabel}
               </div>
               {/* Buttons */}
@@ -3560,7 +3562,7 @@ export default function RefinementPage() {
                   {copy.close}
                 </button>
                 <button type='button'
-                  style={{ flex: 2, padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(13,148,136,0.4)', background: 'rgba(13,148,136,0.15)', color: '#5eead4', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                  style={{ flex: 2, padding: '10px 16px', borderRadius: 8, border: '1px solid var(--acc)', background: 'var(--acc-soft)', color: 'var(--acc)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                   onClick={() => { const id = confirmWritebackItemId; setConfirmWritebackItemId(''); void runWritebackForItem(id); }}>
                   {copy.writeToProvider} → {providerLabel}
                 </button>
@@ -3607,9 +3609,9 @@ function RefinementHistory() {
   const totalPages = Math.max(1, Math.ceil(total / 10));
 
   return (
-    <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', overflow: 'hidden' }}>
+    <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', overflow: 'hidden' }}>
       <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-90)' }}>Refinement History</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>Refinement History</div>
         <span style={{ fontSize: 11, color: 'var(--ink-35)' }}>{total} record{total !== 1 ? 's' : ''}</span>
       </div>
       {loading && <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-35)' }}>Loading...</div>}
@@ -3624,20 +3626,20 @@ function RefinementHistory() {
               {r.item_title || r.external_item_id}
             </span>
             {r.suggested_story_points != null && (
-              <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, background: 'rgba(13,148,136,0.12)', color: '#0d9488', border: '1px solid rgba(13,148,136,0.3)' }}>
+              <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--acc)' }}>
                 {r.suggested_story_points} pts
               </span>
             )}
             {r.confidence != null && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: r.confidence >= 70 ? '#22c55e' : r.confidence >= 40 ? '#f59e0b' : '#ef4444' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: r.confidence >= 70 ? '#3f9d6a' : r.confidence >= 40 ? '#c98a2b' : '#cf5b57' }}>
                 {r.confidence}%
               </span>
             )}
             <span style={{
               padding: '2px 6px', borderRadius: 999, fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-              background: r.phase === 'writeback' ? 'rgba(34,197,94,0.1)' : 'rgba(56,189,248,0.1)',
-              color: r.phase === 'writeback' ? '#22c55e' : '#38bdf8',
-              border: `1px solid ${r.phase === 'writeback' ? 'rgba(34,197,94,0.3)' : 'rgba(56,189,248,0.3)'}`,
+              background: r.phase === 'writeback' ? 'rgba(63,157,106,0.1)' : 'var(--acc-soft)',
+              color: r.phase === 'writeback' ? '#3f9d6a' : 'var(--acc)',
+              border: `1px solid ${r.phase === 'writeback' ? 'rgba(63,157,106,0.3)' : 'var(--acc)'}`,
             }}>{r.phase}</span>
             <span style={{ fontSize: 10, color: 'var(--ink-30)', flexShrink: 0 }}>
               {new Date(r.created_at).toLocaleDateString()} {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -3665,10 +3667,10 @@ function RefinementHistory() {
                 </div>
               )}
               {r.error_message && (
-                <div style={{ fontSize: 12, color: '#ef4444', padding: '6px 8px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>{r.error_message}</div>
+                <div style={{ fontSize: 12, color: '#cf5b57', padding: '6px 8px', borderRadius: 8, background: 'rgba(207,91,87,0.08)', border: '1px solid rgba(207,91,87,0.2)' }}>{r.error_message}</div>
               )}
               {r.item_url && (
-                <a href={r.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: '#0d9488', textDecoration: 'none' }}>Open in {r.provider} ↗</a>
+                <a href={r.item_url} target='_blank' rel='noreferrer' style={{ fontSize: 12, color: 'var(--acc)', textDecoration: 'none' }}>Open in {r.provider} ↗</a>
               )}
             </div>
           )}
@@ -3696,7 +3698,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Stat({ label, value, accent = '#0d9488' }: { label: string; value: string; accent?: string }) {
+function Stat({ label, value, accent = 'var(--acc)' }: { label: string; value: string; accent?: string }) {
   return (
     <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '10px 12px' }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
@@ -3742,9 +3744,9 @@ const inputStyle: React.CSSProperties = {
 };
 
 const primaryButton: React.CSSProperties = {
-  borderRadius: 10,
+  borderRadius: 8,
   border: 'none',
-  background: 'linear-gradient(135deg, #0d9488, #14b8a6)',
+  background: 'var(--acc)',
   color: '#fff',
   padding: '9px 14px',
   fontWeight: 700,
@@ -3753,10 +3755,10 @@ const primaryButton: React.CSSProperties = {
 };
 
 const secondaryButton: React.CSSProperties = {
-  borderRadius: 10,
-  border: '1px solid rgba(245,158,11,0.35)',
-  background: 'rgba(245,158,11,0.08)',
-  color: '#f59e0b',
+  borderRadius: 8,
+  border: '1px solid rgba(201,138,43,0.35)',
+  background: 'rgba(201,138,43,0.08)',
+  color: '#c98a2b',
   padding: '9px 14px',
   fontWeight: 700,
   fontSize: 13,
@@ -3764,7 +3766,7 @@ const secondaryButton: React.CSSProperties = {
 };
 
 const ghostButton: React.CSSProperties = {
-  borderRadius: 10,
+  borderRadius: 8,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
   color: 'var(--ink-58)',
@@ -3776,7 +3778,7 @@ const ghostButton: React.CSSProperties = {
 
 const panelHeader: React.CSSProperties = {
   fontSize: 16,
-  fontWeight: 800,
+  fontWeight: 700,
   color: 'var(--ink-90)',
   marginBottom: 4,
 };
@@ -3810,18 +3812,18 @@ const unestimatedPill: React.CSSProperties = {
   alignItems: 'center',
   padding: '3px 7px',
   borderRadius: 999,
-  border: '1px solid rgba(245,158,11,0.35)',
-  background: 'rgba(245,158,11,0.08)',
-  color: '#f59e0b',
+  border: '1px solid rgba(201,138,43,0.35)',
+  background: 'rgba(201,138,43,0.08)',
+  color: '#c98a2b',
   fontSize: 11,
   fontWeight: 700,
 };
 
 const estimatedPill: React.CSSProperties = {
   ...unestimatedPill,
-  border: '1px solid rgba(34,197,94,0.35)',
-  background: 'rgba(34,197,94,0.08)',
-  color: '#22c55e',
+  border: '1px solid rgba(63,157,106,0.35)',
+  background: 'rgba(63,157,106,0.08)',
+  color: '#3f9d6a',
 };
 
 const resultPill: React.CSSProperties = {
@@ -3829,8 +3831,8 @@ const resultPill: React.CSSProperties = {
   alignItems: 'center',
   padding: '5px 10px',
   borderRadius: 999,
-  border: '1px solid rgba(148,163,184,0.25)',
-  background: 'rgba(148,163,184,0.08)',
+  border: '1px solid var(--panel-border-2)',
+  background: 'var(--panel)',
   color: 'var(--ink-80)',
   fontSize: 12,
   fontWeight: 700,
@@ -3838,16 +3840,16 @@ const resultPill: React.CSSProperties = {
 
 const readyPill: React.CSSProperties = {
   ...resultPill,
-  border: '1px solid rgba(34,197,94,0.35)',
-  background: 'rgba(34,197,94,0.08)',
-  color: '#86efac',
+  border: '1px solid rgba(63,157,106,0.35)',
+  background: 'rgba(63,157,106,0.08)',
+  color: '#3f9d6a',
 };
 
 const pendingPill: React.CSSProperties = {
   ...resultPill,
-  border: '1px solid rgba(251,191,36,0.35)',
-  background: 'rgba(251,191,36,0.08)',
-  color: '#fde68a',
+  border: '1px solid rgba(201,138,43,0.35)',
+  background: 'rgba(201,138,43,0.08)',
+  color: '#c98a2b',
 };
 
 const modalOverlay: React.CSSProperties = {
@@ -3857,7 +3859,6 @@ const modalOverlay: React.CSSProperties = {
   right: 0,
   bottom: 0,
   background: 'rgba(0,0,0,0.6)',
-  backdropFilter: 'blur(4px)',
   zIndex: 10000,
   display: 'flex',
   alignItems: 'center',
@@ -3868,7 +3869,7 @@ const modalOverlay: React.CSSProperties = {
 
 const modalCard: React.CSSProperties = {
   width: 'min(980px, 96vw)',
-  borderRadius: 16,
+  borderRadius: 10,
   border: '1px solid var(--border)',
   background: 'var(--surface)',
   padding: 16,
@@ -3876,6 +3877,7 @@ const modalCard: React.CSSProperties = {
   gap: 12,
   maxHeight: '90vh',
   overflowY: 'auto',
+  boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
 };
 
 const modelChip: React.CSSProperties = {
@@ -3891,9 +3893,9 @@ const modelChip: React.CSSProperties = {
 
 const activeModelChip: React.CSSProperties = {
   ...modelChip,
-  border: '1px solid rgba(13,148,136,0.45)',
-  background: 'rgba(13,148,136,0.12)',
-  color: '#0d9488',
+  border: '1px solid var(--acc)',
+  background: 'var(--acc-soft)',
+  color: 'var(--acc)',
   fontWeight: 700,
 };
 
@@ -3903,9 +3905,9 @@ function suggestedPointsPill(_points: number): React.CSSProperties {
     alignItems: 'center',
     padding: '3px 8px',
     borderRadius: 999,
-    border: '1px solid rgba(13,148,136,0.35)',
-    background: 'rgba(13,148,136,0.12)',
-    color: '#5eead4',
+    border: '1px solid var(--acc)',
+    background: 'var(--acc-soft)',
+    color: 'var(--acc)',
     fontSize: 12,
     fontWeight: 800,
   };
@@ -3917,9 +3919,9 @@ const writtenBadge: React.CSSProperties = {
   gap: 4,
   padding: '3px 10px',
   borderRadius: 999,
-  border: '1px solid rgba(34,197,94,0.35)',
-  background: 'rgba(34,197,94,0.12)',
-  color: '#86efac',
+  border: '1px solid rgba(63,157,106,0.35)',
+  background: 'rgba(63,157,106,0.12)',
+  color: '#3f9d6a',
   fontSize: 11,
   fontWeight: 700,
 };
@@ -3931,10 +3933,10 @@ const writtenBadgeSmall: React.CSSProperties = {
 };
 
 const writeProviderButton: React.CSSProperties = {
-  borderRadius: 12,
-  border: '1px solid rgba(13,148,136,0.4)',
-  background: 'rgba(13,148,136,0.12)',
-  color: '#5eead4',
+  borderRadius: 8,
+  border: '1px solid var(--acc)',
+  background: 'var(--acc-soft)',
+  color: 'var(--acc)',
   padding: '8px 16px',
   fontWeight: 700,
   fontSize: 13,
@@ -3943,10 +3945,10 @@ const writeProviderButton: React.CSSProperties = {
 };
 
 const writtenButtonDone: React.CSSProperties = {
-  borderRadius: 12,
-  border: '1px solid rgba(34,197,94,0.3)',
-  background: 'rgba(34,197,94,0.1)',
-  color: '#86efac',
+  borderRadius: 8,
+  border: '1px solid rgba(63,157,106,0.3)',
+  background: 'rgba(63,157,106,0.1)',
+  color: '#3f9d6a',
   padding: '8px 16px',
   fontWeight: 700,
   fontSize: 13,
@@ -3956,8 +3958,8 @@ const writtenButtonDone: React.CSSProperties = {
 
 const expandedCard: React.CSSProperties = {
   padding: '20px 24px',
-  background: 'linear-gradient(180deg, rgba(13,148,136,0.04), rgba(0,0,0,0.15))',
-  borderTop: '1px solid rgba(13,148,136,0.15)',
+  background: 'var(--panel-alt)',
+  borderTop: '1px solid var(--panel-border)',
   display: 'grid',
   gap: 14,
 };

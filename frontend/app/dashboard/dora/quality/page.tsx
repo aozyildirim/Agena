@@ -12,17 +12,17 @@ import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
 import DoraPeriodTabs from '@/components/DoraPeriodTabs';
 
 const box: React.CSSProperties = {
-  borderRadius: 14,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
   padding: 24,
 };
 
 const BENCHMARK_COLORS: Record<string, string> = {
-  elite: '#22c55e',
-  high: '#3b82f6',
-  medium: '#eab308',
-  low: '#ef4444',
+  elite: '#3f9d6a',
+  high: '#5b9bd5',
+  medium: '#c98a2b',
+  low: '#cf5b57',
 };
 
 export default function DoraQualityPage() {
@@ -57,7 +57,7 @@ export default function DoraQualityPage() {
         <Link href="/dashboard/dora" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
           DORA &rsaquo;
         </Link>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: '8px 0 0' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: '8px 0 0' }}>
           {t('dora.quality.title')}
         </h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
@@ -70,7 +70,7 @@ export default function DoraQualityPage() {
       </div>
 
       {error && (
-        <div style={{ ...box, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13 }}>
+        <div style={{ ...box, borderColor: 'rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -88,13 +88,13 @@ export default function DoraQualityPage() {
             <KpiCard
               label={t('dora.quality.successRate')}
               value={`${data.success_rate}%`}
-              color={data.success_rate >= 85 ? '#22c55e' : data.success_rate >= 70 ? '#eab308' : '#ef4444'}
+              color={data.success_rate >= 85 ? '#3f9d6a' : data.success_rate >= 70 ? '#c98a2b' : '#cf5b57'}
               sub={`${data.completed} ${t('dora.quality.completed')} / ${data.failed} ${t('dora.quality.failed')}`}
             />
             <KpiCard
               label={t('dora.quality.firstTimeRate')}
               value={`${data.first_time_rate}%`}
-              color={data.first_time_rate >= 80 ? '#22c55e' : data.first_time_rate >= 60 ? '#eab308' : '#ef4444'}
+              color={data.first_time_rate >= 80 ? '#3f9d6a' : data.first_time_rate >= 60 ? '#c98a2b' : '#cf5b57'}
             />
             <BenchmarkCard
               label={t('dora.quality.benchmark')}
@@ -105,7 +105,7 @@ export default function DoraQualityPage() {
 
           {/* Quality Trend */}
           <div style={box}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 4px' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 4px' }}>
               {t('dora.quality.trend')}
             </h2>
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 16px' }}>
@@ -120,8 +120,8 @@ export default function DoraQualityPage() {
                   value: d.success_rate,
                 }))}
                 height={220}
-                lineColor="#22c55e"
-                fillColor="rgba(34,197,94,0.12)"
+                lineColor="#3f9d6a"
+                fillColor="rgba(63,157,106,0.12)"
               />
             )}
           </div>
@@ -130,7 +130,7 @@ export default function DoraQualityPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
             {/* Failure Categories Bar Chart */}
             <div style={box}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
                 {t('dora.quality.failureCategories')}
               </h2>
               {data.failure_categories.length === 0 ? (
@@ -142,14 +142,14 @@ export default function DoraQualityPage() {
                     value: fc.count,
                   }))}
                   height={220}
-                  barColor="#ef4444"
+                  barColor="#cf5b57"
                 />
               )}
             </div>
 
             {/* Benchmark Thresholds Legend */}
             <div style={box}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
                 {t('dora.quality.thresholds')}
               </h2>
               <div style={{ display: 'grid', gap: 12 }}>
@@ -221,7 +221,7 @@ function BenchmarkCard({
   benchmark: string;
   t: (key: never) => string;
 }) {
-  const color = BENCHMARK_COLORS[benchmark] || '#6b7280';
+  const color = BENCHMARK_COLORS[benchmark] || '#94a3b8';
   const displayKey = `dora.quality.${benchmark}`;
   return (
     <div style={{

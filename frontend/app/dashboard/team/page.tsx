@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch, loadPrefs, savePrefs, type AzureMember, type RepoMapping } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import { useRole, canAccess } from '@/lib/rbac';
+import NavIcon from '@/components/NavIcon';
 type WorkItem = {
   id: string;
   title: string;
@@ -15,11 +16,11 @@ type WorkItem = {
 };
 
 const STATE_COLORS: Record<string, string> = {
-  'Backlog': '#6b7280', 'To Do': '#f59e0b', 'In Progress': '#38bdf8',
-  'Code Review': '#a78bfa', 'QA To Do': '#f472b6', 'Done': '#22c55e',
-  'Closed': '#22c55e', 'Resolved': '#22c55e', 'Active': '#38bdf8', 'New': '#f59e0b',
+  'Backlog': '#94a3b8', 'To Do': '#c98a2b', 'In Progress': '#5b9bd5',
+  'Code Review': '#5b9bd5', 'QA To Do': '#5b9bd5', 'Done': '#3f9d6a',
+  'Closed': '#3f9d6a', 'Resolved': '#3f9d6a', 'Active': '#5b9bd5', 'New': '#c98a2b',
 };
-const sc = (s: string) => STATE_COLORS[s] ?? '#5eead4';
+const sc = (s: string) => STATE_COLORS[s] ?? '#5b9bd5';
 
 const LS_PROJECT  = 'agena_sprint_project';
 const LS_TEAM     = 'agena_sprint_team';
@@ -30,12 +31,12 @@ const LS_JIRA_BOARD = 'agena_jira_board';
 const LS_JIRA_SPRINT = 'agena_jira_sprint';
 
 const GRADIENTS = [
-  ['#0d9488','#22c55e'], ['#7c3aed','#a78bfa'], ['#0ea5e9','#38bdf8'],
-  ['#f59e0b','#fb923c'], ['#ec4899','#f472b6'], ['#14b8a6','#06b6d4'],
+  ['#5b9bd5','#5b9bd5'], ['#5b9bd5','#5b9bd5'], ['#5b9bd5','#5b9bd5'],
+  ['#5b9bd5','#5b9bd5'], ['#5b9bd5','#5b9bd5'], ['#5b9bd5','#5b9bd5'],
 ];
 const grad = (name: string) => {
-  const g = GRADIENTS[name.charCodeAt(0) % GRADIENTS.length];
-  return `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
+  void GRADIENTS[name.charCodeAt(0) % GRADIENTS.length];
+  return 'var(--acc)';
 };
 const initials = (name: string) =>
   name.split(' ').map((n) => n[0] ?? '').join('').toUpperCase().slice(0, 2);
@@ -539,7 +540,7 @@ export default function TeamPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <div className="section-label">{t('team.section')}</div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>
+          <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>
             {t('team.title')}
           </h1>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -547,18 +548,18 @@ export default function TeamPage() {
             <button onClick={() => setTab('sprint')}
               style={{
                 padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                border: tab === 'sprint' ? '1px solid rgba(94,234,212,0.45)' : '1px solid var(--panel-border-3)',
-                background: tab === 'sprint' ? 'rgba(94,234,212,0.12)' : 'var(--panel-alt)',
-                color: tab === 'sprint' ? '#5eead4' : 'var(--ink-58)',
+                border: tab === 'sprint' ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                background: tab === 'sprint' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                color: tab === 'sprint' ? 'var(--acc)' : 'var(--ink-58)',
               }}>
               {t('team.sprintLabel')}
             </button>
             <button onClick={() => setTab('org')}
               style={{
                 padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                border: tab === 'org' ? '1px solid rgba(167,139,250,0.45)' : '1px solid var(--panel-border-3)',
-                background: tab === 'org' ? 'rgba(167,139,250,0.12)' : 'var(--panel-alt)',
-                color: tab === 'org' ? '#a78bfa' : 'var(--ink-58)',
+                border: tab === 'org' ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                background: tab === 'org' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                color: tab === 'org' ? 'var(--acc)' : 'var(--ink-58)',
               }}>
               {t('team.tabOrg')}
             </button>
@@ -577,9 +578,9 @@ export default function TeamPage() {
                 style={{
                   padding: '6px 12px',
                   borderRadius: 999,
-                  border: provider === 'azure' ? '1px solid rgba(56,189,248,0.45)' : '1px solid var(--panel-border-3)',
-                  background: provider === 'azure' ? 'rgba(56,189,248,0.12)' : 'var(--panel-alt)',
-                  color: provider === 'azure' ? '#7dd3fc' : 'var(--ink-58)',
+                  border: provider === 'azure' ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                  background: provider === 'azure' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                  color: provider === 'azure' ? 'var(--acc)' : 'var(--ink-58)',
                   fontSize: 12,
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -600,9 +601,9 @@ export default function TeamPage() {
                 style={{
                   padding: '6px 12px',
                   borderRadius: 999,
-                  border: provider === 'jira' ? '1px solid rgba(129,140,248,0.45)' : '1px solid var(--panel-border-3)',
-                  background: provider === 'jira' ? 'rgba(129,140,248,0.12)' : 'var(--panel-alt)',
-                  color: provider === 'jira' ? '#a5b4fc' : 'var(--ink-58)',
+                  border: provider === 'jira' ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                  background: provider === 'jira' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                  color: provider === 'jira' ? 'var(--acc)' : 'var(--ink-58)',
                   fontSize: 12,
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -623,8 +624,8 @@ export default function TeamPage() {
         </div>
         {tab === 'sprint' && hasConfig && (
           <button onClick={() => setShowPicker(true)}
-            style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 12, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.1)', color: '#5eead4', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>+</span> {t('team.addEdit')}
+            style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 10, border: '1px solid var(--acc)', background: 'var(--acc-soft)', color: 'var(--acc)', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <NavIcon name="plus" size={16} /> {t('team.addEdit')}
           </button>
         )}
       </div>
@@ -634,23 +635,23 @@ export default function TeamPage() {
 
       {/* Sprint tab content */}
       {tab === 'sprint' && !hasConfig && (
-        <div style={{ padding: '20px 24px', borderRadius: 16, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '20px 24px', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontWeight: 600, color: '#fbbf24', fontSize: 14 }}>
+            <div style={{ fontWeight: 600, color: '#c98a2b', fontSize: 14 }}>
               {provider === 'jira' ? t('team.noConfigJira') : t('team.noConfig')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 4 }}>
               {provider === 'jira' ? t('team.noConfigDescJira') : t('team.noConfigDesc')}
             </div>
           </div>
-          <a href="/dashboard/profile" style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+          <a href="/dashboard/profile" style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink-78)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
             {t('team.profile')}
           </a>
         </div>
       )}
 
       {tab === 'sprint' && err && (
-        <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171', fontSize: 13 }}>{err}</div>
+        <div style={{ padding: '12px 16px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', color: '#cf5b57', fontSize: 13 }}>{err}</div>
       )}
 
       {toast && (
@@ -663,12 +664,11 @@ export default function TeamPage() {
           minWidth: 280,
           maxWidth: 480,
           padding: '12px 20px',
-          borderRadius: 12,
-          background: toast.kind === 'ok' ? 'rgba(5,46,22,0.95)' : 'rgba(127,29,29,0.95)',
-          border: '1px solid ' + (toast.kind === 'ok' ? 'rgba(34,197,94,0.5)' : 'rgba(248,113,113,0.5)'),
-          boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-          backdropFilter: 'blur(8px)',
-          color: '#fff',
+          borderRadius: 8,
+          background: 'var(--surface)',
+          border: '1px solid ' + (toast.kind === 'ok' ? '#3f9d6a' : '#cf5b57'),
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          color: toast.kind === 'ok' ? '#3f9d6a' : '#cf5b57',
           fontSize: 13,
           fontWeight: 600,
           textAlign: 'center',
@@ -685,7 +685,7 @@ export default function TeamPage() {
             const items = workItems[member.id];
             const isLoadingItems = loadingItems === member.id;
             return (
-              <div key={member.id} style={{ borderRadius: 16, border: '1px solid ' + (isExpanded ? 'rgba(94,234,212,0.2)' : 'var(--panel-border)'), background: isExpanded ? 'rgba(13,148,136,0.04)' : 'var(--panel)', overflow: 'hidden', transition: 'border-color 0.2s' }}>
+              <div key={member.id} style={{ borderRadius: 10, border: '1px solid ' + (isExpanded ? 'var(--acc)' : 'var(--panel-border)'), background: isExpanded ? 'var(--acc-soft)' : 'var(--panel)', overflow: 'hidden', transition: 'border-color 0.2s' }}>
                 <button onClick={() => void loadWorkItems(member)}
                   style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                   <div style={{ width: 42, height: 42, borderRadius: '50%', background: grad(member.displayName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
@@ -696,7 +696,7 @@ export default function TeamPage() {
                     <div style={{ fontSize: 11, color: 'var(--ink-30)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.uniqueName}</div>
                   </div>
                   {sprintPath && items !== undefined && (
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: items.length > 0 ? 'rgba(94,234,212,0.1)' : 'var(--panel-alt)', border: '1px solid ' + (items.length > 0 ? 'rgba(94,234,212,0.25)' : 'var(--panel-border-2)'), color: items.length > 0 ? '#5eead4' : 'var(--ink-30)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: items.length > 0 ? 'var(--acc-soft)' : 'var(--panel-alt)', border: '1px solid ' + (items.length > 0 ? 'var(--acc)' : 'var(--panel-border-2)'), color: items.length > 0 ? 'var(--acc)' : 'var(--ink-30)' }}>
                       {items.length} {t('team.itemsShort')}
                     </span>
                   )}
@@ -710,10 +710,10 @@ export default function TeamPage() {
                       fontSize: 11,
                       fontWeight: 700,
                       padding: '4px 9px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(248,113,113,0.35)',
-                      background: 'rgba(248,113,113,0.12)',
-                      color: '#f87171',
+                      borderRadius: 6,
+                      border: '1px solid #cf5b57',
+                      background: 'transparent',
+                      color: '#cf5b57',
                       cursor: 'pointer',
                       flexShrink: 0,
                     }}
@@ -721,7 +721,7 @@ export default function TeamPage() {
                     {t('team.remove')}
                   </button>
                   {sprintPath && (
-                    <span style={{ fontSize: 16, color: 'var(--ink-25)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>⌄</span>
+                    <span style={{ fontSize: 16, color: 'var(--ink-25)', transform: isExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform 0.2s', display: 'inline-flex' }}><NavIcon name="chevron-right" size={16} /></span>
                   )}
                 </button>
 
@@ -738,8 +738,8 @@ export default function TeamPage() {
                           const isImported = Boolean(importedIds[item.id]);
                           const isImporting = importingId === item.id;
                           return (
-                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--panel-alt)', border: '1px solid var(--panel-alt)' }}>
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: sc(item.state), boxShadow: '0 0 5px ' + sc(item.state), flexShrink: 0 }} />
+                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-2)' }}>
+                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: sc(item.state), flexShrink: 0 }} />
                               {url ? (
                                 <a
                                   href={url}
@@ -747,7 +747,7 @@ export default function TeamPage() {
                                   rel="noopener noreferrer"
                                   title={t('team.openExternal')}
                                   style={{ flex: 1, fontSize: 13, color: 'var(--ink-78)', textDecoration: 'none', cursor: 'pointer' }}
-                                  onMouseEnter={(e) => { (e.currentTarget.style.color = '#5eead4'); (e.currentTarget.style.textDecoration = 'underline'); }}
+                                  onMouseEnter={(e) => { (e.currentTarget.style.color = 'var(--acc)'); (e.currentTarget.style.textDecoration = 'underline'); }}
                                   onMouseLeave={(e) => { (e.currentTarget.style.color = 'var(--ink-78)'); (e.currentTarget.style.textDecoration = 'none'); }}
                                 >
                                   {item.title}
@@ -765,9 +765,9 @@ export default function TeamPage() {
                                   fontWeight: 700,
                                   padding: '3px 9px',
                                   borderRadius: 999,
-                                  border: '1px solid ' + (isImported ? 'rgba(34,197,94,0.35)' : 'rgba(94,234,212,0.35)'),
-                                  background: isImported ? 'rgba(34,197,94,0.12)' : 'rgba(94,234,212,0.1)',
-                                  color: isImported ? '#22c55e' : '#5eead4',
+                                  border: '1px solid ' + (isImported ? '#3f9d6a' : 'var(--acc)'),
+                                  background: isImported ? 'transparent' : 'var(--acc-soft)',
+                                  color: isImported ? '#3f9d6a' : 'var(--acc)',
                                   cursor: isImporting || isImported ? 'default' : 'pointer',
                                   opacity: isImporting ? 0.6 : 1,
                                   whiteSpace: 'nowrap',
@@ -789,10 +789,10 @@ export default function TeamPage() {
         </div>
       ) : hasConfig && !loadingAll ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <div style={{ fontSize: 48, opacity: 0.1, marginBottom: 16 }}>◉</div>
+          <div style={{ opacity: 0.25, marginBottom: 16, display: 'flex', justifyContent: 'center', color: 'var(--ink-50)' }}><NavIcon name="users" size={48} /></div>
           <div style={{ color: 'var(--ink-25)', fontSize: 14, marginBottom: 20 }}>{t('team.noMembers')}</div>
           <button onClick={() => setShowPicker(true)}
-            style={{ padding: '10px 20px', borderRadius: 12, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.1)', color: '#5eead4', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid var(--acc)', background: 'var(--acc-soft)', color: 'var(--acc)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
             {t('team.addMember')}
           </button>
         </div>
@@ -801,13 +801,13 @@ export default function TeamPage() {
       {/* Picker Modal */}
       {/* Remove confirmation modal */}
       {confirmRemove && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={() => setConfirmRemove(null)}>
-          <div style={{ width: 'min(400px, 100%)', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}
+          <div style={{ width: 'min(400px, 100%)', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--surface)', padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.25)' }}
             onClick={(e) => e.stopPropagation()}>
             {/* Icon */}
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>
-              ⚠️
+            <div style={{ width: 56, height: 56, borderRadius: 10, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', margin: '0 auto 16px' }}>
+              <NavIcon name="alert" size={24} />
             </div>
             {/* Title */}
             <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>
@@ -819,7 +819,7 @@ export default function TeamPage() {
               {' '}{t('team.removeDesc')}
             </div>
             {/* Member preview */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--panel)', border: '1px solid var(--panel-border)', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--panel-border)', marginBottom: 20 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: grad(confirmRemove.displayName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
                 {initials(confirmRemove.displayName)}
               </div>
@@ -831,11 +831,11 @@ export default function TeamPage() {
             {/* Buttons */}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setConfirmRemove(null)}
-                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
                 {t('team.removeCancel')}
               </button>
               <button onClick={() => doRemoveMember(confirmRemove)}
-                style={{ flex: 1, padding: '11px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'none', color: '#fff' }}>
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#cf5b57', border: 'none', color: '#fff' }}>
                 {t('team.removeConfirm')}
               </button>
             </div>
@@ -845,9 +845,9 @@ export default function TeamPage() {
 
       {showPicker && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)' }} onClick={() => setShowPicker(false)} />
-          <div style={{ position: 'relative', width: '100%', maxWidth: 480, borderRadius: 24, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.6)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ height: 2, background: 'linear-gradient(90deg, #0d9488, #7c3aed, #22c55e)', flexShrink: 0 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowPicker(false)} />
+          <div style={{ position: 'relative', width: '100%', maxWidth: 480, borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.25)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ height: 2, background: 'var(--panel-border)', flexShrink: 0 }} />
 
             <div style={{ padding: '24px 24px 16px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -857,12 +857,12 @@ export default function TeamPage() {
                     {t('team.selectedSummary', { selected: myTeam.length, total: allMembers.length })}
                   </p>
                 </div>
-                <button onClick={() => setShowPicker(false)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <button onClick={() => setShowPicker(false)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={16} /></button>
               </div>
 
               {/* Search */}
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--ink-25)' }}>⌕</span>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', color: 'var(--ink-25)' }}><NavIcon name="search" size={14} /></span>
                 <input
                   value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder={t('team.searchPlaceholder')}
@@ -884,7 +884,7 @@ export default function TeamPage() {
                     const selected = myTeam.some((x) => x.id === m.id);
                     return (
                       <button key={m.id} onClick={() => toggleMember(m)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (selected ? 'rgba(13,148,136,0.35)' : 'var(--panel-alt)'), background: selected ? 'rgba(13,148,136,0.1)' : 'var(--panel)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid ' + (selected ? 'var(--acc)' : 'var(--panel-border-2)'), background: selected ? 'var(--acc-soft)' : 'var(--panel)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                         <div style={{ width: 36, height: 36, borderRadius: '50%', background: grad(m.displayName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
                           {initials(m.displayName)}
                         </div>
@@ -892,8 +892,8 @@ export default function TeamPage() {
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)' }}>{m.displayName}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.uniqueName}</div>
                         </div>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid ' + (selected ? '#0d9488' : 'var(--panel-border-4)'), background: selected ? '#0d9488' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                          {selected && <span style={{ fontSize: 10, color: '#fff', fontWeight: 800 }}>✓</span>}
+                        <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid ' + (selected ? 'var(--acc)' : 'var(--panel-border-4)'), background: selected ? 'var(--acc)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s', color: '#fff' }}>
+                          {selected && <NavIcon name="user-check" size={11} />}
                         </div>
                       </button>
                     );
@@ -904,7 +904,7 @@ export default function TeamPage() {
 
             <div style={{ padding: '14px 24px', borderTop: '1px solid var(--panel-border)', flexShrink: 0 }}>
               <button onClick={() => setShowPicker(false)}
-                style={{ width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #0d9488, #22c55e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                style={{ width: '100%', padding: '12px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                 {t('team.done', { n: myTeam.length })}
               </button>
             </div>
@@ -920,7 +920,7 @@ export default function TeamPage() {
           onClick={() => setImportPickerItem(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 10000,
-            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
           }}
@@ -930,8 +930,8 @@ export default function TeamPage() {
             style={{
               width: 460, maxWidth: '100%', maxHeight: '90vh',
               background: 'var(--surface)', color: 'var(--ink-90)',
-              border: '1px solid var(--panel-border-3)', borderRadius: 14,
-              padding: 18, boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+              border: '1px solid var(--panel-border-3)', borderRadius: 10,
+              padding: 18, boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
               display: 'flex', flexDirection: 'column', minHeight: 0,
             }}
           >
@@ -952,8 +952,8 @@ export default function TeamPage() {
                     key={m.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-                      borderRadius: 8, border: '1px solid ' + (selected ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-2)'),
-                      background: selected ? 'rgba(13,148,136,0.1)' : 'var(--panel-alt)',
+                      borderRadius: 8, border: '1px solid ' + (selected ? 'var(--acc)' : 'var(--panel-border-2)'),
+                      background: selected ? 'var(--acc-soft)' : 'var(--panel-alt)',
                       cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)',
                     }}
                   >
@@ -962,7 +962,7 @@ export default function TeamPage() {
                       name='import-repo-team'
                       checked={selected}
                       onChange={() => setImportPickerRepoId(String(m.id))}
-                      style={{ accentColor: '#0d9488', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
+                      style={{ accentColor: 'var(--acc)', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
                       <span style={{ fontWeight: 700, color: 'var(--ink-90)' }}>{m.name}</span>
@@ -976,8 +976,8 @@ export default function TeamPage() {
             </div>
             <label style={{
               display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
-              borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)',
-              background: 'rgba(168,85,247,0.06)',
+              borderRadius: 8, border: '1px solid var(--acc)',
+              background: 'var(--acc-soft)',
               fontSize: 12, color: 'var(--ink-78)',
               cursor: 'pointer', marginBottom: 12,
             }}>
@@ -985,10 +985,10 @@ export default function TeamPage() {
                 type='checkbox'
                 checked={importAiFill}
                 onChange={(e) => setImportAiFill(e.target.checked)}
-                style={{ accentColor: '#a855f7', marginTop: 2 }}
+                style={{ accentColor: 'var(--acc)', marginTop: 2 }}
               />
               <span>
-                <strong style={{ color: '#c084fc' }}>🪄 {t('tasks.aiFill.checkboxTitle' as TranslationKey) || 'AI ile Doldur'}</strong>
+                <strong style={{ color: 'var(--acc)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><NavIcon name="zap" size={14} /> {t('tasks.aiFill.checkboxTitle' as TranslationKey) || 'AI ile Doldur'}</strong>
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-50)', marginTop: 2 }}>
                   {t('tasks.aiFill.checkboxDesc' as TranslationKey) || 'Story Context, Acceptance Criteria ve Edge Cases alanları otomatik doldurulur.'}
                 </span>
@@ -1016,12 +1016,12 @@ export default function TeamPage() {
                   if (target) void importSingleItem(target, picked);
                 }}
                 style={{
-                  fontSize: 12, padding: '8px 18px', borderRadius: 10,
-                  border: '1px solid rgba(13,148,136,0.6)',
-                  background: importPickerRepoId ? 'linear-gradient(135deg, #0d9488, #5eead4)' : 'var(--panel)',
-                  color: importPickerRepoId ? '#0a1815' : 'var(--ink-35)',
+                  fontSize: 12, padding: '8px 18px', borderRadius: 8,
+                  border: '1px solid var(--acc)',
+                  background: importPickerRepoId ? 'var(--acc)' : 'var(--panel)',
+                  color: importPickerRepoId ? '#fff' : 'var(--ink-35)',
                   cursor: importPickerRepoId ? 'pointer' : 'not-allowed',
-                  fontWeight: 800,
+                  fontWeight: 700,
                 }}
               >
                 {t('sprints.import')}
@@ -1041,10 +1041,10 @@ type OrgMember = { id: number; user_id: number; email: string; full_name: string
 type PendingInvite = { id: number; email: string; status: string; created_at?: string };
 
 const ROLE_OPTIONS = [
-  { value: 'owner', color: '#f59e0b' },
-  { value: 'admin', color: '#a78bfa' },
-  { value: 'member', color: '#38bdf8' },
-  { value: 'viewer', color: '#6b7280' },
+  { value: 'owner', color: '#c98a2b' },
+  { value: 'admin', color: '#5b9bd5' },
+  { value: 'member', color: '#5b9bd5' },
+  { value: 'viewer', color: '#94a3b8' },
 ] as const;
 
 function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocale>['t']>[0]) => string }) {
@@ -1100,7 +1100,7 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
       <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>{t('team.orgDesc')}</div>
 
       {toast && (
-        <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', fontSize: 12, fontWeight: 600 }}>
+        <div style={{ padding: '8px 14px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid #3f9d6a', color: '#3f9d6a', fontSize: 12, fontWeight: 600 }}>
           {toast}
         </div>
       )}
@@ -1112,7 +1112,7 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
           return (
             <div key={member.id} style={{
               display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px',
-              borderRadius: 14, border: `1px solid var(--panel-border)`, background: 'var(--panel)',
+              borderRadius: 10, border: `1px solid var(--panel-border)`, background: 'var(--panel)',
               opacity: isChanging ? 0.6 : 1, transition: 'opacity 0.2s',
             }}>
               {/* Avatar */}
@@ -1142,7 +1142,7 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
                   onChange={(e) => void handleRoleChange(member.id, e.target.value)}
                   disabled={isChanging}
                   style={{
-                    padding: '6px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                    padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                     border: `1px solid ${roleInfo.color}40`,
                     background: `${roleInfo.color}15`, color: roleInfo.color,
                     cursor: 'pointer', outline: 'none', appearance: 'auto',
@@ -1155,7 +1155,7 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
                 </select>
               ) : (
                 <span style={{
-                  padding: '5px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                  padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                   background: `${roleInfo.color}15`, color: roleInfo.color,
                   border: `1px solid ${roleInfo.color}40`, flexShrink: 0,
                 }}>
@@ -1170,20 +1170,20 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
       {/* Pending Invites */}
       {invites.length > 0 && (
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 2 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-50)', marginBottom: 2 }}>
             {t('team.pendingInvites')} ({invites.length})
           </div>
           {invites.map((inv) => (
             <div key={inv.id} style={{
               display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px',
-              borderRadius: 14, border: '1px dashed rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.04)',
+              borderRadius: 10, border: '1px dashed var(--panel-border)', background: 'var(--panel-alt)',
             }}>
               <div style={{
                 width: 40, height: 40, borderRadius: '50%',
-                background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)',
+                background: 'var(--panel)', border: '1px solid var(--panel-border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, flexShrink: 0,
-              }}>✉</div>
+                color: 'var(--ink-50)', flexShrink: 0,
+              }}><NavIcon name="mail" size={16} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-90)' }}>{inv.email}</div>
                 <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>
@@ -1191,9 +1191,9 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
                 </div>
               </div>
               <span style={{
-                padding: '5px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
-                border: '1px solid rgba(245,158,11,0.3)', flexShrink: 0,
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: 'var(--panel)', color: '#c98a2b',
+                border: '1px solid var(--panel-border)', flexShrink: 0,
               }}>
                 {t('invite.status.pending')}
               </span>
@@ -1203,7 +1203,7 @@ function OrgMembersPanel({ t }: { t: (key: Parameters<ReturnType<typeof useLocal
       )}
 
       {/* Permission matrix legend */}
-      <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: 16 }}>
+      <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 10 }}>
           {t('team.orgMembers')}
         </div>

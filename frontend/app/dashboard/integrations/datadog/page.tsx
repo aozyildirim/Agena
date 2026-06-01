@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
-function Pill({ children, color = '#94a3b8', bg }: { children: React.ReactNode; color?: string; bg?: string }) {
+function Pill({ children, color = 'var(--muted)', bg }: { children: React.ReactNode; color?: string; bg?: string }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-      padding: '2px 7px', borderRadius: 4,
-      color, background: bg ?? `${color}1f`,
+      padding: '2px 7px', borderRadius: 6,
+      color, background: bg ?? 'var(--panel-alt)',
       whiteSpace: 'nowrap',
     }}>{children}</span>
   );
@@ -127,24 +128,24 @@ export default function DatadogPage() {
     <div className='integrations-page' style={{ display: 'grid', gap: 16, maxWidth: 980, margin: '0 auto' }}>
       <style>{`@keyframes dd-spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* Hero header — Datadog purple */}
+      {/* Hero header */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        borderRadius: 16,
+        borderRadius: 10,
         border: '1px solid var(--panel-border)',
-        background: 'linear-gradient(135deg, rgba(99,44,166,0.20), rgba(168,85,247,0.10) 60%, rgba(56,189,248,0.06))',
+        background: 'var(--surface)',
         padding: '20px 22px',
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #632ca6, #a855f7, #38bdf8)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'var(--panel-border)' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
           <div style={{
             width: 44, height: 44, borderRadius: 10,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(99,44,166,0.18)', border: '1px solid rgba(99,44,166,0.4)',
-            fontSize: 22,
-          }}>🐶</div>
+            background: 'var(--acc-soft)', border: '1px solid var(--panel-border)',
+            color: 'var(--acc)',
+          }}><NavIcon name="bug" size={22} /></div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: -0.3 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', letterSpacing: -0.3 }}>
               {t('integrations.datadog.title')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-58)', marginTop: 3, lineHeight: 1.5 }}>
@@ -155,18 +156,18 @@ export default function DatadogPage() {
         {totalIssues > 0 && (
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             {[
-              { label: t('integrations.sentry.healthIssues') || 'Issues', value: totalIssues, color: 'var(--ink)' },
-              { label: t('integrations.sentry.healthEvents') || 'Events', value: totalEvents.toLocaleString(), color: '#f87171' },
-              { label: t('integrations.sentry.healthUsers') || 'Users', value: totalUsers.toLocaleString(), color: '#fbbf24' },
-              { label: t('integrations.datadog.healthOpen') || 'Open', value: openIssues, color: '#ef4444' },
+              { label: t('integrations.sentry.healthIssues') || 'Issues', value: totalIssues, color: 'var(--ink-90)' },
+              { label: t('integrations.sentry.healthEvents') || 'Events', value: totalEvents.toLocaleString(), color: '#cf5b57' },
+              { label: t('integrations.sentry.healthUsers') || 'Users', value: totalUsers.toLocaleString(), color: '#c98a2b' },
+              { label: t('integrations.datadog.healthOpen') || 'Open', value: openIssues, color: '#cf5b57' },
             ].map((tile) => (
               <div key={tile.label} style={{
                 flex: 1, minWidth: 130,
-                padding: '10px 14px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--panel-border)',
+                padding: '10px 14px', borderRadius: 8,
+                background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
               }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{tile.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: tile.color, marginTop: 4 }}>{tile.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: tile.color, marginTop: 4 }}>{tile.value}</div>
               </div>
             ))}
           </div>
@@ -178,31 +179,30 @@ export default function DatadogPage() {
         <div style={{
           position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)',
           zIndex: 9999, maxWidth: 'min(94vw, 460px)',
-          padding: '12px 18px', borderRadius: 12,
+          padding: '12px 18px', borderRadius: 10,
           display: 'flex', alignItems: 'center', gap: 10,
           fontSize: 13, fontWeight: 700,
-          color: error ? '#fecaca' : importing ? '#fde68a' : '#bbf7d0',
-          background: error ? 'rgba(127,29,29,0.95)' : importing ? 'rgba(120,53,15,0.95)' : 'rgba(20,83,45,0.95)',
-          border: `1px solid ${error ? 'rgba(248,113,113,0.4)' : importing ? 'rgba(251,191,36,0.4)' : 'rgba(34,197,94,0.4)'}`,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-          backdropFilter: 'blur(8px)',
+          color: error ? '#cf5b57' : importing ? '#c98a2b' : '#3f9d6a',
+          background: 'var(--surface)',
+          border: `1px solid ${error ? '#cf5b57' : importing ? '#c98a2b' : '#3f9d6a'}`,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
         }}>
           {importing ? (
             <>
-              <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(251,191,36,0.4)', borderTopColor: '#fbbf24', borderRadius: '50%', animation: 'dd-spin 0.7s linear infinite' }} />
+              <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid var(--panel-border)', borderTopColor: '#c98a2b', borderRadius: '50%', animation: 'dd-spin 0.7s linear infinite' }} />
               <span>{t('integrations.datadog.importing') || 'Importing…'}</span>
             </>
           ) : error ? (
             <>
-              <span>✗</span>
+              <NavIcon name="alert" size={16} />
               <span style={{ flex: 1 }}>{error}</span>
-              <button onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+              <button onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#cf5b57', cursor: 'pointer', display: 'flex', padding: 0 }}><NavIcon name="close" size={16} /></button>
             </>
           ) : (
             <>
-              <span>✓</span>
+              <NavIcon name="activity" size={16} />
               <span style={{ flex: 1 }}>{msg}</span>
-              <button onClick={() => setMsg('')} style={{ background: 'transparent', border: 'none', color: '#86efac', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+              <button onClick={() => setMsg('')} style={{ background: 'transparent', border: 'none', color: '#3f9d6a', cursor: 'pointer', display: 'flex', padding: 0 }}><NavIcon name="close" size={16} /></button>
             </>
           )}
         </div>,
@@ -210,7 +210,7 @@ export default function DatadogPage() {
       )}
 
       {/* Query + Fetch */}
-      <div style={{ background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 16 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 8 }}>
           {t('integrations.datadog.queryLabel') || 'Filter Datadog issues'}
         </div>
@@ -219,12 +219,12 @@ export default function DatadogPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('integrations.datadog.queryPlaceholder')}
-          style={{ flex: 1, minWidth: 200, padding: '10px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--glass)', color: 'var(--ink)', outline: 'none', height: 38 }}
+          style={{ flex: 1, minWidth: 200, padding: '10px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink)', outline: 'none', height: 38 }}
         />
         <select
           value={timeFrom}
           onChange={(e) => setTimeFrom(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--glass)', color: 'var(--ink)', outline: 'none', height: 38 }}
+          style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink)', outline: 'none', height: 38 }}
         >
           <option value='-30m'>{t('integrations.newrelic.range30m') || 'Last 30 min'}</option>
           <option value='-1h'>{t('integrations.newrelic.range1h') || 'Last 1 hour'}</option>
@@ -233,7 +233,7 @@ export default function DatadogPage() {
           <option value='-7d'>{t('integrations.newrelic.range7d') || 'Last 7 days'}</option>
         </select>
         <button onClick={fetchIssues} disabled={issuesLoading}
-          style={{ padding: '10px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', background: '#632ca6', color: '#fff', cursor: 'pointer' }}>
+          style={{ padding: '10px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', background: 'var(--acc)', color: '#fff', cursor: 'pointer' }}>
           {issuesLoading ? '…' : t('integrations.datadog.fetchIssues')}
         </button>
         <button onClick={async () => {
@@ -258,7 +258,7 @@ export default function DatadogPage() {
             }
           } catch { /* ignore */ }
         }} disabled={importing}
-          style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid #632ca6', background: 'transparent', color: '#632ca6', cursor: 'pointer' }}>
+          style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--acc)', background: 'transparent', color: 'var(--acc)', cursor: 'pointer' }}>
           {importing ? '…' : t('integrations.common.importAll')}
         </button>
         </div>
@@ -266,8 +266,8 @@ export default function DatadogPage() {
 
       {confirmOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.45)' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.22)' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 8 }}>
               {t('integrations.common.confirmImportTitle') || 'Onayla ve oluştur'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-58)', marginBottom: 12 }}>
@@ -279,12 +279,12 @@ export default function DatadogPage() {
               {t('integrations.common.storyPointsLabel') || 'Story Points'}
             </label>
             <input type='number' min={0} step={1} value={storyPoints} onChange={(e) => setStoryPoints(parseInt(e.target.value) || 0)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', outline: 'none', marginBottom: 10 }} />
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink)', outline: 'none', marginBottom: 10 }} />
             <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-50)', marginBottom: 4 }}>
               {t('integrations.common.iterationPathLabel') || 'Sprint (override, boş = aktif)'}
             </label>
             <select value={sprintPath} onChange={(e) => setSprintPath(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', outline: 'none', marginBottom: 14 }}>
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink)', outline: 'none', marginBottom: 14 }}>
               <option value=''>{t('integrations.common.currentSprintAuto') || 'Aktif sprint (otomatik)'}</option>
               {sprintOptions.map((s) => (
                 <option key={s.path} value={s.path}>
@@ -296,7 +296,7 @@ export default function DatadogPage() {
               {t('integrations.newrelic.mirrorTargetLabel') || 'Open in'}
             </label>
             <select value={mirrorTarget} onChange={(e) => setMirrorTarget(e.target.value as typeof mirrorTarget)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', outline: 'none', marginBottom: 14 }}>
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: 'var(--ink)', outline: 'none', marginBottom: 14 }}>
               <option value='auto'>{t('integrations.newrelic.mirrorAuto') || 'Auto'}</option>
               <option value='azure'>{t('integrations.newrelic.mirrorAzure') || 'Azure DevOps'}</option>
               <option value='jira'>{t('integrations.newrelic.mirrorJira') || 'Jira'}</option>
@@ -308,7 +308,7 @@ export default function DatadogPage() {
                 {t('integrations.common.cancel')}
               </button>
               <button onClick={importAll} disabled={importing}
-                style={{ padding: '6px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', background: '#632ca6', color: '#fff', cursor: 'pointer', opacity: importing ? 0.5 : 1 }}>
+                style={{ padding: '6px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', background: 'var(--acc)', color: '#fff', cursor: 'pointer', opacity: importing ? 0.5 : 1 }}>
                 {importing ? '...' : (t('integrations.common.confirmImportCta') || 'Onayla ve oluştur')}
               </button>
             </div>
@@ -318,7 +318,7 @@ export default function DatadogPage() {
 
       {/* Issues list — premium cards */}
       {issues.length > 0 && (
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 16 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 10 }}>
             {(t('integrations.datadog.issuesCount') || '{n} Issues').replace('{n}', String(issues.length))}
           </div>
@@ -329,27 +329,27 @@ export default function DatadogPage() {
               const isOpen = (a.status || '').toLowerCase() === 'open';
               return (
                 <div key={issue.id} style={{
-                  padding: '10px 12px', borderRadius: 10,
-                  background: 'var(--glass)', border: '1px solid var(--panel-border)',
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
                   opacity: isImported ? 0.6 : 1,
                 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                    <Pill color={isOpen ? '#ef4444' : '#22c55e'}>{(a.status || '?').toUpperCase()}</Pill>
-                    {a.service && <Pill color='#60a5fa'>{a.service}</Pill>}
-                    {a.env && <Pill color='#94a3b8'>{a.env}</Pill>}
-                    {a.type && <Pill color='#64748b'>{a.type}</Pill>}
+                    <Pill color={isOpen ? '#cf5b57' : '#3f9d6a'}>{(a.status || '?').toUpperCase()}</Pill>
+                    {a.service && <Pill color='var(--acc)'>{a.service}</Pill>}
+                    {a.env && <Pill color='var(--muted)'>{a.env}</Pill>}
+                    {a.type && <Pill color='var(--muted)'>{a.type}</Pill>}
                     {isImported && (
-                      <a href={`/tasks/${issue.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}>
+                      <a href={`/tasks/${issue.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}>
                         TASK #{issue.imported_task_id}
                       </a>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {a.title || issue.id}
                   </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6, fontSize: 10, color: 'var(--ink-45)', flexWrap: 'wrap' }}>
-                    {(a.occurrences ?? 0) > 0 && <span><strong style={{ color: '#f87171' }}>{a.occurrences!.toLocaleString()}</strong> {(t('integrations.sentry.healthEvents') || 'events').toLowerCase()}</span>}
-                    {(a.impacted_users ?? 0) > 0 && <span><strong style={{ color: '#fbbf24' }}>{a.impacted_users!.toLocaleString()}</strong> {(t('integrations.sentry.usersAffected') || 'users')}</span>}
+                    {(a.occurrences ?? 0) > 0 && <span><strong style={{ color: '#cf5b57' }}>{a.occurrences!.toLocaleString()}</strong> {(t('integrations.sentry.healthEvents') || 'events').toLowerCase()}</span>}
+                    {(a.impacted_users ?? 0) > 0 && <span><strong style={{ color: '#c98a2b' }}>{a.impacted_users!.toLocaleString()}</strong> {(t('integrations.sentry.usersAffected') || 'users')}</span>}
                     {a.last_seen && <span>{(t('integrations.common.lastSeen') || 'Last seen')}: {new Date(a.last_seen).toLocaleString()}</span>}
                   </div>
                 </div>
@@ -361,11 +361,11 @@ export default function DatadogPage() {
 
       {issues.length === 0 && !issuesLoading && (
         <div style={{
-          padding: '32px 18px', textAlign: 'center', borderRadius: 12,
-          background: 'var(--glass)', border: '1px dashed var(--panel-border)',
+          padding: '32px 18px', textAlign: 'center', borderRadius: 10,
+          background: 'var(--panel-alt)', border: '1px dashed var(--panel-border)',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🐶</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--muted)' }}><NavIcon name="bug" size={32} /></div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>
             {t('integrations.datadog.emptyTitle') || 'No issues yet'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4 }}>
@@ -380,7 +380,7 @@ export default function DatadogPage() {
           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--ink-35)', marginBottom: 8 }}>{t('integrations.availableRepoMappings')}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {repos.map((r) => (
-              <span key={r.id} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
+              <span key={r.id} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', color: 'var(--ink-50)' }}>
                 {r.provider}:{r.owner}/{r.repo_name}
               </span>
             ))}

@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiFetch, fetchDoraOverview, syncDoraRepo } from '@/lib/api';
 import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
 import DoraPeriodTabs from '@/components/DoraPeriodTabs';
+import NavIcon from '@/components/NavIcon';
 import { useLocale } from '@/lib/i18n';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -68,10 +69,10 @@ function classifyMetric(metric: MetricKey, value: number | null): Tier {
 }
 
 const tierColors: Record<Tier, { bg: string; border: string; text: string }> = {
-  elite: { bg: 'rgba(34,197,94,0.15)', border: 'rgba(34,197,94,0.4)', text: '#22c55e' },
-  high: { bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.4)', text: '#3b82f6' },
-  medium: { bg: 'rgba(234,179,8,0.15)', border: 'rgba(234,179,8,0.4)', text: '#eab308' },
-  low: { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.4)', text: '#ef4444' },
+  elite: { bg: 'rgba(63,157,106,0.15)', border: 'rgba(63,157,106,0.4)', text: '#3f9d6a' },
+  high: { bg: 'rgba(91,155,213,0.15)', border: 'rgba(91,155,213,0.4)', text: '#5b9bd5' },
+  medium: { bg: 'rgba(201,138,43,0.15)', border: 'rgba(201,138,43,0.4)', text: '#c98a2b' },
+  low: { bg: 'rgba(207,91,87,0.15)', border: 'rgba(207,91,87,0.4)', text: '#cf5b57' },
 };
 
 function formatValue(metric: MetricKey, value: number | null): string {
@@ -103,8 +104,8 @@ function ProviderBadge({ provider }: { provider: string }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
-      background: isAzure ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)',
-      color: isAzure ? '#60a5fa' : '#c084fc',
+      background: isAzure ? 'rgba(91,155,213,0.12)' : 'var(--acc-soft)',
+      color: isAzure ? '#5b9bd5' : 'var(--acc)',
       textTransform: 'uppercase', letterSpacing: 0.5,
     }}>
       {provider}
@@ -159,7 +160,7 @@ function RepoCard({ repo, syncStatus, syncing, onSync, days }: RepoCardProps) {
 
   return (
     <div style={{
-      borderRadius: 14, padding: 18,
+      borderRadius: 10, padding: 18,
       border: '1px solid var(--panel-border-2)',
       background: 'var(--panel)',
       display: 'flex', flexDirection: 'column', gap: 14,
@@ -180,19 +181,22 @@ function RepoCard({ repo, syncStatus, syncing, onSync, days }: RepoCardProps) {
           onClick={onSync}
           disabled={syncing}
           style={{
-            padding: '6px 12px', borderRadius: 8, border: 'none', cursor: syncing ? 'wait' : 'pointer',
-            background: syncing ? 'rgba(234,179,8,0.15)' : hasSynced ? 'rgba(34,197,94,0.12)' : 'rgba(94,234,212,0.12)',
-            color: syncing ? '#eab308' : hasSynced ? '#22c55e' : '#5eead4',
+            padding: '6px 12px', borderRadius: 6, border: 'none', cursor: syncing ? 'wait' : 'pointer',
+            background: syncing ? 'rgba(201,138,43,0.15)' : hasSynced ? 'rgba(63,157,106,0.12)' : 'var(--acc-soft)',
+            color: syncing ? '#c98a2b' : hasSynced ? '#3f9d6a' : 'var(--acc)',
             fontSize: 11, fontWeight: 700, flexShrink: 0,
           }}
         >
-          {syncing
-            ? `⏳ ${t('dora.repoCard.syncing' as Parameters<typeof t>[0])}`
-            : hasSynced
-              ? '↻ ' + t('dora.repoCard.refresh' as Parameters<typeof t>[0])
-                  .replace('{commits}', String(((metrics?.commits_in_period ?? syncStatus?.commits) || 0).toLocaleString()))
-                  .replace('{prs}', String(((metrics?.prs_in_period ?? syncStatus?.prs) || 0).toLocaleString()))
-              : `↻ ${t('dora.repoCard.sync' as Parameters<typeof t>[0])}`}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <NavIcon name={syncing ? 'clock' : 'refinement'} size={12} />
+            {syncing
+              ? t('dora.repoCard.syncing' as Parameters<typeof t>[0])
+              : hasSynced
+                ? t('dora.repoCard.refresh' as Parameters<typeof t>[0])
+                    .replace('{commits}', String(((metrics?.commits_in_period ?? syncStatus?.commits) || 0).toLocaleString()))
+                    .replace('{prs}', String(((metrics?.prs_in_period ?? syncStatus?.prs) || 0).toLocaleString()))
+                : t('dora.repoCard.sync' as Parameters<typeof t>[0])}
+          </span>
         </button>
       </div>
 
@@ -227,14 +231,14 @@ function RepoCard({ repo, syncStatus, syncing, onSync, days }: RepoCardProps) {
         <span><strong style={{ color: 'var(--ink)' }}>{(metrics?.deploys_in_period ?? syncStatus?.deployments ?? 0).toLocaleString()}</strong> {t('dora.repoCard.deploys' as Parameters<typeof t>[0])}</span>
         <Link
           href={`/dashboard/dora/development?repo=${repo.id}`}
-          style={{ marginLeft: 'auto', color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
+          style={{ marginLeft: 'auto', color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }}
         >
           {t('dora.repoCard.details' as Parameters<typeof t>[0])} →
         </Link>
       </div>
 
       {metricsError && (
-        <div style={{ fontSize: 10, color: '#fca5a5' }}>{metricsError}</div>
+        <div style={{ fontSize: 10, color: '#cf5b57' }}>{metricsError}</div>
       )}
     </div>
   );
@@ -418,10 +422,10 @@ export default function DoraOverviewPage() {
   }, [repos, handleSync]);
 
   const subpages = [
-    { href: '/dashboard/dora/project', icon: '📋', label: t('dora.projectTitle'), desc: t('dora.projectDesc') },
-    { href: '/dashboard/dora/development', icon: '⚡', label: t('dora.devTitle'), desc: t('dora.devDesc') },
-    { href: '/dashboard/dora/quality', icon: '🛡', label: t('dora.qualityTitle'), desc: t('dora.qualityDesc') },
-    { href: '/dashboard/dora/bugs', icon: '🐛', label: t('dora.bugsTitle'), desc: t('dora.bugsDesc') },
+    { href: '/dashboard/dora/project', icon: 'clipboard', label: t('dora.projectTitle'), desc: t('dora.projectDesc') },
+    { href: '/dashboard/dora/development', icon: 'zap', label: t('dora.devTitle'), desc: t('dora.devDesc') },
+    { href: '/dashboard/dora/quality', icon: 'shield', label: t('dora.qualityTitle'), desc: t('dora.qualityDesc') },
+    { href: '/dashboard/dora/bugs', icon: 'bug', label: t('dora.bugsTitle'), desc: t('dora.bugsDesc') },
   ];
 
   return (
@@ -429,7 +433,7 @@ export default function DoraOverviewPage() {
       {/* Header */}
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{t('dora.title')}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>{t('dora.title')}</h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, maxWidth: 640 }}>
             {t('dora.hub.subtitle' as Parameters<typeof t>[0])}
           </p>
@@ -440,17 +444,19 @@ export default function DoraOverviewPage() {
             onClick={handleSyncAll}
             disabled={bulkSyncing || repos.length === 0}
             style={{
-              padding: '10px 18px', borderRadius: 12, border: 'none',
-              background: bulkSyncing ? 'var(--panel-alt)' : 'linear-gradient(135deg, #0d9488, #22c55e)',
+              padding: '10px 18px', borderRadius: 8, border: 'none',
+              background: bulkSyncing ? 'var(--panel-alt)' : 'var(--acc)',
               color: bulkSyncing ? 'var(--muted)' : '#fff',
               fontWeight: 700, fontSize: 13, cursor: bulkSyncing ? 'not-allowed' : 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}
           >
+            <NavIcon name="refinement" size={13} />
             {bulkSyncing
               ? t('dora.hub.syncing' as Parameters<typeof t>[0])
                   .replace('{current}', String(syncingIds.size))
                   .replace('{total}', String(repos.length))
-              : `↻ ${t('dora.hub.syncAll' as Parameters<typeof t>[0]).replace('{count}', String(repos.length))}`}
+              : t('dora.hub.syncAll' as Parameters<typeof t>[0]).replace('{count}', String(repos.length))}
           </button>
         </div>
       </div>
@@ -459,8 +465,8 @@ export default function DoraOverviewPage() {
       {(reposError || pageError) && (
         <div style={{
           marginBottom: 16, padding: '10px 14px', borderRadius: 10,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-          color: '#fca5a5', fontSize: 13,
+          background: 'rgba(207,91,87,0.08)', border: '1px solid rgba(207,91,87,0.3)',
+          color: '#cf5b57', fontSize: 13,
         }}>
           {reposError || pageError}
         </div>
@@ -469,14 +475,14 @@ export default function DoraOverviewPage() {
       {/* Empty state */}
       {!reposLoading && !reposError && repos.length === 0 && (
         <div style={{
-          padding: '32px 24px', borderRadius: 14, textAlign: 'center',
+          padding: '32px 24px', borderRadius: 10, textAlign: 'center',
           border: '1px dashed var(--panel-border-2)', background: 'var(--panel-alt)',
           color: 'var(--muted)',
         }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{t('dora.hub.noReposTitle' as Parameters<typeof t>[0])}</div>
           <div style={{ fontSize: 13, marginBottom: 12 }}>
             {t('dora.hub.noReposBody' as Parameters<typeof t>[0])}{' '}
-            <Link href='/dashboard/integrations/repo-mappings' style={{ color: 'var(--accent)', fontWeight: 600 }}>Integrations → Repo mappings</Link>
+            <Link href='/dashboard/integrations/repo-mappings' style={{ color: 'var(--acc)', fontWeight: 600 }}>Integrations → Repo mappings</Link>
           </div>
         </div>
       )}
@@ -504,7 +510,7 @@ export default function DoraOverviewPage() {
             type='button'
             onClick={() => { setAddRepoError(''); setAddRepoOpen(true); }}
             style={{
-              borderRadius: 14,
+              borderRadius: 10,
               padding: 18,
               border: '2px dashed var(--panel-border-2)',
               background: 'transparent',
@@ -521,8 +527,8 @@ export default function DoraOverviewPage() {
             }}
             onMouseEnter={(e) => {
               const el = e.currentTarget;
-              el.style.borderColor = 'rgba(13,148,136,0.55)';
-              el.style.background = 'rgba(13,148,136,0.06)';
+              el.style.borderColor = 'var(--acc)';
+              el.style.background = 'var(--acc-soft)';
               el.style.color = 'var(--ink)';
             }}
             onMouseLeave={(e) => {
@@ -535,10 +541,9 @@ export default function DoraOverviewPage() {
           >
             <span style={{
               width: 56, height: 56, borderRadius: '50%',
-              background: 'rgba(13,148,136,0.12)', color: '#0d9488',
-              fontSize: 36, fontWeight: 800, lineHeight: 1,
+              background: 'var(--acc-soft)', color: 'var(--acc)',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            }}>+</span>
+            }}><NavIcon name="plus" size={28} /></span>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'currentColor' }}>{t('dora.addRepo')}</div>
             <div style={{ fontSize: 12, lineHeight: 1.5, maxWidth: 260, color: 'var(--muted)' }}>
               Yeni bir Azure / GitHub repo&apos;sunu DORA&apos;ya ekle. Sadece provider + project / owner + repo seç — local checkout gerekmez.
@@ -564,7 +569,7 @@ export default function DoraOverviewPage() {
                 transition: 'border-color 0.15s, background 0.15s',
               }}
             >
-              <span style={{ fontSize: 18 }}>{sp.icon}</span>
+              <span style={{ display: 'inline-flex', color: 'var(--acc)' }}><NavIcon name={sp.icon} size={18} /></span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sp.label}</div>
                 <div style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sp.desc}</div>
@@ -579,7 +584,7 @@ export default function DoraOverviewPage() {
           onClick={() => !addRepoBusy && setAddRepoOpen(false)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex',
+            zIndex: 9999, display: 'flex',
             alignItems: 'center', justifyContent: 'center', padding: 16,
           }}
         >
@@ -587,7 +592,7 @@ export default function DoraOverviewPage() {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 'min(460px, 100%)', background: 'var(--surface)',
-              border: '1px solid var(--panel-border-2)', borderRadius: 14,
+              border: '1px solid var(--panel-border-2)', borderRadius: 10,
               padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
             }}
           >
@@ -690,7 +695,7 @@ export default function DoraOverviewPage() {
             </div>
 
             {addRepoError && (
-              <div style={{ marginTop: 10, fontSize: 12, color: '#fca5a5' }}>{addRepoError}</div>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#cf5b57' }}>{addRepoError}</div>
             )}
 
             <p style={{ marginTop: 14, marginBottom: 0, fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
@@ -701,7 +706,7 @@ export default function DoraOverviewPage() {
               <button
                 onClick={() => setAddRepoOpen(false)}
                 disabled={addRepoBusy}
-                style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
                 Vazgeç
               </button>
@@ -709,8 +714,8 @@ export default function DoraOverviewPage() {
                 onClick={() => void submitAddRepo()}
                 disabled={addRepoBusy}
                 style={{
-                  padding: '8px 16px', borderRadius: 10, border: 'none',
-                  background: addRepoBusy ? 'var(--panel-alt)' : 'linear-gradient(135deg, #0d9488, #22c55e)',
+                  padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: addRepoBusy ? 'var(--panel-alt)' : 'var(--acc)',
                   color: addRepoBusy ? 'var(--muted)' : '#fff',
                   fontSize: 13, fontWeight: 700, cursor: addRepoBusy ? 'wait' : 'pointer',
                 }}

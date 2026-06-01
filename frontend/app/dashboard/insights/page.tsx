@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type RelatedEvent = {
   kind: string;
@@ -42,10 +43,10 @@ const KIND_ICON: Record<string, string> = {
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  critical: '#ef4444',
-  high: '#f97316',
-  medium: '#f59e0b',
-  low: '#10b981',
+  critical: '#cf5b57',
+  high: '#c98a2b',
+  medium: '#c98a2b',
+  low: '#3f9d6a',
 };
 
 export default function InsightsPage() {
@@ -116,7 +117,7 @@ export default function InsightsPage() {
     <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gap: 16 }}>
       <header style={{ display: 'grid', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 'clamp(20px, 5vw, 28px)', fontWeight: 800, margin: 0, color: 'var(--ink-90)', lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 700, margin: 0, color: 'var(--ink-90)', lineHeight: 1.2 }}>
             {t('insights.title')}
           </h1>
           <p style={{ fontSize: 'clamp(12px, 3.4vw, 14px)', color: 'var(--ink-58)', marginTop: 6, marginBottom: 0, lineHeight: 1.5 }}>
@@ -128,8 +129,8 @@ export default function InsightsPage() {
             onClick={scanNow}
             disabled={scanning}
             style={{
-              padding: '8px 14px', borderRadius: 10,
-              background: scanning ? 'var(--panel)' : 'linear-gradient(135deg, #6366f1, #06b6d4)',
+              padding: '8px 14px', borderRadius: 8,
+              background: scanning ? 'var(--panel)' : 'var(--acc)',
               color: scanning ? 'var(--ink-58)' : '#fff',
               border: scanning ? '1px solid var(--panel-border)' : 'none',
               fontSize: 12, fontWeight: 700, cursor: scanning ? 'wait' : 'pointer',
@@ -141,10 +142,10 @@ export default function InsightsPage() {
           <button
             onClick={() => setShowAcked((v) => !v)}
             style={{
-              padding: '8px 12px', borderRadius: 10,
-              background: showAcked ? 'rgba(99,102,241,0.12)' : 'var(--panel)',
-              color: showAcked ? '#818cf8' : 'var(--ink-78)',
-              border: `1px solid ${showAcked ? 'rgba(99,102,241,0.3)' : 'var(--panel-border)'}`,
+              padding: '8px 12px', borderRadius: 8,
+              background: showAcked ? 'var(--acc-soft)' : 'var(--panel)',
+              color: showAcked ? 'var(--acc)' : 'var(--ink-78)',
+              border: `1px solid ${showAcked ? 'var(--acc)' : 'var(--panel-border)'}`,
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
@@ -156,7 +157,7 @@ export default function InsightsPage() {
       </header>
 
       {error && (
-        <div style={{ padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13 }}>
+        <div style={{ padding: 12, borderRadius: 8, background: 'rgba(207,91,87,0.1)', border: '1px solid rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -164,8 +165,8 @@ export default function InsightsPage() {
       {visibleItems === null ? (
         <div style={{ padding: 24, color: 'var(--ink-58)', fontSize: 14 }}>{t('insights.loading')}</div>
       ) : visibleItems.length === 0 ? (
-        <div style={{ padding: 24, borderRadius: 14, background: 'var(--panel)', border: '1px solid var(--panel-border)', textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+        <div style={{ padding: 24, borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border)', textAlign: 'center' }}>
+          <div style={{ marginBottom: 8, color: 'var(--ink-50)', display: 'flex', justifyContent: 'center' }}><NavIcon name="search" size={32} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 4 }}>{t('insights.empty.title')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-58)', maxWidth: 460, margin: '0 auto', lineHeight: 1.55 }}>
             {t('insights.empty.body')}
@@ -175,13 +176,13 @@ export default function InsightsPage() {
         <div style={{ display: 'grid', gap: 12 }}>
           {visibleItems.map((c) => {
             const sev = c.severity || 'medium';
-            const color = SEVERITY_COLOR[sev] || '#f59e0b';
+            const color = SEVERITY_COLOR[sev] || '#c98a2b';
             const acked = !!c.acknowledged_at;
             return (
               <article
                 key={c.id}
                 style={{
-                  borderRadius: 14,
+                  borderRadius: 10,
                   background: 'var(--panel)',
                   border: `1px solid ${color}55`,
                   borderLeft: `4px solid ${color}`,
@@ -202,7 +203,7 @@ export default function InsightsPage() {
                     {sev} · {c.confidence}%
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', flex: 1 }}>
-                    {KIND_ICON[c.primary_kind] || '◉'} {c.primary_label}
+                    {KIND_ICON[c.primary_kind] || <NavIcon name="dot" size={14} />} {c.primary_label}
                   </span>
                   <span style={{ fontSize: 11, color: 'var(--ink-58)' }}>
                     {new Date(c.window_end).toLocaleString()}
@@ -232,15 +233,15 @@ export default function InsightsPage() {
                             style={{
                               display: 'flex', alignItems: 'center', gap: 8,
                               padding: '6px 10px', borderRadius: 8,
-                              background: 'rgba(99,102,241,0.06)',
+                              background: 'rgba(91,155,213,0.06)',
                               fontSize: 12,
                             }}
                           >
                             <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, color: 'var(--ink-58)', flexShrink: 0, minWidth: 44 }}>
                               {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            <span style={{ fontSize: 14, flexShrink: 0 }}>
-                              {KIND_ICON[evt.kind] || '◉'}
+                            <span style={{ fontSize: 14, flexShrink: 0, display: 'inline-flex', color: 'var(--ink-50)' }}>
+                              {KIND_ICON[evt.kind] || <NavIcon name="dot" size={14} />}
                             </span>
                             <span style={{ color: 'var(--ink-78)', flex: 1, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.35 }}>
                               {evt.label}
@@ -252,33 +253,33 @@ export default function InsightsPage() {
                 )}
 
                 <footer style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: 11, color: 'var(--ink-58)' }}>
-                    {c.repo_mapping_id && <>📦 {c.repo_mapping_id}</>}
+                  <div style={{ fontSize: 11, color: 'var(--ink-58)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    {c.repo_mapping_id && <><NavIcon name="box" size={13} /> {c.repo_mapping_id}</>}
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {acked ? (
                       <>
-                        <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, background: c.user_verdict === 'false_positive' ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.1)', color: c.user_verdict === 'false_positive' ? '#ef4444' : '#10b981', fontWeight: 700 }}>
-                          {c.user_verdict === 'false_positive' ? '✗' : '✓'} {c.user_verdict || 'noted'}
+                        <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, background: c.user_verdict === 'false_positive' ? 'rgba(207,91,87,0.12)' : 'rgba(63,157,106,0.1)', color: c.user_verdict === 'false_positive' ? '#cf5b57' : '#3f9d6a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <NavIcon name={c.user_verdict === 'false_positive' ? 'close' : 'user-check'} size={12} /> {c.user_verdict || 'noted'}
                         </span>
                         <button
                           onClick={() => void undoAck(c.id)}
-                          style={{ padding: '5px 11px', borderRadius: 8, background: 'transparent', color: 'var(--ink-58)', border: '1px solid var(--panel-border)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ padding: '5px 11px', borderRadius: 8, background: 'transparent', color: 'var(--ink-58)', border: '1px solid var(--panel-border)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
-                          ↩ {t('insights.undo')}
+                          <NavIcon name="chevron-left" size={12} /> {t('insights.undo')}
                         </button>
                       </>
                     ) : (
                       <>
                         <button
                           onClick={() => void ack(c.id, 'confirmed')}
-                          style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(63,157,106,0.12)', color: '#3f9d6a', border: '1px solid rgba(63,157,106,0.3)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                         >
                           {t('insights.confirm')}
                         </button>
                         <button
                           onClick={() => void ack(c.id, 'false_positive')}
-                          style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(207,91,87,0.08)', color: '#cf5b57', border: '1px solid rgba(207,91,87,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                         >
                           {t('insights.falsePositive')}
                         </button>

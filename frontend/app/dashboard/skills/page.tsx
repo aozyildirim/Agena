@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type Skill = {
   id: number;
@@ -33,15 +34,15 @@ const PAGE_SIZE = 20;
 const PATTERN_TYPES = ['all', 'fix-bug', 'refactor', 'add-feature', 'config', 'migration', 'perf', 'test', 'docs', 'other'];
 
 const PATTERN_COLOURS: Record<string, string> = {
-  'fix-bug': '#f87171',
-  'refactor': '#a78bfa',
-  'add-feature': '#5eead4',
-  'config': '#7dd3fc',
-  'migration': '#fde68a',
-  'perf': '#fb923c',
-  'test': '#86efac',
+  'fix-bug': '#cf5b57',
+  'refactor': '#5b9bd5',
+  'add-feature': '#5b9bd5',
+  'config': '#5b9bd5',
+  'migration': '#c98a2b',
+  'perf': '#c98a2b',
+  'test': '#3f9d6a',
   'docs': '#94a3b8',
-  'other': '#cbd5e1',
+  'other': '#94a3b8',
 };
 
 export default function SkillsPage() {
@@ -134,7 +135,7 @@ export default function SkillsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 240px', minWidth: 0 }}>
           <div className='section-label'>{tr('skills.sectionLabel')}</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6, marginBottom: 2 }}>
             {tr('skills.title')}
           </h1>
           <p style={{ fontSize: 12, color: 'var(--ink-30)', margin: 0 }}>
@@ -146,10 +147,10 @@ export default function SkillsPage() {
                 key={t.id}
                 onClick={() => setView(t.id)}
                 style={{
-                  padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  border: `1px solid ${view === t.id ? 'rgba(13,148,136,0.5)' : 'var(--panel-border)'}`,
-                  background: view === t.id ? 'rgba(13,148,136,0.12)' : 'var(--surface)',
-                  color: view === t.id ? '#0d9488' : 'var(--ink-78)',
+                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  border: `1px solid ${view === t.id ? 'var(--acc)' : 'var(--panel-border)'}`,
+                  background: view === t.id ? 'var(--acc-soft)' : 'var(--surface)',
+                  color: view === t.id ? 'var(--acc)' : 'var(--ink-78)',
                 }}
               >
                 {t.label}
@@ -160,30 +161,32 @@ export default function SkillsPage() {
         <button
           onClick={() => { setImportError(''); setImportResult(null); setImportStage('confirm'); }}
           style={{
-            fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10,
-            border: '1px solid rgba(167,139,250,0.5)',
-            background: 'rgba(167,139,250,0.12)',
-            color: '#a78bfa', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8,
+            border: '1px solid var(--panel-border-2)',
+            background: 'var(--panel)',
+            color: 'var(--ink-78)', cursor: 'pointer',
           }}
         >
-          ✨ {tr('skills.importDefaults' as Parameters<typeof tr>[0])}
+          <NavIcon name="zap" size={16} /> {tr('skills.importDefaults' as Parameters<typeof tr>[0])}
         </button>
         <button
           onClick={() => setCreateOpen(true)}
           style={{
-            fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10,
-            border: '1px solid rgba(13,148,136,0.6)',
-            background: 'linear-gradient(135deg, #0d9488, #5eead4)',
-            color: '#0a1815', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8,
+            border: '1px solid var(--acc)',
+            background: 'var(--acc)',
+            color: '#fff', cursor: 'pointer',
           }}
         >
-          + {tr('skills.newSkill')}
+          <NavIcon name="plus" size={16} /> {tr('skills.newSkill')}
         </button>
         <button
           onClick={() => void load()}
           disabled={loading}
           style={{
-            fontSize: 12, padding: '8px 12px', borderRadius: 10,
+            fontSize: 12, padding: '8px 12px', borderRadius: 8,
             border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
             color: 'var(--ink-78)', cursor: loading ? 'wait' : 'pointer',
           }}
@@ -199,12 +202,12 @@ export default function SkillsPage() {
           placeholder={tr('skills.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ fontSize: 13, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', minWidth: 280 }}
+          style={{ fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-90)', minWidth: 280 }}
         />
         <select
           value={patternFilter}
           onChange={(e) => setPatternFilter(e.target.value)}
-          style={{ fontSize: 13, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}
+          style={{ fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)' }}
         >
           {PATTERN_TYPES.map((pt) => (
             <option key={pt} value={pt}>{pt === 'all' ? tr('skills.allTypes') : pt}</option>
@@ -219,7 +222,7 @@ export default function SkillsPage() {
       )}
 
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.06)', color: '#fca5a5', fontSize: 13 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.06)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -228,10 +231,10 @@ export default function SkillsPage() {
 
       {view === 'team' && !loading && data && data.items.length === 0 && (
         <div style={{
-          padding: 24, borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
+          padding: 24, borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
           textAlign: 'center', color: 'var(--ink-45)',
         }}>
-          <div style={{ fontSize: 28, marginBottom: 6 }}>📭</div>
+          <div style={{ marginBottom: 6, display: 'flex', justifyContent: 'center', color: 'var(--ink-35)' }}><NavIcon name="clipboard" size={28} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{tr('skills.empty.title')}</div>
           <div style={{ fontSize: 12 }}>{tr('skills.empty.hint')}</div>
         </div>
@@ -251,7 +254,7 @@ export default function SkillsPage() {
           const sortedKeys = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b));
           return sortedKeys.map((groupKey) => (
             <div key={groupKey}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
                 <span>{groupKey}</span>
                 <span style={{ color: 'var(--ink-25)' }}>{groups[groupKey].length}</span>
               </div>
@@ -263,9 +266,8 @@ export default function SkillsPage() {
             <div key={s.id} style={{
               border: `1px solid ${isOpen ? color + '66' : 'var(--panel-border-2)'}`,
               borderLeft: `3px solid ${color}`,
-              borderRadius: 12, background: 'var(--panel)',
-              boxShadow: isOpen ? `0 0 0 3px ${color}14` : 'none',
-              transition: 'border-color 0.15s, box-shadow 0.15s',
+              borderRadius: 10, background: 'var(--panel)',
+              transition: 'border-color 0.15s',
             }}>
               <div
                 onClick={() => setExpanded(isOpen ? null : s.id)}
@@ -282,7 +284,7 @@ export default function SkillsPage() {
                   {s.name}
                 </span>
                 {s.usage_count > 0 && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', padding: '2px 8px', borderRadius: 999, background: 'rgba(94,234,212,0.1)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc)', padding: '2px 8px', borderRadius: 999, background: 'var(--acc-soft)' }}>
                     ↻ {s.usage_count}
                   </span>
                 )}
@@ -295,12 +297,12 @@ export default function SkillsPage() {
                   <a
                     href={`/tasks/${s.source_task_id}`}
                     onClick={(e) => e.stopPropagation()}
-                    style={{ fontSize: 11, color: '#7dd3fc', textDecoration: 'none', padding: '2px 6px', borderRadius: 4 }}
+                    style={{ fontSize: 11, color: '#5b9bd5', textDecoration: 'none', padding: '2px 6px', borderRadius: 6 }}
                   >
                     ← #{s.source_task_id}
                   </a>
                 )}
-                <span style={{ fontSize: 11, color: 'var(--ink-42)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▼</span>
+                <span style={{ display: 'inline-flex', color: 'var(--ink-42)', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}><NavIcon name="chevron-right" size={14} /></span>
               </div>
               {isOpen && (
                 <div style={{ padding: '0 12px 12px', display: 'grid', gap: 10 }}>
@@ -354,7 +356,7 @@ export default function SkillsPage() {
                     <span style={{ flex: 1 }} />
                     <button
                       onClick={(e) => { e.stopPropagation(); void deleteSkill(s.id); }}
-                      style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.35)', background: 'transparent', color: '#fca5a5', cursor: 'pointer' }}
+                      style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(207,91,87,0.35)', background: 'transparent', color: '#cf5b57', cursor: 'pointer' }}
                     >
                       {tr('skills.delete')}
                     </button>
@@ -386,14 +388,14 @@ export default function SkillsPage() {
       {/* Create modal */}
       {createOpen && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1000 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1000 }}
           onClick={() => setCreateOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(560px, 100%)', background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14, padding: 22, display: 'grid', gap: 12 }}
+            style={{ width: 'min(560px, 100%)', background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 22, display: 'grid', gap: 12 }}
           >
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)' }}>{tr('skills.newSkill')}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{tr('skills.newSkill')}</div>
             <input
               type='text'
               placeholder={tr('skills.field.name')}
@@ -441,14 +443,14 @@ export default function SkillsPage() {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <button
                 onClick={() => setCreateOpen(false)}
-                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-65)', cursor: 'pointer' }}
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-65)', cursor: 'pointer' }}
               >
                 {tr('skills.cancel')}
               </button>
               <button
                 onClick={() => void saveNew()}
                 disabled={saving || !newSkill.name.trim()}
-                style={{ padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 800, border: '1px solid rgba(13,148,136,0.6)', background: 'linear-gradient(135deg, #0d9488, #5eead4)', color: '#0a1815', cursor: saving ? 'wait' : 'pointer', opacity: saving || !newSkill.name.trim() ? 0.5 : 1 }}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--acc)', background: 'var(--acc)', color: '#fff', cursor: saving ? 'wait' : 'pointer', opacity: saving || !newSkill.name.trim() ? 0.5 : 1 }}
               >
                 {saving ? tr('skills.saving') : tr('skills.save')}
               </button>
@@ -462,21 +464,21 @@ export default function SkillsPage() {
         <div
           style={{
             position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+            background: 'rgba(0,0,0,0.7)',
             zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
           }}
           onClick={() => importStage !== 'running' && setImportStage('idle')}
         >
           <div
             style={{
-              width: 'min(440px, 92vw)', borderRadius: 16, padding: '20px 22px',
+              width: 'min(440px, 92vw)', borderRadius: 10, padding: '20px 22px',
               background: 'var(--surface)', border: '1px solid var(--panel-border-2)',
               display: 'grid', gap: 14,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ fontSize: 22 }}>✨</div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+            <div style={{ display: 'flex', color: 'var(--acc)' }}><NavIcon name="zap" size={22} /></div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>
               {tr('skills.importDefaults' as Parameters<typeof tr>[0])}
             </h3>
 
@@ -490,7 +492,7 @@ export default function SkillsPage() {
                     type='button'
                     onClick={() => setImportStage('idle')}
                     style={{
-                      flex: 1, padding: '10px 16px', borderRadius: 10,
+                      flex: 1, padding: '10px 16px', borderRadius: 8,
                       border: '1px solid var(--panel-border-2)', background: 'transparent',
                       color: 'var(--ink-50)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     }}
@@ -514,13 +516,14 @@ export default function SkillsPage() {
                       }
                     }}
                     style={{
-                      flex: 2, padding: '10px 16px', borderRadius: 10,
-                      border: '1px solid rgba(167,139,250,0.5)',
-                      background: 'rgba(167,139,250,0.15)', color: '#c4b5fd',
+                      flex: 2, padding: '10px 16px', borderRadius: 8,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      border: '1px solid var(--acc)',
+                      background: 'var(--acc)', color: '#fff',
                       fontSize: 13, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
-                    ✨ {tr('skills.importDefaults' as Parameters<typeof tr>[0])}
+                    <NavIcon name="zap" size={16} /> {tr('skills.importDefaults' as Parameters<typeof tr>[0])}
                   </button>
                 </div>
               </>
@@ -536,17 +539,17 @@ export default function SkillsPage() {
               <>
                 {importError ? (
                   <div style={{
-                    padding: '10px 12px', borderRadius: 10,
-                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-                    color: '#fca5a5', fontSize: 13,
+                    padding: '10px 12px', borderRadius: 8,
+                    background: 'rgba(207,91,87,0.08)', border: '1px solid rgba(207,91,87,0.3)',
+                    color: '#cf5b57', fontSize: 13,
                   }}>
                     {importError}
                   </div>
                 ) : importResult ? (
                   <div style={{
-                    padding: '12px 14px', borderRadius: 10,
-                    background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.35)',
-                    color: '#86efac', fontSize: 13, lineHeight: 1.5,
+                    padding: '12px 14px', borderRadius: 8,
+                    background: 'rgba(63,157,106,0.08)', border: '1px solid rgba(63,157,106,0.35)',
+                    color: '#3f9d6a', fontSize: 13, lineHeight: 1.5,
                   }}>
                     {tr('skills.importDefaultsResult' as Parameters<typeof tr>[0])
                       .replace('{inserted}', String(importResult.inserted))
@@ -559,9 +562,9 @@ export default function SkillsPage() {
                     type='button'
                     onClick={() => setImportStage('idle')}
                     style={{
-                      padding: '8px 16px', borderRadius: 10,
+                      padding: '8px 16px', borderRadius: 8,
                       border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
-                      color: 'var(--ink-78)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      color: 'var(--ink-78)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     }}
                   >
                     {tr('skills.close' as Parameters<typeof tr>[0])}
@@ -653,14 +656,14 @@ function PublicSkillsLibrary() {
           placeholder='Search public skills…'
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 220, fontSize: 13, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink-90)' }}
+          style={{ flex: 1, minWidth: 220, fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink-90)' }}
         />
         <button
           onClick={() => void runImport()}
           disabled={importing}
-          style={{ fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #6366f1, #06b6d4)', color: '#fff', cursor: importing ? 'wait' : 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--acc)', background: 'var(--acc)', color: '#fff', cursor: importing ? 'wait' : 'pointer' }}
         >
-          {importing ? 'Importing…' : '📥 Import / refresh public library'}
+          {importing ? 'Importing…' : <><NavIcon name="plus" size={16} /> Import / refresh public library</>}
         </button>
         {items !== null && (
           <span style={{ fontSize: 12, color: 'var(--ink-45)' }}>
@@ -668,21 +671,21 @@ function PublicSkillsLibrary() {
           </span>
         )}
       </div>
-      {msg && <div style={{ fontSize: 12, color: '#86efac', padding: '8px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)' }}>{msg}</div>}
-      {error && <div style={{ fontSize: 12, color: '#fca5a5', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.35)' }}>{error}</div>}
+      {msg && <div style={{ fontSize: 12, color: '#3f9d6a', padding: '8px 12px', borderRadius: 8, background: 'rgba(63,157,106,0.08)', border: '1px solid rgba(63,157,106,0.25)' }}>{msg}</div>}
+      {error && <div style={{ fontSize: 12, color: '#cf5b57', padding: '8px 12px', borderRadius: 8, background: 'rgba(207,91,87,0.06)', border: '1px solid rgba(207,91,87,0.35)' }}>{error}</div>}
 
       {items === null ? (
         <div style={{ padding: 24, color: 'var(--ink-45)', fontSize: 13 }}>Loading…</div>
       ) : items.length === 0 ? (
-        <div style={{ padding: 24, borderRadius: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>📚</div>
+        <div style={{ padding: 24, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', textAlign: 'center' }}>
+          <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center', color: 'var(--ink-35)' }}><NavIcon name="book" size={28} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>Public library is empty</div>
           <div style={{ fontSize: 12, color: 'var(--ink-45)', marginTop: 4 }}>Click <em>Import / refresh public library</em> above to pull skills from awesome-agent-skills.</div>
         </div>
       ) : (
         Object.entries(grouped).map(([publisher, list]) => (
           <div key={publisher}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'var(--ink-35)', textTransform: 'uppercase', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--ink-35)', textTransform: 'uppercase', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
               <span>{publisher}</span>
               <span style={{ color: 'var(--ink-25)' }}>{list.length}</span>
             </div>
@@ -697,7 +700,7 @@ function PublicSkillsLibrary() {
                   <div key={s.id} style={{
                     border: `1px solid ${s.is_active ? color + '55' : 'var(--panel-border-2)'}`,
                     borderLeft: `3px solid ${color}`,
-                    borderRadius: 12,
+                    borderRadius: 10,
                     background: s.is_active ? `${color}06` : 'var(--panel)',
                     transition: 'border-color 0.15s, background 0.15s',
                     opacity: s.is_active ? 1 : 0.7,
@@ -724,7 +727,7 @@ function PublicSkillsLibrary() {
                           target='_blank' rel='noreferrer'
                           onClick={(e) => e.stopPropagation()}
                           title='View source SKILL.md'
-                          style={{ fontSize: 11, color: '#7dd3fc', textDecoration: 'none', padding: '2px 7px', borderRadius: 6, background: 'rgba(125,211,252,0.08)' }}
+                          style={{ fontSize: 11, color: '#5b9bd5', textDecoration: 'none', padding: '2px 7px', borderRadius: 6, background: 'rgba(91,155,213,0.08)' }}
                         >
                           ↗ source
                         </a>
@@ -734,7 +737,7 @@ function PublicSkillsLibrary() {
                         title={s.is_active ? 'Aktif — devre dışı bırak' : 'Pasif — aktif et'}
                         style={{
                           width: 36, height: 20, borderRadius: 999,
-                          background: s.is_active ? '#22c55e' : 'var(--panel-border-3)',
+                          background: s.is_active ? '#3f9d6a' : 'var(--panel-border-3)',
                           position: 'relative', cursor: 'pointer', transition: 'background 0.18s', flexShrink: 0,
                         }}
                       >

@@ -24,7 +24,7 @@ type Tab = 'team' | 'git' | 'pr' | 'deployments';
 type TFn = (k: TranslationKey) => string;
 
 const box: React.CSSProperties = {
-  borderRadius: 14,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
   padding: 24,
@@ -83,7 +83,7 @@ export default function DoraDevelopmentPage() {
         <Link href="/dashboard/dora" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
           DORA &rsaquo;
         </Link>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: '8px 0 0' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: '8px 0 0' }}>
           {t('dora.dev.title')}
         </h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
@@ -108,10 +108,10 @@ export default function DoraDevelopmentPage() {
               padding: '10px 20px',
               fontSize: 13,
               fontWeight: tab === tb.key ? 700 : 500,
-              color: tab === tb.key ? 'var(--accent)' : 'var(--muted)',
+              color: tab === tb.key ? 'var(--acc)' : 'var(--muted)',
               background: 'none',
               border: 'none',
-              borderBottom: tab === tb.key ? '2px solid var(--accent)' : '2px solid transparent',
+              borderBottom: tab === tb.key ? '2px solid var(--acc)' : '2px solid transparent',
               cursor: 'pointer',
               marginBottom: -2,
               transition: 'all 0.15s',
@@ -123,7 +123,7 @@ export default function DoraDevelopmentPage() {
       </div>
 
       {error && (
-        <div style={{ ...box, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13 }}>
+        <div style={{ ...box, borderColor: 'rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -166,30 +166,30 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
           label={t('dora.git.activeDays')}
           value={String(data.kpi.active_days)}
           sub={`/ ${periodDays} ${t('dora.git.date').toLowerCase()}`}
-          color="#3b82f6"
+          color="#5b9bd5"
         />
         <KpiCard
           label={t('dora.git.totalCommits')}
           value={data.kpi.total_commits.toLocaleString()}
-          color="#8b5cf6"
+          color="#5b9bd5"
         />
         <KpiCard
           label={t('dora.git.contributors')}
           value={String(data.kpi.contributors)}
           sub={`${data.kpi.contributors} ${t('dora.git.active')}`}
-          color="#0d9488"
+          color="#5b9bd5"
         />
         <KpiCardWithSparkline
           label={t('dora.git.codingDaysWeek')}
           value={String(data.kpi.coding_days_per_week)}
-          color="#f59e0b"
+          color="#c98a2b"
           sparkline={data.coding_days_sparkline}
         />
       </div>
 
       {/* Active Days Chart */}
       <div style={box}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
           {t('dora.git.activeDaysChart')}
         </h2>
         {data.daily_stats.length === 0 ? (
@@ -202,17 +202,17 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
       {/* Commits by Day + Commits by Hour */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
             {t('dora.git.commitsByDay')}
           </h2>
           <BarChart
             data={data.commits_by_day.map((d) => ({ label: d.day, value: d.commits }))}
             height={180}
-            barColor="#818cf8"
+            barColor="#5b9bd5"
           />
         </div>
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
             {t('dora.git.commitsByHour')}
           </h2>
           <CommitsByHourChart data={data.commits_by_hour} />
@@ -221,14 +221,14 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
 
       {/* Contributors Table */}
       <div style={box}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
           {t('dora.git.contributorsTable')}
         </h2>
         {data.contributors.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.dev.noData')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.git.author')}</Th>
@@ -248,7 +248,7 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
                           width: 28, height: 28, borderRadius: '50%',
-                          background: 'var(--accent)', color: '#fff',
+                          background: 'var(--acc)', color: '#fff',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 11, fontWeight: 700, flexShrink: 0,
                         }}>
@@ -262,7 +262,7 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
                     </Td>
                     <Td>{c.commits}</Td>
                     <Td><PctBadge value={c.efficiency} /></Td>
-                    <Td><span style={{ color: c.impact >= 0 ? '#22c55e' : '#ef4444' }}>{c.impact}</span></Td>
+                    <Td><span style={{ color: c.impact >= 0 ? '#3f9d6a' : '#cf5b57' }}>{c.impact}</span></Td>
                     <Td>{c.new_pct}%</Td>
                     <Td>{c.refactor_pct}%</Td>
                     <Td>{c.help_others_pct}%</Td>
@@ -278,7 +278,7 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
       {/* Commit Activities Table */}
       <div style={box}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>
             {t('dora.git.commitActivities')}
           </h2>
           {data.recent_commits.length > 0 && (
@@ -293,7 +293,7 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.dev.noData')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.git.sha')}</Th>
@@ -311,8 +311,8 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
                     <Td>
                       <code style={{
                         fontSize: 12, fontFamily: 'monospace',
-                        background: 'var(--glass)', padding: '2px 6px',
-                        borderRadius: 4, color: '#93c5fd',
+                        background: 'var(--surface)', padding: '2px 6px',
+                        borderRadius: 4, color: '#5b9bd5',
                       }}>
                         {c.sha}
                       </code>
@@ -328,8 +328,8 @@ function GitAnalyticsTab({ data, t, periodDays }: { data: GitAnalyticsResponse; 
                       </span>
                     </Td>
                     <Td>{c.author}</Td>
-                    <Td><span style={{ color: '#22c55e' }}>+{c.additions}</span></Td>
-                    <Td><span style={{ color: '#ef4444' }}>-{c.deletions}</span></Td>
+                    <Td><span style={{ color: '#3f9d6a' }}>+{c.additions}</span></Td>
+                    <Td><span style={{ color: '#cf5b57' }}>-{c.deletions}</span></Td>
                     <Td>{c.files_changed}</Td>
                   </tr>
                 ))}
@@ -353,27 +353,27 @@ function TeamTab({ data, t }: { data: DoraDevelopmentResponse; t: TFn }) {
         <KpiCard
           label={t('dora.dev.codingEfficiency')}
           value={`${data.coding_efficiency}%`}
-          color={data.coding_efficiency >= 80 ? '#22c55e' : data.coding_efficiency >= 60 ? '#eab308' : '#ef4444'}
+          color={data.coding_efficiency >= 80 ? '#3f9d6a' : data.coding_efficiency >= 60 ? '#c98a2b' : '#cf5b57'}
         />
         <KpiCard
           label={t('dora.dev.reworkRate')}
           value={`${data.rework_rate}%`}
-          color={data.rework_rate <= 10 ? '#22c55e' : data.rework_rate <= 25 ? '#eab308' : '#ef4444'}
+          color={data.rework_rate <= 10 ? '#3f9d6a' : data.rework_rate <= 25 ? '#c98a2b' : '#cf5b57'}
         />
         <KpiCard
           label={t('dora.dev.avgCostPerTask')}
           value={`$${data.avg_cost_per_task.toFixed(4)}`}
-          color="#3b82f6"
+          color="#5b9bd5"
         />
         <KpiCard
           label={t('dora.dev.avgCompletionTime')}
           value={`${data.avg_completion_minutes} ${t('dora.dev.minutes')}`}
-          color="#8b5cf6"
+          color="#5b9bd5"
         />
         <KpiCard
           label={t('dora.dev.avgTokensPerTask')}
           value={data.avg_tokens_per_task.toLocaleString()}
-          color="#0d9488"
+          color="#5b9bd5"
         />
         <KpiCard
           label={t('dora.dev.totalTasks')}
@@ -385,14 +385,14 @@ function TeamTab({ data, t }: { data: DoraDevelopmentResponse; t: TFn }) {
 
       {/* Agent Performance */}
       <div style={box}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
           {t('dora.dev.agentPerformance')}
         </h2>
         {data.agent_performance.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.dev.noData')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.dev.role')}</Th>
@@ -404,10 +404,10 @@ function TeamTab({ data, t }: { data: DoraDevelopmentResponse; t: TFn }) {
               <tbody>
                 {data.agent_performance.map((a) => (
                   <tr key={a.role} style={{ borderBottom: '1px solid var(--panel-border-2)' }}>
-                    <Td><span style={{ fontFamily: 'monospace', color: '#93c5fd' }}>{a.role}</span></Td>
+                    <Td><span style={{ fontFamily: 'monospace', color: '#5b9bd5' }}>{a.role}</span></Td>
                     <Td>{a.tasks}</Td>
                     <Td>
-                      <span style={{ color: a.success_rate >= 80 ? '#22c55e' : a.success_rate >= 60 ? '#eab308' : '#ef4444' }}>
+                      <span style={{ color: a.success_rate >= 80 ? '#3f9d6a' : a.success_rate >= 60 ? '#c98a2b' : '#cf5b57' }}>
                         {a.success_rate}%
                       </span>
                     </Td>
@@ -422,14 +422,14 @@ function TeamTab({ data, t }: { data: DoraDevelopmentResponse; t: TFn }) {
 
       {/* Model Performance */}
       <div style={box}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
           {t('dora.dev.modelPerformance')}
         </h2>
         {data.model_performance.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.dev.noData')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.dev.model')}</Th>
@@ -443,12 +443,12 @@ function TeamTab({ data, t }: { data: DoraDevelopmentResponse; t: TFn }) {
               <tbody>
                 {data.model_performance.map((m) => (
                   <tr key={m.model} style={{ borderBottom: '1px solid var(--panel-border-2)' }}>
-                    <Td><span style={{ fontFamily: 'monospace', color: '#c084fc' }}>{m.model}</span></Td>
+                    <Td><span style={{ fontFamily: 'monospace', color: '#5b9bd5' }}>{m.model}</span></Td>
                     <Td>{m.tasks}</Td>
                     <Td>{m.total_tokens.toLocaleString()}</Td>
                     <Td>${m.cost_usd.toFixed(4)}</Td>
                     <Td>
-                      <span style={{ color: m.success_rate >= 80 ? '#22c55e' : m.success_rate >= 60 ? '#eab308' : '#ef4444' }}>
+                      <span style={{ color: m.success_rate >= 80 ? '#3f9d6a' : m.success_rate >= 60 ? '#c98a2b' : '#cf5b57' }}>
                         {m.success_rate}%
                       </span>
                     </Td>
@@ -478,24 +478,24 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
           label={t('dora.pr.pctMergedWithinGoal')}
           value={`${data.kpi.pct_merged_within_goal}%`}
           sub={`${t('dora.pr.goalLine')}: ${goalHours}${t('dora.pr.hours')}`}
-          color={data.kpi.pct_merged_within_goal >= 80 ? '#22c55e' : data.kpi.pct_merged_within_goal >= 50 ? '#eab308' : '#ef4444'}
+          color={data.kpi.pct_merged_within_goal >= 80 ? '#3f9d6a' : data.kpi.pct_merged_within_goal >= 50 ? '#c98a2b' : '#cf5b57'}
         />
         <KpiCard
           label={t('dora.pr.avgTimeToMerge')}
           value={`${data.kpi.avg_merge_hours}${t('dora.pr.hours')}`}
-          color={data.kpi.avg_merge_hours <= goalHours ? '#22c55e' : '#ef4444'}
+          color={data.kpi.avg_merge_hours <= goalHours ? '#3f9d6a' : '#cf5b57'}
         />
         <KpiCard
           label={t('dora.pr.mergedCount')}
           value={String(data.kpi.merged_count)}
-          color="#3b82f6"
+          color="#5b9bd5"
         />
       </div>
 
       {/* Charts: Code Review Cycle Time + Coding Time */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16 }}>
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
             {t('dora.pr.mergeTimeTrend')}
           </h2>
           {data.merge_time_trend.length === 0 ? (
@@ -505,12 +505,12 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
               data={data.merge_time_trend.map((d) => ({ label: d.date ? new Date(d.date).toLocaleDateString() : '', value: d.hours, title: d.pr_title }))}
               goalValue={goalHours}
               goalLabel={`${t('dora.pr.goalLine')} ${goalHours}${t('dora.pr.hours')}`}
-              dotColor="#6366f1" height={220}
+              dotColor="#5b9bd5" height={220}
             />
           )}
         </div>
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
             {t('dora.pr.codingTimeTrend')}
           </h2>
           {data.coding_time_trend.length === 0 ? (
@@ -518,7 +518,7 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
           ) : (
             <ScatterChartWithGoal
               data={data.coding_time_trend.map((d) => ({ label: d.date ? new Date(d.date).toLocaleDateString() : '', value: d.hours, title: d.pr_title }))}
-              dotColor="#f59e0b" height={220}
+              dotColor="#c98a2b" height={220}
             />
           )}
         </div>
@@ -527,7 +527,7 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
       {/* Charts: PR Size + Time to Merge */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16 }}>
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
             {t('dora.pr.prSizeTrend')}
           </h2>
           {data.pr_size_trend.length === 0 ? (
@@ -535,12 +535,12 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
           ) : (
             <BarChart
               data={data.pr_size_trend.map((d) => ({ label: d.date ? new Date(d.date).toLocaleDateString() : '', value: d.lines_changed }))}
-              height={220} barColor="#8b5cf6"
+              height={220} barColor="#5b9bd5"
             />
           )}
         </div>
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
             {t('dora.pr.timeToMergeTrend')}
           </h2>
           {data.merge_time_trend.length === 0 ? (
@@ -548,7 +548,7 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
           ) : (
             <LineChart
               data={data.merge_time_trend.map((d) => ({ label: d.date ? new Date(d.date).toLocaleDateString() : '', value: d.hours }))}
-              height={220} lineColor="#0d9488" fillColor="rgba(13,148,136,0.12)"
+              height={220} lineColor="#5b9bd5" fillColor="rgba(91,155,213,0.10)"
             />
           )}
         </div>
@@ -556,12 +556,12 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
 
       {/* Work in Progress PRs */}
       <div style={box}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{t('dora.pr.wipTitle')}</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>{t('dora.pr.wipTitle')}</h2>
         {data.open_prs.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.pr.noData')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.pr.title')}</Th>
@@ -579,10 +579,10 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
                     <Td><span style={{ maxWidth: 260, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pr.title}</span></Td>
                     <Td><RiskBadges risks={pr.risks} t={t} /></Td>
                     <Td>{pr.author}</Td>
-                    <Td><span style={{ color: pr.age_days > 3 ? '#ef4444' : 'var(--ink)' }}>{pr.age_days}</span></Td>
+                    <Td><span style={{ color: pr.age_days > 3 ? '#cf5b57' : 'var(--ink)' }}>{pr.age_days}</span></Td>
                     <Td>{pr.comments}</Td>
                     <Td>{pr.coding_time_hours != null ? `${pr.coding_time_hours}${t('dora.pr.hours')}` : '-'}</Td>
-                    <Td><code style={{ fontSize: 11, fontFamily: 'monospace', color: '#93c5fd' }}>{pr.source_branch}</code></Td>
+                    <Td><code style={{ fontSize: 11, fontFamily: 'monospace', color: '#5b9bd5' }}>{pr.source_branch}</code></Td>
                   </tr>
                 ))}
               </tbody>
@@ -594,9 +594,9 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
       {/* Reviewer Stats */}
       {data.reviewer_stats.length > 0 && (
         <div style={box}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{t('dora.pr.reviewerStats')}</h2>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>{t('dora.pr.reviewerStats')}</h2>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.pr.reviewer')}</Th>
@@ -624,12 +624,12 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
 
       {/* PR List */}
       <div style={box}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{t('dora.pr.prList')}</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>{t('dora.pr.prList')}</h2>
         {data.pr_list.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.pr.noData')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <Th>{t('dora.pr.title')}</Th>
@@ -647,10 +647,10 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
                     <Td><span style={{ maxWidth: 260, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pr.title}</span></Td>
                     <Td><RiskBadges risks={pr.risks} t={t} /></Td>
                     <Td><StatusBadge status={pr.status} t={t} /></Td>
-                    <Td><code style={{ fontSize: 11, fontFamily: 'monospace', color: '#93c5fd' }}>{pr.source_branch}</code></Td>
-                    <Td><code style={{ fontSize: 11, fontFamily: 'monospace', color: '#c084fc' }}>{pr.target_branch}</code></Td>
+                    <Td><code style={{ fontSize: 11, fontFamily: 'monospace', color: '#5b9bd5' }}>{pr.source_branch}</code></Td>
+                    <Td><code style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)' }}>{pr.target_branch}</code></Td>
                     <Td>{pr.author}</Td>
-                    <Td><span style={{ color: pr.lines_changed > 500 ? '#ef4444' : 'var(--ink)' }}>{pr.lines_changed.toLocaleString()}</span></Td>
+                    <Td><span style={{ color: pr.lines_changed > 500 ? '#cf5b57' : 'var(--ink)' }}>{pr.lines_changed.toLocaleString()}</span></Td>
                   </tr>
                 ))}
               </tbody>
@@ -664,11 +664,11 @@ function PrTab({ data, t }: { data: PrAnalyticsResponse; t: TFn }) {
 
 function RiskBadges({ risks, t }: { risks: string[]; t: TFn }) {
   if (risks.length === 0) return <span style={{ color: 'var(--muted)' }}>-</span>;
-  const colors: Record<string, string> = { oversized: '#f97316', overdue: '#ef4444', stale: '#6b7280' };
+  const colors: Record<string, string> = { oversized: '#c98a2b', overdue: '#cf5b57', stale: '#94a3b8' };
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {risks.map((r) => (
-        <span key={r} style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 999, color: '#fff', background: colors[r] || '#6b7280' }}>
+        <span key={r} style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 999, color: '#fff', background: colors[r] || '#94a3b8' }}>
           {t(`dora.pr.${r}` as TranslationKey)}
         </span>
       ))}
@@ -681,11 +681,11 @@ function StatusBadge({ status, t }: { status: string; t: TFn }) {
   // completed / abandoned) status vocabularies. Anything unknown falls
   // through to a neutral grey + the raw status as label.
   const colors: Record<string, string> = {
-    merged:    '#8b5cf6',
-    completed: '#8b5cf6',  // Azure's "merged"
-    open:      '#22c55e',
-    active:    '#22c55e',  // Azure's "open"
-    closed:    '#ef4444',
+    merged:    '#5b9bd5',
+    completed: '#5b9bd5',  // Azure's "merged"
+    open:      '#3f9d6a',
+    active:    '#3f9d6a',  // Azure's "open"
+    closed:    '#cf5b57',
     abandoned: '#94a3b8',  // Azure's "won't merge"
   };
   const key = `dora.pr.${status}` as TranslationKey;
@@ -696,7 +696,7 @@ function StatusBadge({ status, t }: { status: string; t: TFn }) {
     ? localised
     : (status.charAt(0).toUpperCase() + status.slice(1));
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, color: '#fff', background: colors[status] || '#6b7280' }}>
+    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, color: '#fff', background: colors[status] || '#94a3b8' }}>
       {label}
     </span>
   );
@@ -724,8 +724,8 @@ function ScatterChartWithGoal({ data, goalValue, goalLabel, dotColor, height = 2
       <text x={pad.left - 6} y={pad.top + chartH} textAnchor="end" fontSize={9} fill="var(--muted)" fontFamily="monospace">0</text>
       {goalY != null && (
         <>
-          <line x1={pad.left} y1={goalY} x2={pad.left + chartW} y2={goalY} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="6,4" />
-          {goalLabel && <text x={pad.left + chartW - 4} y={goalY - 4} textAnchor="end" fontSize={9} fill="#ef4444" fontFamily="monospace">{goalLabel}</text>}
+          <line x1={pad.left} y1={goalY} x2={pad.left + chartW} y2={goalY} stroke="#cf5b57" strokeWidth={1.5} strokeDasharray="6,4" />
+          {goalLabel && <text x={pad.left + chartW - 4} y={goalY - 4} textAnchor="end" fontSize={9} fill="#cf5b57" fontFamily="monospace">{goalLabel}</text>}
         </>
       )}
       {points.map((p, i) => (
@@ -773,15 +773,15 @@ function ActiveDaysChart({ data, t }: { data: GitAnalyticsResponse['daily_stats'
     <div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: 11 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#3f9d6a', display: 'inline-block' }} />
           {t('dora.git.added')}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#ef4444', display: 'inline-block' }} />
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#cf5b57', display: 'inline-block' }} />
           {t('dora.git.deleted')}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 10, height: 3, background: '#f59e0b', display: 'inline-block', borderRadius: 2 }} />
+          <span style={{ width: 10, height: 3, background: '#c98a2b', display: 'inline-block', borderRadius: 2 }} />
           {t('dora.git.commits')}
         </span>
       </div>
@@ -799,21 +799,21 @@ function ActiveDaysChart({ data, t }: { data: GitAnalyticsResponse['daily_stats'
           const x = pad.left + i * (barW + barGap);
           return (
             <g key={d.date}>
-              <rect x={x} y={pad.top + chartH - totalH} width={barW} height={addH} rx={1} fill="#22c55e" opacity={0.8}>
+              <rect x={x} y={pad.top + chartH - totalH} width={barW} height={addH} rx={1} fill="#3f9d6a" opacity={0.8}>
                 <title>{`${d.date}: +${d.additions} / -${d.deletions} | ${d.commits} commits`}</title>
               </rect>
-              <rect x={x} y={pad.top + chartH - delH} width={barW} height={delH} rx={1} fill="#ef4444" opacity={0.7}>
+              <rect x={x} y={pad.top + chartH - delH} width={barW} height={delH} rx={1} fill="#cf5b57" opacity={0.7}>
                 <title>{`${d.date}: -${d.deletions}`}</title>
               </rect>
             </g>
           );
         })}
-        <polyline points={linePoints} fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinejoin="round" />
+        <polyline points={linePoints} fill="none" stroke="#c98a2b" strokeWidth={2} strokeLinejoin="round" />
         {data.map((d, i) => {
           const x = pad.left + i * (barW + barGap) + barW / 2;
           const y = pad.top + chartH - (d.commits / maxCommits) * chartH;
           return (
-            <circle key={`dot-${d.date}`} cx={x} cy={y} r={2.5} fill="#f59e0b">
+            <circle key={`dot-${d.date}`} cx={x} cy={y} r={2.5} fill="#c98a2b">
               <title>{`${d.date}: ${d.commits} commits`}</title>
             </circle>
           );
@@ -850,7 +850,7 @@ function CommitsByHourChart({ data }: { data: GitAnalyticsResponse['commits_by_h
         const x = pad.left + d.hour * (barW + barGap);
         const y = pad.top + chartH - barH;
         const intensity = d.commits / maxVal;
-        const color = `rgba(99, 102, 241, ${0.3 + intensity * 0.7})`;
+        const color = `rgba(91, 155, 213, ${0.3 + intensity * 0.7})`;
         return (
           <g key={d.hour}>
             <rect x={x} y={y} width={barW} height={barH} rx={2} fill={color}>
@@ -942,7 +942,7 @@ function KpiCardWithSparkline({ label, value, color, sparkline }: {
 }
 
 function PctBadge({ value }: { value: number }) {
-  const color = value >= 70 ? '#22c55e' : value >= 40 ? '#eab308' : '#ef4444';
+  const color = value >= 70 ? '#3f9d6a' : value >= 40 ? '#c98a2b' : '#cf5b57';
   return (
     <span style={{
       padding: '2px 8px',
@@ -990,10 +990,10 @@ function formatMs(ms: number): string {
 function DeploymentsTab({ data, t }: { data: DeploymentsAnalyticsResponse; t: TFn }) {
   const kpi = data.kpi;
   const kpis = [
-    { label: t('dora.deploy.leadTime'), value: kpi.lead_time_hours < 1 ? `${Math.round(kpi.lead_time_hours * 60)}m` : `${kpi.lead_time_hours.toFixed(1)}h`, color: '#3b82f6' },
-    { label: t('dora.deploy.deployFrequency'), value: `${kpi.deploy_frequency}/d`, color: '#22c55e' },
-    { label: t('dora.deploy.changeFailureRate'), value: `${kpi.change_failure_rate.toFixed(1)}%`, color: kpi.change_failure_rate > 15 ? '#ef4444' : kpi.change_failure_rate > 5 ? '#eab308' : '#22c55e' },
-    { label: t('dora.deploy.mttr'), value: kpi.mttr_hours < 1 ? `${Math.round(kpi.mttr_hours * 60)}m` : `${kpi.mttr_hours.toFixed(1)}h`, color: '#f59e0b' },
+    { label: t('dora.deploy.leadTime'), value: kpi.lead_time_hours < 1 ? `${Math.round(kpi.lead_time_hours * 60)}m` : `${kpi.lead_time_hours.toFixed(1)}h`, color: '#5b9bd5' },
+    { label: t('dora.deploy.deployFrequency'), value: `${kpi.deploy_frequency}/d`, color: '#3f9d6a' },
+    { label: t('dora.deploy.changeFailureRate'), value: `${kpi.change_failure_rate.toFixed(1)}%`, color: kpi.change_failure_rate > 15 ? '#cf5b57' : kpi.change_failure_rate > 5 ? '#c98a2b' : '#3f9d6a' },
+    { label: t('dora.deploy.mttr'), value: kpi.mttr_hours < 1 ? `${Math.round(kpi.mttr_hours * 60)}m` : `${kpi.mttr_hours.toFixed(1)}h`, color: '#c98a2b' },
   ];
 
   return (
@@ -1012,19 +1012,19 @@ function DeploymentsTab({ data, t }: { data: DeploymentsAnalyticsResponse; t: TF
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 24 }}>
         {data.lead_time_trend.length > 0 && (
           <div style={box}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('dora.deploy.leadTime')} Trend</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 12 }}>{t('dora.deploy.leadTime')} Trend</div>
             <LineChart data={data.lead_time_trend.map((d) => ({ label: d.date.slice(5), value: d.hours }))} />
           </div>
         )}
         {data.deploy_freq_trend.length > 0 && (
           <div style={box}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('dora.deploy.deployFrequency')} Trend</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 12 }}>{t('dora.deploy.deployFrequency')} Trend</div>
             <BarChart data={data.deploy_freq_trend.map((d) => ({ label: d.date.slice(5), value: d.deploys }))} />
           </div>
         )}
         {data.cfr_trend.length > 0 && (
           <div style={box}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('dora.deploy.changeFailureRate')} Trend</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 12 }}>{t('dora.deploy.changeFailureRate')} Trend</div>
             <LineChart data={data.cfr_trend.map((d) => ({ label: d.date.slice(5), value: d.rate }))} />
           </div>
         )}
@@ -1033,9 +1033,9 @@ function DeploymentsTab({ data, t }: { data: DeploymentsAnalyticsResponse; t: TF
       {/* Deployment list */}
       {data.deployments.length > 0 && (
         <div style={box}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{t('common.deployments')}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 12 }}>{t('common.deployments')}</div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <table className="ent-table">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                   <th style={thStyle}>{t('common.environment')}</th>
@@ -1048,8 +1048,8 @@ function DeploymentsTab({ data, t }: { data: DeploymentsAnalyticsResponse; t: TF
               <tbody>
                 {data.deployments.map((d, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--panel-border-2)' }}>
-                    <td style={tdStyle}><span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontSize: 11, fontWeight: 600 }}>{d.environment}</span></td>
-                    <td style={tdStyle}><span style={{ padding: '2px 8px', borderRadius: 6, background: d.status === 'success' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: d.status === 'success' ? '#22c55e' : '#ef4444', fontSize: 11, fontWeight: 600 }}>{d.status}</span></td>
+                    <td style={tdStyle}><span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(91,155,213,0.12)', color: '#5b9bd5', fontSize: 11, fontWeight: 600 }}>{d.environment}</span></td>
+                    <td style={tdStyle}><span style={{ padding: '2px 8px', borderRadius: 6, background: d.status === 'success' ? 'rgba(63,157,106,0.12)' : 'rgba(207,91,87,0.12)', color: d.status === 'success' ? '#3f9d6a' : '#cf5b57', fontSize: 11, fontWeight: 600 }}>{d.status}</span></td>
                     <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 11 }}>{d.sha}</td>
                     <td style={tdStyle}>{new Date(d.deployed_at).toLocaleString()}</td>
                     <td style={tdStyle}>{d.duration_sec ? `${d.duration_sec}s` : '—'}</td>

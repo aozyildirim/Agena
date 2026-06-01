@@ -12,7 +12,7 @@ import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
 import DoraPeriodTabs from '@/components/DoraPeriodTabs';
 
 const box: React.CSSProperties = {
-  borderRadius: 14,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
   padding: 24,
@@ -56,7 +56,7 @@ export default function DoraBugsPage() {
         <Link href="/dashboard/dora" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
           DORA &rsaquo;
         </Link>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: '8px 0 0' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: '8px 0 0' }}>
           {t('dora.bugs.title')}
         </h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
@@ -69,7 +69,7 @@ export default function DoraBugsPage() {
       </div>
 
       {error && (
-        <div style={{ ...box, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13 }}>
+        <div style={{ ...box, borderColor: 'rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -87,36 +87,36 @@ export default function DoraBugsPage() {
             <KpiCard
               label={t('dora.bugs.totalFailed')}
               value={String(data.total_failed)}
-              color={data.total_failed > 0 ? '#ef4444' : '#22c55e'}
+              color={data.total_failed > 0 ? '#cf5b57' : '#3f9d6a'}
               sub={t('dora.bugs.last30days')}
             />
             <KpiCard
               label={t('dora.bugs.failureRate')}
               value={`${data.failure_rate}%`}
-              color={data.failure_rate <= 5 ? '#22c55e' : data.failure_rate <= 15 ? '#eab308' : '#ef4444'}
+              color={data.failure_rate <= 5 ? '#3f9d6a' : data.failure_rate <= 15 ? '#c98a2b' : '#cf5b57'}
             />
             <KpiCard
               label={t('dora.bugs.mttr')}
               value={`${data.mttr_minutes} ${t('dora.bugs.minutes')}`}
-              color={data.mttr_minutes <= 10 ? '#22c55e' : data.mttr_minutes <= 30 ? '#eab308' : '#ef4444'}
+              color={data.mttr_minutes <= 10 ? '#3f9d6a' : data.mttr_minutes <= 30 ? '#c98a2b' : '#cf5b57'}
             />
             <KpiCard
               label={t('dora.bugs.staleCount')}
               value={String(data.stale_count)}
-              color={data.stale_count === 0 ? '#22c55e' : '#f97316'}
+              color={data.stale_count === 0 ? '#3f9d6a' : '#c98a2b'}
             />
           </div>
 
           {/* Failed Tasks Table */}
           <div style={box}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
               {t('dora.bugs.recentFailed')}
             </h2>
             {data.recent_failed.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('dora.bugs.noFailed')}</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <table className="ent-table">
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
                       <Th>{t('dora.bugs.task')}</Th>
@@ -131,7 +131,7 @@ export default function DoraBugsPage() {
                       <tr key={task.id} style={{ borderBottom: '1px solid var(--panel-border-2)' }}>
                         <Td>
                           <div style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <Link href={`/dashboard/tasks`} style={{ color: '#93c5fd', textDecoration: 'none', fontWeight: 600 }}>
+                            <Link href={`/dashboard/tasks`} style={{ color: '#5b9bd5', textDecoration: 'none', fontWeight: 600 }}>
                               {task.title || `#${task.id}`}
                             </Link>
                           </div>
@@ -140,9 +140,9 @@ export default function DoraBugsPage() {
                           <span style={{
                             display: 'inline-block', maxWidth: 220,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            color: '#ef4444', fontFamily: 'monospace', fontSize: 11,
-                            background: 'rgba(239,68,68,0.08)', padding: '2px 8px',
-                            borderRadius: 6, border: '1px solid rgba(239,68,68,0.2)',
+                            color: '#cf5b57', fontFamily: 'monospace', fontSize: 11,
+                            background: 'rgba(207,91,87,0.08)', padding: '2px 8px',
+                            borderRadius: 6, border: '1px solid rgba(207,91,87,0.2)',
                           }}>
                             {task.failure_reason}
                           </span>
@@ -173,7 +173,7 @@ export default function DoraBugsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16 }}>
             {/* Failure Rate Trend */}
             <div style={box}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
                 {t('dora.bugs.failureTrend')}
               </h2>
               {data.failure_trend.length === 0 ? (
@@ -185,15 +185,15 @@ export default function DoraBugsPage() {
                     value: d.failure_rate,
                   }))}
                   height={220}
-                  lineColor="#ef4444"
-                  fillColor="rgba(239,68,68,0.10)"
+                  lineColor="#cf5b57"
+                  fillColor="rgba(207,91,87,0.10)"
                 />
               )}
             </div>
 
             {/* Top Failure Reasons */}
             <div style={box}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
                 {t('dora.bugs.topReasons')}
               </h2>
               {data.top_failure_reasons.length === 0 ? (
@@ -205,7 +205,7 @@ export default function DoraBugsPage() {
                     value: r.count,
                   }))}
                   height={220}
-                  barColor="#f97316"
+                  barColor="#c98a2b"
                 />
               )}
             </div>
@@ -213,7 +213,7 @@ export default function DoraBugsPage() {
 
           {/* Stale Tasks */}
           <div style={box}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>
               {t('dora.bugs.staleTasks')}
             </h2>
             {data.stale_tasks.length === 0 ? (
@@ -226,8 +226,8 @@ export default function DoraBugsPage() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '10px 14px', borderRadius: 10,
-                      border: '1px solid rgba(249,115,22,0.25)',
-                      background: 'rgba(249,115,22,0.06)',
+                      border: '1px solid rgba(201,138,43,0.25)',
+                      background: 'rgba(201,138,43,0.06)',
                     }}
                   >
                     <div>
@@ -239,10 +239,10 @@ export default function DoraBugsPage() {
                       </div>
                     </div>
                     <div style={{
-                      fontSize: 12, fontWeight: 700, color: '#f97316',
-                      background: 'rgba(249,115,22,0.12)',
+                      fontSize: 12, fontWeight: 700, color: '#c98a2b',
+                      background: 'rgba(201,138,43,0.12)',
                       padding: '4px 10px', borderRadius: 999,
-                      border: '1px solid rgba(249,115,22,0.3)',
+                      border: '1px solid rgba(201,138,43,0.3)',
                       whiteSpace: 'nowrap',
                     }}>
                       {t('dora.bugs.runningFor', { min: String(task.running_minutes) })}

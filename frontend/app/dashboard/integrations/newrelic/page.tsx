@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
+import MappingHub from '@/components/integrations/MappingHub';
 
 interface NREntity {
   guid: string;
@@ -46,7 +48,7 @@ interface RepoMapping {
   repo_name: string;
 }
 
-function Pill({ children, color = '#94a3b8', bg }: { children: React.ReactNode; color?: string; bg?: string }) {
+function Pill({ children, color = 'var(--muted)', bg }: { children: React.ReactNode; color?: string; bg?: string }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -89,6 +91,8 @@ export default function NewRelicPage() {
 
   const [runningGuid, setRunningGuid] = useState<string | null>(null);
   const [rowResult, setRowResult] = useState<Record<string, { kind: 'ok' | 'err'; text: string; ts: number }>>({});
+  const [entityFilter, setEntityFilter] = useState('');
+  const [mapFilter, setMapFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
 
   useEffect(() => {
     void loadMappings();
@@ -160,6 +164,28 @@ export default function NewRelicPage() {
         }),
       });
       setMsg((t('integrations.newrelic.mapped') || '"{name}" mapped — select a repo').replace('{name}', entity.name));
+      await loadMappings();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add mapping');
+    }
+  }
+
+  // One-step map: create the mapping already linked to a repo (the backend
+  // accepts repo_mapping_id on create), so the user picks a repo directly on
+  // an unmapped entity instead of "Map" then "select repo".
+  async function mapEntityToRepo(entity: NREntity, repoId: number) {
+    try {
+      await apiFetch('/newrelic/mappings', {
+        method: 'POST',
+        body: JSON.stringify({
+          entity_guid: entity.guid,
+          entity_name: entity.name,
+          entity_type: entity.entity_type,
+          account_id: entity.account_id,
+          repo_mapping_id: repoId,
+        }),
+      });
+      setMsg((t('integrations.newrelic.mapped') || '"{name}" mapped').replace('{name}', entity.name));
       await loadMappings();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add mapping');
@@ -306,14 +332,14 @@ export default function NewRelicPage() {
   }
 
   const cardStyle: React.CSSProperties = {
-    background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 16,
+    background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 16,
   };
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)',
-    background: 'var(--glass)', color: 'var(--ink)', fontSize: 13,
+    background: 'var(--panel-alt)', color: 'var(--ink)', fontSize: 13,
   };
   const btnPrimary: React.CSSProperties = {
-    padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1CE783', color: '#000',
+    padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff',
     fontSize: 12, fontWeight: 600, cursor: 'pointer',
   };
   const btnSmall: React.CSSProperties = {
@@ -348,22 +374,21 @@ export default function NewRelicPage() {
       {/* Hero header */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        borderRadius: 16,
+        borderRadius: 10,
         border: '1px solid var(--panel-border)',
-        background: 'var(--panel)',
-        backgroundImage: 'linear-gradient(135deg, rgba(28,231,131,0.28), rgba(0,180,200,0.16) 60%, rgba(56,189,248,0.12))',
+        background: 'var(--surface)',
         padding: '20px 22px',
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #1CE783, #00b4c8, #38bdf8)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'var(--panel-border)' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 10,
+            width: 44, height: 44, borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(28,231,131,0.15)', border: '1px solid rgba(28,231,131,0.4)',
-            fontSize: 22,
-          }}>📡</div>
+            background: 'var(--acc-soft)', border: '1px solid var(--panel-border)',
+            color: 'var(--acc)',
+          }}><NavIcon name="signal" size={22} /></div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: -0.3 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', letterSpacing: -0.3 }}>
               {t('integrations.providerNewrelic')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-58)', marginTop: 3, lineHeight: 1.5 }}>
@@ -374,17 +399,17 @@ export default function NewRelicPage() {
         {totalMappings > 0 && (
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             {[
-              { label: t('integrations.sentry.statMapped') || 'Mapped projects', value: totalMappings, color: 'var(--ink)' },
-              { label: t('integrations.sentry.statWithRepo') || 'Linked to a repo', value: `${repoMappingsCount}/${totalMappings}`, color: '#60a5fa' },
-              { label: t('integrations.sentry.statAuto') || 'Auto-import on', value: autoMappings, color: '#1CE783' },
+              { label: t('integrations.sentry.statMapped') || 'Mapped projects', value: totalMappings, color: 'var(--ink-90)' },
+              { label: t('integrations.sentry.statWithRepo') || 'Linked to a repo', value: `${repoMappingsCount}/${totalMappings}`, color: 'var(--acc)' },
+              { label: t('integrations.sentry.statAuto') || 'Auto-import on', value: autoMappings, color: 'var(--acc)' },
             ].map((tile) => (
               <div key={tile.label} style={{
                 flex: 1, minWidth: 130,
-                padding: '10px 14px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--panel-border)',
+                padding: '10px 14px', borderRadius: 8,
+                background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
               }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{tile.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: tile.color, marginTop: 4 }}>{tile.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: tile.color, marginTop: 4 }}>{tile.value}</div>
               </div>
             ))}
           </div>
@@ -396,31 +421,30 @@ export default function NewRelicPage() {
         <div style={{
           position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)',
           zIndex: 9999, maxWidth: 'min(94vw, 460px)',
-          padding: '12px 18px', borderRadius: 12,
+          padding: '12px 18px', borderRadius: 10,
           display: 'flex', alignItems: 'center', gap: 10,
           fontSize: 13, fontWeight: 700,
-          color: error ? '#fecaca' : runningGuid ? '#fde68a' : '#bbf7d0',
-          background: error ? 'rgba(127,29,29,0.95)' : runningGuid ? 'rgba(120,53,15,0.95)' : 'rgba(20,83,45,0.95)',
-          border: `1px solid ${error ? 'rgba(248,113,113,0.4)' : runningGuid ? 'rgba(251,191,36,0.4)' : 'rgba(34,197,94,0.4)'}`,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-          backdropFilter: 'blur(8px)',
+          color: error ? '#cf5b57' : runningGuid ? '#c98a2b' : '#3f9d6a',
+          background: 'var(--surface)',
+          border: `1px solid ${error ? '#cf5b57' : runningGuid ? '#c98a2b' : '#3f9d6a'}`,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
         }}>
           {runningGuid ? (
             <>
-              <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(251,191,36,0.4)', borderTopColor: '#fbbf24', borderRadius: '50%', animation: 'nr-spin 0.7s linear infinite' }} />
+              <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid var(--panel-border)', borderTopColor: '#c98a2b', borderRadius: '50%', animation: 'nr-spin 0.7s linear infinite' }} />
               <span>{t('integrations.sentry.toastImporting') || 'Importing…'}</span>
             </>
           ) : error ? (
             <>
-              <span>✗</span>
+              <NavIcon name="alert" size={16} />
               <span style={{ flex: 1 }}>{error}</span>
-              <button onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+              <button onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#cf5b57', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
             </>
           ) : (
             <>
-              <span>✓</span>
+              <NavIcon name="signal" size={16} />
               <span style={{ flex: 1 }}>{msg}</span>
-              <button onClick={() => setMsg('')} style={{ background: 'transparent', border: 'none', color: '#86efac', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+              <button onClick={() => setMsg('')} style={{ background: 'transparent', border: 'none', color: '#3f9d6a', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
             </>
           )}
         </div>,
@@ -449,85 +473,58 @@ export default function NewRelicPage() {
         </div>
       </div>
 
-      {/* Entity results — premium cards */}
-      {entities.length > 0 && (
-        <div style={cardStyle}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 10 }}>
-            {t('integrations.newrelic.entitiesCount').replace('{n}', String(entities.length))}
-          </div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {entities.map((e) => {
-              const mapping = mappings.find((m) => m.entity_guid === e.guid);
-              const isSelected = selectedGuid === e.guid;
-              return (
-                <div key={e.guid} className='nr-row-card' style={{
-                  padding: '10px 12px', borderRadius: 10,
-                  background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
-                  border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
-                  transition: 'background 0.15s, border 0.15s',
-                }}>
-                  <div className='nr-row-icon' style={{
-                    width: 30, height: 30, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: mapping ? 'rgba(28,231,131,0.12)' : 'rgba(148,163,184,0.10)',
-                    border: `1px solid ${mapping ? 'rgba(28,231,131,0.30)' : 'var(--panel-border)'}`,
-                    fontSize: 14, color: mapping ? '#1CE783' : 'var(--ink-35)',
-                  }}>
-                    {mapping ? '✓' : '○'}
-                  </div>
-                  <div className='nr-row-title'>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {e.name}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
-                      <Pill color='#64748b'>{e.entity_type.replace('_ENTITY', '').replace('_APPLICATION', '')}</Pill>
-                      <Pill color={e.reporting ? '#22c55e' : '#f87171'}>{e.reporting ? '● LIVE' : '○ INACTIVE'}</Pill>
-                      {mapping && mapping.repo_display_name && (
-                        <span style={{ fontSize: 10, color: '#60a5fa', fontWeight: 600 }}>→ {mapping.repo_display_name}</span>
-                      )}
-                      {mapping && mapping.auto_import && <Pill color='#1CE783'>AUTO</Pill>}
-                    </div>
-                  </div>
-                  <div className='nr-row-actions'>
-                    <button onClick={() => void fetchErrors(e.guid, e.name)} title={t('integrations.newrelic.errorsBtn')} className='nr-icon-btn' style={btnSmall}>📋</button>
-                    {!mapping ? (
-                      <button onClick={() => void addMapping(e)} style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.4)', height: 30, padding: '0 12px' }}>
-                        + {t('integrations.common.map')}
-                      </button>
-                    ) : (
-                      <>
-                        <select
-                          value={mapping.repo_mapping_id ?? ''}
-                          onChange={(ev) => void updateMapping(mapping.id, { repo_mapping_id: ev.target.value ? parseInt(ev.target.value) : null })}
-                          style={{ ...inputStyle, width: 140, fontSize: 11, padding: '4px 8px', height: 30 }}
-                        >
-                          <option value="">{t('integrations.common.selectRepo')}</option>
-                          {repos.map((r) => (
-                            <option key={r.id} value={r.id}>{r.owner}/{r.repo_name}</option>
-                          ))}
-                        </select>
-                        <button onClick={() => void importErrors(mapping.entity_guid)} disabled={runningGuid === mapping.entity_guid}
-                          title={t('integrations.common.import')} className='nr-icon-btn' style={{ ...btnSmall, opacity: runningGuid === mapping.entity_guid ? 0.6 : 1 }}>
-                          {runningGuid === mapping.entity_guid ? '…' : '⬇'}
-                        </button>
-                        {rowResult[mapping.entity_guid] && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4,
-                            color: rowResult[mapping.entity_guid].kind === 'ok' ? '#22c55e' : '#f87171',
-                            background: rowResult[mapping.entity_guid].kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                            whiteSpace: 'nowrap',
-                          }}>{rowResult[mapping.entity_guid].text}</span>
-                        )}
-                        <button onClick={() => void deleteMapping(mapping.id)} title={t('integrations.common.unmap') || 'Unmap'} className='nr-icon-btn' style={{ ...btnSmall, color: '#f87171', borderColor: 'rgba(248,113,113,0.2)' }}>×</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Entity → repo mapping (shared guided MappingHub) */}
+      <MappingHub
+        title='New Relic'
+        logo={<NavIcon name='signal' size={15} />}
+        loading={loading}
+        hint={t('integrations.newrelic.heroSubtitle') || 'Map an entity to a repo so AI can auto-fix its production errors and ship the patch.'}
+        searchPlaceholder={`Filter ${entities.length} entities…`}
+        onboardingSteps={[
+          'Connect New Relic with your API key in Integrations.',
+          'Search for the APM/Browser entities you run above.',
+          'Pick a repo on each entity to map it, then turn on auto-import.',
+        ]}
+        repos={repos.map((r) => ({ id: r.id, label: `${r.owner}/${r.repo_name}` }))}
+        items={entities.map((e) => {
+          const m = mappings.find((mm) => mm.entity_guid === e.guid);
+          return {
+            id: e.guid,
+            name: e.name,
+            sublabel: `${e.entity_type.replace('_APPLICATION', '').replace('_ENTITY', '')} · ${e.reporting ? 'live' : 'inactive'}`,
+            live: e.reporting,
+            mappedRepoId: m?.repo_mapping_id ?? null,
+            autoImport: m?.auto_import,
+          };
+        })}
+        onMapRepo={(item, repoId) => {
+          const e = entities.find((x) => x.guid === item.id);
+          const m = mappings.find((mm) => mm.entity_guid === item.id);
+          if (m) void updateMapping(m.id, { repo_mapping_id: repoId });
+          else if (e && repoId != null) void mapEntityToRepo(e, repoId);
+        }}
+        onToggleAuto={(item) => {
+          const m = mappings.find((mm) => mm.entity_guid === item.id);
+          if (m) void updateMapping(m.id, { auto_import: !m.auto_import });
+        }}
+        renderActions={(item) => {
+          const m = mappings.find((mm) => mm.entity_guid === item.id);
+          return (
+            <>
+              <button onClick={() => void fetchErrors(item.id, item.name)} title={t('integrations.newrelic.errorsBtn')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name='bug' size={13} /></button>
+              {m && (
+                <button onClick={() => void importErrors(m.entity_guid)} disabled={runningGuid === m.entity_guid} title={t('integrations.common.import')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: runningGuid === m.entity_guid ? 0.6 : 1 }}>{runningGuid === m.entity_guid ? '…' : <NavIcon name='send' size={13} />}</button>
+              )}
+              {m && (
+                <button onClick={() => void deleteMapping(m.id)} title={t('integrations.common.unmap') || 'Unmap'} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', borderColor: 'var(--panel-border)' }}><NavIcon name='close' size={13} /></button>
+              )}
+              {rowResult[item.id] && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: rowResult[item.id].kind === 'ok' ? '#3f9d6a' : '#cf5b57', whiteSpace: 'nowrap' }}>{rowResult[item.id].text}</span>
+              )}
+            </>
+          );
+        }}
+      />
 
       {/* Error groups */}
       {selectedGuid && (
@@ -541,7 +538,7 @@ export default function NewRelicPage() {
                 <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 3 }}>
                   {errors.length} {t('integrations.newrelic.errors') || 'error groups'}
                   {' · '}
-                  <strong style={{ color: '#f87171' }}>{errors.reduce((s, e) => s + (e.occurrences || 0), 0).toLocaleString()}</strong>{' '}
+                  <strong style={{ color: '#cf5b57' }}>{errors.reduce((s, e) => s + (e.occurrences || 0), 0).toLocaleString()}</strong>{' '}
                   {(t('integrations.sentry.healthEvents') || 'events').toLowerCase()}
                 </div>
               )}
@@ -558,18 +555,18 @@ export default function NewRelicPage() {
             <div style={{ display: 'grid', gap: 6 }}>
               {errors.map((e, i) => (
                 <div key={i} style={{
-                  padding: '10px 12px', borderRadius: 10,
-                  background: 'var(--glass)', border: '1px solid var(--panel-border)',
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
                 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                    <Pill color='#f87171'>{e.occurrences.toLocaleString()}× ERR</Pill>
+                    <Pill color='#cf5b57'>{e.occurrences.toLocaleString()}× ERR</Pill>
                     {e.imported_task_id && (
-                      <a href={`/tasks/${e.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}>
+                      <a href={`/tasks/${e.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}>
                         TASK #{e.imported_task_id}
                       </a>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {e.error_class}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -600,9 +597,9 @@ export default function NewRelicPage() {
           )}
         </div>
         {mappings.length === 0 ? (
-          <div style={{ padding: '28px 18px', textAlign: 'center', borderRadius: 12, background: 'var(--glass)', border: '1px dashed var(--panel-border)' }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>📡</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+          <div style={{ padding: '28px 18px', textAlign: 'center', borderRadius: 8, background: 'var(--panel-alt)', border: '1px dashed var(--panel-border)' }}>
+            <div style={{ marginBottom: 6, color: 'var(--ink-35)', display: 'flex', justifyContent: 'center' }}><NavIcon name="signal" size={28} /></div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>
               {t('integrations.newrelic.noMappingsTitle') || 'No entity mappings yet'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4, lineHeight: 1.5, maxWidth: 380, margin: '4px auto 0' }}>
@@ -634,32 +631,32 @@ export default function NewRelicPage() {
               })() : null;
               return (
                 <div key={m.id} className='nr-row-card' style={{
-                  padding: '12px 14px', borderRadius: 12,
-                  background: 'var(--glass)', border: '1px solid var(--panel-border)',
+                  padding: '12px 14px', borderRadius: 8,
+                  background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
                 }}>
                   <div className='nr-row-icon' style={{
-                    width: 36, height: 36, borderRadius: 10,
+                    width: 36, height: 36, borderRadius: 8,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: m.auto_import ? 'rgba(28,231,131,0.10)' : 'rgba(96,165,250,0.10)',
-                    border: `1px solid ${m.auto_import ? 'rgba(28,231,131,0.35)' : 'rgba(96,165,250,0.35)'}`,
-                    fontSize: 16,
+                    background: 'var(--acc-soft)',
+                    border: '1px solid var(--panel-border)',
+                    color: 'var(--acc)',
                   }}>
-                    {m.auto_import ? '⚡' : '🔗'}
+                    <NavIcon name={m.auto_import ? 'zap' : 'plug'} size={16} />
                   </div>
                   <div className='nr-row-title'>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{m.entity_name}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>{m.entity_name}</span>
                       {m.repo_display_name ? (
-                        <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600 }}>→ {m.repo_display_name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--acc)', fontWeight: 600 }}>→ {m.repo_display_name}</span>
                       ) : (
-                        <Pill color='#f59e0b'>{(t('integrations.sentry.noRepoLinked') || 'no repo linked').toUpperCase()}</Pill>
+                        <Pill color='#c98a2b'>{(t('integrations.sentry.noRepoLinked') || 'no repo linked').toUpperCase()}</Pill>
                       )}
-                      {m.auto_import && <Pill color='#1CE783'>AUTO</Pill>}
+                      {m.auto_import && <Pill color='var(--acc)'>AUTO</Pill>}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--ink-35)', marginTop: 3, fontFamily: 'monospace' }}>
                       {m.entity_type.replace('_ENTITY', '').replace('_APPLICATION', '')}
                       {lastImportRel && <span style={{ color: 'var(--ink-50)', fontFamily: 'inherit', marginLeft: 8 }}>· {(t('integrations.sentry.lastImport') || 'Last import')}: {lastImportRel}</span>}
-                      {nextRunRel && <span style={{ color: '#1CE783', fontFamily: 'inherit', marginLeft: 8 }}>· {nextRunRel}</span>}
+                      {nextRunRel && <span style={{ color: 'var(--acc)', fontFamily: 'inherit', marginLeft: 8 }}>· {nextRunRel}</span>}
                     </div>
                   </div>
                   <div className='nr-row-actions'>
@@ -676,30 +673,30 @@ export default function NewRelicPage() {
                     <label style={{
                       display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
                       fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                      color: m.auto_import ? '#1CE783' : 'var(--ink-50)',
+                      color: m.auto_import ? 'var(--acc)' : 'var(--ink-50)',
                       padding: '6px 10px', borderRadius: 6,
-                      background: m.auto_import ? 'rgba(28,231,131,0.10)' : 'transparent',
-                      border: `1px solid ${m.auto_import ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
+                      background: m.auto_import ? 'var(--acc-soft)' : 'transparent',
+                      border: `1px solid ${m.auto_import ? 'var(--acc)' : 'var(--panel-border)'}`,
                     }}>
                       <input type='checkbox' checked={m.auto_import} onChange={(e) => void updateMapping(m.id, { auto_import: e.target.checked })} style={{ margin: 0 }} />
                       {t('integrations.common.auto').toUpperCase()}
                     </label>
                     <button onClick={() => void importErrors(m.entity_guid)} disabled={runningGuid === m.entity_guid}
-                      title={t('integrations.sentry.runNow') || 'Run now'} className='nr-icon-btn' style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.3)', opacity: runningGuid === m.entity_guid ? 0.6 : 1 }}>
-                      {runningGuid === m.entity_guid ? '…' : '▶'}
+                      title={t('integrations.sentry.runNow') || 'Run now'} className='nr-icon-btn' style={{ ...btnSmall, color: 'var(--acc)', borderColor: 'var(--acc)', opacity: runningGuid === m.entity_guid ? 0.6 : 1 }}>
+                      {runningGuid === m.entity_guid ? '…' : <NavIcon name="activity" size={14} />}
                     </button>
                     {rowResult[m.entity_guid] && (
                       <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4,
-                        color: rowResult[m.entity_guid].kind === 'ok' ? '#22c55e' : '#f87171',
-                        background: rowResult[m.entity_guid].kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
+                        fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6,
+                        color: rowResult[m.entity_guid].kind === 'ok' ? '#3f9d6a' : '#cf5b57',
+                        background: 'var(--panel-alt)',
                         whiteSpace: 'nowrap',
                       }}>{rowResult[m.entity_guid].text}</span>
                     )}
                     <button onClick={() => void openRequestModal(m)} style={{ ...btnSmall, height: 30 }}>
                       {t('integrations.newrelic.request') || 'Request'}
                     </button>
-                    <button onClick={() => void deleteMapping(m.id)} title={t('integrations.common.unmap') || 'Unmap'} className='nr-icon-btn' style={{ ...btnSmall, color: '#f87171', borderColor: 'rgba(248,113,113,0.2)' }}>×</button>
+                    <button onClick={() => void deleteMapping(m.id)} title={t('integrations.common.unmap') || 'Unmap'} className='nr-icon-btn' style={{ ...btnSmall, color: '#cf5b57', borderColor: 'var(--panel-border)' }}><NavIcon name="close" size={14} /></button>
                   </div>
                 </div>
               );
@@ -721,12 +718,12 @@ export default function NewRelicPage() {
             style={{
               position: 'fixed',
               top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14,
+              background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10,
               width: 'min(760px, calc(100vw - 32px))',
               maxWidth: 'calc(100vw - 32px)',
               height: 'min(80vh, 720px)',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.35)', color: 'var(--ink)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.18)', color: 'var(--ink)',
               boxSizing: 'border-box',
             }}
           >
@@ -741,7 +738,7 @@ export default function NewRelicPage() {
                     ? (t('integrations.newrelic.fetchingAll') || 'Fetching errors...')
                     : `${modalErrors.length} ${t('integrations.newrelic.errors') || 'errors'}`}
                   {modalSelected.size > 0 && (
-                    <span style={{ marginLeft: 8, color: '#1CE783', fontWeight: 600 }}>
+                    <span style={{ marginLeft: 8, color: 'var(--acc)', fontWeight: 600 }}>
                       · {(t('integrations.newrelic.selectedCount') || '{n} selected').replace('{n}', String(modalSelected.size))}
                     </span>
                   )}
@@ -787,9 +784,9 @@ export default function NewRelicPage() {
                         display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 10,
                         alignItems: 'start',
                         width: '100%', boxSizing: 'border-box',
-                        padding: '10px 12px', borderRadius: 10, marginBottom: 6,
-                        background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
-                        border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
+                        padding: '10px 12px', borderRadius: 8, marginBottom: 6,
+                        background: isSelected ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                        border: `1px solid ${isSelected ? 'var(--acc)' : 'var(--panel-border)'}`,
                         cursor: isImported ? 'not-allowed' : 'pointer',
                         opacity: isImported ? 0.55 : 1,
                       }}
@@ -802,7 +799,7 @@ export default function NewRelicPage() {
                         style={{ marginTop: 3 }}
                       />
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                           {title}
                         </div>
                         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6, fontSize: 10, color: 'var(--ink-35)', flexWrap: 'wrap' }}>
@@ -810,7 +807,7 @@ export default function NewRelicPage() {
                             <a
                               href={`/tasks/${e.imported_task_id}`}
                               onClick={(ev) => ev.stopPropagation()}
-                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}
                             >
                               {(t('integrations.common.alreadyImported') || 'Already imported — task #{id}').replace('{id}', String(e.imported_task_id))}
                             </a>
@@ -821,12 +818,12 @@ export default function NewRelicPage() {
                               target='_blank'
                               rel='noreferrer'
                               onClick={(ev) => ev.stopPropagation()}
-                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(168,85,247,0.18)', color: '#a855f7', textDecoration: 'none' }}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}
                             >
                               {t('integrations.common.viewWorkItem') || 'Open work item'} ↗
                             </a>
                           )}
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--panel-alt)', color: '#cf5b57' }}>
                             {(t('integrations.common.countX') || '{n} times').replace('{n}', e.occurrences.toLocaleString())}
                           </span>
                           {e.last_seen && (
@@ -901,10 +898,10 @@ export default function NewRelicPage() {
                 position: 'absolute', inset: 0,
                 background: 'rgba(0,0,0,0.4)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 20, borderRadius: 14,
+                padding: 20, borderRadius: 10,
               }}>
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.35)' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.18)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 8 }}>
                     {t('integrations.common.confirmImportTitle') || 'Onayla ve oluştur'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-58)', marginBottom: 12 }}>

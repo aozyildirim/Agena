@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import { ChipSelect, MultiChipSelect, SwitchToggle, SettingsField, SettingsCard } from '@/components/SettingsControls';
+import NavIcon from '@/components/NavIcon';
 
 type Decision = {
   id: number;
@@ -40,9 +41,9 @@ type Settings = {
 };
 
 const VERDICT_COLOR: Record<string, string> = {
-  close: '#10b981',
-  snooze: '#f59e0b',
-  keep: '#6366f1',
+  close: '#3f9d6a',
+  snooze: '#c98a2b',
+  keep: '#5b9bd5',
 };
 
 const VERDICT_ICON: Record<string, string> = {
@@ -52,9 +53,9 @@ const VERDICT_ICON: Record<string, string> = {
 };
 
 const SOURCE_ICON: Record<string, string> = {
-  jira: '🪐',
-  azure_devops: '🟦',
-  azure: '🟦',
+  jira: 'clipboard',
+  azure_devops: 'box',
+  azure: 'box',
 };
 
 export default function TriagePage() {
@@ -291,11 +292,11 @@ export default function TriagePage() {
     <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gap: 16 }}>
       <header style={{ display: 'grid', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#10b981', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--acc)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
             {t('triage.eyebrow')}
           </div>
-          <h1 style={{ fontSize: 'clamp(20px, 5vw, 28px)', fontWeight: 800, margin: 0, color: 'var(--ink-90)', lineHeight: 1.2 }}>
-            🧹 {t('triage.title')}
+          <h1 style={{ fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 700, margin: 0, color: 'var(--ink-90)', lineHeight: 1.2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <NavIcon name="triage" size={18} /> {t('triage.title')}
           </h1>
           <p style={{ fontSize: 'clamp(12px, 3.4vw, 14px)', color: 'var(--ink-58)', marginTop: 6, lineHeight: 1.55, maxWidth: 720 }}>
             {t('triage.longSubtitle')}
@@ -309,14 +310,14 @@ export default function TriagePage() {
           style={{
             border: '1px solid var(--panel-border)',
             background: 'var(--panel)',
-            borderRadius: 12,
+            borderRadius: 10,
             padding: '10px 14px',
             fontSize: 12,
             color: 'var(--ink-78)',
           }}
         >
-          <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink-90)' }}>
-            💡 {t('triage.help.title' as TranslationKey)}
+          <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink-90)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <NavIcon name="zap" size={14} /> {t('triage.help.title' as TranslationKey)}
           </summary>
           <div style={{ marginTop: 8, lineHeight: 1.55, display: 'grid', gap: 4 }}>
             <div>{t('triage.help.body' as TranslationKey)}</div>
@@ -330,10 +331,10 @@ export default function TriagePage() {
 
         {decisions && decisions.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
-            <TriageStatTile label={t('triage.stat.total')} value={decisions.length} accent='#6366f1' />
-            <TriageStatTile label={t('triage.stat.suggestClose')} value={decisions.filter((d) => d.ai_verdict === 'close').length} accent='#10b981' />
-            <TriageStatTile label={t('triage.stat.suggestSnooze')} value={decisions.filter((d) => d.ai_verdict === 'snooze').length} accent='#f59e0b' />
-            <TriageStatTile label={t('triage.stat.suggestKeep')} value={decisions.filter((d) => d.ai_verdict === 'keep').length} accent='#818cf8' />
+            <TriageStatTile label={t('triage.stat.total')} value={decisions.length} accent='var(--acc)' />
+            <TriageStatTile label={t('triage.stat.suggestClose')} value={decisions.filter((d) => d.ai_verdict === 'close').length} accent='#3f9d6a' />
+            <TriageStatTile label={t('triage.stat.suggestSnooze')} value={decisions.filter((d) => d.ai_verdict === 'snooze').length} accent='#c98a2b' />
+            <TriageStatTile label={t('triage.stat.suggestKeep')} value={decisions.filter((d) => d.ai_verdict === 'keep').length} accent='var(--acc)' />
           </div>
         )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -341,8 +342,8 @@ export default function TriagePage() {
             onClick={scanNow}
             disabled={scanning}
             style={{
-              padding: '8px 14px', borderRadius: 10,
-              background: scanning ? 'var(--panel)' : 'linear-gradient(135deg, #10b981, #06b6d4)',
+              padding: '8px 14px', borderRadius: 8,
+              background: scanning ? 'var(--panel)' : 'var(--acc)',
               color: scanning ? 'var(--ink-58)' : '#fff',
               border: scanning ? '1px solid var(--panel-border)' : 'none',
               fontSize: 12, fontWeight: 700, cursor: scanning ? 'wait' : 'pointer',
@@ -360,36 +361,38 @@ export default function TriagePage() {
             <button
               onClick={() => void applyAll()}
               style={{
-                padding: '8px 14px', borderRadius: 10,
-                background: 'rgba(16,185,129,0.12)', color: '#10b981',
-                border: '1px solid rgba(16,185,129,0.3)',
+                padding: '8px 14px', borderRadius: 8,
+                background: 'rgba(63,157,106,0.12)', color: '#3f9d6a',
+                border: '1px solid rgba(63,157,106,0.3)',
                 fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
               }}
             >
-              ✓✓ {t('triage.applyAll')} ({decisions.length})
+              <NavIcon name="send" size={14} /> {t('triage.applyAll')} ({decisions.length})
             </button>
           )}
           <button
             onClick={() => setShowSettings((v) => !v)}
             style={{
-              padding: '8px 12px', borderRadius: 10,
-              background: showSettings ? 'rgba(99,102,241,0.12)' : 'var(--panel)',
-              color: showSettings ? '#818cf8' : 'var(--ink-78)',
+              padding: '8px 12px', borderRadius: 8,
+              background: showSettings ? 'var(--acc-soft)' : 'var(--panel)',
+              color: showSettings ? 'var(--acc)' : 'var(--ink-78)',
               border: '1px solid var(--panel-border)',
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}
           >
-            ⚙ {t('triage.settings')}
+            <NavIcon name="settings" size={14} /> {t('triage.settings')}
           </button>
-          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10 }}>
+          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 8 }}>
             {(['pending', 'applied', 'skipped'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
                 style={{
-                  padding: '6px 10px', borderRadius: 7, border: 'none',
-                  background: statusFilter === s ? 'rgba(16,185,129,0.16)' : 'transparent',
-                  color: statusFilter === s ? '#10b981' : 'var(--ink-58)',
+                  padding: '6px 10px', borderRadius: 6, border: 'none',
+                  background: statusFilter === s ? 'var(--acc-soft)' : 'transparent',
+                  color: statusFilter === s ? 'var(--acc)' : 'var(--ink-58)',
                   fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 }}
               >
@@ -411,13 +414,13 @@ export default function TriagePage() {
           });
           if (visible.length === 0) return null;
           return (
-            <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 8, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setProjectFilter('all')}
                 style={{
-                  padding: '6px 10px', borderRadius: 7, border: 'none',
-                  background: projectFilter === 'all' ? 'rgba(94,234,212,0.16)' : 'transparent',
-                  color: projectFilter === 'all' ? '#5eead4' : 'var(--ink-58)',
+                  padding: '6px 10px', borderRadius: 6, border: 'none',
+                  background: projectFilter === 'all' ? 'var(--acc-soft)' : 'transparent',
+                  color: projectFilter === 'all' ? 'var(--acc)' : 'var(--ink-58)',
                   fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 }}
               >
@@ -430,13 +433,14 @@ export default function TriagePage() {
                     key={`${p.source}:${p.project_key}`}
                     onClick={() => setProjectFilter(p.project_key)}
                     style={{
-                      padding: '6px 10px', borderRadius: 7, border: 'none',
-                      background: isActive ? 'rgba(94,234,212,0.16)' : 'transparent',
-                      color: isActive ? '#5eead4' : 'var(--ink-58)',
+                      padding: '6px 10px', borderRadius: 6, border: 'none',
+                      background: isActive ? 'var(--acc-soft)' : 'transparent',
+                      color: isActive ? 'var(--acc)' : 'var(--ink-58)',
                       fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
                     }}
                   >
-                    {p.source === 'jira' ? '📋' : '☁️'} {p.project_key}
+                    <NavIcon name={p.source === 'jira' ? 'clipboard' : 'box'} size={13} /> {p.project_key}
                     <span style={{ opacity: 0.6, marginLeft: 4 }}>({p.count})</span>
                   </button>
                 );
@@ -457,13 +461,13 @@ export default function TriagePage() {
           });
           if (visible.length === 0) return null;
           return (
-            <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 8, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setStateFilter('all')}
                 style={{
-                  padding: '6px 10px', borderRadius: 7, border: 'none',
-                  background: stateFilter === 'all' ? 'rgba(56,189,248,0.16)' : 'transparent',
-                  color: stateFilter === 'all' ? '#38bdf8' : 'var(--ink-58)',
+                  padding: '6px 10px', borderRadius: 6, border: 'none',
+                  background: stateFilter === 'all' ? 'var(--acc-soft)' : 'transparent',
+                  color: stateFilter === 'all' ? 'var(--acc)' : 'var(--ink-58)',
                   fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 }}
               >
@@ -476,9 +480,9 @@ export default function TriagePage() {
                     key={`${s.source}:${s.state}`}
                     onClick={() => setStateFilter(s.state)}
                     style={{
-                      padding: '6px 10px', borderRadius: 7, border: 'none',
-                      background: isActive ? 'rgba(56,189,248,0.16)' : 'transparent',
-                      color: isActive ? '#38bdf8' : 'var(--ink-58)',
+                      padding: '6px 10px', borderRadius: 6, border: 'none',
+                      background: isActive ? 'var(--acc-soft)' : 'transparent',
+                      color: isActive ? 'var(--acc)' : 'var(--ink-58)',
                       fontSize: 11, fontWeight: 700, cursor: 'pointer',
                       textTransform: 'uppercase', letterSpacing: 0.4,
                     }}
@@ -496,11 +500,11 @@ export default function TriagePage() {
             from the loaded `decisions` slice (filtered by the active
             status), so the count next to each tab matches what the
             user is about to see if they switch. */}
-        <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, alignSelf: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 8, alignSelf: 'flex-start' }}>
           {([
-            { key: 'all', label: t('triage.source.all' as TranslationKey), icon: '⌭', accent: '#6366f1' },
-            { key: 'jira', label: 'Jira', icon: '📋', accent: '#0052cc' },
-            { key: 'azure', label: 'Azure DevOps', icon: '☁️', accent: '#0078d4' },
+            { key: 'all', label: t('triage.source.all' as TranslationKey), icon: 'grid', accent: '#5b9bd5' },
+            { key: 'jira', label: 'Jira', icon: 'clipboard', accent: '#5b9bd5' },
+            { key: 'azure', label: 'Azure DevOps', icon: 'box', accent: '#5b9bd5' },
           ] as const).map((tab) => {
             const isActive = sourceFilter === tab.key;
             return (
@@ -508,14 +512,14 @@ export default function TriagePage() {
                 key={tab.key}
                 onClick={() => setSourceFilter(tab.key)}
                 style={{
-                  padding: '6px 12px', borderRadius: 7, border: 'none',
+                  padding: '6px 12px', borderRadius: 6, border: 'none',
                   background: isActive ? `${tab.accent}26` : 'transparent',
                   color: isActive ? tab.accent : 'var(--ink-58)',
                   fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
-                <span>{tab.icon}</span>
+                <NavIcon name={tab.icon} size={14} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -537,14 +541,14 @@ export default function TriagePage() {
             <SwitchToggle
               value={settings.triage_enabled}
               onChange={(v) => void saveSettings({ triage_enabled: v })}
-              accent='#10b981'
+              accent='#5b9bd5'
             />
           </SettingsField>
           <SettingsField label={t('triage.set.idleDays')} hint={t('triage.set.idleDaysHint')}>
             <ChipSelect<number>
               value={settings.triage_idle_days}
               onChange={(v) => void saveSettings({ triage_idle_days: v })}
-              accent='#10b981'
+              accent='#5b9bd5'
               options={[
                 { value: 1, label: t('duration.1d') },
                 { value: 3, label: t('duration.3d') },
@@ -566,7 +570,7 @@ export default function TriagePage() {
             <ChipSelect<number>
               value={settings.triage_max_age_days ?? 365}
               onChange={(v) => void saveSettings({ triage_max_age_days: v } as Partial<Settings>)}
-              accent='#06b6d4'
+              accent='#5b9bd5'
               options={[
                 { value: 30, label: t('duration.1mo' as TranslationKey) },
                 { value: 90, label: t('duration.3mo' as TranslationKey) },
@@ -584,7 +588,7 @@ export default function TriagePage() {
             <MultiChipSelect
               value={settings.triage_sources}
               onChange={(csv) => void saveSettings({ triage_sources: csv })}
-              accent='#6366f1'
+              accent='#5b9bd5'
               options={[
                 { value: 'jira', label: 'Jira', icon: '🪐' },
                 { value: 'azure_devops', label: 'Azure DevOps', icon: '🟦' },
@@ -597,7 +601,7 @@ export default function TriagePage() {
             <ChipSelect<string>
               value={settings.triage_schedule_cron}
               onChange={(v) => void saveSettings({ triage_schedule_cron: v })}
-              accent='#10b981'
+              accent='#5b9bd5'
               options={[
                 { value: '0 */6 * * *', label: t('schedule.every6h') },
                 { value: '0 */12 * * *', label: t('schedule.every12h') },
@@ -612,7 +616,7 @@ export default function TriagePage() {
       )}
 
       {error && (
-        <div style={{ padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13 }}>
+        <div style={{ padding: 12, borderRadius: 8, background: 'rgba(207,91,87,0.1)', border: '1px solid rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -620,8 +624,8 @@ export default function TriagePage() {
       {decisions === null ? (
         <div style={{ padding: 24, color: 'var(--ink-58)', fontSize: 14 }}>{t('triage.loading')}</div>
       ) : decisions.length === 0 ? (
-        <div style={{ padding: 32, borderRadius: 14, background: 'var(--panel)', border: '1px solid var(--panel-border)', textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
+        <div style={{ padding: 32, borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border)', textAlign: 'center' }}>
+          <div style={{ marginBottom: 8, color: 'var(--ink-42)', display: 'flex', justifyContent: 'center' }}><NavIcon name="triage" size={32} /></div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 4 }}>{t('triage.empty.title')}</div>
           <div style={{ fontSize: 13, color: 'var(--ink-58)', maxWidth: 480, margin: '0 auto', lineHeight: 1.55 }}>
             {t('triage.empty.body')}
@@ -631,12 +635,12 @@ export default function TriagePage() {
         <div style={{ display: 'grid', gap: 10 }}>
           {decisions.map((d) => {
             const verdict = d.ai_verdict || 'keep';
-            const color = VERDICT_COLOR[verdict] || '#6366f1';
+            const color = VERDICT_COLOR[verdict] || '#5b9bd5';
             return (
               <article
                 key={d.id}
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 10,
                   background: 'var(--panel)',
                   border: '1px solid var(--panel-border)',
                   borderLeft: `4px solid ${color}`,
@@ -646,12 +650,12 @@ export default function TriagePage() {
                 }}
               >
                 <header style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 16, flexShrink: 0 }}>{SOURCE_ICON[d.source] || '📋'}</span>
+                  <span style={{ flexShrink: 0, display: 'inline-flex', color: 'var(--ink-58)' }}><NavIcon name={SOURCE_ICON[d.source] || 'clipboard'} size={16} /></span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-58)', fontFamily: 'ui-monospace, monospace' }}>
                     {d.external_id}
                   </span>
                   {d.project_key && (
-                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'rgba(99,102,241,0.10)', color: '#818cf8', fontWeight: 700, letterSpacing: 0.4 }}>
+                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: 'var(--acc-soft)', color: 'var(--acc)', fontWeight: 700, letterSpacing: 0.4 }}>
                       {d.project_key}
                     </span>
                   )}
@@ -660,28 +664,28 @@ export default function TriagePage() {
                     // the review-backlog convention for consistency.
                     const s = d.ticket_state.toLowerCase();
                     const palette: Record<string, { bg: string; fg: string }> = {
-                      active:        { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      open:          { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      new:           { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      'to do':       { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      'in progress': { bg: 'rgba(56,189,248,0.15)',  fg: '#38bdf8' },
-                      committed:     { bg: 'rgba(56,189,248,0.15)',  fg: '#38bdf8' },
-                      'code review': { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
-                      'in review':   { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
-                      review:        { bg: 'rgba(167,139,250,0.15)', fg: '#a78bfa' },
-                      'qa to do':    { bg: 'rgba(244,114,182,0.15)', fg: '#f472b6' },
-                      'in qa':       { bg: 'rgba(244,114,182,0.15)', fg: '#f472b6' },
-                      blocked:       { bg: 'rgba(239,68,68,0.15)',   fg: '#ef4444' },
-                      pending:       { bg: 'rgba(245,158,11,0.15)',  fg: '#f59e0b' },
+                      active:        { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      open:          { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      new:           { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      'to do':       { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      'in progress': { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      committed:     { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      'code review': { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      'in review':   { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      review:        { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      'qa to do':    { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      'in qa':       { bg: 'rgba(91,155,213,0.15)',  fg: '#5b9bd5' },
+                      blocked:       { bg: 'rgba(207,91,87,0.15)',   fg: '#cf5b57' },
+                      pending:       { bg: 'rgba(201,138,43,0.15)',  fg: '#c98a2b' },
                     };
-                    const c = palette[s] || { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' };
+                    const c = palette[s] || { bg: 'rgba(148,163,184,0.18)', fg: 'var(--muted)' };
                     return (
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, background: c.bg, color: c.fg, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                         {d.ticket_state}
                       </span>
                     );
                   })()}
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(201,138,43,0.12)', color: '#c98a2b', fontWeight: 700 }}>
                     {d.idle_days} {t('triage.daysIdle')}
                   </span>
                   <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: `${color}22`, color, fontWeight: 700 }}>
@@ -699,8 +703,8 @@ export default function TriagePage() {
                   )}
                 </div>
                 {d.ai_reasoning && (
-                  <p style={{ fontSize: 12, color: 'var(--ink-58)', margin: 0, lineHeight: 1.55, fontStyle: 'italic' }}>
-                    🤖 {d.ai_reasoning}
+                  <p style={{ fontSize: 12, color: 'var(--ink-58)', margin: 0, lineHeight: 1.55, fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                    <NavIcon name="zap" size={13} /> {d.ai_reasoning}
                   </p>
                 )}
                 <footer style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -708,46 +712,46 @@ export default function TriagePage() {
                     <>
                       <button
                         onClick={() => requestApply(d, verdict)}
-                        style={{ padding: '5px 11px', borderRadius: 8, background: `${color}22`, color, border: `1px solid ${color}55`, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        style={{ padding: '5px 11px', borderRadius: 7, background: `${color}22`, color, border: `1px solid ${color}55`, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       >
-                        ✓✓ {t('triage.applyAi')}
+                        <NavIcon name="send" size={12} /> {t('triage.applyAi')}
                       </button>
                       <button
                         onClick={() => requestApply(d, 'close')}
-                        style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        style={{ padding: '5px 11px', borderRadius: 7, background: 'rgba(63,157,106,0.1)', color: '#3f9d6a', border: '1px solid rgba(63,157,106,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       >
-                        ✓ {t('triage.close')}
+                        <NavIcon name="close" size={12} /> {t('triage.close')}
                       </button>
                       <button
                         onClick={() => requestApply(d, 'snooze')}
-                        style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        style={{ padding: '5px 11px', borderRadius: 7, background: 'rgba(201,138,43,0.1)', color: '#c98a2b', border: '1px solid rgba(201,138,43,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       >
-                        ⏸ {t('triage.snooze')}
+                        <NavIcon name="clock" size={12} /> {t('triage.snooze')}
                       </button>
                       <button
                         onClick={() => requestApply(d, 'keep')}
-                        style={{ padding: '5px 11px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        style={{ padding: '5px 11px', borderRadius: 7, background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--panel-border)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       >
-                        ⛔ {t('triage.keep')}
+                        <NavIcon name="shield" size={12} /> {t('triage.keep')}
                       </button>
                       <button
                         onClick={() => void skipOne(d.id)}
-                        style={{ padding: '5px 11px', borderRadius: 8, background: 'transparent', color: 'var(--ink-58)', border: '1px solid var(--panel-border)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        style={{ padding: '5px 11px', borderRadius: 7, background: 'transparent', color: 'var(--ink-58)', border: '1px solid var(--panel-border)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       >
-                        ↩ {t('triage.skip')}
+                        <NavIcon name="chevron-right" size={12} /> {t('triage.skip')}
                       </button>
                     </>
                   ) : (
                     <span
                       style={{
                         padding: '4px 10px', borderRadius: 999,
-                        background: d.applied_verdict === 'close' ? 'rgba(16,185,129,0.16)'
-                                  : d.applied_verdict === 'snooze' ? 'rgba(245,158,11,0.16)'
-                                  : d.applied_verdict === 'keep'   ? 'rgba(99,102,241,0.16)'
+                        background: d.applied_verdict === 'close' ? 'rgba(63,157,106,0.16)'
+                                  : d.applied_verdict === 'snooze' ? 'rgba(201,138,43,0.16)'
+                                  : d.applied_verdict === 'keep'   ? 'var(--acc-soft)'
                                   : 'rgba(148,163,184,0.16)',
-                        color:      d.applied_verdict === 'close' ? '#10b981'
-                                  : d.applied_verdict === 'snooze' ? '#f59e0b'
-                                  : d.applied_verdict === 'keep'   ? '#818cf8'
+                        color:      d.applied_verdict === 'close' ? '#3f9d6a'
+                                  : d.applied_verdict === 'snooze' ? '#c98a2b'
+                                  : d.applied_verdict === 'keep'   ? 'var(--acc)'
                                   : 'var(--ink-58)',
                         fontSize: 11, fontWeight: 700,
                       }}
@@ -774,17 +778,17 @@ export default function TriagePage() {
           onClick={() => setConfirmIntent(null)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(6px)', zIndex: 9999,
+            zIndex: 9999,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 20,
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{
-            width: 'min(480px, 100%)', borderRadius: 14, padding: 20,
+            width: 'min(480px, 100%)', borderRadius: 10, padding: 20,
             background: 'var(--surface)', border: '1px solid var(--panel-border)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'grid', gap: 12,
+            boxShadow: '0 12px 32px rgba(0,0,0,0.25)', display: 'grid', gap: 12,
           }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>
               {t(('triage.confirm.' + confirmIntent.verdict) as TranslationKey, { defaultValue: '' }) ||
                t('triage.confirm.title' as TranslationKey)}
             </div>
@@ -817,7 +821,7 @@ export default function TriagePage() {
                   await applyOne(intent.id, intent.verdict);
                 }}
                 style={{ padding: '8px 14px', borderRadius: 8,
-                         background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                         background: 'var(--acc)',
                          color: '#fff', border: 'none',
                          fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >
@@ -835,15 +839,15 @@ export default function TriagePage() {
 function TriageStatTile({ label, value, accent }: { label: string; value: number | string; accent: string }) {
   return (
     <div style={{
-      padding: '12px 14px', borderRadius: 12,
+      padding: '12px 14px', borderRadius: 10,
       background: 'var(--panel)', border: '1px solid var(--panel-border)',
       borderLeft: `3px solid ${accent}`,
       display: 'grid', gap: 4,
     }}>
-      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'var(--ink-42)', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--ink-42)', textTransform: 'uppercase' }}>
         {label}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', lineHeight: 1 }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1 }}>
         {value}
       </div>
     </div>

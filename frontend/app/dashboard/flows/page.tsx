@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch, loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, loadPromptCatalog } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type AgentRole = 'lead_developer' | 'pm' | 'qa' | 'manager' | 'developer' | string;
@@ -564,7 +565,7 @@ export default function FlowsPage() {
                 </button>
                 {activeFlow === f.id && (
                   <button onClick={() => requestDeleteFlow(f)} title={t('flows.deleteFlow')}
-                    style={{ padding: '6px 7px', borderRadius: '0 8px 8px 0', border: '1px solid rgba(248,113,113,0.25)', borderLeft: 'none', background: 'rgba(248,113,113,0.08)', color: '#f87171', fontSize: 11, cursor: 'pointer' }}>×</button>
+                    style={{ padding: '6px 7px', borderRadius: '0 8px 8px 0', border: '1px solid var(--panel-border-3)', borderLeft: 'none', background: 'transparent', color: '#cf5b57', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={12}/></button>
                 )}
               </div>
             ))}
@@ -574,13 +575,13 @@ export default function FlowsPage() {
                   onKeyDown={(e) => e.key === 'Enter' && createFlow()}
                   placeholder={t('flows.newPlaceholder')} autoFocus
                   style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12, outline: 'none', width: 120 }} />
-                <button onClick={createFlow} style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: '#0d9488', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>+</button>
-                <button onClick={() => setCreating(false)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-35)', fontSize: 12, cursor: 'pointer' }}>×</button>
+                <button onClick={createFlow} style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="plus" size={14}/></button>
+                <button onClick={() => setCreating(false)} style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-35)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={13}/></button>
               </div>
             ) : (
               <button onClick={() => setCreating(true)}
-                style={{ padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--ink-25)', background: 'transparent', color: 'var(--ink-35)', fontSize: 12, cursor: 'pointer' }}>
-                + {t('flows.new')}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px dashed var(--ink-25)', background: 'transparent', color: 'var(--ink-35)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <NavIcon name="plus" size={13}/> {t('flows.new')}
               </button>
             )}
           </div>
@@ -589,7 +590,7 @@ export default function FlowsPage() {
         {/* Row 2: Actions — grouped and compact */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={toggleRuns}
-            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (showRuns ? 'rgba(94,234,212,0.4)' : 'var(--panel-border-3)'), background: showRuns ? 'rgba(94,234,212,0.1)' : 'transparent', color: showRuns ? '#5eead4' : 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (showRuns ? 'var(--acc)' : 'var(--panel-border-3)'), background: showRuns ? 'var(--acc-soft)' : 'transparent', color: showRuns ? 'var(--acc)' : 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.runHistory')}
           </button>
           <button onClick={() => setShowTemplates(true)}
@@ -611,20 +612,20 @@ export default function FlowsPage() {
             ))}
           </select>
           <button onClick={rollbackToVersion} disabled={!selectedVersionId}
-            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.25)', background: selectedVersionId ? 'rgba(248,113,113,0.08)' : 'transparent', color: selectedVersionId ? '#f87171' : 'var(--ink-25)', fontSize: 11, cursor: selectedVersionId ? 'pointer' : 'not-allowed', fontWeight: 600 }}>
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: selectedVersionId ? '#cf5b57' : 'var(--ink-25)', fontSize: 11, cursor: selectedVersionId ? 'pointer' : 'not-allowed', fontWeight: 600 }}>
             {t('flows.rollback')}
           </button>
           <div style={{ width: 1, height: 16, background: 'var(--panel-border-2)' }} />
           <button onClick={() => void runDrySimulation()} disabled={runningDryRun || !current}
-            style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.1)', color: '#22c55e', fontSize: 11, cursor: runningDryRun ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+            style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--acc-soft)', color: 'var(--acc)', fontSize: 11, cursor: runningDryRun ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
             {runningDryRun ? t('flows.dryRunning') : t('flows.dryRun')}
           </button>
         </div>
       </div>
 
       {current && current.nodes.some((n) => n.waitForApproval) && (
-        <div style={{ marginBottom: 12, borderRadius: 12, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)', padding: '10px 12px', display: 'grid', gap: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{t('flows.approvalGates')}</div>
+        <div style={{ marginBottom: 12, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', padding: '10px 12px', display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#c98a2b' }}>{t('flows.approvalGates')}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {current.nodes.filter((n) => n.waitForApproval).map((n) => (
               <button key={n.id} onClick={() => {
@@ -637,7 +638,7 @@ export default function FlowsPage() {
                   severity: nextApproved ? 'success' : 'warning',
                 });
               }}
-                style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid ' + (gateApprovals[n.id] ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.35)'), background: gateApprovals[n.id] ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: gateApprovals[n.id] ? '#22c55e' : '#f59e0b', fontSize: 12, cursor: 'pointer' }}>
+                style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: gateApprovals[n.id] ? '#3f9d6a' : '#c98a2b', fontSize: 12, cursor: 'pointer' }}>
                 {gateApprovals[n.id] ? t('flows.approved') : t('flows.pending')}: {n.label}
               </button>
             ))}
@@ -655,25 +656,25 @@ export default function FlowsPage() {
       )}
 
       {deleteCandidate && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ width: 'min(500px, 100%)', borderRadius: 16, border: '1px solid rgba(248,113,113,0.28)', background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-            <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(248,113,113,0.9), transparent)' }} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(500px, 100%)', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+            <div style={{ height: 2, background: 'var(--panel-border)' }} />
             <div style={{ padding: 18, display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{t('flows.deleteConfirmTitle')}</div>
-                <button onClick={() => setDeleteCandidate(null)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 13 }}>×</button>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{t('flows.deleteConfirmTitle')}</div>
+                <button onClick={() => setDeleteCandidate(null)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={14}/></button>
               </div>
               <div style={{ fontSize: 13, color: 'var(--ink-58)', lineHeight: 1.6 }}>
                 {t('flows.deleteConfirmDesc')}
               </div>
-              <div style={{ borderRadius: 10, border: '1px solid rgba(248,113,113,0.28)', background: 'rgba(248,113,113,0.08)', color: 'var(--ink-78)', padding: '8px 10px', fontSize: 12, fontWeight: 700 }}>
+              <div style={{ borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-78)', padding: '8px 10px', fontSize: 12, fontWeight: 700 }}>
                 {deleteCandidate.name}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 2 }}>
                 <button onClick={() => setDeleteCandidate(null)} className='button button-outline' style={{ minWidth: 110, justifyContent: 'center' }}>
                   {t('flows.cancel')}
                 </button>
-                <button onClick={confirmDeleteFlow} className='button button-outline' style={{ minWidth: 140, justifyContent: 'center', borderColor: 'rgba(248,113,113,0.45)', color: '#f87171', background: 'rgba(248,113,113,0.1)' }}>
+                <button onClick={confirmDeleteFlow} className='button button-outline' style={{ minWidth: 140, justifyContent: 'center', borderColor: 'var(--panel-border-3)', color: '#cf5b57', background: 'transparent' }}>
                   {t('flows.deleteNow')}
                 </button>
               </div>
@@ -684,22 +685,22 @@ export default function FlowsPage() {
 
       {/* Templates modal */}
       {showTemplates && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ width: 'min(620px, 100%)', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-            <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.9), transparent)' }} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 260, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(620px, 100%)', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+            <div style={{ height: 2, background: 'var(--panel-border)' }} />
             <div style={{ padding: 18, display: 'grid', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{t('flows.templates')}</div>
-                <button onClick={() => setShowTemplates(false)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 13 }}>x</button>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{t('flows.templates')}</div>
+                <button onClick={() => setShowTemplates(false)} style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={14}/></button>
               </div>
               <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>Start from a predefined template. A new flow will be created.</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
                 {FLOW_TEMPLATES.map((tpl) => (
                   <button key={tpl.name} onClick={() => loadTemplate(tpl)}
-                    style={{ padding: 14, borderRadius: 12, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6, transition: 'border-color 0.15s, background 0.15s' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(13,148,136,0.5)'; (e.currentTarget as HTMLElement).style.background = 'rgba(13,148,136,0.06)'; }}
+                    style={{ padding: 14, borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6, transition: 'border-color 0.15s, background 0.15s' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--acc)'; (e.currentTarget as HTMLElement).style.background = 'var(--acc-soft)'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--panel-border-3)'; (e.currentTarget as HTMLElement).style.background = 'var(--panel)'; }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{tpl.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{tpl.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink-45)', lineHeight: 1.4 }}>{tpl.description}</div>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
                       {tpl.nodes.map((n) => (
@@ -722,7 +723,7 @@ export default function FlowsPage() {
           {current ? (
             <FlowCanvas flow={current} onChange={updateFlow} />
           ) : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-25)', fontSize: 14, borderRadius: 20, border: '1px solid var(--panel-border)', background: 'var(--panel)' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-25)', fontSize: 14, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)' }}>
               {t('flows.empty')}
             </div>
           )}
@@ -757,11 +758,11 @@ function ExecutionTimeline({ steps, summary, nodes, onClose }: {
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
 
   const TIMELINE_COLORS: Record<string, string> = {
-    done: '#22c55e', completed: '#22c55e',
-    failed: '#f87171',
-    running: '#38bdf8',
-    waiting: '#f59e0b',
-    skipped: '#6b7280',
+    done: '#3f9d6a', completed: '#3f9d6a',
+    failed: '#cf5b57',
+    running: '#5b9bd5',
+    waiting: '#c98a2b',
+    skipped: '#94a3b8',
   };
 
   const totalDuration = steps.reduce((sum, s) => sum + s.durationMs, 0);
@@ -774,17 +775,17 @@ function ExecutionTimeline({ steps, summary, nodes, onClose }: {
   }
 
   return (
-    <div style={{ marginBottom: 12, borderRadius: 14, border: '1px solid rgba(34,197,94,0.2)', background: 'var(--panel)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ marginBottom: 12, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#22c55e' }}>{t('flows.dryRunResult')}</div>
-        <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }}>x</button>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-90)' }}>{t('flows.dryRunResult')}</div>
+        <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={14}/></button>
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{summary}</div>
 
       {/* Horizontal pipeline */}
       <div style={{ display: 'flex', gap: 2, alignItems: 'center', overflowX: 'auto', padding: '4px 0' }}>
         {steps.map((s, i) => {
-          const sc = TIMELINE_COLORS[s.status] ?? '#6b7280';
+          const sc = TIMELINE_COLORS[s.status] ?? '#94a3b8';
           const isExpanded = expandedStep === s.id;
           return (
             <React.Fragment key={s.id}>
@@ -809,7 +810,7 @@ function ExecutionTimeline({ steps, summary, nodes, onClose }: {
       {expandedStep && (() => {
         const step = steps.find((s) => s.id === expandedStep);
         if (!step) return null;
-        const sc = TIMELINE_COLORS[step.status] ?? '#6b7280';
+        const sc = TIMELINE_COLORS[step.status] ?? '#94a3b8';
         const node = nodes.find((n) => n.id === step.id);
         return (
           <div style={{ borderRadius: 10, border: '1px solid ' + sc + '30', background: sc + '06', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1099,13 +1100,13 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
   const canvasH = Math.max(400, ...visualNodes.map((n) => n.y + NODE_H + 80));
 
   return (
-    <div style={{ flex: 1, display: 'flex', gap: 0, minHeight: 0, borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface)', position: 'relative', height: '100%' }}>
+    <div style={{ flex: 1, display: 'flex', gap: 0, minHeight: 0, borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface)', position: 'relative', height: '100%' }}>
 
       {/* Left toolbar */}
       <div className="flow-toolbar-desktop" style={{ width: 52, flexShrink: 0, borderRight: '1px solid var(--panel-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 8, background: 'var(--panel-alt)' }}>
-        <ToolBtn title={t('flows.toolbarAddNode')} onClick={() => setShowPicker(true)}>+</ToolBtn>
+        <ToolBtn title={t('flows.toolbarAddNode')} onClick={() => setShowPicker(true)}><NavIcon name="plus" size={16}/></ToolBtn>
         <div style={{ flex: 1 }} />
-        <ToolBtn title={t('flows.toolbarReset')} onClick={() => setCanvasOffset({ x: 0, y: 0 })}>⊙</ToolBtn>
+        <ToolBtn title={t('flows.toolbarReset')} onClick={() => setCanvasOffset({ x: 0, y: 0 })}><NavIcon name="dot" size={16}/></ToolBtn>
       </div>
 
       {/* Canvas */}
@@ -1118,10 +1119,10 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
           onMouseDown={onCanvasMouseDown}>
           <defs>
             <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L8,3 z" fill="rgba(94,234,212,0.7)" />
+              <path d="M0,0 L0,6 L8,3 z" fill="rgba(91,155,213,0.7)" />
             </marker>
             <marker id="arrow-preview" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L8,3 z" fill="rgba(94,234,212,0.5)" />
+              <path d="M0,0 L0,6 L8,3 z" fill="rgba(91,155,213,0.5)" />
             </marker>
           </defs>
           <g transform={`translate(${canvasOffset.x},${canvasOffset.y})`}>
@@ -1133,14 +1134,14 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
               const midY = (from.y + to.y + NODE_H) / 2;
               return (
                 <g key={edge.from + '-' + edge.to} style={{ pointerEvents: 'all' }}>
-                  <path d={edgePath(from, to)} fill="none" stroke="rgba(94,234,212,0.25)" strokeWidth={2} markerEnd="url(#arrow)" style={{ pointerEvents: 'none' }} />
+                  <path d={edgePath(from, to)} fill="none" stroke="rgba(91,155,213,0.25)" strokeWidth={2} markerEnd="url(#arrow)" style={{ pointerEvents: 'none' }} />
                   {/* invisible wider hit area */}
                   <path d={edgePath(from, to)} fill="none" stroke="transparent" strokeWidth={12}
                     style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                     onMouseDown={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
                     onClick={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)} />
                   {/* delete dot */}
-                  <circle cx={midX} cy={midY} r={12} fill="var(--surface)" stroke="rgba(248,113,113,0.58)" strokeWidth={1.6}
+                  <circle cx={midX} cy={midY} r={12} fill="var(--surface)" stroke="rgba(207,91,87,0.58)" strokeWidth={1.6}
                     style={{ cursor: 'pointer', pointerEvents: 'all' }}
                     onMouseDown={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
                     onClick={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)} />
@@ -1149,7 +1150,7 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
                     y={midY + 4}
                     textAnchor="middle"
                     fontSize={12}
-                    fill="#f87171"
+                    fill="#cf5b57"
                     style={{ pointerEvents: 'all', userSelect: 'none', cursor: 'pointer' }}
                     onMouseDown={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
                     onClick={(e) => handleDeleteEdgeEvent(e, edge.from, edge.to)}
@@ -1173,7 +1174,7 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
                 <path
                   d={`M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`}
                   fill="none"
-                  stroke="rgba(94,234,212,0.5)"
+                  stroke="rgba(91,155,213,0.5)"
                   strokeWidth={2}
                   strokeDasharray="6 4"
                   markerEnd="url(#arrow-preview)"
@@ -1207,7 +1208,7 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
         {/* Empty state */}
         {flow.nodes.length === 0 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-            <div style={{ fontSize: 40, opacity: 0.08, marginBottom: 12 }}>⟳</div>
+            <div style={{ opacity: 0.12, marginBottom: 12, color: 'var(--ink-50)' }}><NavIcon name="flows" size={40}/></div>
             <div style={{ color: 'var(--panel-border-4)', fontSize: 13 }}>{t('flows.addNodeHint')}</div>
           </div>
         )}
@@ -1227,16 +1228,15 @@ function FlowCanvas({ flow, onChange }: { flow: Flow; onChange: (f: Flow) => voi
         style={{
           display: 'none', position: 'absolute', bottom: 16, right: 16, zIndex: 90,
           width: 48, height: 48, borderRadius: '50%',
-          background: 'var(--brand)', border: 'none', color: '#fff',
+          background: 'var(--acc)', border: 'none', color: '#fff',
           fontSize: 24, fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(13,148,136,0.4)',
           alignItems: 'center', justifyContent: 'center',
         }}
-      >+</button>
+      ><NavIcon name="plus" size={22}/></button>
 
       {/* Node picker panel */}
       {showPicker && (
-        <div style={{ position: 'absolute', left: 60, top: 12, zIndex: 100, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 16, width: 230, boxShadow: '0 12px 40px rgba(0,0,0,0.15)', maxHeight: 'calc(100% - 24px)', overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', left: 60, top: 12, zIndex: 100, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', padding: 16, width: 230, boxShadow: '0 12px 40px rgba(0,0,0,0.15)', maxHeight: 'calc(100% - 24px)', overflowY: 'auto' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink-30)', textTransform: 'uppercase', marginBottom: 8 }}>{t('flows.agentRoles')}</div>
           <div style={{ display: 'grid', gap: 5, marginBottom: 12 }}>
             {AGENT_PRESETS.map((p) => (
@@ -1295,7 +1295,7 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
   const [hovered, setHovered] = useState(false);
   const roleText = node.type === 'agent' ? agentRoleLabel(node.role, t) : nodeTypeLabel(node.type, t);
 
-  const borderColor = isDropTarget ? '#5eead4'
+  const borderColor = isDropTarget ? 'var(--acc)'
     : selected ? node.color
     : hovered ? node.color + '60'
     : 'var(--panel-border-3)';
@@ -1309,8 +1309,8 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
         borderRadius: 12,
         border: '1px solid ' + borderColor,
         borderLeft: '4px solid ' + node.color,
-        background: isDropTarget ? 'rgba(94,234,212,0.08)' : selected ? node.color + '0a' : 'var(--surface)',
-        boxShadow: isDropTarget ? '0 0 20px rgba(94,234,212,0.3)' : selected ? '0 0 20px ' + node.color + '20' : hovered ? '0 4px 16px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.08)',
+        background: isDropTarget ? 'var(--acc-soft)' : selected ? node.color + '0a' : 'var(--surface)',
+        boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.08)',
         cursor: connecting ? 'crosshair' : 'grab',
         userSelect: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s, background 0.15s',
@@ -1340,7 +1340,7 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
           <div style={{ fontSize: 10, color: 'var(--ink-45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 4 }}>{node.action}</div>
         )}
         {node.waitForApproval && (
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', marginTop: 2 }}>⏸ {t('flows.nodeAwaitingApproval')}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#c98a2b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}><NavIcon name="clock" size={11}/> {t('flows.nodeAwaitingApproval')}</div>
         )}
       </div>
 
@@ -1354,16 +1354,15 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
           style={{
             position: 'absolute', right: -8, top: '30%', transform: 'translateY(-50%)',
             width: 16, height: 16, borderRadius: '50%',
-            background: '#22c55e', border: '2px solid var(--surface)',
+            background: '#3f9d6a', border: '2px solid var(--surface)',
             cursor: 'crosshair', zIndex: 10,
             opacity: hovered || selected ? 1 : 0,
             transition: 'opacity 0.15s',
-            boxShadow: '0 0 8px #22c55e',
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1.4)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1)'; }}
         />
-        {(hovered || selected) && <div style={{ position: 'absolute', right: 12, top: 'calc(30% - 14px)', fontSize: 8, fontWeight: 700, color: '#22c55e', pointerEvents: 'none' }}>T</div>}
+        {(hovered || selected) && <div style={{ position: 'absolute', right: 12, top: 'calc(30% - 14px)', fontSize: 8, fontWeight: 700, color: '#3f9d6a', pointerEvents: 'none' }}>T</div>}
         {/* False connector — red, bottom-right */}
         <div
           title="False path"
@@ -1372,16 +1371,15 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
           style={{
             position: 'absolute', right: -8, top: '70%', transform: 'translateY(-50%)',
             width: 16, height: 16, borderRadius: '50%',
-            background: '#f87171', border: '2px solid var(--surface)',
+            background: '#cf5b57', border: '2px solid var(--surface)',
             cursor: 'crosshair', zIndex: 10,
             opacity: hovered || selected ? 1 : 0,
             transition: 'opacity 0.15s',
-            boxShadow: '0 0 8px #f87171',
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1.4)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1)'; }}
         />
-        {(hovered || selected) && <div style={{ position: 'absolute', right: 12, top: 'calc(70% - 14px)', fontSize: 8, fontWeight: 700, color: '#f87171', pointerEvents: 'none' }}>F</div>}
+        {(hovered || selected) && <div style={{ position: 'absolute', right: 12, top: 'calc(70% - 14px)', fontSize: 8, fontWeight: 700, color: '#cf5b57', pointerEvents: 'none' }}>F</div>}
       </>) : (
         <div
           title={t('flows.dragConnect')}
@@ -1394,7 +1392,6 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
             cursor: 'crosshair', zIndex: 10,
             opacity: hovered || selected ? 1 : 0,
             transition: 'opacity 0.15s',
-            boxShadow: '0 0 8px ' + node.color,
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1.4)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1)'; }}
@@ -1405,21 +1402,20 @@ function FlowNodeCard({ node, index, selected, connecting, isDropTarget, onMouse
       <div style={{
         position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)',
         width: 16, height: 16, borderRadius: '50%',
-        background: isDropTarget ? '#5eead4' : 'var(--surface)',
-        border: '2px solid ' + (isDropTarget ? '#5eead4' : node.color),
+        background: isDropTarget ? 'var(--acc)' : 'var(--surface)',
+        border: '2px solid ' + (isDropTarget ? 'var(--acc)' : node.color),
         zIndex: 10,
         opacity: hovered || selected || isDropTarget ? 1 : 0,
         transition: 'opacity 0.15s, background 0.15s',
-        boxShadow: isDropTarget ? '0 0 10px rgba(94,234,212,0.6)' : 'none',
       }} />
 
       {/* Action buttons */}
       {(hovered || selected) && (
         <div style={{ position: 'absolute', top: -10, right: 8, display: 'flex', gap: 4 }}>
           <button onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid var(--panel-border-4)', background: 'var(--surface)', color: 'var(--ink-58)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✎</button>
+            style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid var(--panel-border-4)', background: 'var(--surface)', color: 'var(--ink-58)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="pencil" size={12}/></button>
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid rgba(248,113,113,0.3)', background: 'var(--surface)', color: '#f87171', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            style={{ width: 22, height: 22, borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: '#cf5b57', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={12}/></button>
         </div>
       )}
     </div>
@@ -1456,7 +1452,7 @@ function VariablePicker({ targetRef, onInsert }: { targetRef: React.RefObject<HT
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button onClick={() => setOpen(!open)} title="Insert variable"
         style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid var(--panel-border-3)', background: open ? 'var(--panel)' : 'var(--glass)', color: 'var(--ink-45)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
-        {'\u{1F4CB}'}
+        <NavIcon name="clipboard" size={13}/>
       </button>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: 28, zIndex: 80, minWidth: 200, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 8px 24px rgba(0,0,0,0.18)', padding: 6 }}>
@@ -1564,10 +1560,10 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
 
   return (
     <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 300, borderLeft: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', zIndex: 50 }}>
-      <div style={{ height: 2, background: 'linear-gradient(90deg, ' + node.color + ', #7c3aed)' }} />
+      <div style={{ height: 2, background: 'var(--panel-border)' }} />
       <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{t('flows.nodeEditTitle')}</span>
-        <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14 }}>×</button>
+        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-90)' }}>{t('flows.nodeEditTitle')}</span>
+        <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={14}/></button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -1638,7 +1634,7 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
             <div onClick={() => onChange({ waitForApproval: !node.waitForApproval })}
-              style={{ width: 36, height: 20, borderRadius: 999, background: node.waitForApproval ? '#f59e0b' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+              style={{ width: 36, height: 20, borderRadius: 999, background: node.waitForApproval ? '#c98a2b' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
               <div style={{ position: 'absolute', top: 2, left: node.waitForApproval ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
             </div>
             <span style={{ fontSize: 13, color: 'var(--ink-58)' }}>{t('flows.nodeWaitApproval')}</span>
@@ -1648,14 +1644,14 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
             <>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <div onClick={() => onChange({ review_only: !node.review_only })}
-                  style={{ width: 36, height: 20, borderRadius: 999, background: node.review_only ? '#38bdf8' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  style={{ width: 36, height: 20, borderRadius: 999, background: node.review_only ? 'var(--acc)' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 2, left: node.review_only ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                 </div>
                 <span style={{ fontSize: 13, color: 'var(--ink-58)' }}>{t('flows.nodeReviewOnly')}</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <div onClick={() => onChange({ auto_fix_from_comments: !node.auto_fix_from_comments })}
-                  style={{ width: 36, height: 20, borderRadius: 999, background: node.auto_fix_from_comments !== false ? '#22c55e' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                  style={{ width: 36, height: 20, borderRadius: 999, background: node.auto_fix_from_comments !== false ? '#3f9d6a' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 2, left: node.auto_fix_from_comments !== false ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                 </div>
                 <span style={{ fontSize: 13, color: 'var(--ink-58)' }}>{t('flows.nodeAutoFixPrComments')}</span>
@@ -1750,9 +1746,9 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
                 {promptSlugs.map((slug) => <option key={slug} value={slug}>{slug}</option>)}
               </select>
               {node.prompt_slug && (
-                <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', fontSize: 11, fontWeight: 600, color: '#a78bfa' }}>
+                <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'var(--acc-soft)', border: '1px solid var(--panel-border-3)', fontSize: 11, fontWeight: 600, color: 'var(--acc)' }}>
                   {node.prompt_slug}
-                  <button onClick={() => onChange({ prompt_slug: '' })} style={{ border: 'none', background: 'none', color: '#a78bfa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>x</button>
+                  <button onClick={() => onChange({ prompt_slug: '' })} style={{ border: 'none', background: 'none', color: 'var(--acc)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>x</button>
                 </div>
               )}
             </div>
@@ -1948,7 +1944,7 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
               {node.labels && (
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                   {node.labels.split(',').map((l) => l.trim()).filter(Boolean).map((l) => (
-                    <span key={l} style={{ padding: '2px 8px', borderRadius: 999, background: 'rgba(110,64,201,0.12)', border: '1px solid rgba(110,64,201,0.3)', fontSize: 10, fontWeight: 600, color: '#6e40c9' }}>{l}</span>
+                    <span key={l} style={{ padding: '2px 8px', borderRadius: 999, background: 'var(--acc-soft)', border: '1px solid var(--panel-border-3)', fontSize: 10, fontWeight: 600, color: 'var(--acc)' }}>{l}</span>
                   ))}
                 </div>
               )}
@@ -2025,9 +2021,9 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
                           onChange({ azure_reviewers: next.join(', ') });
                         }} style={{
                           padding: '3px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                          background: selected ? 'rgba(0,120,212,0.15)' : 'var(--panel)',
-                          border: selected ? '1px solid rgba(0,120,212,0.4)' : '1px solid var(--panel-border)',
-                          color: selected ? '#0078d4' : 'var(--ink-50)',
+                          background: selected ? 'var(--acc-soft)' : 'var(--panel)',
+                          border: selected ? '1px solid var(--acc)' : '1px solid var(--panel-border)',
+                          color: selected ? 'var(--acc)' : 'var(--ink-50)',
                         }}>
                           {selected ? '✓ ' : ''}{m.displayName}
                         </button>
@@ -2113,8 +2109,8 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
           {/* Branching paths */}
           <CollapsibleSection title="Branch Targets" defaultOpen={true}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-              <div style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.06)' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>True path</div>
+              <div style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#3f9d6a', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>True path</div>
                 <select value={node.true_target ?? ''} onChange={(e) => onChange({ true_target: e.target.value })}
                   style={{ ...pInp, fontSize: 11, padding: '6px 8px', cursor: 'pointer' }}>
                   <option value="">-- none --</option>
@@ -2123,8 +2119,8 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
                   ))}
                 </select>
               </div>
-              <div style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.06)' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#f87171', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>False path</div>
+              <div style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#cf5b57', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>False path</div>
                 <select value={node.false_target ?? ''} onChange={(e) => onChange({ false_target: e.target.value })}
                   style={{ ...pInp, fontSize: 11, padding: '6px 8px', cursor: 'pointer' }}>
                   <option value="">-- none --</option>
@@ -2152,7 +2148,7 @@ function NodeEditPanel({ node, onChange, onClose, flow }: {
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
             <div onClick={() => onChange({ local_create_pr: !node.local_create_pr })}
-              style={{ width: 36, height: 20, borderRadius: 999, background: node.local_create_pr ? '#22c55e' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+              style={{ width: 36, height: 20, borderRadius: 999, background: node.local_create_pr ? '#3f9d6a' : 'var(--panel-border-3)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
               <div style={{ position: 'absolute', top: 2, left: node.local_create_pr ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
             </div>
             <span style={{ fontSize: 13, color: 'var(--ink-58)' }}>Create PR after apply</span>
@@ -2209,8 +2205,8 @@ const pInp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRa
 
 // ── RunHistoryPanel ───────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
-  completed: '#22c55e', failed: '#f87171', running: '#38bdf8',
-  pending: '#f59e0b', cancelled: '#6b7280',
+  completed: '#3f9d6a', failed: '#cf5b57', running: '#5b9bd5',
+  pending: '#c98a2b', cancelled: '#94a3b8',
 };
 
 function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose }: {
@@ -2246,14 +2242,14 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
   }
 
   return (
-    <div style={{ width: 320, flexShrink: 0, borderRadius: 20, border: '1px solid var(--panel-border)', background: 'var(--panel)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ width: 320, flexShrink: 0, borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink-78)' }}>{t('flows.runHistory')}</span>
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink-90)' }}>{t('flows.runHistory')}</span>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={onRefresh} title={t('flows.refresh')}
-            style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 12 }}>↻</button>
+            style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="activity" size={13}/></button>
           <button onClick={onClose}
-            style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14 }}>×</button>
+            style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name="close" size={14}/></button>
         </div>
       </div>
 
@@ -2303,11 +2299,11 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
                 {run.task_title && <div style={{ fontSize: 10, color: 'var(--ink-35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.task_title}</div>}
                 {flags.found && (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', padding: '2px 7px', borderRadius: 999, background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.35)' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#c98a2b', padding: '2px 7px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)' }}>
                       {t('flows.prFeedbackFound')}
                     </span>
                     {flags.rerun && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 7px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.35)' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#3f9d6a', padding: '2px 7px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)' }}>
                         {t('flows.developerRerunTriggered')}
                       </span>
                     )}
@@ -2357,7 +2353,7 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
                             <span style={{ fontSize: 9, color: 'var(--ink-30)' }}>{step.node_type}</span>
                             {tokens > 0 && <span style={{ fontSize: 9, color: 'var(--ink-30)' }}>{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}K` : tokens} tokens</span>}
                           </div>
-                          {step.error_msg && <div style={{ fontSize: 10, color: '#f87171', marginTop: 4 }}>{step.error_msg}</div>}
+                          {step.error_msg && <div style={{ fontSize: 10, color: '#cf5b57', marginTop: 4 }}>{step.error_msg}</div>}
                           {Boolean(out) && typeof out === 'object' && Boolean(out?.output) && (
                             <div style={{ fontSize: 9, color: 'var(--ink-45)', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 60, overflow: 'hidden' }}>
                               {String(out?.output).slice(0, 200)}
@@ -2368,11 +2364,11 @@ function RunHistoryPanel({ runs, loading, selected, onSelect, onRefresh, onClose
                     })}
                     {/* PR links */}
                     {prLinks.length > 0 && (
-                      <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(13,148,136,0.3)', background: 'rgba(13,148,136,0.06)' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: '#0d9488', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Pull Requests</div>
+                      <div style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--acc)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Pull Requests</div>
                         {prLinks.map((url, i) => (
                           <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'block', fontSize: 10, color: '#0d9488', fontWeight: 600, textDecoration: 'underline', wordBreak: 'break-all' }}>
+                            style={{ display: 'block', fontSize: 10, color: 'var(--acc)', fontWeight: 600, textDecoration: 'underline', wordBreak: 'break-all' }}>
                             {url}
                           </a>
                         ))}
