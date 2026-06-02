@@ -126,3 +126,37 @@ async def history(
         )
         for r in rows
     ]
+
+
+# Declared AFTER the static routes so it doesn't shadow /open, /review, /history.
+@router.get('/{review_id}')
+async def review_detail(
+    review_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    import json as _json
+    r = await pr_review_service.get_review(db, tenant.organization_id, review_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail='Review not found')
+    try:
+        details = _json.loads(r.details) if r.details else {}
+    except Exception:
+        details = {}
+    duration_sec = None
+    if r.created_at and r.completed_at:
+        duration_sec = int((r.completed_at - r.created_at).total_seconds())
+    return {
+        'id': r.id, 'provider': r.provider, 'repo': r.repo, 'pr_number': r.pr_number,
+        'pr_url': r.pr_url, 'title': r.title, 'status': r.status, 'severity': r.severity,
+        'score': r.score, 'findings_count': r.findings_count, 'threads_posted': r.threads_posted,
+        'threads_open': r.threads_open, 'reviewer_provider': r.reviewer_provider,
+        'reviewer_model': r.reviewer_model, 'error_message': r.error_message,
+        'created_at': r.created_at.isoformat() if r.created_at else '',
+        'completed_at': r.completed_at.isoformat() if r.completed_at else None,
+        'duration_sec': duration_sec,
+        'findings': details.get('findings') or [],
+        'reviewed_files': details.get('reviewed_files') or [],
+        'tokens': details.get('tokens') or 0,
+        'cost_usd': details.get('cost_usd'),
+    }
