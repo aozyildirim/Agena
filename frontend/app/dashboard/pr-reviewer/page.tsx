@@ -150,6 +150,9 @@ export default function PrReviewerPage() {
                   {failed && <span style={{ color: '#cf5b57', fontWeight: 700 }} title={rec?.error_message || ''}>✕ {t('prReviewer.errorLabel')}</span>}
                 </div>
               </div>
+              <a href={pr.url} target='_blank' rel='noreferrer' className='button button-outline prv-act' title={t('prReviewer.openPr')} style={{ height: 34, padding: '0 12px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-65)', textDecoration: 'none', fontSize: 12 }}>
+                {t('prReviewer.openPr')} ↗
+              </a>
               <button onClick={() => void review(pr)} className='button button-outline prv-act' style={{ height: 34, padding: '0 14px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7, opacity: running ? 0.8 : 1, ...(done ? { borderColor: 'var(--panel-border)' } : { borderColor: 'var(--acc)', color: 'var(--acc)' }) }} disabled={running}>
                 {running ? <><span className='prv-spin' /> {t('prReviewer.reviewing')}</> : (done || failed) ? `↻ ${t('prReviewer.rereview')}` : `✨ ${t('prReviewer.review')}`}
               </button>
