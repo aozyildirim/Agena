@@ -27,6 +27,7 @@ export default function PrReviewerPage() {
   const [history, setHistory] = useState<PrReview[]>([]);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [selected, setSelected] = useState<PrReview | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -89,9 +90,21 @@ export default function PrReviewerPage() {
   }, [repoId, loadHistory, t]);
 
   const field: React.CSSProperties = { height: 38, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-90)', padding: '0 10px', fontSize: 13, minWidth: 280 };
+  const selectedRepoName = repos.find((r) => String(r.id) === repoId)?.repo_name || '';
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: '100%' }}>
+      <style>{`
+        @keyframes prvFade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+        @keyframes prvPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+        @keyframes prvSpin { to { transform: rotate(360deg); } }
+        .prv-row { animation: prvFade .28s ease both; transition: background .15s ease, box-shadow .15s ease; border-left: 3px solid transparent; }
+        .prv-row:hover { background: var(--panel-alt); }
+        .prv-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #5b9bd5; animation: prvPulse 1.1s ease-in-out infinite; }
+        .prv-spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--panel-border); border-top-color: var(--acc); border-radius: 50%; animation: prvSpin .7s linear infinite; }
+        .prv-act { transition: transform .12s ease, background .15s ease, border-color .15s ease; }
+        .prv-act:hover:not(:disabled) { transform: translateY(-1px); }
+      `}</style>
       <div>
         <div className='section-label'>{t('nav.prReviewer')}</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6 }}>{t('prReviewer.title')}</h1>
@@ -115,19 +128,34 @@ export default function PrReviewerPage() {
       {/* Open PRs */}
       {prs.length > 0 && (
         <div style={{ ...card, overflow: 'hidden' }}>
-          {prs.map((pr) => (
-            <div key={pr.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid var(--panel-alt)' }}>
+          {prs.map((pr) => {
+            // Latest review of this PR in the selected repo (history is desc).
+            const rec = history.find((h) => String(h.pr_number) === String(pr.id) && (!selectedRepoName || h.repo === selectedRepoName));
+            const running = reviewingId === pr.id || rec?.status === 'running';
+            const done = rec?.status === 'completed';
+            const failed = rec?.status === 'failed';
+            const accent = running ? '#5b9bd5' : done ? sevColor(rec!.severity) : failed ? '#cf5b57' : 'transparent';
+            return (
+            <div key={pr.id} className='prv-row' style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '13px 16px', borderBottom: '1px solid var(--panel-alt)', borderLeftColor: accent }}>
+              <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 7, background: 'var(--panel-alt)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🔀</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  <a href={pr.url} target='_blank' rel='noreferrer' style={{ color: 'var(--acc)', textDecoration: 'none' }}>#{pr.id} {pr.title} ↗</a>
+                  <a href={pr.url} target='_blank' rel='noreferrer' style={{ color: 'var(--ink-90)', textDecoration: 'none' }}><span style={{ color: 'var(--ink-42)', fontFamily: 'var(--font-mono, monospace)' }}>#{pr.id}</span> {pr.title} <span style={{ color: 'var(--acc)' }}>↗</span></a>
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 2 }}>{pr.author} · {pr.source_branch} → {pr.target_branch}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 3, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>{pr.author}</span>
+                  <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{pr.source_branch} → {pr.target_branch}</span>
+                  {running && <span style={{ color: '#5b9bd5', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}><span className='prv-dot' /> {t('prReviewer.reviewing')}</span>}
+                  {done && <span style={{ color: sevColor(rec!.severity), fontWeight: 700 }}>✓ {t('prReviewer.reviewed')} · {rec!.findings_count} {t('prReviewer.findingsShort')}{rec!.threads_posted ? ` · ${rec!.threads_posted} thr` : ''}</span>}
+                  {failed && <span style={{ color: '#cf5b57', fontWeight: 700 }} title={rec?.error_message || ''}>✕ {t('prReviewer.errorLabel')}</span>}
+                </div>
               </div>
-              <button onClick={() => void review(pr)} className='button button-outline' style={{ height: 32, padding: '0 12px', whiteSpace: 'nowrap' }} disabled={reviewingId === pr.id}>
-                {reviewingId === pr.id ? '…' : t('prReviewer.review')}
+              <button onClick={() => void review(pr)} className='button button-outline prv-act' style={{ height: 34, padding: '0 14px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7, opacity: running ? 0.8 : 1, ...(done ? { borderColor: 'var(--panel-border)' } : { borderColor: 'var(--acc)', color: 'var(--acc)' }) }} disabled={running}>
+                {running ? <><span className='prv-spin' /> {t('prReviewer.reviewing')}</> : (done || failed) ? `↻ ${t('prReviewer.rereview')}` : `✨ ${t('prReviewer.review')}`}
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -138,9 +166,9 @@ export default function PrReviewerPage() {
           {history.length === 0 ? (
             <div style={{ padding: 20, color: 'var(--ink-50)', fontSize: 13, textAlign: 'center' }}>{t('prReviewer.noHistory')}</div>
           ) : history.map((h) => (
-            <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 90px 70px 120px 150px', gap: 10, alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12 }}>
+            <div key={h.id} className='prv-row' onClick={() => setSelected(h)} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 90px 70px 120px 150px', gap: 10, alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, cursor: 'pointer', borderLeftColor: h.status === 'failed' ? '#cf5b57' : h.status === 'running' ? '#5b9bd5' : sevColor(h.severity) }}>
               <div style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {h.pr_url ? <a href={h.pr_url} target='_blank' rel='noreferrer' style={{ color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }}>#{h.pr_number} {h.title || ''} ↗</a> : <span>#{h.pr_number} {h.title || ''}</span>}
+                {h.pr_url ? <a href={h.pr_url} target='_blank' rel='noreferrer' onClick={(e) => e.stopPropagation()} style={{ color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }}>#{h.pr_number} {h.title || ''} ↗</a> : <span>#{h.pr_number} {h.title || ''}</span>}
                 <div style={{ fontSize: 10, color: 'var(--ink-35)' }}>{h.repo}</div>
               </div>
               <span style={{ color: h.status === 'failed' ? '#cf5b57' : h.status === 'running' ? '#5b9bd5' : '#3f9d6a', fontWeight: 600 }}>{h.status}</span>
@@ -152,6 +180,52 @@ export default function PrReviewerPage() {
           ))}
         </div>
       </div>
+
+      {/* Detail modal */}
+      {selected && (
+        <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: 'min(560px, 100%)', maxHeight: '85vh', overflowY: 'auto', padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--ink-42)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{t('prReviewer.detail')}</div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '6px 0 0' }}>#{selected.pr_number} {selected.title || ''}</h3>
+                <div style={{ fontSize: 12, color: 'var(--ink-42)', marginTop: 2 }}>{selected.repo}</div>
+              </div>
+              <button onClick={() => setSelected(null)} style={{ background: 'transparent', border: 'none', color: 'var(--ink-50)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 18 }}>
+              {[
+                [t('usage.colStatus'), selected.status, selected.status === 'failed' ? '#cf5b57' : selected.status === 'running' ? '#5b9bd5' : '#3f9d6a'],
+                [t('prReviewer.severityLabel'), selected.severity || '—', sevColor(selected.severity)],
+                [t('prReviewer.scoreLabel'), selected.score != null ? `${selected.score}/100` : '—', 'var(--ink-90)'],
+                [t('prReviewer.findingsShort'), String(selected.findings_count), 'var(--ink-90)'],
+                [t('prReviewer.threadsPosted'), `${selected.threads_posted} / ${selected.threads_open}`, 'var(--ink-90)'],
+                [t('prReviewer.reviewer'), `${selected.reviewer_provider || '—'} / ${selected.reviewer_model || '—'}`, 'var(--ink-90)'],
+              ].map(([label, value, color], i) => (
+                <div key={i} style={{ ...card, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 10, color: 'var(--ink-42)', textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 700 }}>{label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: color as string, marginTop: 4, textTransform: 'capitalize', wordBreak: 'break-word' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 12, color: 'var(--ink-42)', marginTop: 16 }}>
+              {t('prReviewer.whenLabel')}: {new Date(selected.created_at).toLocaleString()}
+            </div>
+            {selected.error_message && (
+              <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(207,91,87,0.08)', border: '1px solid rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 12 }}>
+                <strong>{t('prReviewer.errorLabel')}:</strong> {selected.error_message}
+              </div>
+            )}
+            {selected.pr_url && (
+              <a href={selected.pr_url} target='_blank' rel='noreferrer' className='button button-primary' style={{ display: 'inline-block', marginTop: 18, height: 38, lineHeight: '38px', padding: '0 18px', textDecoration: 'none' }}>
+                {t('prReviewer.openPr')} ↗
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

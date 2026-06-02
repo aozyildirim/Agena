@@ -91,19 +91,28 @@ def _build_review_prompt(title: str, files: list[tuple[str, str]]) -> str:
         blocks.append(f'### FILE: {path}\n{numbered}')
     files_text = '\n\n'.join(blocks)
     return (
-        'You are a senior developer reviewing a pull request. Review ONLY the files below '
-        '(their new contents, line-numbered). Find real, concrete problems: bugs, logic errors, '
-        'missing null/error handling, security issues, missing edge cases/tests, performance, '
-        'and clear convention violations.\n\n'
+        'Do NOT use any tools or explore the filesystem — everything you need is in this message. '
+        'Respond with ONLY a JSON object (no markdown fences, no prose).\n\n'
+        'You are a senior engineer reviewing a pull request. Review ONLY the changed files below '
+        '(new contents, line-numbered). Report ONLY real, important problems a careful human '
+        'reviewer would block or comment on: bugs, logic errors, unhandled null/exceptions, '
+        'security issues (injection, unvalidated input, leaked secrets), race conditions, missing '
+        'critical edge cases, data-loss or performance risks. Do NOT report formatting/style '
+        'nitpicks and do NOT invent problems — if the code is fine, return no findings for it.\n\n'
         f'PR title: {title}\n\n'
         f'{files_text}\n\n'
-        'Return STRICT JSON only (no prose), shape:\n'
-        '{"score": <0-100 readiness>, "findings": [{"file": "<exact FILE path>", '
-        '"line": <integer line number from the listing>, "severity": "critical|high|medium|low", '
-        '"category": "bug|security|error-handling|tests|performance|style", '
-        '"confidence": <0-100>, "comment": "<one concrete, actionable sentence>"}]}\n'
-        'Anchor each finding to a specific line that exists in the listing. If the code looks fine, '
-        'return an empty findings array.'
+        'Return STRICT JSON only:\n'
+        '{"score": <0-100 how ready to merge>, "findings": [{'
+        '"file": "<exact FILE path from a "### FILE:" header above>", '
+        '"line": <integer line number from the listing where the problem actually is>, '
+        '"severity": "critical|high|medium|low", '
+        '"category": "bug|security|error-handling|tests|performance", '
+        '"confidence": <0-100>, '
+        '"comment": "<2-4 sentences IN THE SAME LANGUAGE AS THE CODE/PR: what is wrong, why it '
+        'matters, and the concrete fix. Reference the actual variable/function on that line. Be '
+        'specific to THIS code — no generic advice.>"}]}\n'
+        'Put the whole finding in the single "comment" field (do NOT split into title/description). '
+        'Each line must be a real line from the listing. Empty findings array if nothing is wrong.'
     )
 
 
@@ -120,26 +129,34 @@ def _build_verify_prompt(findings: list[dict[str, Any]], files: list[tuple[str, 
     )
 
 
-async def _run_agent(*, provider: str, model: str | None, prompt: str) -> str:
-    """Run the org's reviewer agent on a prompt and return its raw text.
-    CLI agents go through the bridge (read-only); API providers via LLMProvider.
+async def _run_agent(*, provider: str, model: str | None, prompt: str) -> tuple[str, dict]:
+    """Run the org's reviewer agent (CLI bridge) and return (text, usage).
+
+    The bridge runs ``claude --json`` and forwards ``stdout`` (the answer
+    text), ``usage`` (input/output/cache tokens) and ``cost_usd``, so we can
+    both parse the findings and bill the run accurately.
     """
     prov = (provider or '').strip().lower()
-    if prov in ('claude_cli', 'codex_cli'):
-        cli = 'claude' if prov == 'claude_cli' else 'codex'
-        bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
-        async with httpx.AsyncClient(timeout=180) as client:
-            resp = await client.post(
-                f'{bridge_url}/{cli}',
-                json={'repo_path': '/tmp', 'prompt': prompt, 'model': model or '', 'timeout': 150, 'read_only': True},
-            )
-            data = resp.json() if resp.content else {}
-        if data.get('status') == 'ok':
-            return (data.get('stdout') or '').strip()
+    cli = 'claude' if prov == 'claude_cli' else 'codex'
+    bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://cli-bridge:9876')
+    async with httpx.AsyncClient(timeout=200) as client:
+        resp = await client.post(
+            f'{bridge_url}/{cli}',
+            json={'repo_path': '/tmp', 'prompt': prompt, 'model': model or '', 'timeout': 180, 'read_only': True},
+        )
+        data = resp.json() if resp.content else {}
+    if data.get('status') != 'ok':
         raise RuntimeError(f'{cli} bridge: {data.get("message", data.get("stderr", "unknown"))}')
-    # API providers are handled by the caller's `run` closure via
-    # _build_llm_for_org; _run_agent is the CLI-bridge path only.
-    raise RuntimeError(f'_run_agent: unsupported provider {prov!r}')
+    text = (data.get('stdout') or '').strip()
+    u = data.get('usage') or {}
+    usage = {
+        'prompt_tokens': int(u.get('input_tokens', 0) or 0),
+        'completion_tokens': int(u.get('output_tokens', 0) or 0),
+        'cached_input_tokens': int(u.get('cache_read_input_tokens', 0) or 0),
+        'cost_usd': data.get('cost_usd'),
+    }
+    usage['total_tokens'] = usage['prompt_tokens'] + usage['completion_tokens']
+    return text, usage
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -216,19 +233,31 @@ async def review_pr(
         provider, model = await _resolve_reviewer_model(db, user_id or 0, 'reviewer')
         provider = provider or 'claude_cli'
 
+        agg_usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'cached_input_tokens': 0, 'total_tokens': 0}
+        agg_cost = 0.0
+
         async def run(prompt: str) -> str:
+            nonlocal agg_cost
             prov = (provider or '').lower()
             if prov in ('claude_cli', 'codex_cli'):
-                return await _run_agent(provider=prov, model=model, prompt=prompt)
-            llm = await _build_llm_for_org(db, organization_id=organization_id, provider=prov, model=model)
-            out, _usage, _m, _c = await llm.generate(system_prompt='', user_prompt=prompt, complexity_hint='normal', max_output_tokens=2500)
-            return out or ''
+                text, u = await _run_agent(provider=prov, model=model, prompt=prompt)
+            else:
+                llm = await _build_llm_for_org(db, organization_id=organization_id, provider=prov, model=model)
+                text, u, _m, _c = await llm.generate(system_prompt='', user_prompt=prompt, complexity_hint='normal', max_output_tokens=2500)
+                u = u or {}
+            for k in ('prompt_tokens', 'completion_tokens', 'cached_input_tokens', 'total_tokens'):
+                agg_usage[k] += int(u.get(k, 0) or 0)
+            if isinstance(u.get('cost_usd'), (int, float)):
+                agg_cost += float(u['cost_usd'])
+            return text or ''
 
         # 2) review -> 3) verify.
         review_raw = await run(_build_review_prompt(title or '', files))
+        logger.info('PR review raw output (pr=%s, %d chars): %s', pr_id, len(review_raw), review_raw[:600])
         parsed = _extract_json(review_raw)
         findings = [f for f in (parsed.get('findings') or []) if isinstance(f, dict)]
         score = parsed.get('score')
+        logger.info('PR review parsed: %d finding(s), score=%s', len(findings), score)
         if findings:
             verify_raw = await run(_build_verify_prompt(findings, files))
             verified = _extract_json(verify_raw).get('findings')
@@ -252,8 +281,12 @@ async def review_pr(
             if key in seen:
                 continue
             seen.add(key)
+            # The model may use comment / description / title interchangeably.
+            ftitle = str(f.get('title') or '').strip()
+            fbody = str(f.get('comment') or f.get('description') or '').strip()
+            comment = f'**{ftitle}**\n\n{fbody}' if ftitle and fbody else (fbody or ftitle)
             clean.append({'file': path, 'line': line, 'severity': sev,
-                          'comment': str(f.get('comment') or '').strip(),
+                          'comment': comment,
                           'category': str(f.get('category') or '').strip()})
         clean.sort(key=lambda x: _SEVERITY_RANK.get(x['severity'], 2))
 
@@ -304,7 +337,8 @@ async def review_pr(
             await AIUsageEventService(db).record_llm_usage(
                 organization_id=organization_id, user_id=user_id, task_id=None,
                 operation_type='pr_inline_review', provider=provider, model=model,
-                usage={}, started_at=started, ended_at=datetime.utcnow(),
+                usage=agg_usage, cost_usd=(agg_cost if agg_cost > 0 else None),
+                started_at=started, ended_at=datetime.utcnow(),
                 details={'pr': str(pr_id), 'repo': rm.repo_name, 'findings': len(clean), 'threads': posted},
             )
         except Exception:
