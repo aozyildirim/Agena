@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
@@ -19,6 +20,7 @@ const sevColor = (s: string | null): string =>
 
 export default function PrReviewerPage() {
   const { t } = useLocale();
+  const router = useRouter();
   const [repos, setRepos] = useState<RepoMapping[]>([]);
   const [repoId, setRepoId] = useState<string>('');
   const [prs, setPrs] = useState<OpenPr[]>([]);
@@ -27,7 +29,6 @@ export default function PrReviewerPage() {
   const [history, setHistory] = useState<PrReview[]>([]);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-  const [selected, setSelected] = useState<PrReview | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -171,7 +172,7 @@ export default function PrReviewerPage() {
           ) : history.map((h) => {
             const hAccent = h.status === 'failed' ? '#cf5b57' : h.status === 'running' ? '#5b9bd5' : sevColor(h.severity);
             return (
-            <div key={h.id} className='prv-row' onClick={() => setSelected(h)} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '13px 16px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, cursor: 'pointer', borderLeftColor: hAccent }}>
+            <div key={h.id} className='prv-row' onClick={() => router.push(`/dashboard/pr-reviewer/${h.id}`)} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '13px 16px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, cursor: 'pointer', borderLeftColor: hAccent }}>
               <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 7, background: 'var(--panel-alt)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🔀</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -197,52 +198,6 @@ export default function PrReviewerPage() {
           })}
         </div>
       </div>
-
-      {/* Detail modal */}
-      {selected && (
-        <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: 'min(560px, 100%)', maxHeight: '85vh', overflowY: 'auto', padding: 22 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-42)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{t('prReviewer.detail')}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: '6px 0 0' }}>#{selected.pr_number} {selected.title || ''}</h3>
-                <div style={{ fontSize: 12, color: 'var(--ink-42)', marginTop: 2 }}>{selected.repo}</div>
-              </div>
-              <button onClick={() => setSelected(null)} style={{ background: 'transparent', border: 'none', color: 'var(--ink-50)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>×</button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 18 }}>
-              {[
-                [t('usage.colStatus'), selected.status, selected.status === 'failed' ? '#cf5b57' : selected.status === 'running' ? '#5b9bd5' : '#3f9d6a'],
-                [t('prReviewer.severityLabel'), selected.severity || '—', sevColor(selected.severity)],
-                [t('prReviewer.scoreLabel'), selected.score != null ? `${selected.score}/100` : '—', 'var(--ink-90)'],
-                [t('prReviewer.findingsShort'), String(selected.findings_count), 'var(--ink-90)'],
-                [t('prReviewer.threadsPosted'), `${selected.threads_posted} / ${selected.threads_open}`, 'var(--ink-90)'],
-                [t('prReviewer.reviewer'), `${selected.reviewer_provider || '—'} / ${selected.reviewer_model || '—'}`, 'var(--ink-90)'],
-              ].map(([label, value, color], i) => (
-                <div key={i} style={{ ...card, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 10, color: 'var(--ink-42)', textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 700 }}>{label}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: color as string, marginTop: 4, textTransform: 'capitalize', wordBreak: 'break-word' }}>{value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ fontSize: 12, color: 'var(--ink-42)', marginTop: 16 }}>
-              {t('prReviewer.whenLabel')}: {new Date(selected.created_at).toLocaleString()}
-            </div>
-            {selected.error_message && (
-              <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(207,91,87,0.08)', border: '1px solid rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 12 }}>
-                <strong>{t('prReviewer.errorLabel')}:</strong> {selected.error_message}
-              </div>
-            )}
-            {selected.pr_url && (
-              <a href={selected.pr_url} target='_blank' rel='noreferrer' className='button button-primary' style={{ display: 'inline-block', marginTop: 18, height: 38, lineHeight: '38px', padding: '0 18px', textDecoration: 'none' }}>
-                {t('prReviewer.openPr')} ↗
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

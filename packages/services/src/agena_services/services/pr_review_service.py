@@ -330,7 +330,14 @@ async def review_pr(
         record.reviewer_provider = provider
         record.reviewer_model = model
         record.completed_at = datetime.utcnow()
-        record.details = json.dumps({'inline': len(inline), 'low': len(low), 'files': len(files)}, ensure_ascii=False)
+        record.details = json.dumps({
+            'inline': len(inline), 'low': len(low),
+            'reviewed_files': [p for p, _ in files],
+            'tokens': agg_usage.get('total_tokens', 0),
+            'cost_usd': round(agg_cost, 4) if agg_cost else None,
+            # Full findings so the detail page can render the AI's comments.
+            'findings': clean,
+        }, ensure_ascii=False)
         await db.commit()
 
         try:
@@ -354,6 +361,12 @@ async def review_pr(
             pass
         logger.exception('PR review failed for pr=%s: %s', pr_id, exc)
         return record
+
+
+async def get_review(db: AsyncSession, organization_id: int, review_id: int) -> PrReview | None:
+    return (await db.execute(
+        select(PrReview).where(PrReview.id == review_id, PrReview.organization_id == organization_id)
+    )).scalar_one_or_none()
 
 
 async def list_history(db: AsyncSession, organization_id: int, limit: int = 50) -> list[PrReview]:
