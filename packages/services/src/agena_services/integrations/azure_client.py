@@ -1491,6 +1491,80 @@ class AzureDevOpsClient:
             })
         return out
 
+    async def fetch_pr_changed_files(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+        pr_id: str,
+    ) -> list[dict[str, str]]:
+        """Changed files of a PR's latest iteration: [{path, changeType}].
+        Skips deletes (nothing to review on the right side)."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo or not pr_id:
+            return []
+        from urllib.parse import quote
+        base = f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}/pullRequests/{pr_id}'
+        headers = self._headers(pat)
+        async with httpx.AsyncClient(timeout=20) as client:
+            it = await client.get(f'{base}/iterations?api-version=7.1-preview.1', headers=headers)
+            if it.status_code != 200:
+                return []
+            iters = (it.json() or {}).get('value', []) or []
+            if not iters:
+                return []
+            last_id = iters[-1].get('id')
+            ch = await client.get(f'{base}/iterations/{last_id}/changes?api-version=7.1-preview.1', headers=headers)
+            if ch.status_code != 200:
+                return []
+            entries = (ch.json() or {}).get('changeEntries', []) or []
+        out: list[dict[str, str]] = []
+        for e in entries:
+            item = e.get('item') or {}
+            path = str(item.get('path') or '').strip()
+            change = str(e.get('changeType') or '').lower()
+            if not path or item.get('isFolder'):
+                continue
+            if 'delete' in change:
+                continue
+            out.append({'path': path, 'changeType': change})
+        return out
+
+    async def fetch_file_content(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+        path: str,
+        branch: str,
+    ) -> str | None:
+        """Raw content of a file at a branch tip (the PR's source branch), so
+        the reviewer can cite exact line numbers in the new version."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo or not path:
+            return None
+        from urllib.parse import quote
+        br = branch.replace('refs/heads/', '')
+        url = (
+            f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}/items'
+            f'?path={quote(path)}&versionDescriptor.version={quote(br)}'
+            '&versionDescriptor.versionType=branch&includeContent=true&api-version=7.1-preview.1'
+        )
+        headers = self._headers(pat)
+        headers['Accept'] = 'application/json'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=headers)
+            if resp.status_code != 200:
+                return None
+            return str((resp.json() or {}).get('content') or '') or None
+        except Exception:
+            return None
+
     async def post_pr_inline_thread(
         self,
         *,
