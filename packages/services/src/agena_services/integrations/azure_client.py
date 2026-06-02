@@ -798,6 +798,64 @@ class AzureDevOpsClient:
                 # Non-fatal — just diagnostic.
                 pass
 
+    async def clear_estimate(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+    ) -> list[str]:
+        """Wipe the abstract-effort estimate fields a refinement writeback
+        may have stamped (StoryPoints / Effort / Size). Used to "undo" a
+        refinement when the user deletes the record — Tasks often surface
+        the value in Effort, a field that may not even be on the form, so
+        the user can't clear it manually.
+
+        Only fields currently present on the item are removed (Azure 400s
+        on ``remove`` of a non-existent field). Returns the list of field
+        names actually cleared.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        project = (cfg.get('project') or self.settings.azure_project or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        item_id = str(work_item_id or '').strip()
+        if not item_id:
+            raise ValueError('work_item_id is required')
+
+        estimate_fields = (
+            'Microsoft.VSTS.Scheduling.StoryPoints',
+            'Microsoft.VSTS.Scheduling.Effort',
+            'Microsoft.VSTS.Scheduling.Size',
+        )
+        prefix = f"{org_url.rstrip('/')}/{project}" if project else org_url.rstrip('/')
+        get_url = (
+            f'{prefix}/_apis/wit/workitems/{item_id}'
+            f"?fields={','.join(estimate_fields)}&api-version=7.1-preview.3"
+        )
+        headers = self._headers(pat)
+        async with httpx.AsyncClient(timeout=30) as client:
+            get_resp = await client.get(get_url, headers=headers)
+            if get_resp.status_code >= 400:
+                raise RuntimeError(f'Azure {get_resp.status_code}: {get_resp.text[:300]}')
+            present = (get_resp.json() or {}).get('fields') or {}
+            patch_ops = [
+                {'op': 'remove', 'path': f'/fields/{f}'}
+                for f in estimate_fields
+                if present.get(f) is not None
+            ]
+            if not patch_ops:
+                return []
+            patch_headers = dict(headers)
+            patch_headers['Content-Type'] = 'application/json-patch+json'
+            patch_url = f'{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3'
+            patch_resp = await client.patch(patch_url, headers=patch_headers, json=patch_ops)
+            if patch_resp.status_code >= 400:
+                raise RuntimeError(f'Azure {patch_resp.status_code}: {patch_resp.text[:300]}')
+        cleared = [op['path'].replace('/fields/', '') for op in patch_ops]
+        logger.info('Azure clear_estimate work_item=%s cleared=%s', item_id, cleared)
+        return cleared
+
     async def add_tag_to_work_item(
         self,
         *,

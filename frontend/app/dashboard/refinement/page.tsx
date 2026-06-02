@@ -207,6 +207,10 @@ type Copy = {
   bulkSkipped: string;
   analyzingProgress: string;
   overlayWait: string;
+  clearEstimate: string;
+  clearEstimateTitle: string;
+  clearEstimateDone: string;
+  clearEstimateAzureOnly: string;
 };
 
 const COPY: Record<'tr' | 'en', Copy> = {
@@ -293,6 +297,10 @@ const COPY: Record<'tr' | 'en', Copy> = {
     bulkSkipped: 'Atlanan (zaten yazilmis)',
     analyzingProgress: '{done} / {total} analiz ediliyor...',
     overlayWait: 'Lutfen bekleyin',
+    clearEstimate: 'Tahmini sifirla',
+    clearEstimateTitle: 'Azure\'daki tahmin alanlarini (Story Points / Effort / Size) temizle',
+    clearEstimateDone: 'tahmin temizlendi',
+    clearEstimateAzureOnly: 'Tahmin sifirlama yalnizca Azure icin destekleniyor.',
   },
   en: {
     section: 'Refinement',
@@ -377,6 +385,10 @@ const COPY: Record<'tr' | 'en', Copy> = {
     bulkSkipped: 'Skipped (already written)',
     analyzingProgress: 'Analyzing {done} / {total}...',
     overlayWait: 'Please wait',
+    clearEstimate: 'Clear estimate',
+    clearEstimateTitle: 'Clear the estimate fields (Story Points / Effort / Size) on Azure',
+    clearEstimateDone: 'estimate cleared',
+    clearEstimateAzureOnly: 'Clear estimate is supported for Azure only.',
   },
 };
 
@@ -566,6 +578,7 @@ export default function RefinementPage() {
   const [autoFocusResults, setAutoFocusResults] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [writebackItemId, setWritebackItemId] = useState('');
+  const [clearingEstimateId, setClearingEstimateId] = useState('');
   const [confirmWritebackItemId, setConfirmWritebackItemId] = useState('');
   const [confirmBulkWriteback, setConfirmBulkWriteback] = useState(false);
   const [writtenBackIds, setWrittenBackIds] = useState<Set<string>>(new Set());
@@ -951,6 +964,35 @@ export default function RefinementPage() {
     setJiraSprints(rows);
     setJiraSprint(defaultSprint(rows, 'jira'));
   }, []);
+
+  // Wipe the estimate (Story Points / Effort / Size) a previous writeback
+  // stamped on an Azure work item. The value often lands in Effort — a
+  // field not on the Task form — so the user can't clear it from Azure's
+  // UI. On success we optimistically null the local item so it flips back
+  // to "unestimated" without a full reload.
+  const clearEstimate = useCallback(async (item: ExternalTask) => {
+    if (provider !== 'azure') {
+      setError(copy.clearEstimateAzureOnly);
+      return;
+    }
+    setClearingEstimateId(item.id);
+    setError('');
+    try {
+      await apiFetch('/refinement/clear-estimate', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'azure', work_item_id: item.id, project: azureProject }),
+      });
+      setItemsData((prev) => prev ? {
+        ...prev,
+        items: prev.items.map((it) => it.id === item.id ? { ...it, story_points: null, effort: null } : it),
+      } : prev);
+      setRunMessage({ kind: 'success', text: `${item.id} ${copy.clearEstimateDone}` });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Clear estimate failed');
+    } finally {
+      setClearingEstimateId('');
+    }
+  }, [provider, azureProject, copy]);
 
   const refreshItems = useCallback(async () => {
     setError('');
@@ -2290,6 +2332,21 @@ export default function RefinementPage() {
                           <span style={{ ...(estimated ? estimatedPill : unestimatedPill), fontSize: 10, padding: '2px 6px' }}>
                             {displayEstimate(item)}
                           </span>
+                          {estimated && provider === 'azure' && canRefine && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void clearEstimate(item); }}
+                              disabled={clearingEstimateId === item.id}
+                              title={copy.clearEstimateTitle}
+                              style={{
+                                fontSize: 10, lineHeight: 1, padding: '2px 6px', borderRadius: 6,
+                                border: '1px solid var(--panel-border)', background: 'transparent',
+                                color: 'var(--ink-42)', cursor: clearingEstimateId === item.id ? 'wait' : 'pointer',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {clearingEstimateId === item.id ? '…' : `✕ ${copy.clearEstimate}`}
+                            </button>
+                          )}
                           {suggestion && (
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
                               <span style={{ ...suggestedPointsPill(suggestion.suggested_story_points), fontSize: 11, padding: '2px 8px' }}>
