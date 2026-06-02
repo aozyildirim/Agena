@@ -4,20 +4,41 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, loadPrefs, savePrefs } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import { useCanDo } from '@/lib/permissions';
 
 type Opt = { id: string; name: string; path?: string; is_current?: boolean };
 type Provider = 'azure' | 'jira';
 
 export const SPRINT_CHANGED_EVENT = 'agena:sprint-changed';
 
+type WorkspaceLite = {
+  id: number;
+  sprint_provider?: string | null;
+  sprint_path?: string | null;
+  sprint_project?: string | null;
+  sprint_team?: string | null;
+  sprint_board?: string | null;
+};
+
+/**
+ * SprintSwitcher — the active sprint is owned by the WORKSPACE, not the user.
+ * Whatever sprint the active workspace has set is what every member sees.
+ * Only users with `sprint:select` (managers / owner) can change it; everyone
+ * else sees it read-only. When a manager changes it we write it onto the
+ * workspace AND mirror it into the user's prefs so the rest of the app (New
+ * Task picker, etc.) keeps reading a consistent value.
+ */
 export default function SprintSwitcher() {
   const { t } = useLocale();
   const router = useRouter();
+  const canDo = useCanDo();
+  const canEdit = canDo('sprint:select');
   const rootRef = useRef<HTMLDivElement>(null);
 
   const [open, setOpen] = useState(false);
   const [provider, setProvider] = useState<Provider>('azure');
   const [jiraConnected, setJiraConnected] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
 
   // Azure state
   const [azProjects, setAzProjects] = useState<Opt[]>([]);
@@ -53,56 +74,64 @@ export default function SprintSwitcher() {
       })
       .catch(() => {});
 
-    loadPrefs().then(async (prefs) => {
-      const p = prefs.azure_project || '';
-      const tm = prefs.azure_team || '';
-      const s = prefs.azure_sprint_path || '';
-      const rawSettings = (prefs.profile_settings || {}) as Record<string, unknown>;
-      const jp = typeof rawSettings.jira_project === 'string' ? rawSettings.jira_project : '';
-      const jb = typeof rawSettings.jira_board === 'string' ? rawSettings.jira_board : '';
-      const js = typeof rawSettings.jira_sprint_id === 'string' ? rawSettings.jira_sprint_id : '';
-      const preferred = typeof rawSettings.preferred_sprint_provider === 'string' ? rawSettings.preferred_sprint_provider : '';
-      if (preferred === 'jira' || preferred === 'azure') setProvider(preferred as Provider);
-
-      if (p) {
-        setAzProject(p);
-        if (tm) {
-          const tms = await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
-          setAzTeams(tms);
-          setAzTeam(tm);
-          if (s) {
-            const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(p) + '&team=' + encodeURIComponent(tm)).catch(() => [] as Opt[]);
-            setAzSprints(sps);
-            setAzSprint(s);
-          }
-        }
-      }
-
-      if (jp) {
-        const jiraProjectList = await apiFetch<Opt[]>('/tasks/jira/projects').catch(() => [] as Opt[]);
-        if (jiraProjectList.length) setJiraProjects(jiraProjectList);
-        let normalized = jp;
-        const byId = jiraProjectList.find((x) => (x.id ?? x.name) === normalized);
-        if (!byId) {
-          const byName = jiraProjectList.find((x) => x.name === normalized);
-          if (byName) normalized = byName.id ?? byName.name;
-        }
-        setJiraProject(normalized);
-        if (jb) {
-          const boards = await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(normalized)).catch(() => [] as Opt[]);
-          setJiraBoards(boards);
-          setJiraBoard(jb);
-          if (js) {
-            const jsps = await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(jb)).catch(() => [] as Opt[]);
-            setJiraSprints(jsps);
-            setJiraSprint(js);
-          }
-        }
-      }
-    }).catch(() => {});
+    void seedFromWorkspace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Close on outside click
+  // Resolve the active workspace's sprint and use it as the source of truth.
+  // Falls back to nothing when the workspace has no sprint set yet.
+  async function seedFromWorkspace() {
+    const wsId = typeof window !== 'undefined' ? Number(localStorage.getItem('agena_active_workspace_id') || '') : NaN;
+    let ws: WorkspaceLite | undefined;
+    try {
+      const list = await apiFetch<WorkspaceLite[]>('/workspaces');
+      ws = list.find((w) => w.id === wsId) || list[0];
+    } catch { ws = undefined; }
+    if (!ws || !ws.sprint_path) return;
+    setWorkspaceId(ws.id);
+    const prov: Provider = ws.sprint_provider === 'jira' ? 'jira' : 'azure';
+    setProvider(prov);
+    if (prov === 'azure') {
+      const p = ws.sprint_project || '';
+      const tm = ws.sprint_team || '';
+      setAzProject(p); setAzTeam(tm); setAzSprint(ws.sprint_path || '');
+      if (p && tm) {
+        const tms = await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
+        setAzTeams(tms);
+        const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(p) + '&team=' + encodeURIComponent(tm)).catch(() => [] as Opt[]);
+        setAzSprints(sps);
+      }
+    } else {
+      const p = ws.sprint_project || '';
+      const b = ws.sprint_board || '';
+      setJiraProject(p); setJiraBoard(b); setJiraSprint(ws.sprint_path || '');
+      if (p) {
+        const boards = await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
+        setJiraBoards(boards);
+      }
+      if (b) {
+        const jsps = await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(b)).catch(() => [] as Opt[]);
+        setJiraSprints(jsps);
+      }
+    }
+    // Mirror the workspace sprint into this user's prefs so downstream
+    // readers (New Task picker, etc.) stay consistent — important for members
+    // who can't edit but still need the right sprint everywhere.
+    try {
+      const prefs = await loadPrefs();
+      const existing = (prefs.profile_settings || {}) as Record<string, unknown>;
+      if (prov === 'azure') {
+        if (prefs.azure_sprint_path !== ws.sprint_path) {
+          await savePrefs({ azure_project: ws.sprint_project || '', azure_team: ws.sprint_team || '', azure_sprint_path: ws.sprint_path || '', profile_settings: { ...existing, preferred_sprint_provider: 'azure' } });
+        }
+      } else {
+        if (existing.jira_sprint_id !== ws.sprint_path) {
+          await savePrefs({ profile_settings: { ...existing, jira_project: ws.sprint_project || '', jira_board: ws.sprint_board || '', jira_sprint_id: ws.sprint_path || '', preferred_sprint_provider: 'jira' } });
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
@@ -114,7 +143,6 @@ export default function SprintSwitcher() {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false); }
@@ -165,8 +193,22 @@ export default function SprintSwitcher() {
   }, []);
 
   async function save() {
+    if (!canEdit) return;
     setSaving(true);
     try {
+      // Workspace is the source of truth.
+      let wsId = workspaceId;
+      if (wsId == null && typeof window !== 'undefined') {
+        const raw = Number(localStorage.getItem('agena_active_workspace_id') || '');
+        wsId = Number.isFinite(raw) && raw > 0 ? raw : null;
+      }
+      if (wsId != null) {
+        const body = provider === 'azure'
+          ? { sprint_provider: 'azure', sprint_path: azSprint, sprint_project: azProject, sprint_team: azTeam, sprint_board: '' }
+          : { sprint_provider: 'jira', sprint_path: jiraSprint, sprint_project: jiraProject, sprint_team: '', sprint_board: jiraBoard };
+        await apiFetch(`/workspaces/${wsId}`, { method: 'PUT', body: JSON.stringify(body) }).catch(() => {});
+      }
+      // Mirror into the user's prefs so downstream readers stay consistent.
       const existingRaw = (typeof window !== 'undefined' && localStorage.getItem('agena_profile_settings')) || '{}';
       const existing = JSON.parse(existingRaw) as Record<string, unknown>;
       await savePrefs({
@@ -218,7 +260,7 @@ export default function SprintSwitcher() {
       <button
         className='sprint-switcher-trigger'
         onClick={() => setOpen((v) => !v)}
-        title={t('sprintSwitcher.tooltip')}
+        title={canEdit ? t('sprintSwitcher.tooltip') : 'Active sprint (set by your workspace)'}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '6px 10px', height: 32, borderRadius: 8,
@@ -241,71 +283,96 @@ export default function SprintSwitcher() {
           borderRadius: 12, padding: 14, display: 'grid', gap: 12, zIndex: 200,
           boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
         }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
               {t('sprintSwitcher.title')}
             </div>
-            <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border-3)' }}>
-              <TabBtn active={provider === 'azure'} onClick={() => setProvider('azure')} label='Azure' color='var(--tab-azure)' />
-              <TabBtn active={provider === 'jira'} onClick={() => setProvider('jira')} label='Jira' color='var(--tab-jira)' disabled={!jiraConnected} />
-            </div>
+            {!canEdit && (
+              <span style={{ fontSize: 10, color: 'var(--ink-45)', fontWeight: 600 }}>Set by workspace</span>
+            )}
           </div>
 
-          {provider === 'azure' && (
+          {!canEdit ? (
+            // Read-only for members — they inherit the workspace's sprint.
             <div style={{ display: 'grid', gap: 8 }}>
-              <CompactSel label={t('profile.azureProject')} value={azProject} onChange={onAzProjectChange}
-                options={azProjects.map((p) => ({ id: p.name, name: p.name }))}
-                placeholder={t('profile.selectProject')} loading={false} disabled={false} />
-              <CompactSel label={t('profile.azureTeam')} value={azTeam} onChange={onAzTeamChange}
-                options={azTeams.map((tm) => ({ id: tm.name, name: tm.name }))}
-                placeholder={azProject ? t('profile.selectTeam') : t('profile.selectTeamFirst')} loading={loadingAzTeams} disabled={!azProject} />
-              <CompactSel label={t('profile.azureSprint')} value={azSprint} onChange={setAzSprint}
-                options={azSprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
-                placeholder={azTeam ? t('profile.selectSprint') : t('profile.selectSprintFirst')} loading={loadingAzSprints} disabled={!azTeam} />
+              <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' }}>
+                <div style={{ fontSize: 10, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>{provider === 'jira' ? 'Jira' : 'Azure'} · Active sprint</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: hasActiveSprint ? 'var(--ink-90)' : 'var(--ink-45)' }}>{activeLabel}</div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-45)', lineHeight: 1.45 }}>
+                The active sprint is managed by your workspace admin and applies to everyone in this workspace.
+              </div>
+              <button
+                onClick={() => { setOpen(false); router.push('/dashboard/sprints'); }}
+                style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', justifySelf: 'start' }}
+              >
+                {t('sprintSwitcher.openBoard')}
+              </button>
             </div>
-          )}
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border-3)' }}>
+                <TabBtn active={provider === 'azure'} onClick={() => setProvider('azure')} label='Azure' color='var(--tab-azure)' />
+                <TabBtn active={provider === 'jira'} onClick={() => setProvider('jira')} label='Jira' color='var(--tab-jira)' disabled={!jiraConnected} />
+              </div>
 
-          {provider === 'jira' && (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {!jiraConnected ? (
-                <div style={{ fontSize: 12, color: 'var(--muted)', padding: '12px 8px', textAlign: 'center' }}>
-                  {t('sprintSwitcher.jiraNotConnected')}
-                </div>
-              ) : (
-                <>
-                  <CompactSel label={t('profile.jiraProject')} value={jiraProject} onChange={onJiraProjectChange}
-                    options={jiraProjects.map((p) => ({ id: p.id ?? p.name, name: p.name }))}
+              {provider === 'azure' && (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <CompactSel label={t('profile.azureProject')} value={azProject} onChange={onAzProjectChange}
+                    options={azProjects.map((p) => ({ id: p.name, name: p.name }))}
                     placeholder={t('profile.selectProject')} loading={false} disabled={false} />
-                  <CompactSel label={t('profile.jiraBoard')} value={jiraBoard} onChange={onJiraBoardChange}
-                    options={jiraBoards.map((b) => ({ id: b.id ?? b.name, name: b.name }))}
-                    placeholder={jiraProject ? t('profile.selectBoard') : t('profile.selectTeamFirst')} loading={loadingJiraBoards} disabled={!jiraProject} />
-                  <CompactSel label={t('profile.jiraSprint')} value={jiraSprint} onChange={setJiraSprint}
-                    options={jiraSprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
-                    placeholder={jiraBoard ? t('profile.selectSprint') : t('profile.selectBoardFirst')} loading={loadingJiraSprints} disabled={!jiraBoard} />
-                </>
+                  <CompactSel label={t('profile.azureTeam')} value={azTeam} onChange={onAzTeamChange}
+                    options={azTeams.map((tm) => ({ id: tm.name, name: tm.name }))}
+                    placeholder={azProject ? t('profile.selectTeam') : t('profile.selectTeamFirst')} loading={loadingAzTeams} disabled={!azProject} />
+                  <CompactSel label={t('profile.azureSprint')} value={azSprint} onChange={setAzSprint}
+                    options={azSprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
+                    placeholder={azTeam ? t('profile.selectSprint') : t('profile.selectSprintFirst')} loading={loadingAzSprints} disabled={!azTeam} />
+                </div>
               )}
-            </div>
-          )}
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-            <button
-              onClick={() => { setOpen(false); router.push('/dashboard/sprints'); }}
-              style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-            >
-              {t('sprintSwitcher.openBoard')}
-            </button>
-            <button
-              onClick={() => void save()} disabled={saving}
-              style={{
-                padding: '8px 14px', borderRadius: 8, border: 'none',
-                background: savedFlash ? 'rgba(34,197,94,0.3)' : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-                color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
-              {saving ? t('profile.saving') : savedFlash ? t('profile.saved') : t('sprintSwitcher.apply')}
-            </button>
-          </div>
+              {provider === 'jira' && (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {!jiraConnected ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', padding: '12px 8px', textAlign: 'center' }}>
+                      {t('sprintSwitcher.jiraNotConnected')}
+                    </div>
+                  ) : (
+                    <>
+                      <CompactSel label={t('profile.jiraProject')} value={jiraProject} onChange={onJiraProjectChange}
+                        options={jiraProjects.map((p) => ({ id: p.id ?? p.name, name: p.name }))}
+                        placeholder={t('profile.selectProject')} loading={false} disabled={false} />
+                      <CompactSel label={t('profile.jiraBoard')} value={jiraBoard} onChange={onJiraBoardChange}
+                        options={jiraBoards.map((b) => ({ id: b.id ?? b.name, name: b.name }))}
+                        placeholder={jiraProject ? t('profile.selectBoard') : t('profile.selectTeamFirst')} loading={loadingJiraBoards} disabled={!jiraProject} />
+                      <CompactSel label={t('profile.jiraSprint')} value={jiraSprint} onChange={setJiraSprint}
+                        options={jiraSprints.map((s) => ({ id: s.path ?? s.name, name: s.name }))}
+                        placeholder={jiraBoard ? t('profile.selectSprint') : t('profile.selectBoardFirst')} loading={loadingJiraSprints} disabled={!jiraBoard} />
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  onClick={() => { setOpen(false); router.push('/dashboard/sprints'); }}
+                  style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {t('sprintSwitcher.openBoard')}
+                </button>
+                <button
+                  onClick={() => void save()} disabled={saving}
+                  style={{
+                    padding: '8px 14px', borderRadius: 8, border: 'none',
+                    background: savedFlash ? 'rgba(34,197,94,0.3)' : 'var(--acc)',
+                    color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? t('profile.saving') : savedFlash ? t('profile.saved') : t('sprintSwitcher.apply')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -342,8 +409,8 @@ function CompactSel({ label, value, onChange, options, placeholder, loading, dis
       <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled || loading}
         style={{
           width: '100%', padding: '7px 9px', borderRadius: 8,
-          border: '1px solid ' + (value ? 'rgba(139,92,246,0.4)' : 'var(--panel-border-3)'),
-          background: value ? 'rgba(139,92,246,0.08)' : 'var(--glass)',
+          border: '1px solid ' + (value ? 'var(--acc)' : 'var(--panel-border-3)'),
+          background: value ? 'var(--acc-soft)' : 'var(--glass)',
           color: value ? 'var(--ink)' : 'var(--ink-35)', fontSize: 12, outline: 'none',
           cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
         }}>
