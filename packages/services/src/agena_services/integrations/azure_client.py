@@ -654,6 +654,42 @@ class AzureDevOpsClient:
             details_payload = details_payload[:max_items]
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
 
+    async def resolve_work_item_project(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+    ) -> str | None:
+        """Resolve the Azure project a work item actually lives in.
+
+        Work items can belong to ANY project in the org, but the
+        integration config carries a single global ``project`` value —
+        when that's stale/wrong every state/comment write 404s
+        ("project does not exist"). The org-level work-item GET (no
+        project in the path) works regardless and returns
+        ``System.TeamProject``, so callers can target the correct
+        project for writes. Returns None on any failure (caller falls
+        back to the configured project).
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        item_id = str(work_item_id or '').strip()
+        if not org_url or not pat or not item_id:
+            return None
+        url = (
+            f'{org_url}/_apis/wit/workitems/{item_id}'
+            '?fields=System.TeamProject&api-version=7.1-preview.3'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=self._headers(pat))
+            if resp.status_code != 200:
+                return None
+            proj = ((resp.json() or {}).get('fields') or {}).get('System.TeamProject')
+            return str(proj).strip() or None if proj else None
+        except Exception:
+            return None
+
     async def update_work_item_state(
         self,
         *,
@@ -873,7 +909,16 @@ class AzureDevOpsClient:
         if not item_id or not tag_value:
             return
 
-        url_get = f"{org_url.rstrip('/')}/_apis/wit/workitems/{item_id}?fields=System.Tags&api-version=7.1-preview.3"
+        # Write through the project-scoped URL. The org-level (no project)
+        # work-item PATCH 403s on PATs minted with project-specific scope,
+        # even though the GET succeeds — so resolve the item's real project
+        # and scope the write to it (same path the refinement writeback uses
+        # successfully). Falls back to the configured/no-project form.
+        project = (await self.resolve_work_item_project(cfg=cfg, work_item_id=item_id)
+                   or cfg.get('project') or self.settings.azure_project or '').strip()
+        base = org_url.rstrip('/')
+        prefix = f'{base}/{project}' if project else base
+        url_get = f"{prefix}/_apis/wit/workitems/{item_id}?fields=System.Tags&api-version=7.1-preview.3"
         headers = self._headers(pat)
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url_get, headers=headers)
@@ -886,7 +931,7 @@ class AzureDevOpsClient:
             existing.append(tag_value)
             new_tags = '; '.join(existing)
 
-            url_patch = f"{org_url.rstrip('/')}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
+            url_patch = f"{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
             patch_headers = {**headers, 'Content-Type': 'application/json-patch+json'}
             patch_ops = [{'op': 'add', 'path': '/fields/System.Tags', 'value': new_tags}]
             patch_resp = await client.patch(url_patch, headers=patch_headers, json=patch_ops)

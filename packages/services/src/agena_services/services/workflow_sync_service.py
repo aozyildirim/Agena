@@ -137,12 +137,24 @@ class WorkflowSyncService:
                     logical, task.id, external_id, candidates,
                 )
             else:  # azure
+                client = AzureDevOpsClient()
                 azure_cfg = {
                     'org_url': config.base_url or '',
                     'pat': config.secret,
                     'project': config.project or '',
                 }
-                client = AzureDevOpsClient()
+                # A work item can live in ANY project, but config.project is
+                # a single global value — a stale/wrong one makes every
+                # state+comment write 404 ("project does not exist"), which
+                # is exactly why start/finish comments silently stopped
+                # appearing. Ask Azure which project this item belongs to
+                # and write there; fall back to the configured project only
+                # if the lookup fails.
+                resolved_project = await client.resolve_work_item_project(
+                    cfg=azure_cfg, work_item_id=external_id,
+                )
+                if resolved_project:
+                    azure_cfg['project'] = resolved_project
                 last_exc: Exception | None = None
                 for cand in candidates:
                     try:
