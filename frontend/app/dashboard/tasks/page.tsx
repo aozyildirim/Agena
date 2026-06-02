@@ -494,24 +494,29 @@ export default function DashboardTasksPage() {
       azure_sprint_path?: string | null;
       profile_settings?: { jira_sprint_id?: string; jira_sprint_name?: string } | null;
     };
-    apiFetch<Prefs>('/preferences')
-      .then((prefs) => {
+    void (async () => {
+      let azLeaf = '';
+      let jiraName = '';
+      try {
+        const prefs = await apiFetch<Prefs>('/preferences');
         const azPath = (prefs.azure_sprint_path || '').trim();
-        // Azure sprint paths look like "Project\\Iter\\2026_09_Nankatsu" —
-        // the leaf is the sprint name.
-        const azLeaf = azPath ? azPath.split(/[\\/]/).filter(Boolean).pop() || azPath : '';
-        setActiveAzureSprintLabel(azLeaf || localStorage.getItem('agena_sprint_path') || '');
+        // Azure sprint paths look like "Project\\Iter\\2026_09_Nankatsu" — the leaf is the name.
+        azLeaf = azPath ? azPath.split(/[\\/]/).filter(Boolean).pop() || azPath : '';
         const ps = prefs.profile_settings || {};
-        const jiraName = (ps.jira_sprint_name || ps.jira_sprint_id || '').toString().trim();
-        setActiveJiraSprintLabel(jiraName || localStorage.getItem('agena_jira_sprint') || '');
-      })
-      .catch(() => {
-        // DB fetch failed — fall back to whatever's in localStorage.
-        const az = localStorage.getItem('agena_sprint_path') || '';
-        const azLeaf = az ? az.split(/[\\/]/).filter(Boolean).pop() || az : '';
-        setActiveAzureSprintLabel(azLeaf);
-        setActiveJiraSprintLabel(localStorage.getItem('agena_jira_sprint') || '');
-      });
+        jiraName = (ps.jira_sprint_name || ps.jira_sprint_id || '').toString().trim();
+      } catch { /* fall through to workspace */ }
+      // No personal sprint → use the workspace's sprint from the DB (never
+      // localStorage, which could be a stale value from another session).
+      if (!azLeaf && !jiraName) {
+        const ws = await fetchActiveWorkspaceSprint();
+        if (ws) {
+          const leaf = ws.path.split(/[\\/]/).filter(Boolean).pop() || ws.path;
+          if (ws.provider === 'jira') jiraName = leaf; else azLeaf = leaf;
+        }
+      }
+      setActiveAzureSprintLabel(azLeaf);
+      setActiveJiraSprintLabel(jiraName);
+    })();
   }, [showCreate]);
 
   async function loadDepCandidates() {
@@ -524,6 +529,19 @@ export default function DashboardTasksPage() {
         setDepCandidates(data || []);
       } catch { /* ignore */ }
     }
+  }
+
+  // The active sprint falls back to the WORKSPACE's sprint when the user has
+  // no personal one set (members inherit the workspace sprint; the workspace
+  // owns it in the DB — never localStorage).
+  async function fetchActiveWorkspaceSprint(): Promise<{ provider: string; project: string; team: string; board: string; path: string } | null> {
+    try {
+      const wsId = typeof window !== 'undefined' ? Number(localStorage.getItem('agena_active_workspace_id') || '') : NaN;
+      const list = await apiFetch<Array<{ id: number; sprint_provider?: string | null; sprint_path?: string | null; sprint_project?: string | null; sprint_team?: string | null; sprint_board?: string | null }>>('/workspaces');
+      const ws = list.find((w) => w.id === wsId) || list[0];
+      if (!ws || !ws.sprint_path) return null;
+      return { provider: ws.sprint_provider || 'azure', project: ws.sprint_project || '', team: ws.sprint_team || '', board: ws.sprint_board || '', path: ws.sprint_path || '' };
+    } catch { return null; }
   }
 
   async function loadSprintItems(source: 'azure' | 'jira') {
@@ -542,9 +560,18 @@ export default function DashboardTasksPage() {
       };
       const prefs = await apiFetch<Prefs>('/preferences').catch(() => ({} as Prefs));
       const ps = prefs.profile_settings || {};
-      const project = (source === 'jira' ? (ps.jira_project || '') : prefs.azure_project) || '';
-      const team = (source === 'jira' ? (ps.jira_board || '') : prefs.azure_team) || '';
-      const sprint = (source === 'jira' ? (ps.jira_sprint_id || '') : prefs.azure_sprint_path) || '';
+      let project = (source === 'jira' ? (ps.jira_project || '') : prefs.azure_project) || '';
+      let team = (source === 'jira' ? (ps.jira_board || '') : prefs.azure_team) || '';
+      let sprint = (source === 'jira' ? (ps.jira_sprint_id || '') : prefs.azure_sprint_path) || '';
+      if (!sprint) {
+        // Fall back to the workspace's sprint (members have no personal one).
+        const wsSprint = await fetchActiveWorkspaceSprint();
+        if (wsSprint && wsSprint.provider === source) {
+          project = wsSprint.project;
+          team = source === 'jira' ? wsSprint.board : wsSprint.team;
+          sprint = wsSprint.path;
+        }
+      }
       if (!sprint) {
         setPickerError(t('tasks.picker.needSprint' as TranslationKey));
         setPickerItems([]);
