@@ -112,6 +112,7 @@ PERMISSION_GROUPS: list[dict] = [
             ('pages:office', 'View the Office home dashboard'),
             ('pages:tasks', 'View the Tasks list'),
             ('pages:reviews', 'View the Reviews list'),
+            ('pages:pr_reviewer', 'View the PR Reviewer (AI inline PR review)'),
             ('pages:refinement', 'View the Refinement page'),
             ('pages:triage', 'View the Triage inbox'),
             ('pages:review-backlog', 'View the Review Backlog'),

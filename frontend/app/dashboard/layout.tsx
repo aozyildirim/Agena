@@ -69,7 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
       { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
-      { href: '/dashboard/pr-reviewer', key: 'nav.prReviewer', icon: 'search', permission: 'tasks:read' as const, module: 'pr_reviewer', wsPerm: 'pages:reviews' },
+      { href: '/dashboard/pr-reviewer', key: 'nav.prReviewer', icon: 'search', permission: 'tasks:read' as const, module: 'pr_reviewer', wsPerm: 'pages:pr_reviewer' },
       { href: '/dashboard/team', key: 'nav.team', icon: 'users', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
       { href: '/dashboard/dora', key: 'nav.dora', icon: 'chart', module: 'dora', wsPerm: 'analytics:read', children: [
         { href: '/dashboard/dora', key: 'nav.doraOverview', icon: 'chart' },
