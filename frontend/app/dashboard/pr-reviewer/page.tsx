@@ -39,9 +39,9 @@ export default function PrReviewerPage() {
   useEffect(() => {
     apiFetch<RepoMapping[]>('/repo-mappings')
       .then((rows) => {
-        const azure = rows.filter((r) => (r.provider || '').toLowerCase() === 'azure');
-        setRepos(azure);
-        if (azure.length && !repoId) setRepoId(String(azure[0].id));
+        const supported = rows.filter((r) => ['azure', 'github'].includes((r.provider || '').toLowerCase()));
+        setRepos(supported);
+        if (supported.length && !repoId) setRepoId(String(supported[0].id));
       })
       .catch(() => {});
     apiFetch<{ options: string[]; languages: string[]; default_provider: string; default_model: string | null }>('/pr-reviewer/agents')
