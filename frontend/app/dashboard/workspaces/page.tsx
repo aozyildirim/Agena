@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, loadPrefs } from '@/lib/api';
+import WorkspaceSprintPicker from '@/components/WorkspaceSprintPicker';
 import { useLocale } from '@/lib/i18n';
 import { useCanDo, usePermissions } from '@/lib/permissions';
 import Forbidden from '@/components/Forbidden';
@@ -15,6 +16,27 @@ type Workspace = {
   invite_code: string;
   is_default: boolean;
   created_at: string;
+  is_active: boolean;
+  sprint_provider: string | null;
+  sprint_path: string | null;
+  sprint_project?: string | null;
+  sprint_team?: string | null;
+  sprint_board?: string | null;
+  repo_mapping_ids: number[];
+};
+
+type RepoOption = {
+  id: number;
+  provider: string;
+  owner: string;
+  repo_name: string;
+};
+
+type SprintOption = {
+  id?: string;
+  name: string;
+  path?: string;
+  is_current?: boolean;
 };
 
 type WorkspaceMember = {
@@ -93,6 +115,10 @@ export default function WorkspacesPage() {
   const [inviteMaxUses, setInviteMaxUses] = useState<number | ''>('');
   const [inviteTtlDays, setInviteTtlDays] = useState<number | ''>(7);
   const [copiedInvite, setCopiedInvite] = useState<number | null>(null);
+  const [repoOptions, setRepoOptions] = useState<RepoOption[]>([]);
+  const [azureSprints, setAzureSprints] = useState<SprintOption[]>([]);
+  const [jiraSprints, setJiraSprints] = useState<SprintOption[]>([]);
+  const [sprintsLoading, setSprintsLoading] = useState(false);
 
   const loadWorkspaces = useCallback(async () => {
     setLoading(true);
@@ -132,6 +158,42 @@ export default function WorkspacesPage() {
   useEffect(() => { if (activeId !== null) { void loadMembers(activeId); void loadInvites(activeId); } }, [activeId, loadMembers, loadInvites]);
   useEffect(() => {
     apiFetch<Role[]>('/workspace-roles').then(setRoles).catch(() => {});
+  }, []);
+
+  // Repo mappings for the "responsible repos" multi-select.
+  useEffect(() => {
+    apiFetch<RepoOption[]>('/repo-mappings').then(setRepoOptions).catch(() => setRepoOptions([]));
+  }, []);
+
+  // Sprint options for the "active sprint" dropdown. Azure needs project/team
+  // and Jira needs a board id — resolve those from the user's saved prefs the
+  // same way the global SprintSwitcher does.
+  useEffect(() => {
+    let cancelled = false;
+    setSprintsLoading(true);
+    void (async () => {
+      try {
+        const prefs = await loadPrefs();
+        const azProject = prefs.azure_project || '';
+        const azTeam = prefs.azure_team || '';
+        const settings = (prefs.profile_settings || {}) as Record<string, unknown>;
+        const jiraBoard = typeof settings.jira_board === 'string' ? settings.jira_board : '';
+        if (azProject && azTeam) {
+          const sps = await apiFetch<SprintOption[]>(
+            '/tasks/azure/sprints?project=' + encodeURIComponent(azProject) + '&team=' + encodeURIComponent(azTeam),
+          ).catch(() => [] as SprintOption[]);
+          if (!cancelled) setAzureSprints(sps);
+        }
+        if (jiraBoard) {
+          const jsps = await apiFetch<SprintOption[]>(
+            '/tasks/jira/sprints?board_id=' + encodeURIComponent(jiraBoard),
+          ).catch(() => [] as SprintOption[]);
+          if (!cancelled) setJiraSprints(jsps);
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setSprintsLoading(false); }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const active = useMemo(() => workspaces.find((w) => w.id === activeId) || null, [workspaces, activeId]);
@@ -195,6 +257,31 @@ export default function WorkspacesPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update workspace');
     } finally { setBusy(false); }
+  }
+
+  // Generic PUT for the new per-workspace settings (repos / sprint / active).
+  // Sends only the provided fields; the backend ignores omitted ones.
+  async function handleUpdateSettings(patch: Partial<Pick<Workspace, 'is_active' | 'sprint_provider' | 'sprint_path' | 'sprint_project' | 'sprint_team' | 'sprint_board' | 'repo_mapping_ids'>>) {
+    if (!active) return;
+    setError('');
+    try {
+      const ws = await apiFetch<Workspace>(`/workspaces/${active.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(patch),
+      });
+      setWorkspaces(workspaces.map((w) => (w.id === ws.id ? ws : w)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update workspace settings');
+    }
+  }
+
+  function toggleRepo(repoId: number) {
+    if (!active) return;
+    const current = active.repo_mapping_ids || [];
+    const next = current.includes(repoId)
+      ? current.filter((id) => id !== repoId)
+      : [...current, repoId];
+    void handleUpdateSettings({ repo_mapping_ids: next });
   }
 
   async function handleDeleteWorkspace() {
@@ -352,6 +439,7 @@ export default function WorkspacesPage() {
                   background: activeId === w.id ? 'var(--acc-soft)' : 'var(--panel)',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 12,
+                  opacity: w.is_active === false ? 0.55 : 1,
                 }}
               >
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: gradFor(w.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>
@@ -361,6 +449,7 @@ export default function WorkspacesPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</span>
                     {w.is_default ? <span style={defaultPill}>default</span> : null}
+                    {w.is_active === false ? <span style={inactivePill}>inactive</span> : null}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, fontFamily: 'monospace' }}>{w.slug}</div>
                 </div>
@@ -377,10 +466,31 @@ export default function WorkspacesPage() {
                 {(active.name[0] || 'W').toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)' }}>{active.name}</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)' }}>{active.name}</h2>
+                  {active.is_active === false ? <span style={inactivePill}>inactive</span> : null}
+                </div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{active.description || ''}</div>
               </div>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                {canDo('workspace:manage') ? (
+                  <button
+                    onClick={() => void handleUpdateSettings({ is_active: !(active.is_active !== false) })}
+                    title="Active"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 6,
+                      border: `1px solid ${active.is_active !== false ? 'rgba(63,157,106,0.45)' : 'var(--panel-border-3)'}`,
+                      background: active.is_active !== false ? 'rgba(63,157,106,0.12)' : 'transparent',
+                      color: active.is_active !== false ? '#3f9d6a' : 'var(--ink-65)',
+                      fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ position: 'relative', display: 'inline-block', width: 30, height: 16, borderRadius: 999, background: active.is_active !== false ? '#3f9d6a' : 'var(--panel-border-3)', transition: 'background 0.15s' }}>
+                      <span style={{ position: 'absolute', top: 2, left: active.is_active !== false ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+                    </span>
+                    {active.is_active !== false ? 'Active' : 'Inactive'}
+                  </button>
+                ) : null}
                 {canDo('workspace:manage') ? (
                   <button onClick={openEdit} style={btnGhost} title={t('workspaces.editTitle')}>
                     <NavIcon name="pencil" size={14} /> {t('workspaces.edit')}
@@ -412,6 +522,77 @@ export default function WorkspacesPage() {
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6 }}>{members.length}</div>
               </div>
             </div>
+
+            {/* Responsible repos + active sprint settings */}
+            {canDo('workspace:manage') ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 24 }}>
+                {/* Responsible repos */}
+                <div style={settingCard}>
+                  <div style={statLabel}>Responsible repos</div>
+                  {(active.repo_mapping_ids?.length || 0) > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {repoOptions
+                        .filter((r) => (active.repo_mapping_ids || []).includes(r.id))
+                        .map((r) => (
+                          <span key={r.id} style={repoChip}>{r.owner}/{r.repo_name}</span>
+                        ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>No repos selected</div>
+                  )}
+                  {repoOptions.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>No repo mappings configured.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 2 }}>
+                      {repoOptions.map((r) => {
+                        const checked = (active.repo_mapping_ids || []).includes(r.id);
+                        return (
+                          <label key={r.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                            border: `1px solid ${checked ? 'var(--acc)' : 'var(--panel-border)'}`,
+                            background: checked ? 'var(--acc-soft)' : 'var(--surface)',
+                            transition: 'border-color 0.15s, background 0.15s',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRepo(r.id)}
+                              style={{ accentColor: 'var(--acc)', width: 15, height: 15, flexShrink: 0, cursor: 'pointer', margin: 0 }}
+                            />
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: checked ? 600 : 500, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.owner}/{r.repo_name}</span>
+                            <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--ink-45)', textTransform: 'uppercase', letterSpacing: 0.6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{r.provider}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Active sprint — full Azure/Jira cascade like the global switcher */}
+                <div style={settingCard}>
+                  <div style={statLabel}>Active sprint</div>
+                  {active.sprint_path ? (
+                    <div style={{ fontSize: 12, color: 'var(--ink-78)', margin: '6px 0 10px', wordBreak: 'break-all' }}>
+                      <span style={{ color: 'var(--ink-35)' }}>Current: </span>{active.sprint_path.split('\\').pop()}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--ink-42)', margin: '6px 0 10px' }}>No sprint set yet.</div>
+                  )}
+                  <WorkspaceSprintPicker
+                    key={active.id}
+                    initial={{
+                      provider: active.sprint_provider,
+                      project: active.sprint_project,
+                      team: active.sprint_team,
+                      board: active.sprint_board,
+                      sprintPath: active.sprint_path,
+                    }}
+                    onApply={(patch) => void handleUpdateSettings(patch)}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {canDo('workspace:invite') ? (
               <div style={{ marginTop: 8, marginBottom: 24 }}>
@@ -645,3 +826,7 @@ const inviteCodeBox: React.CSSProperties = { padding: '6px 10px', borderRadius: 
 const memberRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' };
 const titleInput: React.CSSProperties = { width: 140, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--panel)', color: 'var(--ink-90)', fontSize: 12, outline: 'none' };
 const defaultPill: React.CSSProperties = { fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: 'rgba(63,157,106,0.15)', color: '#3f9d6a', textTransform: 'uppercase', letterSpacing: 1 };
+const inactivePill: React.CSSProperties = { fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: 'rgba(201,138,43,0.15)', color: '#c98a2b', textTransform: 'uppercase', letterSpacing: 1 };
+const settingCard: React.CSSProperties = { padding: 16, borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' };
+const repoChip: React.CSSProperties = { fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--panel-border-2)' };
+const repoCheckRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 6, cursor: 'pointer' };

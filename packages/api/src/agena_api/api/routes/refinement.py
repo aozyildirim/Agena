@@ -23,7 +23,15 @@ from agena_services.services.refinement_job_service import (
 )
 from agena_services.services.refinement_service import RefinementService
 
-router = APIRouter(prefix='/refinement', tags=['refinement'])
+# Page-view permission gates the whole module — members without
+# `pages:refinement` can neither see the menu item (frontend) nor pull
+# refinement data through these endpoints. Org owners bypass. The per-action
+# endpoints below additionally require refinement:run / refinement:approve.
+router = APIRouter(
+    prefix='/refinement',
+    tags=['refinement'],
+    dependencies=[Depends(require_workspace_perm('pages:refinement'))],
+)
 
 # Keep strong refs to in-flight backfill tasks so asyncio doesn't GC them
 # out from under us. Per-org since only one backfill runs at a time.

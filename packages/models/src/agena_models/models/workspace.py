@@ -30,10 +30,37 @@ class Workspace(Base):
     description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     invite_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Whether the workspace is active. Inactive workspaces are de-emphasized in
+    # the UI but kept (not deleted) so their history/members are preserved.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default='1')
+    # The workspace's active sprint (provider-specific path/id) so each team's
+    # board context is scoped to its own sprint.
+    sprint_provider: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # 'azure' | 'jira'
+    sprint_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # Cascade context so the sprint picker can be restored on reload
+    # (Azure project+team, or Jira project+board).
+    sprint_project: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sprint_team: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sprint_board: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_by_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     members = relationship('WorkspaceMember', back_populates='workspace', cascade='all, delete-orphan')
+    repos = relationship('WorkspaceRepo', back_populates='workspace', cascade='all, delete-orphan')
+
+
+class WorkspaceRepo(Base):
+    """Repos a workspace's team is responsible for — selected from the org's
+    RepoMappings. Many-to-many join."""
+    __tablename__ = 'workspace_repos'
+    __table_args__ = (UniqueConstraint('workspace_id', 'repo_mapping_id', name='uq_workspace_repo'),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey('workspaces.id', ondelete='CASCADE'), index=True)
+    repo_mapping_id: Mapped[int] = mapped_column(ForeignKey('repo_mappings.id', ondelete='CASCADE'), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    workspace = relationship('Workspace', back_populates='repos')
 
 
 class WorkspaceMember(Base):

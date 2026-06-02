@@ -35,7 +35,7 @@ const NAV_GROUPS: NavGroup[] = [
     module: 'core',
     items: [
       { href: '/dashboard/office', key: 'nav.office', icon: 'home', module: 'boss_mode', wsPerm: 'pages:office' },
-      { href: '/dashboard/tasks', key: 'nav.tasks', icon: 'tasks', permission: 'tasks:read' as const, module: 'core' },
+      { href: '/dashboard/tasks', key: 'nav.tasks', icon: 'tasks', permission: 'tasks:read' as const, module: 'core', wsPerm: 'pages:tasks' },
       { href: '/dashboard/reviews', key: 'nav.reviews', icon: 'search', permission: 'tasks:read' as const, module: 'reviews', wsPerm: 'pages:reviews' },
     ],
   },
@@ -44,7 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     module: 'core',
     items: [
-      { href: '/dashboard/refinement', key: 'nav.refinement', icon: 'refinement', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'refinement:run' },
+      { href: '/dashboard/refinement', key: 'nav.refinement', icon: 'refinement', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'pages:refinement' },
       { href: '/dashboard/triage', key: 'nav.triage', icon: 'triage', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },
       { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: 'clock', permission: 'tasks:read' as const, module: 'review_backlog', wsPerm: 'pages:review-backlog' },
     ],
@@ -67,7 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.group.delivery',
     defaultOpen: false,
     items: [
-      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints' },
+      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
       { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
       { href: '/dashboard/team', key: 'nav.team', icon: 'users', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
       { href: '/dashboard/dora', key: 'nav.dora', icon: 'chart', module: 'dora', wsPerm: 'analytics:read', children: [
@@ -95,8 +95,8 @@ const NAV_GROUPS: NavGroup[] = [
       ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: 'map', module: 'core', wsPerm: 'repo:manage' },
       { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: 'layers', module: 'core', wsPerm: 'workspace:manage' },
-      { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core' },
-      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core' },
+      { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
+      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
       { href: '/dashboard/modules', key: 'nav.modules', icon: 'grid', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
     ],
   },
@@ -860,12 +860,16 @@ function DashboardInner({ children }: { children: ReactNode }) {
           <span className='topbar-sprint-switcher'><SprintSwitcher /></span>
         )}
 
+        <span className='topbar-divider' style={{ width: 1, height: 22, background: 'var(--panel-border)', margin: '0 4px', flexShrink: 0 }} />
+
         {/* Theme + Lang — moved here from the marketing nav so the dashboard
             isn't missing those controls now that the marketing nav is hidden. */}
         <span className='topbar-toggles'>
           <ThemeToggle />
           <LangToggle />
         </span>
+
+        <span className='topbar-divider' style={{ width: 1, height: 22, background: 'var(--panel-border)', margin: '0 4px', flexShrink: 0 }} />
 
         {/* Quick integration shortcuts — visible on mobile + desktop */}
         {enabledModules?.has('sentry') && (
@@ -876,7 +880,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             color: pathname.startsWith('/dashboard/integrations/sentry') ? 'var(--nav-active)' : 'var(--muted)',
             textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s',
           }}>
-            <NavIcon name='alert' size={17} />
+            <NavIcon name='alert' size={16} />
           </Link>
         )}
         {enabledModules?.has('newrelic') && (
@@ -887,7 +891,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             color: pathname.startsWith('/dashboard/integrations/newrelic') ? 'var(--nav-active)' : 'var(--muted)',
             textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s',
           }}>
-            <NavIcon name='signal' size={17} />
+            <NavIcon name='signal' size={16} />
           </Link>
         )}
 
@@ -899,7 +903,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
           color: pathname.startsWith('/dashboard/usage') ? 'var(--nav-active)' : 'var(--muted)',
           textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s',
         }}>
-          <NavIcon name='chart' size={17} />
+          <NavIcon name='chart' size={16} />
         </Link>
 
         {/* Notification bell */}
@@ -916,7 +920,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
             color: 'var(--muted)', cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
-          <NavIcon name='bell' size={17} />
+          <NavIcon name='bell' size={16} />
           {unreadCount > 0 && (
             <span style={{
               position: 'absolute', right: -4, top: -4,
@@ -1002,6 +1006,8 @@ function DashboardInner({ children }: { children: ReactNode }) {
             </Link>
           </div>
         )}
+
+        <span className='topbar-divider' style={{ width: 1, height: 22, background: 'var(--panel-border)', margin: '0 4px', flexShrink: 0 }} />
 
         {/* Profile avatar */}
         {userName && (

@@ -43,7 +43,29 @@ class WorkspaceItem(BaseModel):
     description: Optional[str] = None
     invite_code: str
     is_default: bool
+    is_active: bool = True
+    sprint_provider: Optional[str] = None
+    sprint_path: Optional[str] = None
+    sprint_project: Optional[str] = None
+    sprint_team: Optional[str] = None
+    sprint_board: Optional[str] = None
+    repo_mapping_ids: list[int] = []
     created_at: datetime
+
+
+def _ws_item(ws, repo_ids: Optional[list[int]] = None) -> 'WorkspaceItem':
+    return WorkspaceItem(
+        id=ws.id, name=ws.name, slug=ws.slug, description=ws.description,
+        invite_code=ws.invite_code, is_default=ws.is_default,
+        is_active=getattr(ws, 'is_active', True),
+        sprint_provider=getattr(ws, 'sprint_provider', None),
+        sprint_path=getattr(ws, 'sprint_path', None),
+        sprint_project=getattr(ws, 'sprint_project', None),
+        sprint_team=getattr(ws, 'sprint_team', None),
+        sprint_board=getattr(ws, 'sprint_board', None),
+        repo_mapping_ids=repo_ids or [],
+        created_at=ws.created_at,
+    )
 
 
 class WorkspaceMemberItem(BaseModel):
@@ -71,6 +93,13 @@ class JoinWorkspaceRequest(BaseModel):
 class UpdateWorkspaceRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    is_active: Optional[bool] = None
+    sprint_provider: Optional[str] = None
+    sprint_path: Optional[str] = None
+    sprint_project: Optional[str] = None
+    sprint_team: Optional[str] = None
+    sprint_board: Optional[str] = None
+    repo_mapping_ids: Optional[list[int]] = None
 
 
 class UpdateMemberRequest(BaseModel):
@@ -84,13 +113,8 @@ async def list_workspaces(
 ) -> list[WorkspaceItem]:
     service = WorkspaceService(db)
     rows = await service.list_for_user(user_id=tenant.user_id, organization_id=tenant.organization_id)
-    return [
-        WorkspaceItem(
-            id=ws.id, name=ws.name, slug=ws.slug, description=ws.description,
-            invite_code=ws.invite_code, is_default=ws.is_default, created_at=ws.created_at,
-        )
-        for ws in rows
-    ]
+    repo_map = await service.repo_ids_for([ws.id for ws in rows])
+    return [_ws_item(ws, repo_map.get(ws.id, [])) for ws in rows]
 
 
 @router.post('', response_model=WorkspaceItem)
@@ -110,10 +134,7 @@ async def create_workspace(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return WorkspaceItem(
-        id=ws.id, name=ws.name, slug=ws.slug, description=ws.description,
-        invite_code=ws.invite_code, is_default=ws.is_default, created_at=ws.created_at,
-    )
+    return _ws_item(ws)
 
 
 @router.post('/join', response_model=WorkspaceItem)
@@ -131,10 +152,7 @@ async def join_workspace(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return WorkspaceItem(
-        id=ws.id, name=ws.name, slug=ws.slug, description=ws.description,
-        invite_code=ws.invite_code, is_default=ws.is_default, created_at=ws.created_at,
-    )
+    return _ws_item(ws)
 
 
 @router.put('/{workspace_id}', response_model=WorkspaceItem, dependencies=[Depends(require_workspace_perm('workspace:manage'))])
@@ -151,13 +169,18 @@ async def update_workspace(
             organization_id=tenant.organization_id,
             name=payload.name,
             description=payload.description,
+            is_active=payload.is_active,
+            sprint_provider=payload.sprint_provider,
+            sprint_path=payload.sprint_path,
+            sprint_project=payload.sprint_project,
+            sprint_team=payload.sprint_team,
+            sprint_board=payload.sprint_board,
+            repo_mapping_ids=payload.repo_mapping_ids,
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return WorkspaceItem(
-        id=ws.id, name=ws.name, slug=ws.slug, description=ws.description,
-        invite_code=ws.invite_code, is_default=ws.is_default, created_at=ws.created_at,
-    )
+    repo_map = await service.repo_ids_for([ws.id])
+    return _ws_item(ws, repo_map.get(ws.id, []))
 
 
 @router.delete('/{workspace_id}', dependencies=[Depends(require_workspace_perm('workspace:delete'))])
@@ -186,7 +209,10 @@ async def list_members(
     ws = await service.get(workspace_id=workspace_id, organization_id=tenant.organization_id)
     if ws is None:
         raise HTTPException(status_code=404, detail='Workspace not found')
-    if not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
+    # Org owners are implicit super-admins of every workspace in their org —
+    # they can list members even of workspaces they haven't personally joined.
+    is_owner = (tenant.role or '').lower() == 'owner'
+    if not is_owner and not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
         raise HTTPException(status_code=403, detail='Not a workspace member')
     members = await service.list_members_with_roles(workspace_id)
     return [

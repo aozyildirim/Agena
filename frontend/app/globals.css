@@ -3110,6 +3110,7 @@ html.light .dashboard-topbar .topbar-toggles select {
   .dashboard-topbar .topbar-toggles { display: none; }
   .dashboard-topbar .topbar-username { display: none !important; }
   .dashboard-topbar .topbar-new-task-label { display: none; }
+  .dashboard-topbar .topbar-divider { display: none !important; }
   .dashboard-topbar .topbar-new-task {
     padding: 6px 10px !important;
     font-size: 16px !important;

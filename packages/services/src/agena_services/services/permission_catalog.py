@@ -107,15 +107,19 @@ PERMISSION_GROUPS: list[dict] = [
         'group': 'pages',
         'label': 'Pages',
         'icon': '📑',
+        # Listed in sidebar order so the role matrix mirrors the menu.
         'permissions': [
             ('pages:office', 'View the Office home dashboard'),
+            ('pages:tasks', 'View the Tasks list'),
+            ('pages:reviews', 'View the Reviews list'),
+            ('pages:refinement', 'View the Refinement page'),
             ('pages:triage', 'View the Triage inbox'),
             ('pages:review-backlog', 'View the Review Backlog'),
+            ('pages:insights', 'View Insights'),
+            ('pages:templates', 'View flow Templates'),
             ('pages:skills', 'View the Skills library'),
             ('pages:runtimes', 'View Runtimes'),
-            ('pages:insights', 'View Insights'),
-            ('pages:reviews', 'View the Reviews list'),
-            ('pages:templates', 'View flow Templates'),
+            ('pages:sprints', 'View the Sprint board'),
         ],
     },
     {
@@ -125,6 +129,7 @@ PERMISSION_GROUPS: list[dict] = [
         'permissions': [
             ('integrations:manage', 'Connect / disconnect Sentry, Jira, GitHub etc.'),
             ('modules:configure', 'Toggle modules on / off for the org'),
+            ('roles:manage', 'Manage roles & permissions'),
             ('billing:read', 'See billing / invoices'),
             ('billing:manage', 'Change plan / payment method'),
             ('analytics:read', 'View DORA / analytics dashboards'),

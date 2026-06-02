@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_models.models.organization_member import OrganizationMember
 from agena_models.models.user import User
-from agena_models.models.workspace import Workspace, WorkspaceMember, generate_invite_code
+from agena_models.models.workspace import Workspace, WorkspaceMember, WorkspaceRepo, generate_invite_code
 
 
 _SLUG_RE = re.compile(r'^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$')
@@ -239,6 +239,34 @@ class WorkspaceService:
         await self.db.delete(member)
         await self.db.commit()
 
+    async def repo_ids_for(self, workspace_ids: list[int]) -> dict[int, list[int]]:
+        """Map each workspace id → list of its selected repo_mapping ids."""
+        out: dict[int, list[int]] = {wid: [] for wid in workspace_ids}
+        if not workspace_ids:
+            return out
+        rows = await self.db.execute(
+            select(WorkspaceRepo.workspace_id, WorkspaceRepo.repo_mapping_id)
+            .where(WorkspaceRepo.workspace_id.in_(workspace_ids))
+        )
+        for ws_id, repo_id in rows.all():
+            out.setdefault(ws_id, []).append(repo_id)
+        return out
+
+    async def set_repos(self, *, workspace_id: int, repo_mapping_ids: list[int]) -> None:
+        """Replace the workspace's responsible-repos set with the given ids."""
+        existing = await self.db.execute(
+            select(WorkspaceRepo).where(WorkspaceRepo.workspace_id == workspace_id)
+        )
+        current = {r.repo_mapping_id: r for r in existing.scalars().all()}
+        wanted = {int(r) for r in repo_mapping_ids}
+        for repo_id, row in current.items():
+            if repo_id not in wanted:
+                await self.db.delete(row)
+        for repo_id in wanted:
+            if repo_id not in current:
+                self.db.add(WorkspaceRepo(workspace_id=workspace_id, repo_mapping_id=repo_id))
+        await self.db.commit()
+
     async def update(
         self,
         *,
@@ -246,6 +274,13 @@ class WorkspaceService:
         organization_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        sprint_provider: Optional[str] = None,
+        sprint_path: Optional[str] = None,
+        sprint_project: Optional[str] = None,
+        sprint_team: Optional[str] = None,
+        sprint_board: Optional[str] = None,
+        repo_mapping_ids: Optional[list[int]] = None,
     ) -> Workspace:
         result = await self.db.execute(
             select(Workspace).where(
@@ -263,7 +298,21 @@ class WorkspaceService:
             ws.name = new_name
         if description is not None:
             ws.description = description.strip() or None
+        if is_active is not None:
+            ws.is_active = bool(is_active)
+        if sprint_provider is not None:
+            ws.sprint_provider = sprint_provider.strip() or None
+        if sprint_path is not None:
+            ws.sprint_path = sprint_path.strip() or None
+        if sprint_project is not None:
+            ws.sprint_project = sprint_project.strip() or None
+        if sprint_team is not None:
+            ws.sprint_team = sprint_team.strip() or None
+        if sprint_board is not None:
+            ws.sprint_board = sprint_board.strip() or None
         await self.db.commit()
+        if repo_mapping_ids is not None:
+            await self.set_repos(workspace_id=workspace_id, repo_mapping_ids=repo_mapping_ids)
         await self.db.refresh(ws)
         return ws
 
