@@ -1445,6 +1445,100 @@ class AzureDevOpsClient:
         details = await self.fetch_pr_details(cfg, pr_refs=pr_refs, concurrency=concurrency)
         return {ref: meta['title'] for ref, meta in details.items() if meta.get('title')}
 
+    async def list_open_pull_requests(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+    ) -> list[dict[str, Any]]:
+        """List the active (open) PRs of a repo, fetched live from Azure —
+        no dependency on any local sync. Returns lightweight dicts:
+        {id, title, author, source_branch, target_branch, created, url}.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo:
+            return []
+        from urllib.parse import quote
+        url = (
+            f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}/pullrequests'
+            '?searchCriteria.status=active&$top=100&api-version=7.1-preview.1'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=self._headers(pat))
+            if resp.status_code != 200:
+                raise RuntimeError(f'Azure {resp.status_code}: {resp.text[:200]}')
+            rows = (resp.json() or {}).get('value', []) or []
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f'Azure list PRs failed: {exc}') from exc
+        out: list[dict[str, Any]] = []
+        for pr in rows:
+            branch = str(pr.get('sourceRefName') or '').replace('refs/heads/', '')
+            target = str(pr.get('targetRefName') or '').replace('refs/heads/', '')
+            web = ((pr.get('_links') or {}).get('web') or {}).get('href') or ''
+            out.append({
+                'id': str(pr.get('pullRequestId') or ''),
+                'title': str(pr.get('title') or '').strip(),
+                'author': str(((pr.get('createdBy') or {}).get('displayName')) or ''),
+                'source_branch': branch,
+                'target_branch': target,
+                'created': str(pr.get('creationDate') or ''),
+                'url': web,
+            })
+        return out
+
+    async def post_pr_inline_thread(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+        pr_id: str,
+        file_path: str,
+        line: int,
+        content: str,
+    ) -> str | None:
+        """Open a discussion thread anchored to a file + line on a PR (the
+        "Discussion" box in the Azure diff). ``file_path`` must be repo-root
+        relative starting with '/'. Returns the thread id, or None on failure.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo or not pr_id:
+            return None
+        from urllib.parse import quote
+        path = file_path if file_path.startswith('/') else f'/{file_path}'
+        ln = max(1, int(line or 1))
+        body = {
+            'comments': [{'parentCommentId': 0, 'content': content, 'commentType': 'text'}],
+            'status': 'active',
+            'threadContext': {
+                'filePath': path,
+                'rightFileStart': {'line': ln, 'offset': 1},
+                'rightFileEnd': {'line': ln, 'offset': 1},
+            },
+        }
+        url = (
+            f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}'
+            f'/pullRequests/{pr_id}/threads?api-version=7.1-preview.1'
+        )
+        headers = self._headers(pat)
+        headers['Content-Type'] = 'application/json'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(url, headers=headers, json=body)
+            if resp.status_code >= 400:
+                logger.warning('Azure PR thread %s: %s', resp.status_code, resp.text[:200])
+                return None
+            return str((resp.json() or {}).get('id') or '') or None
+        except Exception as exc:
+            logger.warning('Azure PR thread post failed: %s', exc)
+            return None
+
     async def fetch_pr_details(
         self,
         cfg: dict[str, str],
