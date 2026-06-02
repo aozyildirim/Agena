@@ -311,6 +311,20 @@ class NudgeService:
                 max_output_tokens=400,
                 skip_cache=True,
             )
+            try:
+                from agena_services.services.ai_usage_event_service import AIUsageEventService
+                await AIUsageEventService(self.db).record_llm_usage(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    task_id=None,
+                    operation_type='nudge',
+                    provider=agent_provider,
+                    model=model or agent_model,
+                    usage=_usage,
+                    details={'item_id': item_id, 'source_provider': src},
+                )
+            except Exception:
+                pass
         except Exception as exc:
             logger.warning('nudge llm generation failed: %s', exc)
             return {
