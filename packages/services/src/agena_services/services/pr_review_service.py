@@ -214,6 +214,13 @@ async def review_pr(
         rm, cfg = resolved
         client = AzureDevOpsClient()
 
+        async def _stage(name: str) -> None:
+            # Live progress so the detail page can show what the review is
+            # doing (overwritten by the full details payload at the end).
+            record.details = json.dumps({'stage': name})
+            await db.commit()
+
+        await _stage('fetching_files')
         # 1) changed files -> numbered new content (bounded).
         changed = await client.fetch_pr_changed_files(cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id))
         files: list[tuple[str, str]] = []
@@ -252,6 +259,7 @@ async def review_pr(
             return text or ''
 
         # 2) review -> 3) verify.
+        await _stage('reviewing')
         review_raw = await run(_build_review_prompt(title or '', files))
         logger.info('PR review raw output (pr=%s, %d chars): %s', pr_id, len(review_raw), review_raw[:600])
         parsed = _extract_json(review_raw)
@@ -259,6 +267,7 @@ async def review_pr(
         score = parsed.get('score')
         logger.info('PR review parsed: %d finding(s), score=%s', len(findings), score)
         if findings:
+            await _stage('verifying')
             verify_raw = await run(_build_verify_prompt(findings, files))
             verified = _extract_json(verify_raw).get('findings')
             if isinstance(verified, list) and verified:
@@ -294,6 +303,7 @@ async def review_pr(
         low = [f for f in clean if f['severity'] not in _INLINE_SEVERITIES]
 
         # 5) post inline threads.
+        await _stage('posting')
         posted = 0
         for f in inline:
             body = f"**🤖 AGENA — {f['severity'].upper()}**" + (f" · {f['category']}" if f['category'] else '') + f"\n\n{f['comment']}"
@@ -331,6 +341,7 @@ async def review_pr(
         record.reviewer_model = model
         record.completed_at = datetime.utcnow()
         record.details = json.dumps({
+            'stage': 'done',
             'inline': len(inline), 'low': len(low),
             'reviewed_files': [p for p, _ in files],
             'tokens': agg_usage.get('total_tokens', 0),

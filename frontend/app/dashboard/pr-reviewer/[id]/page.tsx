@@ -11,8 +11,10 @@ type ReviewDetail = {
   status: string; severity: string | null; score: number | null; findings_count: number;
   threads_posted: number; threads_open: number; reviewer_provider: string | null; reviewer_model: string | null;
   error_message: string | null; created_at: string; completed_at: string | null; duration_sec: number | null;
-  findings: Finding[]; reviewed_files: string[]; tokens: number; cost_usd: number | null;
+  findings: Finding[]; reviewed_files: string[]; tokens: number; cost_usd: number | null; stage?: string | null;
 };
+
+const STAGES = ['fetching_files', 'reviewing', 'verifying', 'posting'] as const;
 
 const card: React.CSSProperties = { borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)' };
 const sevColor = (s: string | null | undefined): string =>
@@ -55,6 +57,7 @@ export default function PrReviewDetailPage() {
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 1000 }}>
+      <style>{`@keyframes prvSpin { to { transform: rotate(360deg); } } .prv-spin { display:inline-block; width:13px; height:13px; border:2px solid var(--panel-border); border-top-color: var(--acc); border-radius:50%; animation: prvSpin .7s linear infinite; }`}</style>
       <button onClick={() => router.push('/dashboard/pr-reviewer')} style={{ background: 'transparent', border: 'none', color: 'var(--ink-50)', fontSize: 13, cursor: 'pointer', textAlign: 'left', padding: 0, width: 'fit-content' }}>← {t('prReviewer.back')}</button>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
@@ -81,6 +84,25 @@ export default function PrReviewDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* Live progress while running */}
+      {d.status === 'running' && (
+        <div style={{ ...card, padding: '16px 18px', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          {STAGES.map((s) => {
+            const cur = STAGES.indexOf(d.stage as typeof STAGES[number]);
+            const idx = STAGES.indexOf(s);
+            const active = s === d.stage;
+            const done = cur > idx;
+            const color = active ? 'var(--acc)' : done ? '#3f9d6a' : 'var(--ink-30)';
+            return (
+              <div key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color, fontSize: 13, fontWeight: active ? 700 : 500 }}>
+                {active ? <span className='prv-spin' /> : <span>{done ? '✓' : '○'}</span>}
+                {t(`prReviewer.stage.${s}` as Parameters<typeof t>[0])}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Findings */}
       <div>
