@@ -1516,6 +1516,51 @@ export default function RefinementPage() {
     }
   }, [provider, azureSprint, jiraSprint, normalizeAnalyzeResponse]);
 
+  // When a refinement record is deleted on the /runs page it leaves a
+  // tombstone (item ids) in localStorage. Drop those items' cached
+  // suggestions — both from the live `results` state and from every
+  // persisted snapshot — so the "X pts / NN%" badge disappears for items
+  // whose record no longer exists on the server.
+  const applyDeletionTombstones = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const TK = 'refinement:deleted-items';
+    let ids: string[] = [];
+    try { ids = JSON.parse(localStorage.getItem(TK) || '[]'); } catch { ids = []; }
+    if (!ids.length) return;
+    const dead = new Set(ids.map(String));
+    // 1) Prune live state.
+    setResults((prev) => {
+      if (!prev?.results?.length) return prev;
+      const kept = prev.results.filter((r) => !dead.has(String(r.item_id)));
+      return kept.length === prev.results.length ? prev : { ...prev, results: kept };
+    });
+    // 2) Prune every persisted snapshot so switching sprints stays clean.
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('agena_refinement_snapshot_')) continue;
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const snap = JSON.parse(raw);
+        const rows = snap?.results?.results;
+        if (!Array.isArray(rows)) continue;
+        const kept = rows.filter((r: { item_id?: string }) => !dead.has(String(r.item_id)));
+        if (kept.length !== rows.length) {
+          snap.results.results = kept;
+          localStorage.setItem(k, JSON.stringify(snap));
+        }
+      }
+    } catch { /* non-fatal */ }
+    localStorage.removeItem(TK);
+  }, []);
+
+  useEffect(() => {
+    applyDeletionTombstones();
+    const onFocus = () => applyDeletionTombstones();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [applyDeletionTombstones]);
+
   return (
     <div className="refinement-page" style={{ display: 'grid', gap: 14, maxWidth: 1200, paddingBottom: 40 }}>
       {/* ── LOADING OVERLAY (portal to body) ── */}

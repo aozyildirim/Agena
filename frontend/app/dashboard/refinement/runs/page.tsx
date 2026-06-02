@@ -174,6 +174,17 @@ export default function RefinementRunsPage() {
       await apiFetch(`/refinement/records/${rec.id}`, { method: 'DELETE' });
       setItems((prev) => prev.filter((r) => r.id !== rec.id));
       setTotal((tt) => Math.max(0, tt - 1));
+      // Tombstone: tell the Refinement page to drop this item's cached
+      // suggestion badge (its localStorage snapshot is independent of the
+      // server record we just deleted).
+      try {
+        if (typeof window !== 'undefined' && rec.external_item_id) {
+          const TK = 'refinement:deleted-items';
+          const prev: string[] = JSON.parse(localStorage.getItem(TK) || '[]');
+          const next = Array.from(new Set([...prev, String(rec.external_item_id)])).slice(-200);
+          localStorage.setItem(TK, JSON.stringify(next));
+        }
+      } catch { /* non-fatal */ }
       setToast('✓ ' + t('refinement.runs.recordDeletedToast' as Parameters<typeof t>[0]));
       setTimeout(() => setToast(''), 3000);
     } catch (e) {
