@@ -44,6 +44,7 @@ from agena_models.models.review_backlog_nudge import ReviewBacklogNudge
 from agena_models.models.org_workflow_settings import OrgWorkflowSettings
 from agena_models.models.module import Module, OrganizationModule
 from agena_models.models.user_preference import UserPreference
+from agena_models.models.pr_review import PrReview
 from agena_models.models.workspace import Workspace, WorkspaceMember, WorkspaceRepo
 from agena_models.models.workspace_role import WorkspaceRole
 from agena_models.models.workspace_invite_link import WorkspaceInviteLink
@@ -68,6 +69,7 @@ __all__ = [
     'Skill',
     'Runtime',
     'NudgeHistory',
+    'PrReview',
     'Workspace',
     'WorkspaceMember',
     'WorkspaceRepo',
