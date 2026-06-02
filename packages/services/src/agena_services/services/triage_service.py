@@ -177,6 +177,7 @@ async def _evaluate(
         )
 
     output = ''
+    usage_data: dict = {}
     if provider in ('claude_cli', 'codex_cli'):
         # CLI bridge — read-only, /tmp working dir (no repo access needed
         # for triage; the verdict is description-driven).
@@ -210,7 +211,7 @@ async def _evaluate(
             db, organization_id=organization_id,
             provider=provider, model=model or None,
         )
-        output, _usage, _model, _cached = await llm.generate(
+        output, usage_data, _model, _cached = await llm.generate(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
             complexity_hint='light',
@@ -232,6 +233,19 @@ async def _evaluate(
         # When the model picks "keep", the action is non-destructive,
         # so we publish higher confidence — it's fine.
         confidence = max(confidence, 70)
+    try:
+        from agena_services.services.ai_usage_event_service import AIUsageEventService
+        await AIUsageEventService(db).record_llm_usage(
+            organization_id=organization_id,
+            task_id=getattr(task, 'id', None),
+            operation_type='triage',
+            provider=provider,
+            model=model,
+            usage=usage_data,
+            details={'external_id': getattr(task, 'external_id', None), 'verdict': verdict},
+        )
+    except Exception:
+        pass
     return verdict, confidence, reason
 
 

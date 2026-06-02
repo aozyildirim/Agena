@@ -875,6 +875,7 @@ async def _run_review_background(
             )
 
             provider_norm = (provider or '').strip().lower()
+            usage_data: dict = {}
             if provider_norm in ('claude_cli', 'codex_cli'):
                 repo_path = await _resolve_repo_path_for_task(db, task)
                 output, used_model = await _run_cli_review(
@@ -895,7 +896,7 @@ async def _run_review_background(
                     provider=provider_norm or 'openai',
                     model=model,
                 )
-                output, _usage, used_model, _cached = await llm.generate(
+                output, usage_data, used_model, _cached = await llm.generate(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     complexity_hint='normal',
@@ -915,6 +916,18 @@ async def _run_review_background(
             logger.info(
                 'Review #%s completed task=%s role=%s findings=%s severity=%s',
                 review.id, task.id, role_norm, count, severity,
+            )
+            from agena_services.services.ai_usage_event_service import AIUsageEventService
+            await AIUsageEventService(db).record_llm_usage(
+                organization_id=organization_id,
+                user_id=requested_by_user_id,
+                task_id=task.id,
+                operation_type='review',
+                provider=provider,
+                model=used_model or model,
+                usage=usage_data,
+                status='completed',
+                details={'role': role_norm, 'review_id': review.id, 'findings': count, 'severity': severity},
             )
         except Exception as exc:
             review.status = 'failed'

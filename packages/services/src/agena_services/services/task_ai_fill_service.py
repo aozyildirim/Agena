@@ -247,6 +247,7 @@ async def fill(
     raw_response = ''
     used_provider = chosen
     used_model = chosen_model or 'auto'
+    usage_data: dict = {}
 
     # If the chosen hosted provider has no credentials configured, fall
     # back to the CLI bridge so the request still succeeds — many users
@@ -297,7 +298,7 @@ async def fill(
         # LLMProvider.generate returns (output, usage, model, cached_flag).
         # We parse JSON from `output` ourselves; usage / cached are unused
         # here but the model name is passed back to the caller.
-        output, _usage, returned_model, _cached = await llm.generate(
+        output, usage_data, returned_model, _cached = await llm.generate(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             complexity_hint='normal',
@@ -309,6 +310,20 @@ async def fill(
         used_model = returned_model or default_model
 
     parsed = _extract_json_object(raw_response)
+    try:
+        from agena_services.services.ai_usage_event_service import AIUsageEventService
+        await AIUsageEventService(db).record_llm_usage(
+            organization_id=organization_id,
+            user_id=user_id,
+            task_id=None,
+            operation_type='task_ai_fill',
+            provider=used_provider,
+            model=used_model,
+            usage=usage_data,
+            details={'fields': 'story_context,acceptance_criteria,edge_cases'},
+        )
+    except Exception:
+        pass
     return {
         'story_context': str(parsed.get('story_context') or '').strip(),
         'acceptance_criteria': str(parsed.get('acceptance_criteria') or '').strip(),

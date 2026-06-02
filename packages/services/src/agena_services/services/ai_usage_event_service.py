@@ -61,6 +61,72 @@ class AIUsageEventService:
         await self.db.refresh(event)
         return event
 
+    async def record_llm_usage(
+        self,
+        *,
+        organization_id: int,
+        operation_type: str,
+        provider: str | None,
+        model: str | None,
+        usage: dict | None,
+        user_id: int | None = None,
+        task_id: int | None = None,
+        status: str = 'completed',
+        started_at: datetime | None = None,
+        ended_at: datetime | None = None,
+        duration_ms: int | None = None,
+        cost_usd: float | None = None,
+        details: dict | None = None,
+        error_message: str | None = None,
+    ) -> AIUsageEvent | None:
+        """Convenience wrapper so every LLM call site can log a usage event
+        in one line: pulls token counts out of a provider ``usage`` dict,
+        prices the run cache-aware (unless ``cost_usd`` is given, e.g. the
+        CLI's own authoritative number), folds ``cached_input_tokens`` into
+        details, and persists. Best-effort — never raises into the caller.
+        """
+        try:
+            u = usage or {}
+            prompt = int(u.get('prompt_tokens', 0) or 0)
+            completion = int(u.get('completion_tokens', 0) or 0)
+            total = int(u.get('total_tokens', 0) or 0) or (prompt + completion)
+            cached = int(u.get('cached_input_tokens', 0) or 0)
+            if cost_usd is None:
+                if total > 0:
+                    from agena_services.services.llm.cost_tracker import CostTracker
+                    cost_usd = CostTracker().estimate_cost_usd(
+                        prompt_tokens=prompt,
+                        completion_tokens=completion,
+                        cached_input_tokens=cached,
+                        model=model,
+                    )
+                else:
+                    cost_usd = 0.0
+            merged = dict(details or {})
+            if cached > 0:
+                merged['cached_input_tokens'] = cached
+            return await self.create_event(
+                organization_id=organization_id,
+                user_id=user_id,
+                task_id=task_id,
+                operation_type=operation_type,
+                provider=provider or 'unknown',
+                model=model,
+                status=status,
+                prompt_tokens=prompt,
+                completion_tokens=completion,
+                total_tokens=total,
+                cost_usd=float(cost_usd or 0.0),
+                started_at=started_at,
+                ended_at=ended_at,
+                duration_ms=duration_ms,
+                cache_hit=cached > 0,
+                error_message=error_message,
+                details_json=merged or None,
+            )
+        except Exception:
+            return None
+
     async def list_task_events(self, organization_id: int, task_id: int) -> list[AIUsageEvent]:
         result = await self.db.execute(
             select(AIUsageEvent)
