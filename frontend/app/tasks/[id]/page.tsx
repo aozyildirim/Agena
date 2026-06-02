@@ -409,44 +409,61 @@ export default function TaskDetailPage() {
 
   async function loadData(isInitial = false) {
     try {
-      const [taskData, logsData, runsData, taskList, prefs, integrations, attachmentsData, revisionsData] = await Promise.all([
-        apiFetch<TaskDetail>('/tasks/' + taskId),
-        apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs'),
-        apiFetch<RunInfo[]>('/tasks/' + taskId + '/runs').catch(() => [] as RunInfo[]),
-        apiFetch<DependencyTaskOption[]>('/tasks'),
-        apiFetch<{ azure_project?: string | null; azure_sprint_path?: string | null }>('/preferences').catch(() => null),
-        apiFetch<Array<{ provider: string; base_url: string }>>('/integrations').catch(() => [] as Array<{ provider: string; base_url: string }>),
-        apiFetch<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>('/tasks/' + taskId + '/attachments').catch(() => []),
-        apiFetch<TaskRevisionRecord[]>('/tasks/' + taskId + '/revisions').catch(() => [] as TaskRevisionRecord[]),
-      ]);
-      if (prefs) {
-        setAzureProject(prefs.azure_project || '');
-        setAzureSprintPath(prefs.azure_sprint_path || '');
-      }
-      const azCfg = (integrations || []).find((c) => c.provider === 'azure');
-      setAzureOrgUrl(azCfg?.base_url || '');
-      const jrCfg = (integrations || []).find((c) => c.provider === 'jira');
-      setJiraBaseUrl(jrCfg?.base_url || '');
+      // ── Critical: the task itself gates the first paint. As soon as it
+      // resolves we render — the rest streams in without blocking. This is
+      // why the detail used to "hang" on open: it waited for ALL of the
+      // calls below (incl. the full task list + integrations, 9–21s under
+      // load) before showing anything.
+      const taskData = await apiFetch<TaskDetail>('/tasks/' + taskId);
       setTask(taskData);
-      setAttachments(attachmentsData || []);
-      setLogs(logsData);
-      setRuns(runsData);
-      setRevisions(revisionsData || []);
-      const currentTaskId = Number(taskId);
-      setDependencyCandidates(taskList.filter((item) => item.id !== currentTaskId));
-      const d = await apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies');
-      setDepsData(d);
-      // Only seed the checkbox selection from the server on first load;
-      // otherwise the 5s poll keeps resetting the user's in-progress edits.
-      if (isInitial || !depsInitializedRef.current) {
-        setSelectedDependencyIds(d.depends_on_task_ids || []);
-        depsInitializedRef.current = true;
-      }
       setError('');
+      if (isInitial) setLoading(false);
+
+      // ── Live sections that change during a run. Refetched on every poll,
+      // but in the background so they never block paint. Each is isolated
+      // so one slow/failed call can't stall the others.
+      void apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs').then(setLogs).catch(() => {});
+      void apiFetch<RunInfo[]>('/tasks/' + taskId + '/runs').then(setRuns).catch(() => {});
+      void apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies').then((d) => {
+        setDepsData(d);
+        // Only seed the checkbox selection from the server on first load;
+        // otherwise the poll keeps resetting the user's in-progress edits.
+        if (isInitial || !depsInitializedRef.current) {
+          setSelectedDependencyIds(d.depends_on_task_ids || []);
+          depsInitializedRef.current = true;
+        }
+      }).catch(() => {});
+
+      // ── Static-ish data: fetched ONCE on initial load, never on the poll.
+      // These don't change while watching a run, and the full task list +
+      // /integrations are the heaviest calls — keeping them out of the 5s
+      // poll is what removes the connection-pool pressure that froze the API.
+      if (isInitial) {
+        void (async () => {
+          const [taskList, prefs, integrations, attachmentsData, revisionsData] = await Promise.all([
+            apiFetch<DependencyTaskOption[]>('/tasks').catch(() => [] as DependencyTaskOption[]),
+            apiFetch<{ azure_project?: string | null; azure_sprint_path?: string | null }>('/preferences').catch(() => null),
+            apiFetch<Array<{ provider: string; base_url: string }>>('/integrations').catch(() => [] as Array<{ provider: string; base_url: string }>),
+            apiFetch<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>('/tasks/' + taskId + '/attachments').catch(() => []),
+            apiFetch<TaskRevisionRecord[]>('/tasks/' + taskId + '/revisions').catch(() => [] as TaskRevisionRecord[]),
+          ]);
+          if (prefs) {
+            setAzureProject(prefs.azure_project || '');
+            setAzureSprintPath(prefs.azure_sprint_path || '');
+          }
+          const azCfg = (integrations || []).find((c) => c.provider === 'azure');
+          setAzureOrgUrl(azCfg?.base_url || '');
+          const jrCfg = (integrations || []).find((c) => c.provider === 'jira');
+          setJiraBaseUrl(jrCfg?.base_url || '');
+          setAttachments(attachmentsData || []);
+          setRevisions(revisionsData || []);
+          const currentTaskId = Number(taskId);
+          setDependencyCandidates((taskList || []).filter((item) => item.id !== currentTaskId));
+        })();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('taskDetail.errorLoad'));
-    } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }
 
@@ -554,8 +571,25 @@ export default function TaskDetailPage() {
     if (!taskId) return;
     depsInitializedRef.current = false;
     void loadData(true);
-    const interval = setInterval(() => void loadData(false), 5000);
-    return () => clearInterval(interval);
+    // Poll only while this tab is actually visible. Background tabs (the
+    // user often keeps several task tabs open) used to keep hammering the
+    // API every 5s, which is what saturated the connection pool. When the
+    // tab is hidden we stop; on re-focus we refresh once immediately.
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (interval) return;
+      interval = setInterval(() => void loadData(false), 8000);
+    };
+    const stop = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { void loadData(false); start(); }
+      else stop();
+    };
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [taskId]);
 
   useEffect(() => {
@@ -1755,7 +1789,7 @@ export default function TaskDetailPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setRightTab(tab.id)}
+                  onClick={() => setRightTab(tab.id as typeof rightTab)}
                   style={{
                     flex: 1, minWidth: 0,
                     padding: '8px 12px',
