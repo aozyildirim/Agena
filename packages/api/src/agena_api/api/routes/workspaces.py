@@ -46,6 +46,9 @@ class WorkspaceItem(BaseModel):
     is_active: bool = True
     sprint_provider: Optional[str] = None
     sprint_path: Optional[str] = None
+    sprint_project: Optional[str] = None
+    sprint_team: Optional[str] = None
+    sprint_board: Optional[str] = None
     repo_mapping_ids: list[int] = []
     created_at: datetime
 
@@ -57,6 +60,9 @@ def _ws_item(ws, repo_ids: Optional[list[int]] = None) -> 'WorkspaceItem':
         is_active=getattr(ws, 'is_active', True),
         sprint_provider=getattr(ws, 'sprint_provider', None),
         sprint_path=getattr(ws, 'sprint_path', None),
+        sprint_project=getattr(ws, 'sprint_project', None),
+        sprint_team=getattr(ws, 'sprint_team', None),
+        sprint_board=getattr(ws, 'sprint_board', None),
         repo_mapping_ids=repo_ids or [],
         created_at=ws.created_at,
     )
@@ -90,6 +96,9 @@ class UpdateWorkspaceRequest(BaseModel):
     is_active: Optional[bool] = None
     sprint_provider: Optional[str] = None
     sprint_path: Optional[str] = None
+    sprint_project: Optional[str] = None
+    sprint_team: Optional[str] = None
+    sprint_board: Optional[str] = None
     repo_mapping_ids: Optional[list[int]] = None
 
 
@@ -163,6 +172,9 @@ async def update_workspace(
             is_active=payload.is_active,
             sprint_provider=payload.sprint_provider,
             sprint_path=payload.sprint_path,
+            sprint_project=payload.sprint_project,
+            sprint_team=payload.sprint_team,
+            sprint_board=payload.sprint_board,
             repo_mapping_ids=payload.repo_mapping_ids,
         )
     except ValueError as exc:

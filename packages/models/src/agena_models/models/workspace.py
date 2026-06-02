@@ -37,6 +37,11 @@ class Workspace(Base):
     # board context is scoped to its own sprint.
     sprint_provider: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # 'azure' | 'jira'
     sprint_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # Cascade context so the sprint picker can be restored on reload
+    # (Azure project+team, or Jira project+board).
+    sprint_project: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sprint_team: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sprint_board: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_by_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

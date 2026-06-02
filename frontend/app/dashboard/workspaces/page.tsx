@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, loadPrefs } from '@/lib/api';
+import WorkspaceSprintPicker from '@/components/WorkspaceSprintPicker';
 import { useLocale } from '@/lib/i18n';
 import { useCanDo, usePermissions } from '@/lib/permissions';
 import Forbidden from '@/components/Forbidden';
@@ -18,6 +19,9 @@ type Workspace = {
   is_active: boolean;
   sprint_provider: string | null;
   sprint_path: string | null;
+  sprint_project?: string | null;
+  sprint_team?: string | null;
+  sprint_board?: string | null;
   repo_mapping_ids: number[];
 };
 
@@ -257,7 +261,7 @@ export default function WorkspacesPage() {
 
   // Generic PUT for the new per-workspace settings (repos / sprint / active).
   // Sends only the provided fields; the backend ignores omitted ones.
-  async function handleUpdateSettings(patch: Partial<Pick<Workspace, 'is_active' | 'sprint_provider' | 'sprint_path' | 'repo_mapping_ids'>>) {
+  async function handleUpdateSettings(patch: Partial<Pick<Workspace, 'is_active' | 'sprint_provider' | 'sprint_path' | 'sprint_project' | 'sprint_team' | 'sprint_board' | 'repo_mapping_ids'>>) {
     if (!active) return;
     setError('');
     try {
@@ -559,49 +563,27 @@ export default function WorkspacesPage() {
                   )}
                 </div>
 
-                {/* Active sprint */}
+                {/* Active sprint — full Azure/Jira cascade like the global switcher */}
                 <div style={settingCard}>
                   <div style={statLabel}>Active sprint</div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                    {(['azure', 'jira'] as const).map((prov) => {
-                      const selected = (active.sprint_provider || 'azure') === prov;
-                      return (
-                        <button
-                          key={prov}
-                          onClick={() => void handleUpdateSettings({ sprint_provider: prov, sprint_path: null })}
-                          style={{
-                            flex: 1, padding: '6px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            textTransform: 'capitalize',
-                            border: `1px solid ${selected ? 'var(--acc)' : 'var(--panel-border-3)'}`,
-                            background: selected ? 'var(--acc-soft)' : 'transparent',
-                            color: selected ? 'var(--acc)' : 'var(--ink-65)',
-                          }}
-                        >
-                          {prov}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {(() => {
-                    const prov = active.sprint_provider || 'azure';
-                    const opts = prov === 'jira' ? jiraSprints : azureSprints;
-                    return (
-                      <select
-                        value={active.sprint_path || ''}
-                        onChange={(e) => void handleUpdateSettings({ sprint_provider: prov, sprint_path: e.target.value || null })}
-                        style={{ width: '100%', marginTop: 8, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'var(--surface)', color: 'var(--ink-90)', fontSize: 13, boxSizing: 'border-box' }}
-                      >
-                        <option value="">{sprintsLoading ? 'Loading…' : (opts.length === 0 ? 'No sprints available' : 'Select a sprint')}</option>
-                        {opts.map((s) => {
-                          const val = s.path ?? s.name;
-                          return <option key={val} value={val}>{s.name}{s.is_current ? ' (current)' : ''}</option>;
-                        })}
-                      </select>
-                    );
-                  })()}
                   {active.sprint_path ? (
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, wordBreak: 'break-all' }}>{active.sprint_path}</div>
-                  ) : null}
+                    <div style={{ fontSize: 12, color: 'var(--ink-78)', margin: '6px 0 10px', wordBreak: 'break-all' }}>
+                      <span style={{ color: 'var(--ink-35)' }}>Current: </span>{active.sprint_path.split('\\').pop()}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--ink-42)', margin: '6px 0 10px' }}>No sprint set yet.</div>
+                  )}
+                  <WorkspaceSprintPicker
+                    key={active.id}
+                    initial={{
+                      provider: active.sprint_provider,
+                      project: active.sprint_project,
+                      team: active.sprint_team,
+                      board: active.sprint_board,
+                      sprintPath: active.sprint_path,
+                    }}
+                    onApply={(patch) => void handleUpdateSettings(patch)}
+                  />
                 </div>
               </div>
             ) : null}

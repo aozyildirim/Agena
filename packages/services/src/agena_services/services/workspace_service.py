@@ -277,6 +277,9 @@ class WorkspaceService:
         is_active: Optional[bool] = None,
         sprint_provider: Optional[str] = None,
         sprint_path: Optional[str] = None,
+        sprint_project: Optional[str] = None,
+        sprint_team: Optional[str] = None,
+        sprint_board: Optional[str] = None,
         repo_mapping_ids: Optional[list[int]] = None,
     ) -> Workspace:
         result = await self.db.execute(
@@ -301,6 +304,12 @@ class WorkspaceService:
             ws.sprint_provider = sprint_provider.strip() or None
         if sprint_path is not None:
             ws.sprint_path = sprint_path.strip() or None
+        if sprint_project is not None:
+            ws.sprint_project = sprint_project.strip() or None
+        if sprint_team is not None:
+            ws.sprint_team = sprint_team.strip() or None
+        if sprint_board is not None:
+            ws.sprint_board = sprint_board.strip() or None
         await self.db.commit()
         if repo_mapping_ids is not None:
             await self.set_repos(workspace_id=workspace_id, repo_mapping_ids=repo_mapping_ids)
