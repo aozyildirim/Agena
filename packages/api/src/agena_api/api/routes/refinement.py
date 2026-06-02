@@ -505,6 +505,46 @@ async def delete_refinement_record(
     return {'deleted': 1}
 
 
+class RefinementClearEstimateRequest(BaseModel):
+    provider: str  # 'azure' (Jira not supported yet)
+    work_item_id: str
+    project: str | None = None  # required for Azure
+
+
+@router.post('/clear-estimate', dependencies=[Depends(require_workspace_perm('refinement:run'))])
+async def clear_refinement_estimate(
+    payload: RefinementClearEstimateRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Wipe the estimate fields (StoryPoints / Effort / Size) a previous
+    writeback stamped on an Azure work item. Lets the user fully undo a
+    refinement — the value often lands in Effort, which may not be on the
+    Task form, so it can't be cleared from the Azure UI."""
+    src = (payload.provider or '').strip().lower()
+    wid = (payload.work_item_id or '').strip()
+    if not wid:
+        raise HTTPException(status_code=400, detail='work_item_id is required')
+    if src != 'azure':
+        raise HTTPException(status_code=400, detail='clear-estimate currently supports Azure only')
+
+    from agena_services.services.integration_config_service import IntegrationConfigService
+    from agena_services.integrations.azure_client import AzureDevOpsClient
+    cfg_service = IntegrationConfigService(db)
+    config = await cfg_service.get_config(tenant.organization_id, 'azure')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Azure integration not configured')
+    project = (payload.project or config.project or '').strip()
+    if not project:
+        raise HTTPException(status_code=400, detail='project is required for Azure')
+    cfg = {'org_url': config.base_url or '', 'pat': config.secret, 'project': project}
+    try:
+        cleared = await AzureDevOpsClient().clear_estimate(cfg=cfg, work_item_id=wid)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {'cleared': cleared}
+
+
 @router.post('/delete-comment')
 async def delete_refinement_comment(
     payload: RefinementDeleteCommentRequest,
