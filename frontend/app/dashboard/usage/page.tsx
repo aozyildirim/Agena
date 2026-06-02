@@ -105,7 +105,7 @@ export default function UsagePage() {
 
       <div className='usage-table-wrap' style={{ ...box, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div className='usage-table-header' style={{ display: 'grid', gridTemplateColumns: '140px 190px 180px 100px 80px 110px 90px 1fr', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--panel-border-2)', fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'var(--ink-45)', textTransform: 'uppercase', minWidth: 960 }}>
+          <div className='usage-table-header' style={{ display: 'grid', gridTemplateColumns: '140px 175px 165px 90px 90px 200px 80px 130px', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--panel-border-2)', fontSize: 10, fontWeight: 800, letterSpacing: 1, color: 'var(--ink-45)', textTransform: 'uppercase', minWidth: 960 }}>
             <span>{t('usage.colWhen')}</span>
             <span>{t('usage.colOperation')}</span>
             <span>{t('usage.colProvider')}</span>
@@ -123,7 +123,7 @@ export default function UsagePage() {
             <div style={{ padding: 14, color: 'var(--ink-50)' }}>{t('usage.empty')}</div>
           ) : (
             data.items.map((x) => (
-              <div key={x.id} className='usage-table-row' style={{ display: 'grid', gridTemplateColumns: '140px 190px 180px 100px 80px 110px 90px 1fr', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, alignItems: 'center', minWidth: 960 }}>
+              <div key={x.id} className='usage-table-row' style={{ display: 'grid', gridTemplateColumns: '140px 175px 165px 90px 90px 200px 80px 130px', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, alignItems: 'center', minWidth: 960 }}>
                 <span style={{ color: 'var(--ink-50)' }}>{new Date(x.created_at).toLocaleString()}</span>
                 <span style={{ color: '#5b9bd5', fontFamily: 'monospace' }}>{x.operation_type}</span>
                 <span style={{ color: 'var(--ink-78)' }}>{x.provider} / {x.model || '-'}</span>
@@ -133,7 +133,14 @@ export default function UsagePage() {
                     {x.subject_label || '→'} ↗
                   </a>
                 ) : <span style={{ color: 'var(--ink-78)' }}>-</span>}
-                <span style={{ color: 'var(--ink-78)' }}>{x.total_tokens}</span>
+                <span style={{ color: 'var(--ink-78)' }}>
+                  {x.total_tokens.toLocaleString()}
+                  {x.cached_tokens ? (
+                    <span style={{ color: '#3f9d6a', fontWeight: 600 }} title={t('taskDetail.cachedHint')}>
+                      {' · '}{x.cached_tokens.toLocaleString()} {t('taskDetail.cached')}
+                    </span>
+                  ) : null}
+                </span>
                 <span style={{ color: 'var(--ink-78)' }}>${x.cost_usd.toFixed(4)}</span>
                 <span style={{ color: 'var(--ink-50)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {x.error_message || x.local_repo_path || '-'}

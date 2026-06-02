@@ -23,6 +23,7 @@ class UsageEventItem(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    cached_tokens: int = 0
     cost_usd: float
     duration_ms: int | None = None
     cache_hit: bool
@@ -117,6 +118,7 @@ async def list_usage_events(
                 prompt_tokens=e.prompt_tokens,
                 completion_tokens=e.completion_tokens,
                 total_tokens=e.total_tokens,
+                cached_tokens=int((e.details_json or {}).get('cached_input_tokens') or 0) if isinstance(e.details_json, dict) else 0,
                 cost_usd=e.cost_usd,
                 duration_ms=e.duration_ms,
                 cache_hit=e.cache_hit,

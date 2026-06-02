@@ -493,6 +493,7 @@ export interface UsageEventItem {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+  cached_tokens?: number;
   cost_usd: number;
   duration_ms: number | null;
   cache_hit: boolean;
