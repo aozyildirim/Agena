@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, loadPrefs, savePrefs } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { useCanDo } from '@/lib/permissions';
 
@@ -21,12 +21,15 @@ type WorkspaceLite = {
 };
 
 /**
- * SprintSwitcher — the active sprint is owned by the WORKSPACE, not the user.
- * Whatever sprint the active workspace has set is what every member sees.
- * Only users with `sprint:select` (managers / owner) can change it; everyone
- * else sees it read-only. When a manager changes it we write it onto the
- * workspace AND mirror it into the user's prefs so the rest of the app (New
- * Task picker, etc.) keeps reading a consistent value.
+ * SprintSwitcher — the topbar's active sprint.
+ *
+ * Two clearly-separated worlds, so the workspace's sprint never clobbers a
+ * user's own choice and vice-versa:
+ *   • Users who CAN edit (sprint:select / owner) → this is THEIR personal
+ *     active sprint, read/written to their own prefs. The team-wide workspace
+ *     sprint is set separately on the Workspaces page and does NOT touch this.
+ *   • Users who CANNOT edit (members) → this is read-only and simply reflects
+ *     the active workspace's sprint.
  */
 export default function SprintSwitcher() {
   const { t } = useLocale();
@@ -38,7 +41,6 @@ export default function SprintSwitcher() {
   const [open, setOpen] = useState(false);
   const [provider, setProvider] = useState<Provider>('azure');
   const [jiraConnected, setJiraConnected] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
 
   // Azure state
   const [azProjects, setAzProjects] = useState<Opt[]>([]);
@@ -74,12 +76,51 @@ export default function SprintSwitcher() {
       })
       .catch(() => {});
 
-    void seedFromWorkspace();
+    if (canEdit) void seedFromPrefs();
+    else void seedFromWorkspace();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canEdit]);
 
-  // Resolve the active workspace's sprint and use it as the source of truth.
-  // Falls back to nothing when the workspace has no sprint set yet.
+  // Editors: the topbar is their OWN sprint — restore it from their prefs.
+  async function seedFromPrefs() {
+    try {
+      const prefs = await loadPrefs();
+      const p = prefs.azure_project || '';
+      const tm = prefs.azure_team || '';
+      const s = prefs.azure_sprint_path || '';
+      const rawSettings = (prefs.profile_settings || {}) as Record<string, unknown>;
+      const jp = typeof rawSettings.jira_project === 'string' ? rawSettings.jira_project : '';
+      const jb = typeof rawSettings.jira_board === 'string' ? rawSettings.jira_board : '';
+      const js = typeof rawSettings.jira_sprint_id === 'string' ? rawSettings.jira_sprint_id : '';
+      const preferred = typeof rawSettings.preferred_sprint_provider === 'string' ? rawSettings.preferred_sprint_provider : '';
+      if (preferred === 'jira' || preferred === 'azure') setProvider(preferred as Provider);
+      if (p) {
+        setAzProject(p);
+        if (tm) {
+          setAzTeams(await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(p)).catch(() => [] as Opt[]));
+          setAzTeam(tm);
+          if (s) {
+            setAzSprints(await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(p) + '&team=' + encodeURIComponent(tm)).catch(() => [] as Opt[]));
+            setAzSprint(s);
+          }
+        }
+      }
+      if (jp) {
+        setJiraProject(jp);
+        if (jb) {
+          setJiraBoards(await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(jp)).catch(() => [] as Opt[]));
+          setJiraBoard(jb);
+          if (js) {
+            setJiraSprints(await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(jb)).catch(() => [] as Opt[]));
+            setJiraSprint(js);
+          }
+        }
+      }
+    } catch { /* no-op */ }
+  }
+
+  // Members: read-only reflection of the active workspace's sprint. Never
+  // written to the user's prefs.
   async function seedFromWorkspace() {
     const wsId = typeof window !== 'undefined' ? Number(localStorage.getItem('agena_active_workspace_id') || '') : NaN;
     let ws: WorkspaceLite | undefined;
@@ -88,35 +129,19 @@ export default function SprintSwitcher() {
       ws = list.find((w) => w.id === wsId) || list[0];
     } catch { ws = undefined; }
     if (!ws || !ws.sprint_path) return;
-    setWorkspaceId(ws.id);
     const prov: Provider = ws.sprint_provider === 'jira' ? 'jira' : 'azure';
     setProvider(prov);
     if (prov === 'azure') {
-      const p = ws.sprint_project || '';
-      const tm = ws.sprint_team || '';
-      setAzProject(p); setAzTeam(tm); setAzSprint(ws.sprint_path || '');
-      if (p && tm) {
-        const tms = await apiFetch<Opt[]>('/tasks/azure/teams?project=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
-        setAzTeams(tms);
-        const sps = await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(p) + '&team=' + encodeURIComponent(tm)).catch(() => [] as Opt[]);
-        setAzSprints(sps);
-      }
+      setAzProject(ws.sprint_project || '');
+      setAzTeam(ws.sprint_team || '');
+      setAzSprint(ws.sprint_path || '');
+      if (ws.sprint_team) setAzSprints(await apiFetch<Opt[]>('/tasks/azure/sprints?project=' + encodeURIComponent(ws.sprint_project || '') + '&team=' + encodeURIComponent(ws.sprint_team)).catch(() => [] as Opt[]));
     } else {
-      const p = ws.sprint_project || '';
-      const b = ws.sprint_board || '';
-      setJiraProject(p); setJiraBoard(b); setJiraSprint(ws.sprint_path || '');
-      if (p) {
-        const boards = await apiFetch<Opt[]>('/tasks/jira/boards?project_key=' + encodeURIComponent(p)).catch(() => [] as Opt[]);
-        setJiraBoards(boards);
-      }
-      if (b) {
-        const jsps = await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(b)).catch(() => [] as Opt[]);
-        setJiraSprints(jsps);
-      }
+      setJiraProject(ws.sprint_project || '');
+      setJiraBoard(ws.sprint_board || '');
+      setJiraSprint(ws.sprint_path || '');
+      if (ws.sprint_board) setJiraSprints(await apiFetch<Opt[]>('/tasks/jira/sprints?board_id=' + encodeURIComponent(ws.sprint_board)).catch(() => [] as Opt[]));
     }
-    // NOTE: we deliberately do NOT write the workspace sprint into the user's
-    // personal prefs — the workspace owns its sprint, and a user's own sprint
-    // preference must stay untouched.
   }
 
   useEffect(() => {
@@ -179,24 +204,26 @@ export default function SprintSwitcher() {
       .catch(() => {}).finally(() => setLoadingJiraSprints(false));
   }, []);
 
+  // Editors only — save the user's OWN sprint to their prefs. Workspace
+  // sprints are managed separately on the Workspaces page.
   async function save() {
     if (!canEdit) return;
     setSaving(true);
     try {
-      // Workspace is the source of truth.
-      let wsId = workspaceId;
-      if (wsId == null && typeof window !== 'undefined') {
-        const raw = Number(localStorage.getItem('agena_active_workspace_id') || '');
-        wsId = Number.isFinite(raw) && raw > 0 ? raw : null;
-      }
-      if (wsId != null) {
-        const body = provider === 'azure'
-          ? { sprint_provider: 'azure', sprint_path: azSprint, sprint_project: azProject, sprint_team: azTeam, sprint_board: '' }
-          : { sprint_provider: 'jira', sprint_path: jiraSprint, sprint_project: jiraProject, sprint_team: '', sprint_board: jiraBoard };
-        await apiFetch(`/workspaces/${wsId}`, { method: 'PUT', body: JSON.stringify(body) }).catch(() => {});
-      }
-      // Workspace owns the sprint — we intentionally do NOT touch the user's
-      // personal prefs here.
+      const existingRaw = (typeof window !== 'undefined' && localStorage.getItem('agena_profile_settings')) || '{}';
+      const existing = JSON.parse(existingRaw) as Record<string, unknown>;
+      await savePrefs({
+        azure_project: azProject,
+        azure_team: azTeam,
+        azure_sprint_path: azSprint,
+        profile_settings: {
+          ...existing,
+          jira_project: jiraProject,
+          jira_board: jiraBoard,
+          jira_sprint_id: jiraSprint,
+          preferred_sprint_provider: provider,
+        },
+      });
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 1500);
       if (typeof window !== 'undefined') {
@@ -259,15 +286,12 @@ export default function SprintSwitcher() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
-              {t('sprintSwitcher.title')}
+              {canEdit ? t('sprintSwitcher.title') : 'Active sprint'}
             </div>
-            {!canEdit && (
-              <span style={{ fontSize: 10, color: 'var(--ink-45)', fontWeight: 600 }}>Set by workspace</span>
-            )}
+            {!canEdit && <span style={{ fontSize: 10, color: 'var(--ink-45)', fontWeight: 600 }}>Set by workspace</span>}
           </div>
 
           {!canEdit ? (
-            // Read-only for members — they inherit the workspace's sprint.
             <div style={{ display: 'grid', gap: 8 }}>
               <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' }}>
                 <div style={{ fontSize: 10, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>{provider === 'jira' ? 'Jira' : 'Azure'} · Active sprint</div>
