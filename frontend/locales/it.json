@@ -1342,6 +1342,8 @@
   "taskDetail.queuePos": "Pos. Coda",
   "taskDetail.eta": "ETA",
   "taskDetail.tokens": "Token",
+  "taskDetail.cached": "in cache",
+  "taskDetail.cachedHint": "Letture dalla cache: contesto riutilizzato fatturato a ~10% della tariffa di input, quindi il costo reale è molto inferiore al totale grezzo dei token.",
   "taskDetail.lastStage": "Ultima Fase",
   "taskDetail.lastUpdate": "Ultimo Aggiornamento",
   "taskDetail.logs": "Log",

@@ -1342,6 +1342,8 @@
   "taskDetail.queuePos": "Queue Pos",
   "taskDetail.eta": "ETA",
   "taskDetail.tokens": "Tokens",
+  "taskDetail.cached": "cached",
+  "taskDetail.cachedHint": "Cache reads — re-used context billed at ~10% of the input rate, so the real cost is far below the raw token count.",
   "taskDetail.lastStage": "Last Stage",
   "taskDetail.lastUpdate": "Last Update",
   "taskDetail.logs": "Logs",

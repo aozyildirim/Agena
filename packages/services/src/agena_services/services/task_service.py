@@ -1809,8 +1809,34 @@ class TaskService:
         duration = self._extract_duration(metrics_log.message) if metrics_log is not None else None
         return duration, total_tokens
 
+    async def get_cached_tokens(self, organization_id: int, task_id: int) -> int:
+        """Sum the prompt-cache READ tokens across a task's usage events.
+
+        These are billed at ~10% of the input rate, so surfacing them lets
+        the UI explain why a big raw token count (which folds cache reads in)
+        cost far less than list price. Read from ``details_json`` where the
+        orchestrator stashes ``cached_input_tokens`` per event.
+        """
+        if self.db is None:
+            raise ValueError('DB session required')
+        rows = (await self.db.execute(
+            select(AIUsageEvent.details_json).where(
+                AIUsageEvent.organization_id == organization_id,
+                AIUsageEvent.task_id == task_id,
+            )
+        )).scalars().all()
+        total = 0
+        for d in rows:
+            if isinstance(d, dict):
+                try:
+                    total += int(d.get('cached_input_tokens') or 0)
+                except (TypeError, ValueError):
+                    continue
+        return total
+
     async def get_task_insights(self, organization_id: int, task: TaskRecord) -> dict:
         duration_sec, total_tokens = await self.get_task_metrics(organization_id, task.id)
+        cached_tokens = await self.get_cached_tokens(organization_id, task.id)
         logs = await self.get_logs(organization_id, task.id)
         created_at = task.created_at
         running_at = next((l.created_at for l in logs if l.stage == 'running'), None)
@@ -1873,6 +1899,7 @@ class TaskService:
             'pr_risk_level': pr_risk['level'],
             'pr_risk_reason': pr_risk['reason'],
             'total_tokens': total_tokens,
+            'cached_tokens': cached_tokens or None,
         }
 
     async def get_dependencies(self, organization_id: int, task_id: int) -> list[int]:

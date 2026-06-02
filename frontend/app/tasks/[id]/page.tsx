@@ -47,6 +47,7 @@ type TaskDetail = {
   pr_risk_level?: string | null;
   pr_risk_reason?: string | null;
   total_tokens?: number | null;
+  cached_tokens?: number | null;
   occurrences?: number | null;
   last_seen_at?: string | null;
   first_seen_at?: string | null;
@@ -1152,7 +1153,7 @@ export default function TaskDetailPage() {
 
       {/* Top stats strip — status-aware, shows only meaningful values */}
       {(() => {
-        const items: { label: string; value: string; href?: string }[] = [];
+        const items: { label: string; value: string; href?: string; title?: string }[] = [];
         const durationSec = task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null);
         if (durationSec != null) items.push({ label: t('taskDetail.duration'), value: fmtEta(durationSec) });
 
@@ -1174,7 +1175,18 @@ export default function TaskDetailPage() {
 
         const tokens = task?.total_tokens ?? (metrics?.totalTokens ? Number(metrics.totalTokens) : null);
         if (tokens != null && Number(tokens) > 0) {
-          items.push({ label: t('taskDetail.tokens'), value: Number(tokens).toLocaleString() });
+          const cached = Number(task?.cached_tokens ?? 0);
+          let value = Number(tokens).toLocaleString();
+          let title: string | undefined;
+          if (cached > 0 && Number(tokens) > 0) {
+            const pct = Math.round((cached / Number(tokens)) * 100);
+            // e.g. "1,500,000 · 1,200,000 cache (80%)" — the cached part is
+            // re-read context billed at ~10% of the input rate, so the real
+            // cost is far below what the raw total suggests.
+            value = `${value} · ${cached.toLocaleString()} ${t('taskDetail.cached')} (${pct}%)`;
+            title = t('taskDetail.cachedHint');
+          }
+          items.push({ label: t('taskDetail.tokens'), value, title });
         }
 
         if (latestLog) {
@@ -1267,7 +1279,7 @@ export default function TaskDetailPage() {
                     {it.value} ↗
                   </a>
                 ) : (
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{it.value}</span>
+                  <span title={it.title} style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', cursor: it.title ? 'help' : undefined }}>{it.value}</span>
                 )}
                 {(i < items.length - 1 || showRefreshChip) && !isMobile && (
                   <span aria-hidden style={{ marginLeft: 12, color: 'var(--ink-22)' }}>·</span>

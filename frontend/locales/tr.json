@@ -1342,6 +1342,8 @@
   "taskDetail.queuePos": "Kuyruk Poz.",
   "taskDetail.eta": "ETA",
   "taskDetail.tokens": "Token",
+  "taskDetail.cached": "önbellek",
+  "taskDetail.cachedHint": "Önbellek okumaları — yeniden kullanılan bağlam giriş ücretinin ~%10'u kadar faturalanır, yani gerçek maliyet ham token sayısının çok altındadır.",
   "taskDetail.lastStage": "Son Aşama",
   "taskDetail.lastUpdate": "Son Güncelleme",
   "taskDetail.logs": "Loglar",

@@ -1342,6 +1342,8 @@
   "taskDetail.queuePos": "キュー Poz.",
   "taskDetail.eta": "ETA",
   "taskDetail.tokens": "Token",
+  "taskDetail.cached": "キャッシュ",
+  "taskDetail.cachedHint": "キャッシュ読み取り — 再利用されたコンテキストは入力料金の約10%で課金されるため、実際のコストは生のトークン数よりはるかに低くなります。",
   "taskDetail.lastStage": "最終ステージ",
   "taskDetail.lastUpdate": "直近 日celleme",
   "taskDetail.logs": "ログ",

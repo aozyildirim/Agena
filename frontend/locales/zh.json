@@ -1342,6 +1342,8 @@
   "taskDetail.queuePos": "队列位置",
   "taskDetail.eta": "预计时间",
   "taskDetail.tokens": "Token",
+  "taskDetail.cached": "缓存",
+  "taskDetail.cachedHint": "缓存读取——重复使用的上下文按输入价格的约10%计费，因此实际成本远低于原始 token 数。",
   "taskDetail.lastStage": "最后阶段",
   "taskDetail.lastUpdate": "最后更新",
   "taskDetail.logs": "日志",

@@ -1342,6 +1342,8 @@
   "taskDetail.queuePos": "Queue-Pos.",
   "taskDetail.eta": "ETA",
   "taskDetail.tokens": "Token",
+  "taskDetail.cached": "im Cache",
+  "taskDetail.cachedHint": "Cache-Lesevorgänge – wiederverwendeter Kontext wird mit ~10% des Eingabepreises berechnet, der reale Preis liegt also weit unter der rohen Tokenzahl.",
   "taskDetail.lastStage": "Letzte Stufe",
   "taskDetail.lastUpdate": "Letzte Aktualisierung",
   "taskDetail.logs": "Logs",
