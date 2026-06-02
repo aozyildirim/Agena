@@ -155,6 +155,7 @@ async def review_detail(
         'created_at': r.created_at.isoformat() if r.created_at else '',
         'completed_at': r.completed_at.isoformat() if r.completed_at else None,
         'duration_sec': duration_sec,
+        'stage': details.get('stage'),
         'findings': details.get('findings') or [],
         'reviewed_files': details.get('reviewed_files') or [],
         'tokens': details.get('tokens') or 0,

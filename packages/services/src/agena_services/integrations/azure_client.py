@@ -1479,9 +1479,14 @@ class AzureDevOpsClient:
         for pr in rows:
             branch = str(pr.get('sourceRefName') or '').replace('refs/heads/', '')
             target = str(pr.get('targetRefName') or '').replace('refs/heads/', '')
+            pid = str(pr.get('pullRequestId') or '')
+            # The list endpoint usually omits _links, so build the web URL
+            # ourselves: {org}/{project}/_git/{repo}/pullrequest/{id}.
             web = ((pr.get('_links') or {}).get('web') or {}).get('href') or ''
+            if not web and pid:
+                web = f'{org_url}/{quote(project)}/_git/{quote(repo)}/pullrequest/{pid}'
             out.append({
-                'id': str(pr.get('pullRequestId') or ''),
+                'id': pid,
                 'title': str(pr.get('title') or '').strip(),
                 'author': str(((pr.get('createdBy') or {}).get('displayName')) or ''),
                 'source_branch': branch,
