@@ -509,6 +509,8 @@ export interface UsageSummary {
   total_tokens: number;
   cost_usd: number;
   avg_duration_ms: number;
+  cached_tokens?: number;
+  cache_savings_usd?: number;
 }
 
 export interface UsageEventsResponse {

@@ -149,6 +149,30 @@ class AIUsageEventService:
             ).where(*filters)
         )
         count, prompt, completion, total_tokens, cost, avg_duration = result.one()
+
+        # Cache reads (billed ~10% of input) live in details_json and price
+        # per the event's model, so they can't be summed in SQL. Pull the
+        # filtered events' (details_json, model) and fold in Python — this is
+        # what lets the usage page show "of which cached" + the $ it saved.
+        from agena_services.services.llm.cost_tracker import _lookup_price
+        cache_rows = (await self.db.execute(
+            select(AIUsageEvent.details_json, AIUsageEvent.model).where(*filters)
+        )).all()
+        cached_tokens = 0
+        cache_savings = 0.0
+        for details, model in cache_rows:
+            if not isinstance(details, dict):
+                continue
+            try:
+                c = int(details.get('cached_input_tokens') or 0)
+            except (TypeError, ValueError):
+                continue
+            if c <= 0:
+                continue
+            cached_tokens += c
+            in_rate, cached_rate, _ = _lookup_price(model)
+            cache_savings += c * (in_rate - cached_rate) / 1_000_000
+
         return {
             'count': int(count or 0),
             'prompt_tokens': int(prompt or 0),
@@ -156,4 +180,6 @@ class AIUsageEventService:
             'total_tokens': int(total_tokens or 0),
             'cost_usd': float(cost or 0.0),
             'avg_duration_ms': int(avg_duration or 0),
+            'cached_tokens': int(cached_tokens),
+            'cache_savings_usd': round(cache_savings, 4),
         }

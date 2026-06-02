@@ -98,6 +98,8 @@ export default function UsagePage() {
         <Metric label={t('usage.totalEvents')} value={String(data?.summary.count ?? 0)} />
         <Metric label={t('usage.totalTokens')} value={String(data?.summary.total_tokens ?? 0)} />
         <Metric label={t('usage.totalCost')} value={`$${(data?.summary.cost_usd ?? 0).toFixed(4)}`} />
+        <Metric label={t('usage.cachedTokens')} value={String(data?.summary.cached_tokens ?? 0)} />
+        <Metric label={t('usage.cacheSavings')} value={`$${(data?.summary.cache_savings_usd ?? 0).toFixed(4)}`} />
         <Metric label={t('usage.avgDuration')} value={`${data?.summary.avg_duration_ms ?? 0} ms`} />
       </div>
 
@@ -126,7 +128,11 @@ export default function UsagePage() {
                 <span style={{ color: '#5b9bd5', fontFamily: 'monospace' }}>{x.operation_type}</span>
                 <span style={{ color: 'var(--ink-78)' }}>{x.provider} / {x.model || '-'}</span>
                 <span style={{ color: x.status === 'failed' ? '#cf5b57' : '#3f9d6a' }}>{x.status}</span>
-                <span style={{ color: 'var(--ink-78)' }}>{x.task_id ?? '-'}</span>
+                {x.task_id ? (
+                  <a href={`/tasks/${x.task_id}`} style={{ color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }} title={t('usage.openTask')}>
+                    #{x.task_id} ↗
+                  </a>
+                ) : <span style={{ color: 'var(--ink-78)' }}>-</span>}
                 <span style={{ color: 'var(--ink-78)' }}>{x.total_tokens}</span>
                 <span style={{ color: 'var(--ink-78)' }}>${x.cost_usd.toFixed(4)}</span>
                 <span style={{ color: 'var(--ink-50)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

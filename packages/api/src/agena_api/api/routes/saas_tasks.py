@@ -251,6 +251,8 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         pr_risk_level=insights['pr_risk_level'],
         pr_risk_reason=insights['pr_risk_reason'],
         total_tokens=insights['total_tokens'],
+        cached_tokens=insights.get('cached_tokens'),
+        cache_savings_usd=insights.get('cache_savings_usd'),
         sprint_name=getattr(task, 'sprint_name', None),
         sprint_path=getattr(task, 'sprint_path', None),
         repo_mapping_id=getattr(task, 'repo_mapping_id', None),
