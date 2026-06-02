@@ -47,33 +47,46 @@ _INLINE_SEVERITIES = {'critical', 'high', 'medium'}
 
 
 async def _azure_cfg(db: AsyncSession, organization_id: int) -> dict[str, str] | None:
-    cfg_service = IntegrationConfigService(db)
-    config = await cfg_service.get_config(organization_id, 'azure')
+    config = await IntegrationConfigService(db).get_config(organization_id, 'azure')
     if config is None or not config.secret:
         return None
     return {'org_url': config.base_url or '', 'pat': config.secret, 'project': config.project or ''}
 
 
-async def _resolve_repo(db: AsyncSession, organization_id: int, repo_mapping_id: int) -> tuple[RepoMapping, dict[str, str]] | None:
+async def _github_cfg(db: AsyncSession, organization_id: int) -> dict[str, str] | None:
+    config = await IntegrationConfigService(db).get_config(organization_id, 'github')
+    if config is None or not config.secret:
+        return None
+    return {'token': config.secret}
+
+
+async def _resolve_repo(db: AsyncSession, organization_id: int, repo_mapping_id: int) -> tuple[RepoMapping, dict[str, str], str] | None:
     rm = (await db.execute(
         select(RepoMapping).where(
             RepoMapping.id == repo_mapping_id,
             RepoMapping.organization_id == organization_id,
         )
     )).scalar_one_or_none()
-    if rm is None or (rm.provider or '').lower() != 'azure':
+    if rm is None:
         return None
-    cfg = await _azure_cfg(db, organization_id)
-    if cfg is None:
-        return None
-    return rm, cfg
+    prov = (rm.provider or '').lower()
+    if prov == 'azure':
+        cfg = await _azure_cfg(db, organization_id)
+        return (rm, cfg, 'azure') if cfg else None
+    if prov == 'github':
+        cfg = await _github_cfg(db, organization_id)
+        return (rm, cfg, 'github') if cfg else None
+    return None
 
 
 async def list_open_prs(db: AsyncSession, organization_id: int, repo_mapping_id: int) -> list[dict[str, Any]]:
     resolved = await _resolve_repo(db, organization_id, repo_mapping_id)
     if resolved is None:
-        raise ValueError('Azure repo mapping or integration not configured')
-    rm, cfg = resolved
+        raise ValueError('Repo mapping or integration not configured')
+    rm, cfg, provider = resolved
+    if provider == 'github':
+        from agena_services.integrations.github_client import GitHubClient
+        return await GitHubClient().list_open_pull_requests(token=cfg['token'], owner=rm.owner, repo=rm.repo_name)
     return await AzureDevOpsClient().list_open_pull_requests(cfg=cfg, project=rm.owner, repo=rm.repo_name)
 
 
@@ -207,7 +220,7 @@ async def review_pr(
     record = PrReview(
         organization_id=organization_id,
         requested_by_user_id=user_id,
-        provider='azure',
+        provider=(resolved[2] if resolved else 'azure'),
         repo_mapping_id=repo_mapping_id,
         repo=resolved[0].repo_name if resolved else '',
         pr_number=str(pr_id),
@@ -223,8 +236,7 @@ async def review_pr(
     try:
         if resolved is None:
             raise ValueError('Azure repo mapping or integration not configured')
-        rm, cfg = resolved
-        client = AzureDevOpsClient()
+        rm, cfg, repo_provider = resolved
 
         async def _stage(name: str) -> None:
             # Live progress so the detail page can show what the review is
@@ -233,19 +245,38 @@ async def review_pr(
             await db.commit()
 
         await _stage('fetching_files')
-        # 1) changed files -> numbered new content (bounded).
-        changed = await client.fetch_pr_changed_files(cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id))
+        # 1) changed files -> numbered new content (bounded). Per provider.
         files: list[tuple[str, str]] = []
+        commentable: dict[str, set[int]] = {}  # github: which RIGHT lines accept inline comments
+        head_sha = ''
         total = 0
-        for c in changed[:_MAX_FILES]:
-            if total >= _MAX_TOTAL_CHARS:
-                break
-            content = await client.fetch_file_content(cfg=cfg, project=rm.owner, repo=rm.repo_name, path=c['path'], branch=source_branch)
-            if not content:
-                continue
-            numbered = _number_lines(content)
-            files.append((c['path'], numbered))
-            total += len(numbered)
+        if repo_provider == 'github':
+            from agena_services.integrations.github_client import GitHubClient
+            gh = GitHubClient()
+            meta = await gh.get_pull_request(token=cfg['token'], owner=rm.owner, repo=rm.repo_name, pr_number=str(pr_id))
+            head_sha = (meta or {}).get('head_sha') or ''
+            ref = source_branch or (meta or {}).get('source_branch') or ''
+            for c in (await gh.fetch_pr_files(token=cfg['token'], owner=rm.owner, repo=rm.repo_name, pr_number=str(pr_id)))[:_MAX_FILES]:
+                if total >= _MAX_TOTAL_CHARS:
+                    break
+                content = await gh.fetch_file_content(token=cfg['token'], owner=rm.owner, repo=rm.repo_name, path=c['path'], ref=ref)
+                if not content:
+                    continue
+                numbered = _number_lines(content)
+                files.append((c['path'], numbered))
+                commentable[c['path']] = set(c.get('lines') or set())
+                total += len(numbered)
+        else:
+            client = AzureDevOpsClient()
+            for c in (await client.fetch_pr_changed_files(cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id)))[:_MAX_FILES]:
+                if total >= _MAX_TOTAL_CHARS:
+                    break
+                content = await client.fetch_file_content(cfg=cfg, project=rm.owner, repo=rm.repo_name, path=c['path'], branch=source_branch)
+                if not content:
+                    continue
+                numbered = _number_lines(content)
+                files.append((c['path'], numbered))
+                total += len(numbered)
         if not files:
             raise RuntimeError('No reviewable changed files found on the PR')
 
@@ -317,33 +348,45 @@ async def review_pr(
         inline = [f for f in clean if f['severity'] in _INLINE_SEVERITIES][:_MAX_INLINE]
         low = [f for f in clean if f['severity'] not in _INLINE_SEVERITIES]
 
-        # 5) post inline threads.
+        # 5) post inline comments/threads (provider-specific).
         await _stage('posting')
         posted = 0
+        deferred: list[dict[str, Any]] = []  # couldn't inline (e.g. github line not in diff)
         for f in inline:
             body = f"**🤖 AGENA — {f['severity'].upper()}**" + (f" · {f['category']}" if f['category'] else '') + f"\n\n{f['comment']}"
-            tid = await client.post_pr_inline_thread(
-                cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id),
-                file_path=f['file'], line=f['line'], content=body,
-            )
-            if tid:
-                posted += 1
+            if repo_provider == 'github':
+                if head_sha and f['line'] in commentable.get(f['file'], set()):
+                    cid = await gh.post_pr_inline_comment(token=cfg['token'], owner=rm.owner, repo=rm.repo_name, pr_number=str(pr_id), commit_id=head_sha, path=f['file'], line=f['line'], body=body)
+                    if cid:
+                        posted += 1
+                    else:
+                        deferred.append(f)
+                else:
+                    deferred.append(f)  # line outside the diff — GitHub rejects it
+            else:
+                tid = await client.post_pr_inline_thread(cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id), file_path=f['file'], line=f['line'], content=body)
+                if tid:
+                    posted += 1
 
-        # summary thread (verdict + score + rolled-up low findings).
+        # summary (verdict + score + rolled-up low/deferred findings).
         top_sev = clean[0]['severity'] if clean else 'clean'
         summary_lines = [f"**🤖 AGENA code review** — {len(clean)} finding(s), top severity: {top_sev}"]
         if score is not None:
             summary_lines.append(f"Readiness score: {score}/100")
-        if low:
-            summary_lines.append('\nMinor notes:')
-            for f in low[:15]:
-                summary_lines.append(f"- `{f['file']}`:{f['line']} — {f['comment']}")
-        # Post the verdict as one thread anchored to the first reviewed file
-        # (Azure threads need a file/line anchor; line 1 keeps it simple).
-        await client.post_pr_inline_thread(
-            cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id),
-            file_path=files[0][0], line=1, content='\n'.join(summary_lines),
-        )
+        rolled = low + deferred
+        if rolled:
+            summary_lines.append('\nNotes:')
+            for f in rolled[:20]:
+                summary_lines.append(f"- `{f['file']}`:{f['line']} ({f['severity']}) — {f['comment']}")
+        summary_text = '\n'.join(summary_lines)
+        if repo_provider == 'github':
+            try:
+                await gh.post_issue_comment(token=cfg['token'], owner=rm.owner, repo=rm.repo_name, pr_number=str(pr_id), body=summary_text)
+            except Exception:
+                pass
+        else:
+            # Azure threads need a file/line anchor; line 1 of the first file.
+            await client.post_pr_inline_thread(cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id), file_path=files[0][0], line=1, content=summary_text)
 
         # 6) persist + usage.
         record.status = 'completed'

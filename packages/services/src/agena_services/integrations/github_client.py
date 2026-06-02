@@ -11,6 +11,34 @@ from agena_models.schemas.github import CreatePRRequest
 logger = logging.getLogger(__name__)
 
 
+def _patch_right_lines(patch: str) -> set[int]:
+    """Parse a unified-diff patch and return the set of RIGHT-side (new file)
+    line numbers that appear in the diff (added + context). GitHub only
+    accepts inline comments on these lines."""
+    lines: set[int] = set()
+    if not patch:
+        return lines
+    cur = 0
+    import re as _re
+    for raw in patch.splitlines():
+        m = _re.match(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@', raw)
+        if m:
+            cur = int(m.group(1))
+            continue
+        if not raw:
+            continue
+        c = raw[0]
+        if c == '+':
+            lines.add(cur)
+            cur += 1
+        elif c == ' ':
+            lines.add(cur)
+            cur += 1
+        elif c == '-':
+            pass  # left-only, no right line
+    return lines
+
+
 class GitHubClient:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -96,6 +124,110 @@ class GitHubClient:
             response = await client.post(url, headers=self._headers(), json={'body': body})
             response.raise_for_status()
             return response.json()
+
+    # ── PR Reviewer (per-call token + owner/repo; not the env-global base_url) ──
+
+    @staticmethod
+    def _th(token: str) -> dict[str, str]:
+        return {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        }
+
+    async def list_open_pull_requests(self, *, token: str, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Live list of open PRs for a repo."""
+        url = f'https://api.github.com/repos/{owner}/{repo}/pulls?state=open&per_page=100'
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=self._th(token))
+            if resp.status_code >= 400:
+                raise RuntimeError(f'GitHub {resp.status_code}: {resp.text[:200]}')
+            rows = resp.json() or []
+        return [{
+            'id': str(pr.get('number') or ''),
+            'title': str(pr.get('title') or '').strip(),
+            'author': str((pr.get('user') or {}).get('login') or ''),
+            'source_branch': str((pr.get('head') or {}).get('ref') or ''),
+            'target_branch': str((pr.get('base') or {}).get('ref') or ''),
+            'created': str(pr.get('created_at') or ''),
+            'url': str(pr.get('html_url') or ''),
+            'head_sha': str((pr.get('head') or {}).get('sha') or ''),
+        } for pr in rows]
+
+    async def get_pull_request(self, *, token: str, owner: str, repo: str, pr_number: str) -> dict[str, Any] | None:
+        url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}'
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=self._th(token))
+        if resp.status_code != 200:
+            return None
+        pr = resp.json() or {}
+        return {
+            'head_sha': str((pr.get('head') or {}).get('sha') or ''),
+            'source_branch': str((pr.get('head') or {}).get('ref') or ''),
+            'title': str(pr.get('title') or ''),
+            'url': str(pr.get('html_url') or ''),
+        }
+
+    async def fetch_pr_files(self, *, token: str, owner: str, repo: str, pr_number: str) -> list[dict[str, Any]]:
+        """Changed files of a PR with their unified-diff patch. From the patch
+        we derive which RIGHT-side (new) line numbers are commentable — GitHub
+        rejects inline comments on lines outside the diff."""
+        url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files?per_page=100'
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url, headers=self._th(token))
+            if resp.status_code >= 400:
+                raise RuntimeError(f'GitHub {resp.status_code}: {resp.text[:200]}')
+            rows = resp.json() or []
+        out: list[dict[str, Any]] = []
+        for f in rows:
+            if str(f.get('status') or '') == 'removed':
+                continue
+            out.append({
+                'path': str(f.get('filename') or ''),
+                'patch': str(f.get('patch') or ''),
+                'lines': _patch_right_lines(str(f.get('patch') or '')),
+            })
+        return out
+
+    async def fetch_file_content(self, *, token: str, owner: str, repo: str, path: str, ref: str) -> str | None:
+        from urllib.parse import quote
+        url = f'https://api.github.com/repos/{owner}/{repo}/contents/{quote(path)}?ref={quote(ref)}'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers={**self._th(token), 'Accept': 'application/vnd.github.raw+json'})
+            if resp.status_code != 200:
+                return None
+            return resp.text
+        except Exception:
+            return None
+
+    async def post_pr_inline_comment(self, *, token: str, owner: str, repo: str, pr_number: str, commit_id: str, path: str, line: int, body: str) -> str | None:
+        url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments'
+        payload = {'body': body, 'commit_id': commit_id, 'path': path, 'line': max(1, int(line or 1)), 'side': 'RIGHT'}
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(url, headers=self._th(token), json=payload)
+            if resp.status_code >= 400:
+                logger.warning('GitHub inline comment %s: %s', resp.status_code, resp.text[:200])
+                return None
+            return str((resp.json() or {}).get('id') or '') or None
+        except Exception as exc:
+            logger.warning('GitHub inline comment failed: %s', exc)
+            return None
+
+    async def post_issue_comment(self, *, token: str, owner: str, repo: str, pr_number: str, body: str) -> str | None:
+        """Top-level PR comment (token-aware; the summary verdict goes here)."""
+        url = f'https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(url, headers=self._th(token), json={'body': body})
+            if resp.status_code >= 400:
+                logger.warning('GitHub issue comment %s: %s', resp.status_code, resp.text[:200])
+                return None
+            return str((resp.json() or {}).get('id') or '') or None
+        except Exception as exc:
+            logger.warning('GitHub issue comment failed: %s', exc)
+            return None
 
     async def _request_json(self, client: httpx.AsyncClient, method: str, path: str) -> dict[str, Any]:
         response = await client.request(method, f'{self.base_url}{path}', headers=self._headers())
