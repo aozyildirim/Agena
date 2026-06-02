@@ -30,6 +30,11 @@ class UsageEventItem(BaseModel):
     profile_version: int | None = None
     error_message: str | None = None
     created_at: datetime
+    # What this event was working on + where to open it. Lets every row link
+    # to its subject: a task run → the task, a sprint_refinement → the
+    # refinement page for that sprint, etc.
+    subject_label: str | None = None
+    subject_href: str | None = None
 
 
 class UsageSummary(BaseModel):
@@ -119,8 +124,26 @@ async def list_usage_events(
                 profile_version=e.profile_version,
                 error_message=e.error_message,
                 created_at=e.created_at,
+                subject_label=_subject(e)[0],
+                subject_href=_subject(e)[1],
             )
             for e in items
         ],
     )
+
+
+def _subject(e) -> tuple[str | None, str | None]:
+    """Resolve what a usage event acted on + a link to open it.
+
+    - task runs (anything carrying a task_id) → the task detail page
+    - sprint_refinement → the refinement page, labelled with the sprint
+    Other operations (repo scans, flow steps) have no single subject.
+    """
+    if e.task_id:
+        return f'#{e.task_id}', f'/tasks/{e.task_id}'
+    if e.operation_type == 'sprint_refinement':
+        details = e.details_json if isinstance(e.details_json, dict) else {}
+        label = details.get('sprint_name') or 'Refinement'
+        return str(label), '/dashboard/refinement'
+    return None, None
 

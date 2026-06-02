@@ -500,6 +500,8 @@ export interface UsageEventItem {
   profile_version: number | null;
   error_message: string | null;
   created_at: string;
+  subject_label?: string | null;
+  subject_href?: string | null;
 }
 
 export interface UsageSummary {

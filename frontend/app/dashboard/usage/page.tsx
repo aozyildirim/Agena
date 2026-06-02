@@ -128,9 +128,9 @@ export default function UsagePage() {
                 <span style={{ color: '#5b9bd5', fontFamily: 'monospace' }}>{x.operation_type}</span>
                 <span style={{ color: 'var(--ink-78)' }}>{x.provider} / {x.model || '-'}</span>
                 <span style={{ color: x.status === 'failed' ? '#cf5b57' : '#3f9d6a' }}>{x.status}</span>
-                {x.task_id ? (
-                  <a href={`/tasks/${x.task_id}`} style={{ color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }} title={t('usage.openTask')}>
-                    #{x.task_id} ↗
+                {x.subject_href ? (
+                  <a href={x.subject_href} style={{ color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }} title={t('usage.openTask')}>
+                    {x.subject_label || '→'} ↗
                   </a>
                 ) : <span style={{ color: 'var(--ink-78)' }}>-</span>}
                 <span style={{ color: 'var(--ink-78)' }}>{x.total_tokens}</span>
