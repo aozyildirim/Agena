@@ -116,6 +116,8 @@ PERMISSION_GROUPS: list[dict] = [
             ('pages:insights', 'View Insights'),
             ('pages:reviews', 'View the Reviews list'),
             ('pages:templates', 'View flow Templates'),
+            ('pages:tasks', 'View the Tasks list'),
+            ('pages:sprints', 'View the Sprint board'),
         ],
     },
     {
@@ -125,6 +127,7 @@ PERMISSION_GROUPS: list[dict] = [
         'permissions': [
             ('integrations:manage', 'Connect / disconnect Sentry, Jira, GitHub etc.'),
             ('modules:configure', 'Toggle modules on / off for the org'),
+            ('roles:manage', 'Manage roles & permissions'),
             ('billing:read', 'See billing / invoices'),
             ('billing:manage', 'Change plan / payment method'),
             ('analytics:read', 'View DORA / analytics dashboards'),

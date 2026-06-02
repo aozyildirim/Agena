@@ -1158,8 +1158,12 @@ export default function DashboardTasksPage() {
                     key={src}
                     type='button'
                     onClick={() => {
+                      // Always re-fetch when (re)selecting a source — otherwise
+                      // switching Azure↔Jira kept the previous source's items
+                      // because the list was non-empty.
                       setPickerSource(src);
-                      if (src !== 'empty' && pickerItems.length === 0) {
+                      if (src !== 'empty') {
+                        setPickerItems([]);
                         void loadSprintItems(src);
                       }
                     }}

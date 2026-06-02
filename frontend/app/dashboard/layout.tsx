@@ -35,7 +35,7 @@ const NAV_GROUPS: NavGroup[] = [
     module: 'core',
     items: [
       { href: '/dashboard/office', key: 'nav.office', icon: 'home', module: 'boss_mode', wsPerm: 'pages:office' },
-      { href: '/dashboard/tasks', key: 'nav.tasks', icon: 'tasks', permission: 'tasks:read' as const, module: 'core' },
+      { href: '/dashboard/tasks', key: 'nav.tasks', icon: 'tasks', permission: 'tasks:read' as const, module: 'core', wsPerm: 'pages:tasks' },
       { href: '/dashboard/reviews', key: 'nav.reviews', icon: 'search', permission: 'tasks:read' as const, module: 'reviews', wsPerm: 'pages:reviews' },
     ],
   },
@@ -67,7 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.group.delivery',
     defaultOpen: false,
     items: [
-      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints' },
+      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
       { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
       { href: '/dashboard/team', key: 'nav.team', icon: 'users', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
       { href: '/dashboard/dora', key: 'nav.dora', icon: 'chart', module: 'dora', wsPerm: 'analytics:read', children: [
@@ -95,8 +95,8 @@ const NAV_GROUPS: NavGroup[] = [
       ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: 'map', module: 'core', wsPerm: 'repo:manage' },
       { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: 'layers', module: 'core', wsPerm: 'workspace:manage' },
-      { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core' },
-      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core' },
+      { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
+      { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
       { href: '/dashboard/modules', key: 'nav.modules', icon: 'grid', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
     ],
   },
