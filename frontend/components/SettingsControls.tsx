@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 /**
  * Shared "settings UI" primitives — kept in one component file because
@@ -35,6 +35,19 @@ export function ChipSelect<T extends string | number>({
   const [customToggled, setCustomToggled] = useState(false);
   const custom = customToggled || !isPreset;
   const setCustom = setCustomToggled;
+  // Buffer the custom number input locally so the user can type freely.
+  // Committing on every keystroke saved + re-validated server-side (which
+  // can snap the value back, e.g. critical bumped to warn+1), making the
+  // field feel un-editable. We only commit on blur / Enter, and re-sync the
+  // draft whenever the upstream value changes.
+  const [draft, setDraft] = useState<string>(typeof value === 'number' ? String(value) : String(value ?? ''));
+  useEffect(() => {
+    setDraft(typeof value === 'number' ? String(value) : String(value ?? ''));
+  }, [value]);
+  const commitDraft = () => {
+    const n = parseInt(draft, 10);
+    if (!Number.isNaN(n)) onChange(n as T);
+  };
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
       {options.map((opt) => {
@@ -76,11 +89,14 @@ export function ChipSelect<T extends string | number>({
           {custom && (
             <input
               type='number'
-              value={typeof value === 'number' ? value : ''}
-              onChange={(e) => onChange(parseInt(e.target.value, 10) as T)}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitDraft}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitDraft(); } }}
               placeholder={customPlaceholder}
+              autoFocus
               style={{
-                width: 80, padding: '6px 10px', borderRadius: 8,
+                width: 90, padding: '6px 10px', borderRadius: 8,
                 border: '1px solid var(--panel-border)', background: 'var(--surface)',
                 color: 'var(--ink)', fontSize: 13,
               }}
