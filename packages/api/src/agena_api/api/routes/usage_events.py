@@ -39,6 +39,8 @@ class UsageSummary(BaseModel):
     total_tokens: int
     cost_usd: float
     avg_duration_ms: int
+    cached_tokens: int = 0
+    cache_savings_usd: float = 0
 
 
 class UsageEventListResponse(BaseModel):

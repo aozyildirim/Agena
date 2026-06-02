@@ -48,6 +48,7 @@ type TaskDetail = {
   pr_risk_reason?: string | null;
   total_tokens?: number | null;
   cached_tokens?: number | null;
+  cache_savings_usd?: number | null;
   occurrences?: number | null;
   last_seen_at?: string | null;
   first_seen_at?: string | null;
@@ -1176,14 +1177,16 @@ export default function TaskDetailPage() {
         const tokens = task?.total_tokens ?? (metrics?.totalTokens ? Number(metrics.totalTokens) : null);
         if (tokens != null && Number(tokens) > 0) {
           const cached = Number(task?.cached_tokens ?? 0);
+          const savings = Number(task?.cache_savings_usd ?? 0);
           let value = Number(tokens).toLocaleString();
           let title: string | undefined;
           if (cached > 0 && Number(tokens) > 0) {
             const pct = Math.round((cached / Number(tokens)) * 100);
-            // e.g. "1,500,000 · 1,200,000 cache (80%)" — the cached part is
-            // re-read context billed at ~10% of the input rate, so the real
-            // cost is far below what the raw total suggests.
-            value = `${value} · ${cached.toLocaleString()} ${t('taskDetail.cached')} (${pct}%)`;
+            // e.g. "1,500,000 · 1,200,000 cache (80%, ~$2.10 saved)" — the
+            // cached part is re-read context billed at ~10% of the input
+            // rate, so the real cost is far below what the raw total implies.
+            const savePart = savings > 0 ? `, ~$${savings.toFixed(2)}` : '';
+            value = `${value} · ${cached.toLocaleString()} ${t('taskDetail.cached')} (${pct}%${savePart})`;
             title = t('taskDetail.cachedHint');
           }
           items.push({ label: t('taskDetail.tokens'), value, title });

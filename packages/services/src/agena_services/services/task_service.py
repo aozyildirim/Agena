@@ -1809,34 +1809,44 @@ class TaskService:
         duration = self._extract_duration(metrics_log.message) if metrics_log is not None else None
         return duration, total_tokens
 
-    async def get_cached_tokens(self, organization_id: int, task_id: int) -> int:
-        """Sum the prompt-cache READ tokens across a task's usage events.
+    async def get_cache_stats(self, organization_id: int, task_id: int) -> tuple[int, float]:
+        """Prompt-cache read tokens for a task and the $ they saved.
 
-        These are billed at ~10% of the input rate, so surfacing them lets
-        the UI explain why a big raw token count (which folds cache reads in)
-        cost far less than list price. Read from ``details_json`` where the
-        orchestrator stashes ``cached_input_tokens`` per event.
+        Cache reads are billed at ~10% of the input rate, so a big raw token
+        count (which folds them in) can cost far less than list price.
+        Returns ``(cached_tokens, savings_usd)`` where savings is what those
+        tokens WOULD have cost at the full input rate minus the cached rate,
+        priced per the event's own model. Read from ``details_json`` where
+        the orchestrator stashes ``cached_input_tokens`` per event.
         """
         if self.db is None:
             raise ValueError('DB session required')
+        from agena_services.services.llm.cost_tracker import _lookup_price
         rows = (await self.db.execute(
-            select(AIUsageEvent.details_json).where(
+            select(AIUsageEvent.details_json, AIUsageEvent.model).where(
                 AIUsageEvent.organization_id == organization_id,
                 AIUsageEvent.task_id == task_id,
             )
-        )).scalars().all()
+        )).all()
         total = 0
-        for d in rows:
-            if isinstance(d, dict):
-                try:
-                    total += int(d.get('cached_input_tokens') or 0)
-                except (TypeError, ValueError):
-                    continue
-        return total
+        savings = 0.0
+        for details, model in rows:
+            if not isinstance(details, dict):
+                continue
+            try:
+                cached = int(details.get('cached_input_tokens') or 0)
+            except (TypeError, ValueError):
+                continue
+            if cached <= 0:
+                continue
+            total += cached
+            in_rate, cached_rate, _ = _lookup_price(model)
+            savings += cached * (in_rate - cached_rate) / 1_000_000
+        return total, round(savings, 4)
 
     async def get_task_insights(self, organization_id: int, task: TaskRecord) -> dict:
         duration_sec, total_tokens = await self.get_task_metrics(organization_id, task.id)
-        cached_tokens = await self.get_cached_tokens(organization_id, task.id)
+        cached_tokens, cache_savings_usd = await self.get_cache_stats(organization_id, task.id)
         logs = await self.get_logs(organization_id, task.id)
         created_at = task.created_at
         running_at = next((l.created_at for l in logs if l.stage == 'running'), None)
@@ -1900,6 +1910,7 @@ class TaskService:
             'pr_risk_reason': pr_risk['reason'],
             'total_tokens': total_tokens,
             'cached_tokens': cached_tokens or None,
+            'cache_savings_usd': cache_savings_usd or None,
         }
 
     async def get_dependencies(self, organization_id: int, task_id: int) -> list[int]:
