@@ -85,12 +85,21 @@ def _number_lines(content: str, limit: int = _MAX_FILE_CHARS) -> str:
     return '\n'.join(out)
 
 
-def _build_review_prompt(title: str, files: list[tuple[str, str]]) -> str:
+_LANG_NAMES = {'tr': 'Turkish', 'en': 'English', 'es': 'Spanish', 'de': 'German', 'it': 'Italian', 'ja': 'Japanese', 'zh': 'Chinese'}
+
+
+def _build_review_prompt(title: str, files: list[tuple[str, str]], language: str | None = None) -> str:
     blocks = []
     for path, numbered in files:
         blocks.append(f'### FILE: {path}\n{numbered}')
     files_text = '\n\n'.join(blocks)
+    lang_name = _LANG_NAMES.get((language or '').lower())
+    lang_directive = (
+        f'Write every "comment" in {lang_name}.\n\n' if lang_name
+        else ''
+    )
     return (
+        lang_directive +
         'Do NOT use any tools or explore the filesystem — everything you need is in this message. '
         'Respond with ONLY a JSON object (no markdown fences, no prose).\n\n'
         'You are a senior engineer reviewing a pull request. Review ONLY the changed files below '
@@ -187,6 +196,9 @@ async def review_pr(
     source_branch: str,
     pr_url: str | None = None,
     title: str | None = None,
+    provider_override: str | None = None,
+    model_override: str | None = None,
+    language: str | None = None,
 ) -> PrReview:
     """Run an AI inline review of one Azure PR and post discussion threads."""
     from agena_services.services.review_service import _build_llm_for_org, _resolve_reviewer_model
@@ -237,8 +249,11 @@ async def review_pr(
         if not files:
             raise RuntimeError('No reviewable changed files found on the PR')
 
-        provider, model = await _resolve_reviewer_model(db, user_id or 0, 'reviewer')
-        provider = provider or 'claude_cli'
+        if provider_override:
+            provider, model = provider_override, (model_override or None)
+        else:
+            provider, model = await _resolve_reviewer_model(db, user_id or 0, 'reviewer')
+            provider = provider or 'claude_cli'
 
         agg_usage = {'prompt_tokens': 0, 'completion_tokens': 0, 'cached_input_tokens': 0, 'total_tokens': 0}
         agg_cost = 0.0
@@ -260,7 +275,7 @@ async def review_pr(
 
         # 2) review -> 3) verify.
         await _stage('reviewing')
-        review_raw = await run(_build_review_prompt(title or '', files))
+        review_raw = await run(_build_review_prompt(title or '', files, language=language))
         logger.info('PR review raw output (pr=%s, %d chars): %s', pr_id, len(review_raw), review_raw[:600])
         parsed = _extract_json(review_raw)
         findings = [f for f in (parsed.get('findings') or []) if isinstance(f, dict)]

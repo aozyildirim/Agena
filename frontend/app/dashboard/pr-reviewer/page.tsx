@@ -30,6 +30,11 @@ export default function PrReviewerPage() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Review-config modal (agent + comment language).
+  const [agents, setAgents] = useState<{ options: string[]; languages: string[]; default_provider: string; default_model: string | null } | null>(null);
+  const [modalPr, setModalPr] = useState<OpenPr | null>(null);
+  const [pickProvider, setPickProvider] = useState('');
+  const [pickLang, setPickLang] = useState('auto');
 
   useEffect(() => {
     apiFetch<RepoMapping[]>('/repo-mappings')
@@ -38,6 +43,9 @@ export default function PrReviewerPage() {
         setRepos(azure);
         if (azure.length && !repoId) setRepoId(String(azure[0].id));
       })
+      .catch(() => {});
+    apiFetch<{ options: string[]; languages: string[]; default_provider: string; default_model: string | null }>('/pr-reviewer/agents')
+      .then((a) => { setAgents(a); setPickProvider(a.default_provider); })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -73,12 +81,17 @@ export default function PrReviewerPage() {
     }
   }, [repoId]);
 
-  const review = useCallback(async (pr: OpenPr) => {
+  const review = useCallback(async (pr: OpenPr, provider: string, language: string) => {
     setReviewingId(pr.id); setError('');
     try {
       await apiFetch('/pr-reviewer/review', {
         method: 'POST',
-        body: JSON.stringify({ repo_mapping_id: Number(repoId), pr_id: pr.id, source_branch: pr.source_branch, pr_url: pr.url, title: pr.title }),
+        body: JSON.stringify({
+          repo_mapping_id: Number(repoId), pr_id: pr.id, source_branch: pr.source_branch,
+          pr_url: pr.url, title: pr.title,
+          provider: provider || undefined,
+          language: language && language !== 'auto' ? language : undefined,
+        }),
       });
       setToast(t('prReviewer.started'));
       setTimeout(() => setToast(''), 3500);
@@ -89,6 +102,19 @@ export default function PrReviewerPage() {
       setReviewingId('');
     }
   }, [repoId, loadHistory, t]);
+
+  const openReviewModal = useCallback((pr: OpenPr) => {
+    setPickProvider(agents?.default_provider || 'claude_cli');
+    setPickLang('auto');
+    setModalPr(pr);
+  }, [agents]);
+
+  const confirmReview = useCallback(() => {
+    if (!modalPr) return;
+    const pr = modalPr;
+    setModalPr(null);
+    void review(pr, pickProvider, pickLang);
+  }, [modalPr, pickProvider, pickLang, review]);
 
   const field: React.CSSProperties = { height: 38, borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--surface)', color: 'var(--ink-90)', padding: '0 10px', fontSize: 13, minWidth: 280 };
   const selectedRepoName = repos.find((r) => String(r.id) === repoId)?.repo_name || '';
@@ -154,7 +180,7 @@ export default function PrReviewerPage() {
               <a href={pr.url} target='_blank' rel='noreferrer' className='button button-outline prv-act' title={t('prReviewer.openPr')} style={{ height: 34, padding: '0 12px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-65)', textDecoration: 'none', fontSize: 12 }}>
                 {t('prReviewer.openPr')} ↗
               </a>
-              <button onClick={() => void review(pr)} className='button button-outline prv-act' style={{ height: 34, padding: '0 14px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7, opacity: running ? 0.8 : 1, ...(done ? { borderColor: 'var(--panel-border)' } : { borderColor: 'var(--acc)', color: 'var(--acc)' }) }} disabled={running}>
+              <button onClick={() => openReviewModal(pr)} className='button button-outline prv-act' style={{ height: 34, padding: '0 14px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7, opacity: running ? 0.8 : 1, ...(done ? { borderColor: 'var(--panel-border)' } : { borderColor: 'var(--acc)', color: 'var(--acc)' }) }} disabled={running}>
                 {running ? <><span className='prv-spin' /> {t('prReviewer.reviewing')}</> : (done || failed) ? `↻ ${t('prReviewer.rereview')}` : `✨ ${t('prReviewer.review')}`}
               </button>
             </div>
@@ -198,6 +224,42 @@ export default function PrReviewerPage() {
           })}
         </div>
       </div>
+
+      {/* Review-config modal: pick agent + comment language */}
+      {modalPr && (
+        <div onClick={() => setModalPr(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: 'min(440px, 100%)', padding: 22 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>✨ {t('prReviewer.review')}</h3>
+            <div style={{ fontSize: 12, color: 'var(--ink-42)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{modalPr.id} {modalPr.title}</div>
+
+            <div style={{ marginTop: 18, display: 'grid', gap: 14 }}>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-50)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('prReviewer.agentLabel')}</span>
+                <select value={pickProvider} onChange={(e) => setPickProvider(e.target.value)} style={{ ...field, minWidth: 0, width: '100%' }}>
+                  {(agents?.options || ['claude_cli']).map((o) => (
+                    <option key={o} value={o}>{o}{o === agents?.default_provider ? ` (${t('prReviewer.defaultTag')})` : ''}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-50)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('prReviewer.langLabel')}</span>
+                <select value={pickLang} onChange={(e) => setPickLang(e.target.value)} style={{ ...field, minWidth: 0, width: '100%' }}>
+                  {(agents?.languages || ['auto']).map((l) => (
+                    <option key={l} value={l}>{l === 'auto' ? t('prReviewer.langAuto') : (LANG_NAMES[l] || l)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 22 }}>
+              <button onClick={() => setModalPr(null)} className='button button-outline' style={{ height: 36, padding: '0 14px' }}>{t('prReviewer.cancel')}</button>
+              <button onClick={confirmReview} className='button button-primary' style={{ height: 36, padding: '0 18px' }}>✨ {t('prReviewer.review')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const LANG_NAMES: Record<string, string> = { tr: 'Türkçe', en: 'English', es: 'Español', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文' };

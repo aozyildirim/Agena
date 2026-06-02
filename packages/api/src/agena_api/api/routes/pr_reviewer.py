@@ -40,6 +40,9 @@ class ReviewRequest(BaseModel):
     source_branch: str
     pr_url: str | None = None
     title: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    language: str | None = None
 
 
 class PrReviewItem(BaseModel):
@@ -77,6 +80,27 @@ async def open_prs(
     return [OpenPrItem(**r) for r in rows]
 
 
+@router.get('/agents')
+async def agents(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Default reviewer agent (org config) + selectable options for the
+    review modal. CLI agents need no API key; hosted ones need an integration."""
+    from agena_services.services.review_service import _resolve_reviewer_model
+    try:
+        prov, model = await _resolve_reviewer_model(db, tenant.user_id, 'reviewer')
+    except Exception:
+        prov, model = None, None
+    options = ['claude_cli', 'codex_cli', 'openai', 'gemini', 'anthropic']
+    return {
+        'default_provider': prov or 'claude_cli',
+        'default_model': model,
+        'options': options,
+        'languages': ['auto', 'tr', 'en', 'es', 'de', 'it', 'ja', 'zh'],
+    }
+
+
 @router.post('/review')
 async def review(
     payload: ReviewRequest,
@@ -98,6 +122,9 @@ async def review(
                     source_branch=payload.source_branch,
                     pr_url=payload.pr_url,
                     title=payload.title,
+                    provider_override=payload.provider,
+                    model_override=payload.model,
+                    language=payload.language,
                 )
             except Exception:
                 logger.exception('PR review bg task failed for pr=%s', payload.pr_id)
