@@ -209,7 +209,10 @@ async def list_members(
     ws = await service.get(workspace_id=workspace_id, organization_id=tenant.organization_id)
     if ws is None:
         raise HTTPException(status_code=404, detail='Workspace not found')
-    if not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
+    # Org owners are implicit super-admins of every workspace in their org —
+    # they can list members even of workspaces they haven't personally joined.
+    is_owner = (tenant.role or '').lower() == 'owner'
+    if not is_owner and not await service.is_member(workspace_id=workspace_id, user_id=tenant.user_id):
         raise HTTPException(status_code=403, detail='Not a workspace member')
     members = await service.list_members_with_roles(workspace_id)
     return [
