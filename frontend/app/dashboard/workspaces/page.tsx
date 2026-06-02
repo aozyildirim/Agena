@@ -543,19 +543,25 @@ export default function WorkspacesPage() {
                   {repoOptions.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>No repo mappings configured.</div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, maxHeight: 200, overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, maxHeight: 240, overflowY: 'auto', paddingRight: 2 }}>
                       {repoOptions.map((r) => {
                         const checked = (active.repo_mapping_ids || []).includes(r.id);
                         return (
-                          <label key={r.id} style={repoCheckRow}>
+                          <label key={r.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                            border: `1px solid ${checked ? 'var(--acc)' : 'var(--panel-border)'}`,
+                            background: checked ? 'var(--acc-soft)' : 'var(--surface)',
+                            transition: 'border-color 0.15s, background 0.15s',
+                          }}>
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleRepo(r.id)}
-                              style={{ accentColor: 'var(--acc)' }}
+                              style={{ accentColor: 'var(--acc)', width: 15, height: 15, flexShrink: 0, cursor: 'pointer', margin: 0 }}
                             />
-                            <span style={{ fontSize: 13, color: 'var(--ink-90)' }}>{r.owner}/{r.repo_name}</span>
-                            <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{r.provider}</span>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: checked ? 600 : 500, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.owner}/{r.repo_name}</span>
+                            <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--ink-45)', textTransform: 'uppercase', letterSpacing: 0.6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{r.provider}</span>
                           </label>
                         );
                       })}
