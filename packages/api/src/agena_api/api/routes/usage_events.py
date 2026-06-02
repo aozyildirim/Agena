@@ -142,8 +142,8 @@ def _subject(e) -> tuple[str | None, str | None]:
     if e.task_id:
         return f'#{e.task_id}', f'/tasks/{e.task_id}'
     if e.operation_type == 'sprint_refinement':
-        details = e.details_json if isinstance(e.details_json, dict) else {}
-        label = details.get('sprint_name') or 'Refinement'
-        return str(label), '/dashboard/refinement'
+        # Small generic link to the refinement runs list (the sprint name is
+        # already visible in the run history, no need to repeat it here).
+        return 'Refinement', '/dashboard/refinement/runs'
     return None, None
 
