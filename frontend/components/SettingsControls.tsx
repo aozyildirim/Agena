@@ -18,6 +18,8 @@ export function ChipSelect<T extends string | number>({
   allowCustom = false,
   customLabel = 'Custom',
   customPlaceholder,
+  minValue,
+  minHint,
 }: {
   value: T;
   onChange: (v: T) => void;
@@ -26,6 +28,9 @@ export function ChipSelect<T extends string | number>({
   allowCustom?: boolean;
   customLabel?: string;
   customPlaceholder?: string;
+  /** Numeric options below this are disabled (e.g. critical must exceed warn). */
+  minValue?: number;
+  minHint?: string;
 }) {
   const isPreset = options.some((o) => o.value === value);
   // `custom` must stay in sync with the live value: a value that matches no
@@ -52,17 +57,21 @@ export function ChipSelect<T extends string | number>({
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
       {options.map((opt) => {
         const active = !custom && value === opt.value;
+        const disabled = typeof opt.value === 'number' && minValue !== undefined && opt.value < minValue;
         return (
           <button
             key={String(opt.value)}
-            onClick={() => { setCustom(false); onChange(opt.value); }}
+            onClick={() => { if (disabled) return; setCustom(false); onChange(opt.value); }}
             type='button'
+            disabled={disabled}
+            title={disabled ? minHint : undefined}
             style={{
               padding: '6px 12px', borderRadius: 999,
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontSize: 12, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
               border: `1px solid ${active ? accent : 'var(--panel-border)'}`,
               background: active ? `${accent}1c` : 'var(--surface)',
-              color: active ? accent : 'var(--ink-78)',
+              color: disabled ? 'var(--ink-25)' : (active ? accent : 'var(--ink-78)'),
+              opacity: disabled ? 0.5 : 1,
               transition: 'background 0.15s, color 0.15s, border-color 0.15s',
               whiteSpace: 'nowrap',
             }}

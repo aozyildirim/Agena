@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "启用时: worker 每 30 分钟通过配置的渠道自动发布超出冷却期的行。禁用时: 仅点击时触发。",
   "backlog.set.warnHint": "超过此时间的 PR 显示为\"警告\"。",
   "backlog.set.critHint": "超过此时间的 PR 变为\"临界\"。",
+  "backlog.set.critMinHint": "必须大于警告阈值。",
   "backlog.set.nudgeIntervalHint": "同一评审者的自动催促间隔。",
   "backlog.set.channelHint": "催促如何送达评审者。",
   "triage.eyebrow": "工作流自动化",

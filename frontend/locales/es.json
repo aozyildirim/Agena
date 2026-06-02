@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "Activado: el worker publica cada 30 min por los canales configurados para filas pasado el cooldown. Desactivado: las notificaciones solo se disparan al hacer clic.",
   "backlog.set.warnHint": "Los PRs más antiguos que esto se marcan como \"aviso\".",
   "backlog.set.critHint": "Los PRs más antiguos que esto se vuelven \"críticos\".",
+  "backlog.set.critMinHint": "Debe ser mayor que el umbral de advertencia.",
   "backlog.set.nudgeIntervalHint": "Tiempo entre auto-avisos al mismo revisor.",
   "backlog.set.channelHint": "Cómo llegan los avisos a los revisores.",
   "triage.eyebrow": "Automatización de flujo",

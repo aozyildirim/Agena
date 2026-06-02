@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "Attivo: il worker pubblica ogni 30 min tramite i canali configurati per le righe oltre il cooldown. Disattivo: i solleciti partono solo al click.",
   "backlog.set.warnHint": "I PR più vecchi appaiono come \"avviso\".",
   "backlog.set.critHint": "I PR più vecchi diventano \"critici\".",
+  "backlog.set.critMinHint": "Deve essere maggiore della soglia di avviso.",
   "backlog.set.nudgeIntervalHint": "Tempo tra solleciti automatici allo stesso reviewer.",
   "backlog.set.channelHint": "Come arrivano i solleciti ai reviewer.",
   "triage.eyebrow": "Automazione del flusso",

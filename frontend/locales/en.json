@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "When ON, the worker auto-posts via the configured channels every 30 min for rows past the cooldown. When OFF, nudges only fire on button clicks.",
   "backlog.set.warnHint": "PRs older than this surface as \"warning\".",
   "backlog.set.critHint": "PRs older than this become \"critical\" and may be escalated.",
+  "backlog.set.critMinHint": "Must be greater than the Warning threshold.",
   "backlog.set.nudgeIntervalHint": "Time between auto-nudges to the same reviewer.",
   "backlog.set.channelHint": "How nudges reach reviewers.",
   "triage.eyebrow": "Workflow automation",

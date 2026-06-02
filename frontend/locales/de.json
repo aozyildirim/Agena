@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "Aktiv: der Worker postet alle 30 min automatisch über die gewählten Kanäle für Zeilen nach dem Cooldown. Inaktiv: Anstöße nur bei Button-Klicks.",
   "backlog.set.warnHint": "Ältere PRs erscheinen als \"Warnung\".",
   "backlog.set.critHint": "Ältere PRs werden \"kritisch\" und ggf. eskaliert.",
+  "backlog.set.critMinHint": "Muss größer als die Warnschwelle sein.",
   "backlog.set.nudgeIntervalHint": "Zeit zwischen automatischen Erinnerungen an denselben Reviewer.",
   "backlog.set.channelHint": "Wie Erinnerungen die Reviewer erreichen.",
   "triage.eyebrow": "Workflow-Automatisierung",

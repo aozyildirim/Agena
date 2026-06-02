@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "有効時: ワーカーは 30 分ごとに設定されたチャンネルでクールダウンを過ぎた行に自動投稿します。無効時: クリック時のみ。",
   "backlog.set.warnHint": "これより古い PR は「警告」表示。",
   "backlog.set.critHint": "これより古い PR は「重大」になります。",
+  "backlog.set.critMinHint": "警告しきい値より大きくする必要があります。",
   "backlog.set.nudgeIntervalHint": "同じレビュアーへの自動催促の間隔。",
   "backlog.set.channelHint": "催促のレビュアーへの届け方。",
   "triage.eyebrow": "ワークフロー自動化",

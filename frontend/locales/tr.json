@@ -3456,6 +3456,7 @@
   "backlog.set.autoNudgeHint": "Açıkken worker her 30 dk'da bir cooldown'u geçen satırlara seçili kanallardan otomatik dürtü atar. Kapalıyken sadece manuel tıklamayla yorum atılır.",
   "backlog.set.warnHint": "Bu süreden eski PR'lar \"uyarı\" olarak işaretlenir.",
   "backlog.set.critHint": "Bu süreden eski PR'lar \"kritik\" olur ve escalate edilebilir.",
+  "backlog.set.critMinHint": "Uyarı eşiğinden büyük olmalı.",
   "backlog.set.nudgeIntervalHint": "Aynı reviewer'a otomatik dürtüler arasındaki süre.",
   "backlog.set.channelHint": "Dürtüler reviewer'a hangi kanalla ulaşsın.",
   "triage.eyebrow": "İş akışı otomasyonu",

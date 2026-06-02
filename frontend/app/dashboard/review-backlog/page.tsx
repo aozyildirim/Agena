@@ -417,6 +417,8 @@ export default function ReviewBacklogPage() {
               value={settings.backlog_critical_hours}
               onChange={(v) => void saveSettings({ backlog_critical_hours: v })}
               accent='#cf5b57'
+              minValue={settings.backlog_warn_hours + 1}
+              minHint={t('backlog.set.critMinHint')}
               options={[
                 { value: 24, label: t('duration.1d') },
                 { value: 48, label: t('duration.2d') },
