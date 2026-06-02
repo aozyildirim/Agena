@@ -28,7 +28,13 @@ export function ChipSelect<T extends string | number>({
   customPlaceholder?: string;
 }) {
   const isPreset = options.some((o) => o.value === value);
-  const [custom, setCustom] = useState(!isPreset);
+  // `custom` must stay in sync with the live value: a value that matches no
+  // preset (e.g. the backend bumped critical_hours to warn+1) has to show the
+  // Custom chip as selected, otherwise nothing looks selected at all. So we
+  // only track an explicit user toggle and OR it with "value isn't a preset".
+  const [customToggled, setCustomToggled] = useState(false);
+  const custom = customToggled || !isPreset;
+  const setCustom = setCustomToggled;
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
       {options.map((opt) => {
