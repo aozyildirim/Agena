@@ -168,19 +168,33 @@ export default function PrReviewerPage() {
         <div style={{ ...card, overflow: 'hidden' }}>
           {history.length === 0 ? (
             <div style={{ padding: 20, color: 'var(--ink-50)', fontSize: 13, textAlign: 'center' }}>{t('prReviewer.noHistory')}</div>
-          ) : history.map((h) => (
-            <div key={h.id} className='prv-row' onClick={() => setSelected(h)} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 90px 70px 120px 150px', gap: 10, alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, cursor: 'pointer', borderLeftColor: h.status === 'failed' ? '#cf5b57' : h.status === 'running' ? '#5b9bd5' : sevColor(h.severity) }}>
-              <div style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {h.pr_url ? <a href={h.pr_url} target='_blank' rel='noreferrer' onClick={(e) => e.stopPropagation()} style={{ color: 'var(--acc)', textDecoration: 'none', fontWeight: 600 }}>#{h.pr_number} {h.title || ''} ↗</a> : <span>#{h.pr_number} {h.title || ''}</span>}
-                <div style={{ fontSize: 10, color: 'var(--ink-35)' }}>{h.repo}</div>
+          ) : history.map((h) => {
+            const hAccent = h.status === 'failed' ? '#cf5b57' : h.status === 'running' ? '#5b9bd5' : sevColor(h.severity);
+            return (
+            <div key={h.id} className='prv-row' onClick={() => setSelected(h)} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '13px 16px', borderBottom: '1px solid var(--panel-alt)', fontSize: 12, cursor: 'pointer', borderLeftColor: hAccent }}>
+              <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 7, background: 'var(--panel-alt)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🔀</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ color: 'var(--ink-42)', fontFamily: 'var(--font-mono, monospace)' }}>#{h.pr_number}</span> {h.title || ''}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 3, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{h.repo}</span>
+                  <span style={{ color: hAccent, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    {h.status === 'running' && <span className='prv-dot' />}
+                    {h.status === 'completed' ? `✓ ${(h.severity || 'clean')}` : h.status === 'failed' ? `✕ ${t('prReviewer.errorLabel')}` : t('prReviewer.reviewing')}
+                  </span>
+                  {h.status === 'completed' && <span style={{ color: 'var(--ink-50)' }}>{h.findings_count} {t('prReviewer.findingsShort')} · {h.threads_posted} thr{h.score != null ? ` · ${h.score}/100` : ''}</span>}
+                </div>
               </div>
-              <span style={{ color: h.status === 'failed' ? '#cf5b57' : h.status === 'running' ? '#5b9bd5' : '#3f9d6a', fontWeight: 600 }}>{h.status}</span>
-              <span style={{ color: sevColor(h.severity), fontWeight: 700, textTransform: 'capitalize' }}>{h.severity || '—'}</span>
-              <span style={{ color: 'var(--ink-78)', fontVariantNumeric: 'tabular-nums' }}>{h.score != null ? `${h.score}` : '—'}</span>
-              <span style={{ color: 'var(--ink-78)' }} title={t('prReviewer.threadsHint')}>{h.findings_count} / {h.threads_posted} thr</span>
-              <span style={{ color: 'var(--ink-42)', whiteSpace: 'nowrap' }} title={h.error_message || ''}>{new Date(h.created_at).toLocaleString()}</span>
+              {h.pr_url && (
+                <a href={h.pr_url} target='_blank' rel='noreferrer' onClick={(e) => e.stopPropagation()} className='button button-outline prv-act' title={t('prReviewer.openPr')} style={{ height: 30, padding: '0 10px', whiteSpace: 'nowrap', color: 'var(--ink-65)', textDecoration: 'none', fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>
+                  {t('prReviewer.openPr')} ↗
+                </a>
+              )}
+              <span style={{ color: 'var(--ink-42)', whiteSpace: 'nowrap', fontSize: 11 }}>{new Date(h.created_at).toLocaleString()}</span>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
