@@ -2320,10 +2320,30 @@ export default function TaskDetailPage() {
           revision_count: a.revision_count,
         }))}
         onClose={() => setRevisionModalOpen(false)}
-        onSubmitted={() => {
-          // Pull fresh state so the new revision shows up in the
-          // history strip and the Revize button reflects new
-          // 'revising' assignment statuses.
+        onSubmitted={(newRevs, instruction) => {
+          // Optimistically drop the new revision(s) into the history
+          // strip RIGHT NOW so the user sees them the instant they hit
+          // save — no page refresh, no waiting on the 8s poll. loadData()
+          // below reconciles with the server (real created_at, status
+          // transitions) a moment later.
+          if (newRevs && newRevs.length) {
+            const nowIso = new Date().toISOString();
+            setRevisions((prev) => {
+              const byId = new Map(prev.map((r) => [r.id, r]));
+              for (const r of newRevs) {
+                byId.set(r.id, {
+                  id: r.id,
+                  assignment_id: r.assignment_id,
+                  instruction,
+                  status: r.status || 'queued',
+                  created_at: byId.get(r.id)?.created_at || nowIso,
+                });
+              }
+              return Array.from(byId.values()).sort((a, b) => b.id - a.id);
+            });
+          }
+          // Pull fresh state so the Revize button reflects new
+          // 'revising' assignment statuses and we get authoritative data.
           void loadData();
         }}
       />

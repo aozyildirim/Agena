@@ -4,6 +4,11 @@ const TOKEN_KEY = 'agena_token';
 const TOKEN_EXP_KEY = 'agena_token_exp';
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 const NETWORK_RETRY_DELAYS_MS = [350, 900];
+// Hard ceiling so a request can never hang forever. Without this a stalled
+// fetch (e.g. a POST that never reaches the server) leaves the UI stuck on
+// "Gönderiliyor…" with no error and no way to retry. 45s is generous for
+// our slowest endpoints while still failing fast enough to be actionable.
+const REQUEST_TIMEOUT_MS = 45_000;
 const USER_CACHE_KEYS = [
   'agena_sprint_project',
   'agena_sprint_team',
@@ -190,11 +195,16 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
   let response: Response;
   let lastNetworkError: unknown = null;
   for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt += 1) {
+    // Abort the fetch if it stalls past REQUEST_TIMEOUT_MS so a hung
+    // connection surfaces as a real error instead of an indefinite spinner.
+    const timeoutCtrl = new AbortController();
+    const timer = window.setTimeout(() => timeoutCtrl.abort(new Error('Request timed out')), REQUEST_TIMEOUT_MS);
     try {
       response = await fetch(`${API_BASE}${path}`, {
         ...init,
         headers,
         cache: 'no-store',
+        signal: init?.signal ?? timeoutCtrl.signal,
       });
       break;
     } catch (error) {
@@ -206,6 +216,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
       await new Promise((resolve) => {
         window.setTimeout(resolve, NETWORK_RETRY_DELAYS_MS[attempt]);
       });
+    } finally {
+      window.clearTimeout(timer);
     }
   }
 

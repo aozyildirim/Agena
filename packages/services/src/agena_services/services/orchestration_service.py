@@ -2061,9 +2061,23 @@ class OrchestrationService:
                                     '\n=== OPEN PR REVIEW COMMENTS (from reviewers — '
                                     'address each one) ===\n' + '\n'.join(lines) + '\n'
                                 )
-                # GitHub branch could be added with a similar block via
-                # GitHubService when needed; for now Azure covers our
-                # usage.
+                elif 'github.com' in prior_pr_url:
+                    cmts = await self.github_service.list_pr_review_comments(
+                        prior_pr_url, organization_id=task.organization_id,
+                    )
+                    if cmts:
+                        lines = []
+                        for c in cmts[:25]:
+                            author = c.get('author') or 'reviewer'
+                            content = (c.get('content') or '').strip()
+                            if not content:
+                                continue
+                            lines.append(f'- @{author}: {content}')
+                        if lines:
+                            pr_comments_block = (
+                                '\n=== OPEN PR REVIEW COMMENTS (from reviewers — '
+                                'address each one) ===\n' + '\n'.join(lines) + '\n'
+                            )
             except Exception as exc:
                 logger.info('Revision: PR comment fetch failed for task %s: %s', task.id, exc)
 
@@ -2352,6 +2366,52 @@ class OrchestrationService:
                     path = line[3:].strip() if len(line) > 3 else ''
                     if path:
                         all_files.add(path)
+            # Last resort: the CLI agent (claude/codex run with
+            # --dangerously-skip-permissions) sometimes COMMITS its own
+            # edits inside the worktree instead of leaving them unstaged.
+            # The working tree is then spotless and every check above sees
+            # nothing — but the fix is sitting in one or more local commits
+            # ahead of the remote. Diff HEAD against the upstream (or the
+            # remote-tracking branch) to recover those files so the revision
+            # can still push. Without this the run dies with "no file
+            # blocks", the commit never reaches the remote, and the PR is
+            # silently left stale.
+            if not all_files:
+                base_ref = ''
+                upstream = subprocess.run(
+                    ['git', 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
+                    cwd=str(repo), capture_output=True, text=True, timeout=30, env=git_env,
+                )
+                if upstream.returncode == 0 and upstream.stdout.strip():
+                    base_ref = upstream.stdout.strip()
+                else:
+                    cur = subprocess.run(
+                        ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                        cwd=str(repo), capture_output=True, text=True, timeout=30, env=git_env,
+                    )
+                    cur_branch = cur.stdout.strip()
+                    if cur_branch and cur_branch != 'HEAD':
+                        verify = subprocess.run(
+                            ['git', 'rev-parse', '--verify', '--quiet', f'origin/{cur_branch}'],
+                            cwd=str(repo), capture_output=True, text=True, timeout=30, env=git_env,
+                        )
+                        if verify.returncode == 0:
+                            base_ref = f'origin/{cur_branch}'
+                if base_ref:
+                    ahead = subprocess.run(
+                        ['git', 'diff', '--name-only', f'{base_ref}..HEAD'],
+                        cwd=str(repo), capture_output=True, text=True, timeout=120, env=git_env,
+                    )
+                    for line in ahead.stdout.splitlines():
+                        p = line.strip()
+                        if p:
+                            all_files.add(p)
+                    if all_files:
+                        logger.warning(
+                            'CLI agent committed its changes inside the worktree '
+                            '(working tree clean); recovered %d file(s) from %s..HEAD',
+                            len(all_files), base_ref,
+                        )
         except Exception as exc:
             logger.warning(f'git diff failed at {repo}: {exc}')
             return []

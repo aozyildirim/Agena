@@ -27,7 +27,7 @@ type Props = {
   taskTitle: string;
   assignments: RepoAssignment[];
   onClose: () => void;
-  onSubmitted: (items: RevisionItem[]) => void;
+  onSubmitted: (items: RevisionItem[], instruction: string) => void;
 };
 
 /** "Revize iste" follow-up modal — collects a short instruction the
@@ -103,7 +103,7 @@ export default function ReviseTaskModal({
         '/tasks/' + taskId + '/revise',
         { method: 'POST', body: JSON.stringify(body) },
       );
-      onSubmitted(res.revisions || []);
+      onSubmitted(res.revisions || [], instruction.trim());
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit revision');
