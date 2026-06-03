@@ -332,6 +332,21 @@ async def create_task(
             await db.commit()
             await db.refresh(task)
 
+    # Apply IntegrationRules (auto-tag / priority / repo / agent role) for
+    # single-item imports. Bulk sprint imports already run the rule engine,
+    # but this generic create path didn't — so a work item that matched a
+    # rule in Preview came in with none of the promised actions applied.
+    # Runs after repo_mapping_ids above so a user's explicit repo pick wins
+    # over a rule's repo mapping. Best-effort, never blocks the import.
+    if (
+        request.source in ('azure', 'jira')
+        and request.external_id
+        and not getattr(task, '_was_existing', False)
+    ):
+        await service.apply_rules_for_external_task(
+            task, provider=request.source, external_id=request.external_id,
+        )
+
     # Pull attachments from the source work item — AttachedFile docs +
     # inline <img> screenshots from the description — so the task
     # carries the same visual context the PM saw on Azure / Jira.

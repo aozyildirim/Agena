@@ -120,6 +120,7 @@ async def review(
                     repo_mapping_id=payload.repo_mapping_id,
                     pr_id=payload.pr_id,
                     source_branch=payload.source_branch,
+                    target_branch=payload.target_branch,
                     pr_url=payload.pr_url,
                     title=payload.title,
                     provider_override=payload.provider,

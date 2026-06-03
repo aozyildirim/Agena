@@ -198,6 +198,60 @@ class TaskService:
             except Exception:
                 pass
 
+    async def apply_rules_for_external_task(
+        self,
+        task: 'TaskRecord',
+        *,
+        provider: str,
+        external_id: str,
+    ) -> None:
+        """Fetch a freshly-imported task's live source fields and run the
+        IntegrationRule engine against it. Single-item imports go through the
+        generic create_task path, which only knows title/source/external_id —
+        NOT the reporter / type / project / labels the rules match on. Without
+        this, the action Preview promised (tags, priority, repo, agent role)
+        never lands on single-item imports (only bulk sprint imports applied
+        it). Best-effort — never blocks the import."""
+        if self.db is None:
+            return
+        provider = (provider or '').strip().lower()
+        if provider not in ('jira', 'azure'):
+            return
+        ext = str(external_id or '').strip()
+        if not ext:
+            return
+        try:
+            config = await IntegrationConfigService(self.db).get_config(task.organization_id, provider)
+            if config is None:
+                return
+            if provider == 'azure':
+                cfg = {'org_url': config.base_url, 'pat': config.secret, 'project': config.project or ''}
+                fields = await self.azure_client.fetch_work_item_match_fields(ext, cfg)
+            else:
+                cfg = {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
+                fields = await self.jira_client.fetch_issue_match_fields(cfg=cfg, issue_key=ext)
+            if not fields:
+                return
+            item_type = fields.get('work_item_type') or fields.get('issue_type') or ''
+            item_labels = fields.get('tags') or fields.get('labels') or []
+            payload = {
+                'reporter_email': fields.get('reporter_email'),
+                'reporter_name': fields.get('reporter_name'),
+                'created_by_email': fields.get('reporter_email'),
+                'created_by_name': fields.get('reporter_name'),
+                'created_by': fields.get('reporter_name'),
+                'work_item_type': item_type,
+                'issue_type': item_type,
+                'project': fields.get('project'),
+                'project_key': fields.get('project'),
+                'tags': item_labels,
+                'labels': item_labels,
+            }
+            await self._apply_integration_rules(task, provider=provider, payload=payload)
+        except Exception as exc:  # pragma: no cover — defensive
+            import logging
+            logging.getLogger(__name__).warning('apply_rules_for_external_task failed: %s', exc)
+
     async def preview_integration_rules(
         self,
         organization_id: int,
