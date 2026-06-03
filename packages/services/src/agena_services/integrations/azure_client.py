@@ -329,6 +329,104 @@ class AzureDevOpsClient:
                     continue
         return results
 
+    async def fetch_work_item_fields(
+        self,
+        work_item_id: int | str,
+        cfg: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Pull the latest title + description + acceptance criteria
+        + repro steps for a single work item. Used by the refresh-
+        from-source path so the task can be rebuilt against whatever
+        the PM has edited on Azure since import.
+
+        Returns None if the work item can't be fetched (auth, network,
+        404, etc.) so the caller can fall back gracefully.
+        """
+        cfg = cfg or {}
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not pat or not org_url:
+            return None
+        url = (
+            f'{org_url}/_apis/wit/workitems/{work_item_id}'
+            '?fields=System.Title,System.Description,System.TeamProject,'
+            'Microsoft.VSTS.Common.AcceptanceCriteria,'
+            'Microsoft.VSTS.TCM.ReproSteps,System.State,System.AssignedTo'
+            '&api-version=7.1-preview.3'
+        )
+        headers = self._headers(pat)
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=headers)
+        except Exception as exc:
+            logger.info('fetch_work_item_fields network error for %s: %s', work_item_id, exc)
+            return None
+        if resp.status_code != 200:
+            logger.info('fetch_work_item_fields HTTP %s for %s', resp.status_code, work_item_id)
+            return None
+        data = resp.json() or {}
+        fields = data.get('fields') or {}
+        description_parts = [
+            str(fields.get('System.Description') or '').strip(),
+            str(fields.get('Microsoft.VSTS.Common.AcceptanceCriteria') or '').strip(),
+            str(fields.get('Microsoft.VSTS.TCM.ReproSteps') or '').strip(),
+        ]
+        merged = '\n\n'.join(part for part in description_parts if part)
+        return {
+            'title': str(fields.get('System.Title') or '').strip(),
+            'description': merged,
+            'state': str(fields.get('System.State') or '').strip(),
+            # Surface the actual containing project — different from
+            # the integration's default project for orgs whose work
+            # items live in multiple Azure DevOps projects. The
+            # comments / attachments endpoints need this exact value.
+            'project': str(fields.get('System.TeamProject') or '').strip(),
+        }
+
+    async def fetch_work_item_match_fields(
+        self,
+        work_item_id: int | str,
+        cfg: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Pull only the fields the IntegrationRule engine matches on
+        (project, work-item type, reporter, tags) for a single work item.
+        Used by the rules "test against a work item" preview. Read-only;
+        returns None if the item can't be fetched."""
+        cfg = cfg or {}
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not pat or not org_url:
+            return None
+        url = (
+            f'{org_url}/_apis/wit/workitems/{work_item_id}'
+            '?fields=System.Title,System.TeamProject,System.WorkItemType,'
+            'System.CreatedBy,System.Tags'
+            '&api-version=7.1-preview.3'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=self._headers(pat))
+        except Exception as exc:
+            logger.info('fetch_work_item_match_fields network error for %s: %s', work_item_id, exc)
+            return None
+        if resp.status_code != 200:
+            logger.info('fetch_work_item_match_fields HTTP %s for %s', resp.status_code, work_item_id)
+            return None
+        fields = (resp.json() or {}).get('fields') or {}
+        created_by = fields.get('System.CreatedBy')
+        if not isinstance(created_by, dict):
+            created_by = {}
+        tags_raw = str(fields.get('System.Tags') or '').strip()
+        tags = [t.strip() for t in tags_raw.split(';') if t.strip()] if tags_raw else []
+        return {
+            'title': str(fields.get('System.Title') or '').strip(),
+            'project': str(fields.get('System.TeamProject') or '').strip(),
+            'work_item_type': str(fields.get('System.WorkItemType') or '').strip(),
+            'reporter_name': str(created_by.get('displayName') or '').strip(),
+            'reporter_email': str(created_by.get('uniqueName') or '').strip(),
+            'tags': tags,
+        }
+
     async def fetch_work_item_attachments(
         self,
         work_item_id: int | str,
@@ -561,6 +659,89 @@ class AzureDevOpsClient:
             details_payload = details_payload[:max_items]
         return [self._to_external_task(item, org_url=org_url, project=project) for item in details_payload]
 
+    async def resolve_work_item_project(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+    ) -> str | None:
+        """Resolve the Azure project a work item actually lives in.
+
+        Work items can belong to ANY project in the org, but the
+        integration config carries a single global ``project`` value —
+        when that's stale/wrong every state/comment write 404s
+        ("project does not exist"). The org-level work-item GET (no
+        project in the path) works regardless and returns
+        ``System.TeamProject``, so callers can target the correct
+        project for writes. Returns None on any failure (caller falls
+        back to the configured project).
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        item_id = str(work_item_id or '').strip()
+        if not org_url or not pat or not item_id:
+            return None
+        url = (
+            f'{org_url}/_apis/wit/workitems/{item_id}'
+            '?fields=System.TeamProject&api-version=7.1-preview.3'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=self._headers(pat))
+            if resp.status_code != 200:
+                return None
+            proj = ((resp.json() or {}).get('fields') or {}).get('System.TeamProject')
+            return str(proj).strip() or None if proj else None
+        except Exception:
+            return None
+
+    async def update_work_item_state(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+        state: str,
+        comment: str | None = None,
+    ) -> None:
+        """Move a work item to the named ``System.State`` value (e.g.
+        ``'Active'``, ``'Resolved'``, ``'Closed'``). Optional comment
+        goes into ``System.History`` so the change is traceable in the
+        Azure UI. Mirrors the writeback pattern in
+        ``writeback_refinement`` but scoped to the state field — used
+        by the workflow sync path which only ever shifts state.
+
+        Raises on 4xx/5xx responses so the caller can fall back to the
+        next candidate state name.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        project = (cfg.get('project') or self.settings.azure_project or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        item_id = str(work_item_id or '').strip()
+        new_state = str(state or '').strip()
+        if not item_id or not new_state:
+            raise ValueError('work_item_id and state are required')
+
+        patch_ops: list[dict[str, Any]] = [
+            {'op': 'add', 'path': '/fields/System.State', 'value': new_state},
+        ]
+        if comment and comment.strip():
+            patch_ops.append({
+                'op': 'add',
+                'path': '/fields/System.History',
+                'value': self._format_comment_html(comment.strip()),
+            })
+
+        prefix = f"{org_url.rstrip('/')}/{project}" if project else org_url.rstrip('/')
+        url = f'{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3'
+        headers = self._headers(pat)
+        headers['Content-Type'] = 'application/json-patch+json'
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.patch(url, headers=headers, json=patch_ops)
+            if response.status_code >= 400:
+                raise RuntimeError(f'Azure {response.status_code}: {response.text[:300]}')
+
     async def writeback_refinement(
         self,
         *,
@@ -658,6 +839,64 @@ class AzureDevOpsClient:
                 # Non-fatal — just diagnostic.
                 pass
 
+    async def clear_estimate(
+        self,
+        *,
+        cfg: dict[str, str],
+        work_item_id: str,
+    ) -> list[str]:
+        """Wipe the abstract-effort estimate fields a refinement writeback
+        may have stamped (StoryPoints / Effort / Size). Used to "undo" a
+        refinement when the user deletes the record — Tasks often surface
+        the value in Effort, a field that may not even be on the form, so
+        the user can't clear it manually.
+
+        Only fields currently present on the item are removed (Azure 400s
+        on ``remove`` of a non-existent field). Returns the list of field
+        names actually cleared.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip()
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        project = (cfg.get('project') or self.settings.azure_project or '').strip()
+        if not org_url or not pat:
+            raise ValueError('Azure org_url or PAT is missing')
+        item_id = str(work_item_id or '').strip()
+        if not item_id:
+            raise ValueError('work_item_id is required')
+
+        estimate_fields = (
+            'Microsoft.VSTS.Scheduling.StoryPoints',
+            'Microsoft.VSTS.Scheduling.Effort',
+            'Microsoft.VSTS.Scheduling.Size',
+        )
+        prefix = f"{org_url.rstrip('/')}/{project}" if project else org_url.rstrip('/')
+        get_url = (
+            f'{prefix}/_apis/wit/workitems/{item_id}'
+            f"?fields={','.join(estimate_fields)}&api-version=7.1-preview.3"
+        )
+        headers = self._headers(pat)
+        async with httpx.AsyncClient(timeout=30) as client:
+            get_resp = await client.get(get_url, headers=headers)
+            if get_resp.status_code >= 400:
+                raise RuntimeError(f'Azure {get_resp.status_code}: {get_resp.text[:300]}')
+            present = (get_resp.json() or {}).get('fields') or {}
+            patch_ops = [
+                {'op': 'remove', 'path': f'/fields/{f}'}
+                for f in estimate_fields
+                if present.get(f) is not None
+            ]
+            if not patch_ops:
+                return []
+            patch_headers = dict(headers)
+            patch_headers['Content-Type'] = 'application/json-patch+json'
+            patch_url = f'{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3'
+            patch_resp = await client.patch(patch_url, headers=patch_headers, json=patch_ops)
+            if patch_resp.status_code >= 400:
+                raise RuntimeError(f'Azure {patch_resp.status_code}: {patch_resp.text[:300]}')
+        cleared = [op['path'].replace('/fields/', '') for op in patch_ops]
+        logger.info('Azure clear_estimate work_item=%s cleared=%s', item_id, cleared)
+        return cleared
+
     async def add_tag_to_work_item(
         self,
         *,
@@ -675,7 +914,16 @@ class AzureDevOpsClient:
         if not item_id or not tag_value:
             return
 
-        url_get = f"{org_url.rstrip('/')}/_apis/wit/workitems/{item_id}?fields=System.Tags&api-version=7.1-preview.3"
+        # Write through the project-scoped URL. The org-level (no project)
+        # work-item PATCH 403s on PATs minted with project-specific scope,
+        # even though the GET succeeds — so resolve the item's real project
+        # and scope the write to it (same path the refinement writeback uses
+        # successfully). Falls back to the configured/no-project form.
+        project = (await self.resolve_work_item_project(cfg=cfg, work_item_id=item_id)
+                   or cfg.get('project') or self.settings.azure_project or '').strip()
+        base = org_url.rstrip('/')
+        prefix = f'{base}/{project}' if project else base
+        url_get = f"{prefix}/_apis/wit/workitems/{item_id}?fields=System.Tags&api-version=7.1-preview.3"
         headers = self._headers(pat)
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url_get, headers=headers)
@@ -688,7 +936,7 @@ class AzureDevOpsClient:
             existing.append(tag_value)
             new_tags = '; '.join(existing)
 
-            url_patch = f"{org_url.rstrip('/')}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
+            url_patch = f"{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
             patch_headers = {**headers, 'Content-Type': 'application/json-patch+json'}
             patch_ops = [{'op': 'add', 'path': '/fields/System.Tags', 'value': new_tags}]
             patch_resp = await client.patch(url_patch, headers=patch_headers, json=patch_ops)
@@ -1201,6 +1449,179 @@ class AzureDevOpsClient:
         just ref → title for callers that don't need URL/branch/status."""
         details = await self.fetch_pr_details(cfg, pr_refs=pr_refs, concurrency=concurrency)
         return {ref: meta['title'] for ref, meta in details.items() if meta.get('title')}
+
+    async def list_open_pull_requests(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+    ) -> list[dict[str, Any]]:
+        """List the active (open) PRs of a repo, fetched live from Azure —
+        no dependency on any local sync. Returns lightweight dicts:
+        {id, title, author, source_branch, target_branch, created, url}.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo:
+            return []
+        from urllib.parse import quote
+        url = (
+            f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}/pullrequests'
+            '?searchCriteria.status=active&$top=100&api-version=7.1-preview.1'
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=self._headers(pat))
+            if resp.status_code != 200:
+                raise RuntimeError(f'Azure {resp.status_code}: {resp.text[:200]}')
+            rows = (resp.json() or {}).get('value', []) or []
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f'Azure list PRs failed: {exc}') from exc
+        out: list[dict[str, Any]] = []
+        for pr in rows:
+            branch = str(pr.get('sourceRefName') or '').replace('refs/heads/', '')
+            target = str(pr.get('targetRefName') or '').replace('refs/heads/', '')
+            pid = str(pr.get('pullRequestId') or '')
+            # The list endpoint usually omits _links, so build the web URL
+            # ourselves: {org}/{project}/_git/{repo}/pullrequest/{id}.
+            web = ((pr.get('_links') or {}).get('web') or {}).get('href') or ''
+            if not web and pid:
+                web = f'{org_url}/{quote(project)}/_git/{quote(repo)}/pullrequest/{pid}'
+            out.append({
+                'id': pid,
+                'title': str(pr.get('title') or '').strip(),
+                'author': str(((pr.get('createdBy') or {}).get('displayName')) or ''),
+                'source_branch': branch,
+                'target_branch': target,
+                'created': str(pr.get('creationDate') or ''),
+                'url': web,
+            })
+        return out
+
+    async def fetch_pr_changed_files(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+        pr_id: str,
+    ) -> list[dict[str, str]]:
+        """Changed files of a PR's latest iteration: [{path, changeType}].
+        Skips deletes (nothing to review on the right side)."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo or not pr_id:
+            return []
+        from urllib.parse import quote
+        base = f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}/pullRequests/{pr_id}'
+        headers = self._headers(pat)
+        async with httpx.AsyncClient(timeout=20) as client:
+            it = await client.get(f'{base}/iterations?api-version=7.1-preview.1', headers=headers)
+            if it.status_code != 200:
+                return []
+            iters = (it.json() or {}).get('value', []) or []
+            if not iters:
+                return []
+            last_id = iters[-1].get('id')
+            ch = await client.get(f'{base}/iterations/{last_id}/changes?api-version=7.1-preview.1', headers=headers)
+            if ch.status_code != 200:
+                return []
+            entries = (ch.json() or {}).get('changeEntries', []) or []
+        out: list[dict[str, str]] = []
+        for e in entries:
+            item = e.get('item') or {}
+            path = str(item.get('path') or '').strip()
+            change = str(e.get('changeType') or '').lower()
+            if not path or item.get('isFolder'):
+                continue
+            if 'delete' in change:
+                continue
+            out.append({'path': path, 'changeType': change})
+        return out
+
+    async def fetch_file_content(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+        path: str,
+        branch: str,
+    ) -> str | None:
+        """Raw content of a file at a branch tip (the PR's source branch), so
+        the reviewer can cite exact line numbers in the new version."""
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo or not path:
+            return None
+        from urllib.parse import quote
+        br = branch.replace('refs/heads/', '')
+        url = (
+            f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}/items'
+            f'?path={quote(path)}&versionDescriptor.version={quote(br)}'
+            '&versionDescriptor.versionType=branch&includeContent=true&api-version=7.1-preview.1'
+        )
+        headers = self._headers(pat)
+        headers['Accept'] = 'application/json'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, headers=headers)
+            if resp.status_code != 200:
+                return None
+            return str((resp.json() or {}).get('content') or '') or None
+        except Exception:
+            return None
+
+    async def post_pr_inline_thread(
+        self,
+        *,
+        cfg: dict[str, str],
+        project: str,
+        repo: str,
+        pr_id: str,
+        file_path: str,
+        line: int,
+        content: str,
+    ) -> str | None:
+        """Open a discussion thread anchored to a file + line on a PR (the
+        "Discussion" box in the Azure diff). ``file_path`` must be repo-root
+        relative starting with '/'. Returns the thread id, or None on failure.
+        """
+        org_url = (cfg.get('org_url') or self.settings.azure_org_url or '').strip().rstrip('/')
+        pat = (cfg.get('pat') or self.settings.azure_pat or '').strip()
+        if not org_url or not pat or not project or not repo or not pr_id:
+            return None
+        from urllib.parse import quote
+        path = file_path if file_path.startswith('/') else f'/{file_path}'
+        ln = max(1, int(line or 1))
+        body = {
+            'comments': [{'parentCommentId': 0, 'content': content, 'commentType': 'text'}],
+            'status': 'active',
+            'threadContext': {
+                'filePath': path,
+                'rightFileStart': {'line': ln, 'offset': 1},
+                'rightFileEnd': {'line': ln, 'offset': 1},
+            },
+        }
+        url = (
+            f'{org_url}/{quote(project)}/_apis/git/repositories/{quote(repo)}'
+            f'/pullRequests/{pr_id}/threads?api-version=7.1-preview.1'
+        )
+        headers = self._headers(pat)
+        headers['Content-Type'] = 'application/json'
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(url, headers=headers, json=body)
+            if resp.status_code >= 400:
+                logger.warning('Azure PR thread %s: %s', resp.status_code, resp.text[:200])
+                return None
+            return str((resp.json() or {}).get('id') or '') or None
+        except Exception as exc:
+            logger.warning('Azure PR thread post failed: %s', exc)
+            return None
 
     async def fetch_pr_details(
         self,

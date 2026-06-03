@@ -779,6 +779,7 @@ class RefinementService:
         estimated_cost_usd = self.cost_tracker.estimate_cost_usd(
             prompt_tokens=total_usage['prompt_tokens'],
             completion_tokens=total_usage['completion_tokens'],
+            cached_input_tokens=int(total_usage.get('cached_input_tokens', 0)),
             model=agent_model,
         ) if total_usage['total_tokens'] > 0 else 0.0
 

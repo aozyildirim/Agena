@@ -23,6 +23,7 @@ class UsageEventItem(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    cached_tokens: int = 0
     cost_usd: float
     duration_ms: int | None = None
     cache_hit: bool
@@ -30,6 +31,11 @@ class UsageEventItem(BaseModel):
     profile_version: int | None = None
     error_message: str | None = None
     created_at: datetime
+    # What this event was working on + where to open it. Lets every row link
+    # to its subject: a task run → the task, a sprint_refinement → the
+    # refinement page for that sprint, etc.
+    subject_label: str | None = None
+    subject_href: str | None = None
 
 
 class UsageSummary(BaseModel):
@@ -39,6 +45,8 @@ class UsageSummary(BaseModel):
     total_tokens: int
     cost_usd: float
     avg_duration_ms: int
+    cached_tokens: int = 0
+    cache_savings_usd: float = 0
 
 
 class UsageEventListResponse(BaseModel):
@@ -110,6 +118,7 @@ async def list_usage_events(
                 prompt_tokens=e.prompt_tokens,
                 completion_tokens=e.completion_tokens,
                 total_tokens=e.total_tokens,
+                cached_tokens=int((e.details_json or {}).get('cached_input_tokens') or 0) if isinstance(e.details_json, dict) else 0,
                 cost_usd=e.cost_usd,
                 duration_ms=e.duration_ms,
                 cache_hit=e.cache_hit,
@@ -117,8 +126,26 @@ async def list_usage_events(
                 profile_version=e.profile_version,
                 error_message=e.error_message,
                 created_at=e.created_at,
+                subject_label=_subject(e)[0],
+                subject_href=_subject(e)[1],
             )
             for e in items
         ],
     )
+
+
+def _subject(e) -> tuple[str | None, str | None]:
+    """Resolve what a usage event acted on + a link to open it.
+
+    - task runs (anything carrying a task_id) → the task detail page
+    - sprint_refinement → the refinement page, labelled with the sprint
+    Other operations (repo scans, flow steps) have no single subject.
+    """
+    if e.task_id:
+        return f'#{e.task_id}', f'/tasks/{e.task_id}'
+    if e.operation_type == 'sprint_refinement':
+        # Small generic link to the refinement runs list (the sprint name is
+        # already visible in the run history, no need to repeat it here).
+        return 'Refinement', '/dashboard/refinement/runs'
+    return None, None
 

@@ -85,6 +85,17 @@ type CommandItem = {
   href: string;
 };
 
+// Enterprise status palette — desaturated, readable on both light and dark
+// surfaces. Status is conveyed by a small dot, never by colouring the whole
+// number, so the dashboard stays neutral the way Azure DevOps / Linear do.
+const C = {
+  acc: '#5b9bd5',
+  green: '#3f9d6a',
+  amber: '#c98a2b',
+  red: '#cf5b57',
+  slate: 'var(--ink-50)',
+};
+
 function hasConfiguredAgent(agents?: Record<string, unknown>[]): boolean {
   if (!Array.isArray(agents)) {
     if (typeof window === 'undefined') return false;
@@ -222,47 +233,46 @@ export default function DashboardOverview() {
   const cmdAllDone = cmdDoneCount === cmdTotal;
 
   const kpis = [
-    { label: t('dashboard.kpi.totalTasks'), value: tasks.length, color: '#5eead4', icon: '◈' },
-    { label: t('dashboard.kpi.running'), value: running, color: '#38bdf8', icon: '◎' },
-    { label: t('dashboard.kpi.completed'), value: completed, color: '#22c55e', icon: '✓' },
-    { label: t('dashboard.kpi.queued'), value: queued, color: '#f59e0b', icon: '⏳' },
-    { label: t('dashboard.kpi.failed'), value: failed, color: '#f87171', icon: '✕' },
-    { label: t('dashboard.kpi.tokensUsed'), value: billing?.tokens_used ?? 0, color: '#a78bfa', icon: '⚡' },
+    { label: t('dashboard.kpi.totalTasks'), value: tasks.length, tone: C.slate },
+    { label: t('dashboard.kpi.running'), value: running, tone: C.acc },
+    { label: t('dashboard.kpi.completed'), value: completed, tone: C.green },
+    { label: t('dashboard.kpi.queued'), value: queued, tone: C.amber },
+    { label: t('dashboard.kpi.failed'), value: failed, tone: C.red },
+    { label: t('dashboard.kpi.tokensUsed'), value: (billing?.tokens_used ?? 0).toLocaleString(), tone: C.slate },
   ];
 
+  const cardBase: React.CSSProperties = {
+    borderRadius: 10,
+    border: '1px solid var(--panel-border)',
+    background: 'var(--surface)',
+  };
+  const panelLabel: React.CSSProperties = {
+    fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600,
+  };
+
   return (
-    <div style={{ display: 'grid', gap: 28 }}>
+    <div style={{ display: 'grid', gap: 18 }}>
       {/* Header */}
-      <div>
-        <div className='section-label'>{t('dashboard.section')}</div>
-        <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink-90)', marginTop: 8, marginBottom: 4 }}>
-          {t('dashboard.title')}
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <div className='section-label'>{t('dashboard.section')}</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6, letterSpacing: -0.2 }}>
+            {t('dashboard.title')}
+          </h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
-            display: 'inline-block',
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-            color: quota?.plan_name === 'enterprise' ? '#a78bfa' : quota?.plan_name === 'pro' ? '#38bdf8' : '#5eead4',
-            background: quota?.plan_name === 'enterprise' ? 'rgba(167,139,250,0.14)' : quota?.plan_name === 'pro' ? 'rgba(56,189,248,0.14)' : 'rgba(94,234,212,0.14)',
-            border: `1px solid ${quota?.plan_name === 'enterprise' ? 'rgba(167,139,250,0.35)' : quota?.plan_name === 'pro' ? 'rgba(56,189,248,0.35)' : 'rgba(94,234,212,0.35)'}`,
-            borderRadius: 999,
-            padding: '3px 10px',
+            fontSize: 11, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase',
+            color: 'var(--ink-72)', background: 'var(--panel-alt)',
+            border: '1px solid var(--panel-border-2)', borderRadius: 6, padding: '4px 10px',
           }}>
             {quota?.plan_display_name ?? billing?.plan_name ?? '—'}
           </span>
           {quota && quota.plan_name === 'free' && (
             <Link href='/dashboard/integrations' style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: '#f59e0b',
-              background: 'rgba(245,158,11,0.12)',
-              border: '1px solid rgba(245,158,11,0.35)',
-              borderRadius: 999,
-              padding: '3px 10px',
-              textDecoration: 'none',
+              fontSize: 11, fontWeight: 600, color: C.amber,
+              background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.3)',
+              borderRadius: 6, padding: '4px 10px', textDecoration: 'none',
             }}>
               {t('dashboard.quota.upgrade')}
             </Link>
@@ -270,84 +280,41 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* Komuta Merkezi — Setup Progress */}
-      {commandItems.length > 0 && (
-        <div style={{
-          borderRadius: 16,
-          border: cmdAllDone ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(245,158,11,0.35)',
-          background: cmdAllDone
-            ? 'linear-gradient(180deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02))'
-            : 'linear-gradient(180deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02))',
-          padding: 16,
-          display: 'grid',
-          gap: 14,
-        }}>
-          {/* Header + Progress */}
+      {/* Setup checklist — only while incomplete, kept quiet */}
+      {commandItems.length > 0 && !cmdAllDone && (
+        <div style={{ ...cardBase, padding: 16, display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: cmdAllDone ? '#22c55e' : '#fbbf24' }}>
-                {t('command.title' as Parameters<typeof t>[0])}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-78)', marginTop: 4 }}>
+              <div style={panelLabel}>{t('command.title' as Parameters<typeof t>[0])}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-65)', marginTop: 3 }}>
                 {t('command.subtitle' as Parameters<typeof t>[0])}
               </div>
             </div>
-            <span style={{
-              fontSize: 11, fontWeight: 800,
-              color: cmdAllDone ? '#22c55e' : '#f59e0b',
-              background: cmdAllDone ? 'rgba(34,197,94,0.18)' : 'rgba(245,158,11,0.18)',
-              border: cmdAllDone ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(245,158,11,0.4)',
-              borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap',
-            }}>
-              {cmdDoneCount}/{cmdTotal}
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-78)', whiteSpace: 'nowrap' }}>
+              {cmdDoneCount}<span style={{ color: 'var(--ink-35)' }}>/{cmdTotal}</span>
             </span>
           </div>
-
-          {/* Progress Bar */}
-          <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{
-              width: `${cmdPct}%`, height: '100%', borderRadius: 3,
-              background: cmdAllDone ? 'linear-gradient(90deg, #22c55e, #34d399)' : 'linear-gradient(90deg, #f59e0b, #fbbf24)',
-              transition: 'width 0.6s cubic-bezier(.4,0,.2,1)',
-            }} />
+          <div style={{ width: '100%', height: 4, borderRadius: 2, background: 'var(--panel-border)', overflow: 'hidden' }}>
+            <div style={{ width: `${cmdPct}%`, height: '100%', background: C.acc, transition: 'width 0.6s cubic-bezier(.4,0,.2,1)' }} />
           </div>
-
-          {/* Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 6 }}>
             {commandItems.map((item) => (
               <Link key={item.key} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div style={{
-                  height: 56, borderRadius: 10,
-                  border: item.done ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(245,158,11,0.3)',
-                  background: 'var(--panel)',
-                  padding: '0 12px',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s',
-                  opacity: item.done ? 0.65 : 1,
-                }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
-                >
-                  <div style={{
-                    width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: item.done ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                  }}>
-                    {item.done ? (
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    ) : (
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="#fbbf24" strokeWidth="1.5" /><circle cx="8" cy="8" r="1.5" fill="#fbbf24" /></svg>
-                    )}
-                  </div>
+                  height: 46, borderRadius: 7, border: '1px solid var(--panel-border)',
+                  background: 'var(--panel-alt)', padding: '0 12px',
+                  display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                  opacity: item.done ? 0.6 : 1,
+                }}>
+                  <span className='ent-dot' style={{ background: item.done ? C.green : C.amber }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-90)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {t(item.titleKey as Parameters<typeof t>[0])}
                     </div>
-                    <div style={{ fontSize: 10, color: item.done ? 'var(--ink-30)' : '#fbbf24' }}>
+                    <div style={{ fontSize: 10.5, color: item.done ? 'var(--ink-35)' : C.amber }}>
                       {item.done ? t('command.configured' as Parameters<typeof t>[0]) : t('command.notConfigured' as Parameters<typeof t>[0])}
                     </div>
                   </div>
-                  {!item.done && <span style={{ fontSize: 12, color: '#fbbf24', flexShrink: 0 }}>→</span>}
                 </div>
               </Link>
             ))}
@@ -355,325 +322,204 @@ export default function DashboardOverview() {
         </div>
       )}
 
-      {/* Quota Usage Bars */}
-      {quota && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }} className="dash-grid-responsive">
-          {/* Tasks quota */}
-          <div style={{
-            borderRadius: 16, border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)', padding: '16px 20px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                {t('dashboard.quota.tasks')}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-78)' }}>
-                {quota.tasks_used} / {quota.tasks_limit === -1 ? t('dashboard.quota.unlimited') : quota.tasks_limit}
-              </span>
-            </div>
-            <div style={{ height: 6, borderRadius: 3, background: 'var(--panel-border)', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                borderRadius: 3,
-                width: quota.tasks_limit === -1 ? '5%' : `${Math.min(100, (quota.tasks_used / quota.tasks_limit) * 100)}%`,
-                background: quota.tasks_limit !== -1 && quota.tasks_used / quota.tasks_limit > 0.8 ? '#f87171' : '#5eead4',
-                transition: 'width 0.4s ease',
-              }} />
-            </div>
-          </div>
-
-          {/* Members quota */}
-          <div style={{
-            borderRadius: 16, border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)', padding: '16px 20px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                {t('dashboard.quota.members')}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-78)' }}>
-                {quota.members_used} / {quota.members_limit === -1 ? t('dashboard.quota.unlimited') : quota.members_limit}
-              </span>
-            </div>
-            <div style={{ height: 6, borderRadius: 3, background: 'var(--panel-border)', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                borderRadius: 3,
-                width: quota.members_limit === -1 ? '5%' : `${Math.min(100, (quota.members_used / quota.members_limit) * 100)}%`,
-                background: quota.members_limit !== -1 && quota.members_used / quota.members_limit > 0.8 ? '#f87171' : '#38bdf8',
-                transition: 'width 0.4s ease',
-              }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* KPI Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }} className="dash-grid-responsive">
-        {kpis.map((k) => (
+      {/* KPI strip — Azure-style dense cells in one container */}
+      <div style={{ ...cardBase, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', overflow: 'hidden' }} className='dash-kpi-strip'>
+        {kpis.map((k, i) => (
           <div key={k.label} style={{
-            borderRadius: 18,
-            border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)',
-            padding: '20px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            transition: 'border-color 0.2s',
+            padding: '16px 18px',
+            borderLeft: i === 0 ? 'none' : '1px solid var(--panel-border)',
           }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: `${k.color}18`,
-              border: `1px solid ${k.color}30`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, color: k.color, flexShrink: 0,
-            }}>{k.icon}</div>
-            <div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: k.color, lineHeight: 1 }}>{k.value}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 4 }}>{k.label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className='ent-dot' style={{ background: k.tone }} />
+              <span style={panelLabel}>{k.label}</span>
             </div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink-90)', marginTop: 8, lineHeight: 1, letterSpacing: -0.5 }}>{k.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Operations Radar + Pipeline */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr', gap: 20 }} className="dash-grid-responsive">
-        {/* Operations Radar */}
-        <div style={{
-          borderRadius: 20, border: '1px solid var(--panel-border)',
-          background: 'var(--panel-alt)', overflow: 'hidden', padding: 20,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontWeight: 700, color: 'var(--ink-90)' }}>{t('dashboard.operationsRadar')}</span>
-            <Link href='/dashboard/tasks' style={{ fontSize: 12, color: '#5eead4' }}>{t('dashboard.openTasks')} →</Link>
-          </div>
+      {/* Quota usage */}
+      {quota && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }} className='dash-grid-responsive'>
+          {[
+            { label: t('dashboard.quota.tasks'), used: quota.tasks_used, limit: quota.tasks_limit },
+            { label: t('dashboard.quota.members'), used: quota.members_used, limit: quota.members_limit },
+          ].map((q) => {
+            const pct = q.limit === -1 ? 5 : Math.min(100, (q.used / q.limit) * 100);
+            const hot = q.limit !== -1 && q.used / q.limit > 0.8;
+            return (
+              <div key={q.label} style={{ ...cardBase, padding: '14px 18px', background: 'var(--panel-alt)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                  <span style={panelLabel}>{q.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-78)' }}>
+                    {q.used} / {q.limit === -1 ? t('dashboard.quota.unlimited') : q.limit}
+                  </span>
+                </div>
+                <div style={{ height: 5, borderRadius: 3, background: 'var(--panel-border)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: hot ? C.red : C.acc, transition: 'width 0.4s ease' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginBottom: 12 }}>
+      {/* Operations + side column */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.5fr', gap: 14 }} className='dash-grid-responsive'>
+        <div style={{ ...cardBase, padding: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-90)' }}>{t('dashboard.operationsRadar')}</span>
+            <Link href='/dashboard/tasks' style={{ fontSize: 12, color: C.acc, textDecoration: 'none' }}>{t('dashboard.openTasks')} →</Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10, marginBottom: 12 }}>
             {[
-              { label: t('dashboard.successRate'), value: `${successRate}%`, tone: '#22c55e' },
-              { label: t('dashboard.avgQueueWait'), value: `${avgQueueWait}${t('dashboard.unit.sec')}`, tone: '#38bdf8' },
-              { label: t('dashboard.slaBreaches'), value: String(slaBreached), tone: slaBreached > 0 ? '#f87171' : '#5eead4' },
-              { label: t('dashboard.repoContention'), value: String(blocked), tone: blocked > 0 ? '#f59e0b' : '#5eead4' },
+              { label: t('dashboard.successRate'), value: `${successRate}%`, tone: C.green },
+              { label: t('dashboard.avgQueueWait'), value: `${avgQueueWait}${t('dashboard.unit.sec')}`, tone: C.acc },
+              { label: t('dashboard.slaBreaches'), value: String(slaBreached), tone: slaBreached > 0 ? C.red : C.slate },
+              { label: t('dashboard.repoContention'), value: String(blocked), tone: blocked > 0 ? C.amber : C.slate },
             ].map((item) => (
-              <div key={item.label} style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: '10px 12px', background: 'var(--panel)' }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7 }}>{item.label}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: item.tone, marginTop: 4 }}>{item.value}</div>
+              <div key={item.label} style={{ border: '1px solid var(--panel-border)', borderRadius: 8, padding: '10px 12px', background: 'var(--panel-alt)' }}>
+                <div style={panelLabel}>{item.label}</div>
+                <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink-90)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className='ent-dot' style={{ background: item.tone }} />{item.value}
+                </div>
               </div>
             ))}
           </div>
-
-          <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, background: 'var(--panel)', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--panel-border)', fontSize: 12, color: 'var(--ink-78)', fontWeight: 700 }}>
+          <div style={{ border: '1px solid var(--panel-border)', borderRadius: 8, background: 'var(--panel-alt)', overflow: 'hidden' }}>
+            <div style={{ padding: '9px 12px', borderBottom: '1px solid var(--panel-border)', ...panelLabel }}>
               {t('dashboard.queueForecast')}
             </div>
             {activeWithEta.length === 0 ? (
               <div style={{ padding: '12px', color: 'var(--ink-35)', fontSize: 13 }}>{t('dashboard.noQueuedEta')}</div>
             ) : (
               activeWithEta.map((task) => (
-                <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, padding: '10px 12px', borderTop: '1px solid var(--panel-alt)' }}>
+                <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, padding: '9px 12px', borderTop: '1px solid var(--panel-border)' }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: 'var(--ink-90)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                    <div style={{ fontSize: 13, color: 'var(--ink-90)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 2 }}>#{task.queue_position ?? '—'} {t('dashboard.inQueue')}</div>
                   </div>
-                  <div style={{ fontSize: 12, color: '#5eead4', fontWeight: 700 }}>~{Math.max(0, Math.round((task.estimated_start_sec ?? 0) / 60))}{t('dashboard.unit.min')}</div>
+                  <div style={{ fontSize: 12, color: C.acc, fontWeight: 600 }}>~{Math.max(0, Math.round((task.estimated_start_sec ?? 0) / 60))}{t('dashboard.unit.min')}</div>
                 </Link>
               ))
             )}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
           {/* Pipeline */}
-          <div style={{
-            borderRadius: 20, border: '1px solid rgba(13,148,136,0.2)',
-            background: 'rgba(13,148,136,0.04)', padding: 24,
-            position: 'relative', overflow: 'hidden',
-          }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.6), transparent)' }} />
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#5eead4', marginBottom: 16, letterSpacing: 1, textTransform: 'uppercase' }}>{t('dashboard.pipelineTitle')}</div>
+          <div style={{ ...cardBase, padding: 18 }}>
+            <div style={{ ...panelLabel, marginBottom: 14 }}>{t('dashboard.pipelineTitle')}</div>
             {[
-              { stage: t('dashboard.pipeline.fetch'), color: '#5eead4' },
-              { stage: t('dashboard.pipeline.generate'), color: '#a78bfa' },
-              { stage: t('dashboard.pipeline.review'), color: '#38bdf8' },
-              { stage: t('dashboard.pipeline.finalize'), color: '#22c55e' },
-            ].map((s, i) => (
-              <div key={s.stage} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: i < 3 ? 0 : 0 }}>
+              t('dashboard.pipeline.fetch'),
+              t('dashboard.pipeline.generate'),
+              t('dashboard.pipeline.review'),
+              t('dashboard.pipeline.finalize'),
+            ].map((stage, i, arr) => (
+              <div key={stage} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
-                  {i < 3 && <div style={{ width: 1, height: 20, background: 'var(--panel-border-2)' }} />}
+                  <span className='ent-dot' style={{ background: C.acc, marginTop: 4 }} />
+                  {i < arr.length - 1 && <div style={{ width: 1, height: 18, background: 'var(--panel-border-2)' }} />}
                 </div>
-                <span style={{ fontSize: 13, color: 'var(--ink-50)', fontFamily: 'monospace', paddingBottom: i < 3 ? 20 : 0 }}>{s.stage}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--ink-65)', fontFamily: 'var(--font-mono, monospace)', paddingBottom: i < arr.length - 1 ? 16 : 0 }}>{stage}</span>
               </div>
             ))}
           </div>
 
-          {/* Vector Memory */}
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid rgba(56,189,248,0.2)',
-            background: 'rgba(56,189,248,0.06)',
-            padding: 16,
-          }}>
+          {/* Vector memory */}
+          <div style={{ ...cardBase, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#7dd3fc' }}>
-                {t('dashboard.memory.title')}
-              </div>
+              <div style={panelLabel}>{t('dashboard.memory.title')}</div>
               <span style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: memory?.enabled ? '#22c55e' : '#f87171',
-                background: memory?.enabled ? 'rgba(34,197,94,0.16)' : 'rgba(248,113,113,0.16)',
-                border: `1px solid ${memory?.enabled ? 'rgba(34,197,94,0.35)' : 'rgba(248,113,113,0.35)'}`,
-                borderRadius: 999,
-                padding: '3px 8px',
+                fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5,
+                color: memory?.enabled ? C.green : C.red,
               }}>
+                <span className='ent-dot' style={{ background: memory?.enabled ? C.green : C.red }} />
                 {memory?.enabled ? t('dashboard.memory.online') : t('dashboard.memory.off')}
               </span>
             </div>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ fontSize: 13, color: 'var(--ink-78)' }}>
-                {t('dashboard.memory.backend')}: <span style={{ color: '#7dd3fc', fontWeight: 700 }}>{memory?.backend ?? 'qdrant'}</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-78)' }}>
-                {t('dashboard.memory.collection')}: <span style={{ color: 'var(--ink-90)' }}>{memory?.collection ?? '—'}</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-78)' }}>
-                {t('dashboard.memory.points')}: <span style={{ color: '#5eead4', fontWeight: 700 }}>{memory?.points_count ?? 0}</span>
-                &nbsp;·&nbsp; {t('dashboard.memory.mode')}: <span style={{ color: 'var(--ink-90)' }}>{memory?.embedding_mode ?? 'deterministic'}</span>
-              </div>
+            <div style={{ display: 'grid', gap: 5, fontSize: 12.5, color: 'var(--ink-65)' }}>
+              <div>{t('dashboard.memory.backend')}: <span style={{ color: 'var(--ink-90)', fontWeight: 600 }}>{memory?.backend ?? 'qdrant'}</span></div>
+              <div>{t('dashboard.memory.collection')}: <span style={{ color: 'var(--ink-90)' }}>{memory?.collection ?? '—'}</span></div>
+              <div>{t('dashboard.memory.points')}: <span style={{ color: 'var(--ink-90)', fontWeight: 600 }}>{memory?.points_count ?? 0}</span> · {t('dashboard.memory.mode')}: <span style={{ color: 'var(--ink-90)' }}>{memory?.embedding_mode ?? 'deterministic'}</span></div>
             </div>
-            <button
-              type='button'
-              onClick={openMemorySchema}
-              style={{
-                marginTop: 12,
-                border: '1px solid rgba(125,211,252,0.4)',
-                background: 'rgba(125,211,252,0.12)',
-                color: '#bae6fd',
-                borderRadius: 10,
-                padding: '6px 10px',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
+            <button type='button' onClick={openMemorySchema} style={{
+              marginTop: 12, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)',
+              color: 'var(--ink-78)', borderRadius: 6, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            }}>
               {t('dashboard.memory.viewSchema')}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Analytics Section */}
+      {/* Analytics */}
       <div>
-        <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink-90)', marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-90)', marginBottom: 12 }}>
           {t('dashboard.analytics.title')}
         </div>
 
-        {/* Summary numbers */}
         {analyticsSummary && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
             {[
-              { label: t('dashboard.analytics.totalCost'), value: `$${analyticsSummary.cost_usd.toFixed(2)}`, color: '#5eead4' },
-              { label: t('dashboard.analytics.totalTokens'), value: analyticsSummary.total_tokens.toLocaleString(), color: '#a78bfa' },
-              { label: t('dashboard.analytics.successRate'), value: `${analyticsSummary.completion_rate}%`, color: '#22c55e' },
-              { label: t('dashboard.analytics.avgDuration'), value: `${(analyticsSummary.avg_duration_ms / 1000).toFixed(1)}s`, color: '#38bdf8' },
+              { label: t('dashboard.analytics.totalCost'), value: `$${analyticsSummary.cost_usd.toFixed(2)}` },
+              { label: t('dashboard.analytics.totalTokens'), value: analyticsSummary.total_tokens.toLocaleString() },
+              { label: t('dashboard.analytics.successRate'), value: `${analyticsSummary.completion_rate}%` },
+              { label: t('dashboard.analytics.avgDuration'), value: `${(analyticsSummary.avg_duration_ms / 1000).toFixed(1)}s` },
             ].map((s) => (
-              <div key={s.label} style={{
-                borderRadius: 14,
-                border: '1px solid var(--panel-border)',
-                background: 'var(--panel-alt)',
-                padding: '16px 18px',
-              }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7 }}>{s.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 6 }}>{s.value}</div>
+              <div key={s.label} style={{ ...cardBase, padding: '14px 16px', background: 'var(--panel-alt)' }}>
+                <div style={panelLabel}>{s.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6, letterSpacing: -0.3 }}>{s.value}</div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Charts row */}
-        <div className="dash-grid-responsive" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-          {/* Cost trend line chart */}
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)',
-            padding: 18,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 12 }}>
-              {t('dashboard.analytics.costTrend')}
-            </div>
+        <div className='dash-grid-responsive' style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ ...cardBase, padding: 16 }}>
+            <div style={{ ...panelLabel, marginBottom: 12 }}>{t('dashboard.analytics.costTrend')}</div>
             {analyticsDaily && analyticsDaily.daily_usage.length > 0 ? (
               <LineChart
                 data={analyticsDaily.daily_usage.map((d) => ({ label: d.date, value: Math.round(d.cost_usd * 100) / 100 }))}
-                lineColor="#5eead4"
-                fillColor="rgba(94,234,212,0.10)"
+                lineColor='#5b9bd5'
+                fillColor='rgba(91,155,213,0.10)'
               />
             ) : (
-              <div style={{ color: 'var(--ink-35)', fontSize: 13, padding: 20, textAlign: 'center' }}>
-                {t('dashboard.analytics.noData')}
-              </div>
+              <div style={{ color: 'var(--ink-35)', fontSize: 13, padding: 20, textAlign: 'center' }}>{t('dashboard.analytics.noData')}</div>
             )}
           </div>
-
-          {/* Task completion bar chart (last 7 days) */}
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)',
-            padding: 18,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 12 }}>
-              {t('dashboard.analytics.taskCompletion')}
-            </div>
+          <div style={{ ...cardBase, padding: 16 }}>
+            <div style={{ ...panelLabel, marginBottom: 12 }}>{t('dashboard.analytics.taskCompletion')}</div>
             {analyticsDaily && analyticsDaily.task_velocity.length > 0 ? (
               <BarChart
                 data={analyticsDaily.task_velocity.slice(-7).map((d) => ({ label: d.date, value: d.completed }))}
-                barColor="#22c55e"
+                barColor='#3f9d6a'
               />
             ) : (
-              <div style={{ color: 'var(--ink-35)', fontSize: 13, padding: 20, textAlign: 'center' }}>
-                {t('dashboard.analytics.noData')}
-              </div>
+              <div style={{ color: 'var(--ink-35)', fontSize: 13, padding: 20, textAlign: 'center' }}>{t('dashboard.analytics.noData')}</div>
             )}
           </div>
         </div>
 
-        {/* Model breakdown table */}
         {analyticsModels && analyticsModels.models.length > 0 && (
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)',
-            padding: 18,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 12 }}>
-              {t('dashboard.analytics.modelBreakdown')}
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div style={{ ...cardBase, padding: 16 }}>
+            <div style={{ ...panelLabel, marginBottom: 12 }}>{t('dashboard.analytics.modelBreakdown')}</div>
+            <table className='ent-table'>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--panel-border)' }}>
-                  <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--ink-35)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                    {t('dashboard.analytics.model')}
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--ink-35)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                    {t('dashboard.analytics.calls')}
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--ink-35)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                    {t('dashboard.analytics.tokens')}
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--ink-35)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                    {t('dashboard.analytics.cost')}
-                  </th>
+                <tr>
+                  <th>{t('dashboard.analytics.model')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('dashboard.analytics.calls')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('dashboard.analytics.tokens')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('dashboard.analytics.cost')}</th>
                 </tr>
               </thead>
               <tbody>
                 {analyticsModels.models.map((m) => (
-                  <tr key={m.model} style={{ borderBottom: '1px solid var(--panel-alt)' }}>
-                    <td style={{ padding: '8px 10px', color: '#5eead4', fontFamily: 'monospace', fontWeight: 600 }}>{m.model}</td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--ink-78)' }}>{m.count}</td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--ink-78)' }}>{m.total_tokens.toLocaleString()}</td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: '#a78bfa', fontWeight: 700 }}>${m.cost_usd.toFixed(4)}</td>
+                  <tr key={m.model}>
+                    <td style={{ color: 'var(--ink-90)', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>{m.model}</td>
+                    <td style={{ textAlign: 'right' }}>{m.count}</td>
+                    <td style={{ textAlign: 'right' }}>{m.total_tokens.toLocaleString()}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--ink-90)', fontWeight: 600 }}>${m.cost_usd.toFixed(4)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -683,23 +529,28 @@ export default function DashboardOverview() {
       </div>
 
       {/* Quick links */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }} className="dash-grid-responsive">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }} className='dash-grid-responsive'>
         {[
-          { href: '/dashboard/tasks', label: t('dashboard.quick.manageTasks'), desc: t('dashboard.quick.manageTasksDesc'), icon: '◈' },
-          { href: '/dashboard/sprints', label: t('dashboard.quick.sprintBoard'), desc: t('dashboard.quick.sprintBoardDesc'), icon: '◎' },
-          { href: '/dashboard/mappings', label: t('dashboard.quick.repoMappings'), desc: t('dashboard.quick.repoMappingsDesc'), icon: '⌘' },
-          { href: '/dashboard/agents', label: t('dashboard.quick.aiAgents'), desc: t('dashboard.quick.aiAgentsDesc'), icon: '🤖' },
-          { href: '/dashboard/flows', label: t('dashboard.quick.flowTemplates'), desc: t('dashboard.quick.flowTemplatesDesc'), icon: '◧' },
-          { href: '/dashboard/integrations', label: t('dashboard.quick.integrations'), desc: t('dashboard.quick.integrationsDesc'), icon: '⬡' },
+          { href: '/dashboard/tasks', label: t('dashboard.quick.manageTasks'), desc: t('dashboard.quick.manageTasksDesc') },
+          { href: '/dashboard/sprints', label: t('dashboard.quick.sprintBoard'), desc: t('dashboard.quick.sprintBoardDesc') },
+          { href: '/dashboard/mappings', label: t('dashboard.quick.repoMappings'), desc: t('dashboard.quick.repoMappingsDesc') },
+          { href: '/dashboard/agents', label: t('dashboard.quick.aiAgents'), desc: t('dashboard.quick.aiAgentsDesc') },
+          { href: '/dashboard/flows', label: t('dashboard.quick.flowTemplates'), desc: t('dashboard.quick.flowTemplatesDesc') },
+          { href: '/dashboard/integrations', label: t('dashboard.quick.integrations'), desc: t('dashboard.quick.integrationsDesc') },
         ].map((l) => (
           <Link key={l.href} href={l.href} style={{
-            borderRadius: 18, border: '1px solid var(--panel-border)',
-            background: 'var(--panel-alt)', padding: '20px 22px',
-            transition: 'all 0.2s', textDecoration: 'none', display: 'block',
-          }}>
-            <div style={{ fontSize: 22, marginBottom: 10, color: '#5eead4' }}>{l.icon}</div>
-            <div style={{ fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{l.label}</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>{l.desc}</div>
+            ...cardBase, background: 'var(--panel-alt)', padding: '14px 16px',
+            textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            transition: 'border-color 0.15s',
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--panel-border-4)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--panel-border)'; }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink-90)', marginBottom: 3 }}>{l.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-42)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.desc}</div>
+            </div>
+            <span style={{ color: 'var(--ink-35)', fontSize: 15 }}>→</span>
           </Link>
         ))}
       </div>
@@ -709,67 +560,43 @@ export default function DashboardOverview() {
           role='dialog'
           aria-modal='true'
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 20,
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: 20,
           }}
           onClick={() => setSchemaOpen(false)}
         >
           <div
             style={{
-              width: 'min(880px, 100%)',
-              maxHeight: '85vh',
-              overflowY: 'auto',
-              borderRadius: 16,
-              border: '1px solid rgba(125,211,252,0.35)',
-              background: 'linear-gradient(180deg, var(--surface), var(--surface))',
-              padding: 18,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+              width: 'min(880px, 100%)', maxHeight: '85vh', overflowY: 'auto',
+              borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--surface)',
+              padding: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'sticky', top: -18, paddingTop: 18, marginTop: -18, background: 'var(--surface)', zIndex: 1 }}>
-              <div style={{ color: '#bae6fd', fontWeight: 800, fontSize: 16 }}>{t('dashboard.schema.title')}</div>
-              <button
-                type='button'
-                onClick={() => setSchemaOpen(false)}
-                style={{
-                  border: '1px solid var(--panel-border-3)',
-                  background: 'var(--panel-border)',
-                  color: 'var(--ink-90)',
-                  borderRadius: 8,
-                  padding: '4px 10px',
-                  cursor: 'pointer',
-                }}
-              >
+              <div style={{ color: 'var(--ink-90)', fontWeight: 700, fontSize: 15 }}>{t('dashboard.schema.title')}</div>
+              <button type='button' onClick={() => setSchemaOpen(false)} style={{
+                border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-78)',
+                borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12,
+              }}>
                 {t('dashboard.schema.close')}
               </button>
             </div>
             {schemaLoading && <div style={{ color: 'var(--ink-72)', fontSize: 13 }}>{t('dashboard.schema.loading')}</div>}
-            {!schemaLoading && !schema && (
-              <div style={{ color: '#fca5a5', fontSize: 13 }}>{t('dashboard.schema.loadError')}</div>
-            )}
+            {!schemaLoading && !schema && <div style={{ color: C.red, fontSize: 13 }}>{t('dashboard.schema.loadError')}</div>}
             {!schemaLoading && schema && (
-              <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase' }}>{t('dashboard.schema.purpose')}</div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: 12 }}>
+                  <div style={panelLabel}>{t('dashboard.schema.purpose')}</div>
                   <div style={{ color: 'var(--ink-90)', marginTop: 6, fontSize: 14 }}>{schema.purpose}</div>
                 </div>
 
-                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 8 }}>{t('dashboard.schema.storedFields')}</div>
+                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: 12 }}>
+                  <div style={{ ...panelLabel, marginBottom: 8 }}>{t('dashboard.schema.storedFields')}</div>
                   {Object.entries(schema.what_is_stored).map(([k, v]) => (
-                    <div key={k} style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: 8, padding: '6px 0', borderTop: '1px solid var(--panel-alt)' }}>
-                      <div style={{ color: '#5eead4', fontFamily: 'monospace', fontSize: 12 }}>{k}</div>
+                    <div key={k} style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: 8, padding: '6px 0', borderTop: '1px solid var(--panel-border)' }}>
+                      <div style={{ color: C.acc, fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{k}</div>
                       <div style={{ color: 'var(--ink-90)', fontSize: 13 }}>{v}</div>
                     </div>
                   ))}
@@ -777,32 +604,32 @@ export default function DashboardOverview() {
 
                 {Array.isArray(schema.kinds) && schema.kinds.length > 0 && (
                   <div style={{ display: 'grid', gap: 10 }}>
-                    <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase' }}>{t('dashboard.schema.kinds')}</div>
+                    <div style={panelLabel}>{t('dashboard.schema.kinds')}</div>
                     {schema.kinds.map((k) => (
-                      <div key={k.kind} style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12, display: 'grid', gap: 8 }}>
+                      <div key={k.kind} style={{ border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: 12, display: 'grid', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <code style={{ color: '#5eead4', fontSize: 12, background: 'rgba(94,234,212,0.10)', padding: '2px 8px', borderRadius: 6 }}>kind={k.kind}</code>
-                            <div style={{ color: 'var(--ink-90)', fontWeight: 700, fontSize: 13 }}>{k.label}</div>
+                            <code style={{ color: C.acc, fontSize: 12, background: 'var(--acc-soft)', padding: '2px 8px', borderRadius: 4 }}>kind={k.kind}</code>
+                            <div style={{ color: 'var(--ink-90)', fontWeight: 600, fontSize: 13 }}>{k.label}</div>
                           </div>
-                          <div style={{ color: '#bae6fd', fontWeight: 800, fontSize: 12, background: 'rgba(125,211,252,0.10)', padding: '2px 8px', borderRadius: 6 }}>
+                          <div style={{ color: 'var(--ink-72)', fontWeight: 600, fontSize: 12, background: 'var(--panel-alt)', padding: '2px 8px', borderRadius: 4 }}>
                             {k.points_count.toLocaleString()} {t('dashboard.schema.points')}
                           </div>
                         </div>
                         <div style={{ color: 'var(--ink-72)', fontSize: 12.5, lineHeight: 1.5 }}>{k.description}</div>
                         <div>
-                          <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.embedRecipe')}</div>
-                          <pre style={{ color: 'var(--ink-90)', fontSize: 11.5, fontFamily: 'monospace', background: 'rgba(0,0,0,0.25)', padding: 8, borderRadius: 6, margin: 0, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{k.embed_recipe}</pre>
+                          <div style={{ ...panelLabel, marginBottom: 4 }}>{t('dashboard.schema.embedRecipe')}</div>
+                          <pre style={{ color: 'var(--ink-90)', fontSize: 11.5, fontFamily: 'var(--font-mono, monospace)', background: 'var(--terminal-bg)', padding: 8, borderRadius: 6, margin: 0, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{k.embed_recipe}</pre>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                           <div>
-                            <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.writtenBy')}</div>
+                            <div style={{ ...panelLabel, marginBottom: 4 }}>{t('dashboard.schema.writtenBy')}</div>
                             {k.written_by.map((w, i) => (
                               <div key={`w-${i}`} style={{ color: 'var(--ink-90)', fontSize: 12, padding: '2px 0' }}>· {w}</div>
                             ))}
                           </div>
                           <div>
-                            <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.readBy')}</div>
+                            <div style={{ ...panelLabel, marginBottom: 4 }}>{t('dashboard.schema.readBy')}</div>
                             {k.read_by.map((r, i) => (
                               <div key={`r-${i}`} style={{ color: 'var(--ink-90)', fontSize: 12, padding: '2px 0' }}>· {r}</div>
                             ))}
@@ -810,10 +637,10 @@ export default function DashboardOverview() {
                         </div>
                         {k.payload_keys.length > 0 && (
                           <div>
-                            <div style={{ color: '#7dd3fc', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4 }}>{t('dashboard.schema.payloadKeys')}</div>
+                            <div style={{ ...panelLabel, marginBottom: 4 }}>{t('dashboard.schema.payloadKeys')}</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {k.payload_keys.map((pk) => (
-                                <code key={pk} style={{ color: '#5eead4', fontSize: 11, background: 'rgba(94,234,212,0.08)', padding: '2px 6px', borderRadius: 4 }}>{pk}</code>
+                                <code key={pk} style={{ color: C.acc, fontSize: 11, background: 'var(--acc-soft)', padding: '2px 6px', borderRadius: 4 }}>{pk}</code>
                               ))}
                             </div>
                           </div>
@@ -823,26 +650,22 @@ export default function DashboardOverview() {
                   </div>
                 )}
 
-                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 8 }}>{t('dashboard.schema.retrievalFlow')}</div>
+                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: 12 }}>
+                  <div style={{ ...panelLabel, marginBottom: 8 }}>{t('dashboard.schema.retrievalFlow')}</div>
                   {schema.retrieval_flow.map((step, idx) => (
-                    <div key={`${idx}-${step}`} style={{ color: 'var(--ink-90)', fontSize: 13, padding: '4px 0' }}>
-                      {idx + 1}. {step}
-                    </div>
+                    <div key={`${idx}-${step}`} style={{ color: 'var(--ink-90)', fontSize: 13, padding: '4px 0' }}>{idx + 1}. {step}</div>
                   ))}
                 </div>
 
-                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 8 }}>{t('dashboard.schema.constraints')}</div>
+                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: 12 }}>
+                  <div style={{ ...panelLabel, marginBottom: 8 }}>{t('dashboard.schema.constraints')}</div>
                   {schema.constraints.map((item, idx) => (
-                    <div key={`${idx}-${item}`} style={{ color: 'var(--ink-90)', fontSize: 13, padding: '4px 0' }}>
-                      - {item}
-                    </div>
+                    <div key={`${idx}-${item}`} style={{ color: 'var(--ink-90)', fontSize: 13, padding: '4px 0' }}>- {item}</div>
                   ))}
                 </div>
 
-                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ color: '#7dd3fc', fontSize: 11, letterSpacing: 0.7, textTransform: 'uppercase' }}>{t('dashboard.schema.privacyScope')}</div>
+                <div style={{ border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: 12 }}>
+                  <div style={panelLabel}>{t('dashboard.schema.privacyScope')}</div>
                   <div style={{ color: 'var(--ink-90)', marginTop: 6, fontSize: 14 }}>{schema.privacy_scope}</div>
                 </div>
               </div>

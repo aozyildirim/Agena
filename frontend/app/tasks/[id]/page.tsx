@@ -47,6 +47,8 @@ type TaskDetail = {
   pr_risk_level?: string | null;
   pr_risk_reason?: string | null;
   total_tokens?: number | null;
+  cached_tokens?: number | null;
+  cache_savings_usd?: number | null;
   occurrences?: number | null;
   last_seen_at?: string | null;
   first_seen_at?: string | null;
@@ -137,6 +139,47 @@ function stageColor(stage: string): string {
     failed: '#f87171',
   };
   return map[stage] ?? '#94a3b8';
+}
+
+function isRagLog(log: { stage: string; message: string }): boolean {
+  if (log.stage !== 'agent') return false;
+  const m = log.message;
+  return (
+    m.startsWith('Indexing ') ||
+    m.startsWith('Repo indexed') ||
+    m.startsWith('Repo index up to date') ||
+    m.startsWith('Repo index unavailable') ||
+    m.startsWith('Repo index skipped') ||
+    m.startsWith('Candidate files:') ||
+    m.startsWith('No semantic candidates')
+  );
+}
+
+function indexingProgress(logs: { stage: string; message: string; created_at?: string }[]): { active: boolean; done: number; total: number } | null {
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    const l = logs[i];
+    if (!isRagLog(l)) continue;
+    const m = l.message;
+    if (
+      m.startsWith('Repo indexed:') ||
+      m.startsWith('Repo index up to date') ||
+      m.startsWith('Candidate files:') ||
+      m.startsWith('No semantic') ||
+      m.startsWith('Repo index unavailable') ||
+      m.startsWith('Repo index skipped')
+    ) {
+      return null; // indexing settled; no banner
+    }
+    const batch = m.match(/batch \d+\/(\d+) \((\d+)\/(\d+) files\)/);
+    if (batch) {
+      return { active: true, done: Number(batch[2]), total: Number(batch[3]) };
+    }
+    const start = m.match(/^Indexing (\d+) files/);
+    if (start) {
+      return { active: true, done: 0, total: Number(start[1]) };
+    }
+  }
+  return null;
 }
 
 function parseRunMetrics(logs: TaskLog[]) {
@@ -269,7 +312,7 @@ function splitLogsByRun(allLogs: TaskLog[]): TaskLog[][] {
 // Conflict dialog replaced by inline state-based modal (see repoConflict state)
 
 export default function TaskDetailPage() {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const params = useParams<{ id: string }>();
   const taskId = params.id;
   const enabledModules = useEnabledModules();
@@ -368,44 +411,61 @@ export default function TaskDetailPage() {
 
   async function loadData(isInitial = false) {
     try {
-      const [taskData, logsData, runsData, taskList, prefs, integrations, attachmentsData, revisionsData] = await Promise.all([
-        apiFetch<TaskDetail>('/tasks/' + taskId),
-        apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs'),
-        apiFetch<RunInfo[]>('/tasks/' + taskId + '/runs').catch(() => [] as RunInfo[]),
-        apiFetch<DependencyTaskOption[]>('/tasks'),
-        apiFetch<{ azure_project?: string | null; azure_sprint_path?: string | null }>('/preferences').catch(() => null),
-        apiFetch<Array<{ provider: string; base_url: string }>>('/integrations').catch(() => [] as Array<{ provider: string; base_url: string }>),
-        apiFetch<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>('/tasks/' + taskId + '/attachments').catch(() => []),
-        apiFetch<TaskRevisionRecord[]>('/tasks/' + taskId + '/revisions').catch(() => [] as TaskRevisionRecord[]),
-      ]);
-      if (prefs) {
-        setAzureProject(prefs.azure_project || '');
-        setAzureSprintPath(prefs.azure_sprint_path || '');
-      }
-      const azCfg = (integrations || []).find((c) => c.provider === 'azure');
-      setAzureOrgUrl(azCfg?.base_url || '');
-      const jrCfg = (integrations || []).find((c) => c.provider === 'jira');
-      setJiraBaseUrl(jrCfg?.base_url || '');
+      // ── Critical: the task itself gates the first paint. As soon as it
+      // resolves we render — the rest streams in without blocking. This is
+      // why the detail used to "hang" on open: it waited for ALL of the
+      // calls below (incl. the full task list + integrations, 9–21s under
+      // load) before showing anything.
+      const taskData = await apiFetch<TaskDetail>('/tasks/' + taskId);
       setTask(taskData);
-      setAttachments(attachmentsData || []);
-      setLogs(logsData);
-      setRuns(runsData);
-      setRevisions(revisionsData || []);
-      const currentTaskId = Number(taskId);
-      setDependencyCandidates(taskList.filter((item) => item.id !== currentTaskId));
-      const d = await apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies');
-      setDepsData(d);
-      // Only seed the checkbox selection from the server on first load;
-      // otherwise the 5s poll keeps resetting the user's in-progress edits.
-      if (isInitial || !depsInitializedRef.current) {
-        setSelectedDependencyIds(d.depends_on_task_ids || []);
-        depsInitializedRef.current = true;
-      }
       setError('');
+      if (isInitial) setLoading(false);
+
+      // ── Live sections that change during a run. Refetched on every poll,
+      // but in the background so they never block paint. Each is isolated
+      // so one slow/failed call can't stall the others.
+      void apiFetch<TaskLog[]>('/tasks/' + taskId + '/logs').then(setLogs).catch(() => {});
+      void apiFetch<RunInfo[]>('/tasks/' + taskId + '/runs').then(setRuns).catch(() => {});
+      void apiFetch<TaskDeps>('/tasks/' + taskId + '/dependencies').then((d) => {
+        setDepsData(d);
+        // Only seed the checkbox selection from the server on first load;
+        // otherwise the poll keeps resetting the user's in-progress edits.
+        if (isInitial || !depsInitializedRef.current) {
+          setSelectedDependencyIds(d.depends_on_task_ids || []);
+          depsInitializedRef.current = true;
+        }
+      }).catch(() => {});
+
+      // ── Static-ish data: fetched ONCE on initial load, never on the poll.
+      // These don't change while watching a run, and the full task list +
+      // /integrations are the heaviest calls — keeping them out of the 5s
+      // poll is what removes the connection-pool pressure that froze the API.
+      if (isInitial) {
+        void (async () => {
+          const [taskList, prefs, integrations, attachmentsData, revisionsData] = await Promise.all([
+            apiFetch<DependencyTaskOption[]>('/tasks').catch(() => [] as DependencyTaskOption[]),
+            apiFetch<{ azure_project?: string | null; azure_sprint_path?: string | null }>('/preferences').catch(() => null),
+            apiFetch<Array<{ provider: string; base_url: string }>>('/integrations').catch(() => [] as Array<{ provider: string; base_url: string }>),
+            apiFetch<Array<{ id: number; filename: string; content_type: string; size_bytes: number; created_at: string }>>('/tasks/' + taskId + '/attachments').catch(() => []),
+            apiFetch<TaskRevisionRecord[]>('/tasks/' + taskId + '/revisions').catch(() => [] as TaskRevisionRecord[]),
+          ]);
+          if (prefs) {
+            setAzureProject(prefs.azure_project || '');
+            setAzureSprintPath(prefs.azure_sprint_path || '');
+          }
+          const azCfg = (integrations || []).find((c) => c.provider === 'azure');
+          setAzureOrgUrl(azCfg?.base_url || '');
+          const jrCfg = (integrations || []).find((c) => c.provider === 'jira');
+          setJiraBaseUrl(jrCfg?.base_url || '');
+          setAttachments(attachmentsData || []);
+          setRevisions(revisionsData || []);
+          const currentTaskId = Number(taskId);
+          setDependencyCandidates((taskList || []).filter((item) => item.id !== currentTaskId));
+        })();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('taskDetail.errorLoad'));
-    } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }
 
@@ -467,12 +527,71 @@ export default function TaskDetailPage() {
     }
   }
 
+  const [refreshingFromSource, setRefreshingFromSource] = useState(false);
+  async function onDownloadAttachment(attachmentId: number, filename: string) {
+    if (!taskId) return;
+    try {
+      const blob = await apiDownloadBlob(`/tasks/${taskId}/attachments/${attachmentId}/download`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'attachment';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed');
+    }
+  }
+
+  async function onRefreshFromSource() {
+    if (!taskId || refreshingFromSource) return;
+    setRefreshingFromSource(true);
+    try {
+      const r = await apiFetch<{ new_attachments: number; description_updated: boolean }>(
+        `/tasks/${taskId}/refresh-from-source`,
+        { method: 'POST' },
+      );
+      // Re-pull task + attachments so fresh data + any new screenshots
+      // / docs render without a manual reload.
+      await loadData(true);
+      const tr = lang === 'tr';
+      const parts: string[] = [];
+      if (r.description_updated) parts.push(tr ? 'Açıklama güncellendi' : 'Description refreshed');
+      if (r.new_attachments > 0) parts.push(tr ? `${r.new_attachments} yeni ek` : `${r.new_attachments} new attachment(s)`);
+      if (parts.length === 0) parts.push(tr ? 'Yeni veri yok' : 'Nothing new');
+      setError(parts.join(' · '));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Refresh failed');
+    } finally {
+      setRefreshingFromSource(false);
+    }
+  }
+
   useEffect(() => {
     if (!taskId) return;
     depsInitializedRef.current = false;
     void loadData(true);
-    const interval = setInterval(() => void loadData(false), 5000);
-    return () => clearInterval(interval);
+    // Poll only while this tab is actually visible. Background tabs (the
+    // user often keeps several task tabs open) used to keep hammering the
+    // API every 5s, which is what saturated the connection pool. When the
+    // tab is hidden we stop; on re-focus we refresh once immediately.
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (interval) return;
+      interval = setInterval(() => void loadData(false), 8000);
+    };
+    const stop = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { void loadData(false); start(); }
+      else stop();
+    };
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [taskId]);
 
   useEffect(() => {
@@ -1035,7 +1154,7 @@ export default function TaskDetailPage() {
 
       {/* Top stats strip — status-aware, shows only meaningful values */}
       {(() => {
-        const items: { label: string; value: string; href?: string }[] = [];
+        const items: { label: string; value: string; href?: string; title?: string }[] = [];
         const durationSec = task?.run_duration_sec ?? (metrics?.durationSec ? Number(metrics.durationSec) : null);
         if (durationSec != null) items.push({ label: t('taskDetail.duration'), value: fmtEta(durationSec) });
 
@@ -1057,11 +1176,45 @@ export default function TaskDetailPage() {
 
         const tokens = task?.total_tokens ?? (metrics?.totalTokens ? Number(metrics.totalTokens) : null);
         if (tokens != null && Number(tokens) > 0) {
-          items.push({ label: t('taskDetail.tokens'), value: Number(tokens).toLocaleString() });
+          const cached = Number(task?.cached_tokens ?? 0);
+          const savings = Number(task?.cache_savings_usd ?? 0);
+          let value = Number(tokens).toLocaleString();
+          let title: string | undefined;
+          if (cached > 0 && Number(tokens) > 0) {
+            const pct = Math.round((cached / Number(tokens)) * 100);
+            // e.g. "1,500,000 · 1,200,000 cache (80%, ~$2.10 saved)" — the
+            // cached part is re-read context billed at ~10% of the input
+            // rate, so the real cost is far below what the raw total implies.
+            const savePart = savings > 0 ? `, ~$${savings.toFixed(2)}` : '';
+            value = `${value} · ${cached.toLocaleString()} ${t('taskDetail.cached')} (${pct}%${savePart})`;
+            title = t('taskDetail.cachedHint');
+          }
+          items.push({ label: t('taskDetail.tokens'), value, title });
         }
 
         if (latestLog) {
           items.push({ label: t('taskDetail.lastUpdate'), value: new Date(latestLog.created_at).toLocaleTimeString() });
+        }
+
+        // Source work-item link (Azure / Jira) — gives the user a one-
+        // click jump back to the original ticket from the same strip
+        // they'd use to open the PR. Only shown when we can resolve a
+        // real URL (we know the org/project for Azure, or jira base
+        // url for Jira). For Azure we prefer the linked AB# id when
+        // present, falling back to external_id from the import.
+        const srcStr = (task?.source || '').toLowerCase();
+        const srcId = task?.external_work_item_id || task?.external_id || '';
+        let sourceHref = '';
+        let sourceLabel = '';
+        if (srcStr === 'azure' && azureOrgUrl && azureProject && /^\d+$/.test(String(srcId))) {
+          sourceHref = `${azureOrgUrl.replace(/\/$/, '')}/${encodeURIComponent(azureProject)}/_workitems/edit/${srcId}`;
+          sourceLabel = `Azure #${srcId}`;
+        } else if (srcStr === 'jira' && jiraBaseUrl && srcId) {
+          sourceHref = `${jiraBaseUrl.replace(/\/$/, '')}/browse/${encodeURIComponent(String(srcId))}`;
+          sourceLabel = `Jira ${srcId}`;
+        }
+        if (sourceHref) {
+          items.push({ label: t('taskDetail.source' as never) || 'Source', value: sourceLabel, href: sourceHref });
         }
 
         // PR / Azure links — one chip per assignment with a PR URL,
@@ -1088,7 +1241,13 @@ export default function TaskDetailPage() {
           });
         }
 
-        if (items.length === 0) return null;
+        // Whether the strip should also render the Refresh-from-source
+        // button. Mirrors the gate on the attachments-section button
+        // so the two sit consistently — only Azure/Jira-sourced tasks
+        // can be re-pulled.
+        const showRefreshChip = !!task && (task.source === 'azure' || task.source === 'jira') && !!task.external_id;
+
+        if (items.length === 0 && !showRefreshChip) return null;
 
         return (
           <section
@@ -1123,13 +1282,36 @@ export default function TaskDetailPage() {
                     {it.value} ↗
                   </a>
                 ) : (
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{it.value}</span>
+                  <span title={it.title} style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', cursor: it.title ? 'help' : undefined }}>{it.value}</span>
                 )}
-                {i < items.length - 1 && !isMobile && (
+                {(i < items.length - 1 || showRefreshChip) && !isMobile && (
                   <span aria-hidden style={{ marginLeft: 12, color: 'var(--ink-22)' }}>·</span>
                 )}
               </div>
             ))}
+            {showRefreshChip && (
+              <button
+                type='button'
+                onClick={() => void onRefreshFromSource()}
+                disabled={refreshingFromSource}
+                title={lang === 'tr' ? 'Kaynaktan yorumları + ekleri tekrar çek' : 'Re-pull comments + attachments from source'}
+                style={{
+                  marginLeft: 'auto',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 11, fontWeight: 700,
+                  padding: '5px 10px', borderRadius: 8,
+                  border: '1px solid var(--panel-border-2)',
+                  background: 'var(--panel-alt)',
+                  color: 'var(--ink-78)',
+                  cursor: refreshingFromSource ? 'wait' : 'pointer',
+                  opacity: refreshingFromSource ? 0.6 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: 12 }}>{refreshingFromSource ? '⏳' : '🔄'}</span>
+                {lang === 'tr' ? 'Kaynaktan yenile' : 'Refresh from source'}
+              </button>
+            )}
           </section>
         );
       })()}
@@ -1153,26 +1335,34 @@ export default function TaskDetailPage() {
                   <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)' }}>
                     {t('tasks.attachments.title' as TranslationKey)} {attachments.length > 0 ? `(${attachments.length})` : ''}
                   </div>
-                  <label style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
-                    + {t('tasks.attachments.add' as TranslationKey)}
-                    <input
-                      type='file'
-                      multiple
-                      accept='image/*,.pdf,.txt,.md,.log,.json,.csv,.zip'
-                      style={{ display: 'none' }}
-                      onChange={(e) => { void onUploadAttachments(e.target.files); e.target.value = ''; }}
-                    />
-                  </label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <label style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-58)', cursor: 'pointer', fontWeight: 600 }}>
+                      + {t('tasks.attachments.add' as TranslationKey)}
+                      <input
+                        type='file'
+                        multiple
+                        accept='image/*,.pdf,.txt,.md,.log,.json,.csv,.zip'
+                        style={{ display: 'none' }}
+                        onChange={(e) => { void onUploadAttachments(e.target.files); e.target.value = ''; }}
+                      />
+                    </label>
+                  </div>
                 </div>
                 {attachments.length === 0 ? (
                   <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('tasks.attachments.none' as TranslationKey)}</div>
                 ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {attachments.map((a) => {
                       const isImg = a.content_type.startsWith('image/');
                       const previewUrl = attachmentPreviews[a.id];
+                      // Images render at a useful preview size so PMs
+                      // can see screenshots without opening each one.
+                      // Documents stay compact since their icon doesn't
+                      // gain anything from real estate.
+                      const tileW = isImg ? 240 : 120;
+                      const mediaH = isImg ? 160 : 72;
                       return (
-                        <div key={a.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 10, color: 'var(--ink-72)', width: 96 }}>
+                        <div key={a.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', fontSize: 10, color: 'var(--ink-72)', width: tileW }}>
                           {isImg && previewUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             // <a target="_blank" rel="noreferrer" href={blob:...}> doesn't work in
@@ -1182,14 +1372,21 @@ export default function TaskDetailPage() {
                               type='button'
                               onClick={() => window.open(previewUrl, '_blank')}
                               title={a.filename}
-                              style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in' }}
+                              style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', width: '100%' }}
                             >
-                              <img src={previewUrl} alt={a.filename} style={{ width: 84, height: 64, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                              <img src={previewUrl} alt={a.filename} style={{ width: '100%', height: mediaH, objectFit: 'contain', background: 'var(--panel)', borderRadius: 4, display: 'block' }} />
                             </button>
                           ) : (
-                            <div style={{ width: 84, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--panel)', borderRadius: 4, fontSize: 22 }}>📄</div>
+                            <button
+                              type='button'
+                              onClick={() => void onDownloadAttachment(a.id, a.filename)}
+                              title={lang === 'tr' ? 'Eki indir' : 'Download attachment'}
+                              style={{ width: '100%', height: mediaH, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--panel)', borderRadius: 4, fontSize: 28, border: 'none', cursor: 'pointer', padding: 0 }}
+                            >
+                              📄
+                            </button>
                           )}
-                          <span title={a.filename} style={{ maxWidth: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{a.filename}</span>
+                          <span title={a.filename} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{a.filename}</span>
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                             <span style={{ color: 'var(--ink-35)', fontSize: 9 }}>{(a.size_bytes / 1024).toFixed(0)} KB</span>
                             <button
@@ -1607,7 +1804,7 @@ export default function TaskDetailPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setRightTab(tab.id)}
+                  onClick={() => setRightTab(tab.id as typeof rightTab)}
                   style={{
                     flex: 1, minWidth: 0,
                     padding: '8px 12px',
@@ -1755,16 +1952,46 @@ export default function TaskDetailPage() {
                 maxHeight: 420,
               }}
             >
+              {(() => {
+                const progress = indexingProgress(activeRunLogs);
+                if (!progress) return null;
+                const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+                return (
+                  <div style={{
+                    marginBottom: 8, padding: '8px 10px', borderRadius: 8,
+                    border: '1px solid rgba(167,139,250,0.35)', background: 'rgba(167,139,250,0.08)',
+                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#c4b5fd',
+                  }}>
+                    <span style={{ fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase' }}>RAG Index</span>
+                    <span>
+                      First-time indexing this repo · {progress.done}/{progress.total} files ({pct}%)
+                      · subsequent tasks skip this step
+                    </span>
+                    <div style={{ flex: 1, height: 4, borderRadius: 4, background: 'rgba(167,139,250,0.15)', overflow: 'hidden', minWidth: 40 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: '#a78bfa', transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                );
+              })()}
               {activeRunLogs.length === 0 ? (
                 <div style={{ color: 'var(--ink-30)' }}>Waiting for agent output...</div>
               ) : (
                 activeRunLogs.map((log, idx) => {
-                  const color = stageColor(log.stage);
+                  const isRag = isRagLog(log);
+                  const color = isRag ? '#a78bfa' : stageColor(log.stage);
+                  const stageLabel = isRag ? 'RAG' : log.stage;
                   const ts = new Date(log.created_at).toLocaleTimeString();
                   return (
-                    <div key={`${log.id || idx}-term`} style={{ marginBottom: 2, display: 'flex', gap: 0 }}>
+                    <div key={`${log.id || idx}-term`} style={{
+                      marginBottom: 2,
+                      display: 'flex',
+                      gap: 0,
+                      background: isRag ? 'rgba(167,139,250,0.06)' : undefined,
+                      borderLeft: isRag ? '2px solid rgba(167,139,250,0.45)' : undefined,
+                      paddingLeft: isRag ? 6 : 0,
+                    }}>
                       <span style={{ color: 'var(--ink-25)', minWidth: 70, flexShrink: 0 }}>{ts}</span>
-                      <span style={{ color, fontWeight: 700, minWidth: 110, flexShrink: 0, textTransform: 'uppercase', fontSize: 11, paddingTop: 1 }}>{log.stage}</span>
+                      <span style={{ color, fontWeight: 700, minWidth: 110, flexShrink: 0, textTransform: 'uppercase', fontSize: 11, paddingTop: 1 }}>{stageLabel}</span>
                       <span style={{
                         color: log.stage === 'failed' ? '#fca5a5' : 'var(--ink-78)',
                         whiteSpace: 'pre-wrap',

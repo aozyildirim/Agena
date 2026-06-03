@@ -17,9 +17,10 @@ import RepoSelector from '@/components/RepoSelector';
 import { useRepoIdParam } from '@/lib/useRepoIdParam';
 import { useDoraPeriodDays } from '@/lib/useDoraPeriodDays';
 import DoraPeriodTabs from '@/components/DoraPeriodTabs';
+import NavIcon from '@/components/NavIcon';
 
 const compactBox: React.CSSProperties = {
-  borderRadius: 12,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
   padding: 12,
@@ -43,7 +44,7 @@ const emptyMini: React.CSSProperties = {
 };
 
 const box: React.CSSProperties = {
-  borderRadius: 14,
+  borderRadius: 10,
   border: '1px solid var(--panel-border-2)',
   background: 'var(--panel)',
   padding: 24,
@@ -65,7 +66,7 @@ function GitStat({ label, value, accent }: { label: string; value: number | stri
 function KpiCard({ label, value, suffix = '%', color, hint }: { label: string; value: number; suffix?: string; color: string; hint?: string }) {
   return (
     <div style={{
-      borderRadius: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
+      borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
       padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4,
       position: 'relative', overflow: 'hidden', minWidth: 0,
     }}>
@@ -89,7 +90,7 @@ function KpiCard({ label, value, suffix = '%', color, hint }: { label: string; v
 // ── WIP Gauge ───────────────────────────────────────────────────────────────
 
 function WipGauge({ count, label }: { count: number; label: string }) {
-  const color = count < 5 ? '#22c55e' : count < 10 ? '#eab308' : '#ef4444';
+  const color = count < 5 ? '#3f9d6a' : count < 10 ? '#c98a2b' : '#cf5b57';
   const levelLabel = count < 5 ? 'Low' : count < 10 ? 'Medium' : 'High';
   const angle = Math.min(count / 15, 1) * 180;
 
@@ -135,8 +136,8 @@ function WipGauge({ count, label }: { count: number; label: string }) {
         letterSpacing: 1,
         padding: '3px 10px',
         borderRadius: 999,
-        background: color === '#22c55e' ? 'rgba(34,197,94,0.15)' : color === '#eab308' ? 'rgba(234,179,8,0.15)' : 'rgba(239,68,68,0.15)',
-        border: `1px solid ${color === '#22c55e' ? 'rgba(34,197,94,0.4)' : color === '#eab308' ? 'rgba(234,179,8,0.4)' : 'rgba(239,68,68,0.4)'}`,
+        background: color === '#3f9d6a' ? 'rgba(63,157,106,0.15)' : color === '#c98a2b' ? 'rgba(201,138,43,0.15)' : 'rgba(207,91,87,0.15)',
+        border: `1px solid ${color === '#3f9d6a' ? 'rgba(63,157,106,0.4)' : color === '#c98a2b' ? 'rgba(201,138,43,0.4)' : 'rgba(207,91,87,0.4)'}`,
         color,
       }}>
         {levelLabel}
@@ -149,8 +150,8 @@ function WipGauge({ count, label }: { count: number; label: string }) {
 
 function DualLineChart({
   data,
-  color1 = '#38bdf8',
-  color2 = '#a78bfa',
+  color1 = '#5b9bd5',
+  color2 = '#94a3b8',
   label1,
   label2,
   width = 480,
@@ -222,15 +223,15 @@ function DualLineChart({
 // ── Status Badge ──────────────────────────────────────────────────────────────
 
 const statusColors: Record<string, { bg: string; fg: string }> = {
-  completed: { bg: 'rgba(34,197,94,0.15)', fg: '#22c55e' },
-  running: { bg: 'rgba(59,130,246,0.15)', fg: '#3b82f6' },
-  queued: { bg: 'rgba(148,163,184,0.15)', fg: '#94a3b8' },
-  failed: { bg: 'rgba(239,68,68,0.15)', fg: '#ef4444' },
-  cancelled: { bg: 'rgba(239,68,68,0.15)', fg: '#ef4444' },
+  completed: { bg: 'rgba(63,157,106,0.15)', fg: '#3f9d6a' },
+  running: { bg: 'rgba(91,155,213,0.15)', fg: '#5b9bd5' },
+  queued: { bg: 'rgba(148,163,184,0.15)', fg: 'var(--muted)' },
+  failed: { bg: 'rgba(207,91,87,0.15)', fg: '#cf5b57' },
+  cancelled: { bg: 'rgba(207,91,87,0.15)', fg: '#cf5b57' },
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const c = statusColors[status] || { bg: 'rgba(148,163,184,0.15)', fg: '#94a3b8' };
+  const c = statusColors[status] || { bg: 'rgba(148,163,184,0.15)', fg: 'var(--muted)' };
   return (
     <span style={{
       fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
@@ -324,7 +325,7 @@ function WorkItemsTable({ items, t }: { items: SprintWorkItem[]; t: (k: Translat
   }
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table className="ent-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <th style={thStyle}>{t('dora.sprint.workItemKey')}</th>
@@ -346,8 +347,8 @@ function WorkItemsTable({ items, t }: { items: SprintWorkItem[]; t: (k: Translat
               <td style={tdStyle}>
                 <span style={{
                   fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-                  background: item.work_item_type === 'Bug' ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)',
-                  color: item.work_item_type === 'Bug' ? '#ef4444' : '#3b82f6',
+                  background: item.work_item_type === 'Bug' ? 'rgba(207,91,87,0.12)' : 'rgba(91,155,213,0.12)',
+                  color: item.work_item_type === 'Bug' ? '#cf5b57' : '#5b9bd5',
                 }}>
                   {item.work_item_type}
                 </span>
@@ -384,11 +385,11 @@ function ScopeChangeChart({ data, addedLabel, removedLabel }: {
     <div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}>
-          <span style={{ width: 10, height: 3, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
+          <span style={{ width: 10, height: 3, borderRadius: 2, background: '#3f9d6a', display: 'inline-block' }} />
           {addedLabel}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)' }}>
-          <span style={{ width: 10, height: 3, borderRadius: 2, background: '#ef4444', display: 'inline-block' }} />
+          <span style={{ width: 10, height: 3, borderRadius: 2, background: '#cf5b57', display: 'inline-block' }} />
           {removedLabel}
         </span>
       </div>
@@ -405,7 +406,7 @@ function ScopeChangeChart({ data, addedLabel, removedLabel }: {
                 y={pad.top + chartH - addedH}
                 width={barW}
                 height={addedH}
-                fill="#22c55e"
+                fill="#3f9d6a"
                 rx={2}
               >
                 <title>{`${d.date}: +${d.added}`}</title>
@@ -415,7 +416,7 @@ function ScopeChangeChart({ data, addedLabel, removedLabel }: {
                 y={pad.top + chartH - removedH}
                 width={barW}
                 height={removedH}
-                fill="#ef4444"
+                fill="#cf5b57"
                 rx={2}
               >
                 <title>{`${d.date}: -${d.removed}`}</title>
@@ -479,7 +480,7 @@ export default function DoraProjectPage() {
             <Link href="/dashboard/dora" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>DORA</Link>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>/</span>
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>{t('dora.project.pageTitle')}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>{t('dora.project.pageTitle')}</h1>
           <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>{t('dora.projectDesc')}</p>
           <RepoSelector value={repoId} onSelect={setRepoId} hideSync />
         </div>
@@ -488,7 +489,7 @@ export default function DoraProjectPage() {
 
       {/* Error */}
       {error && (
-        <div style={{ ...box, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13, marginBottom: 24 }}>
+        <div style={{ ...box, borderColor: 'rgba(207,91,87,0.3)', color: '#cf5b57', fontSize: 13, marginBottom: 24 }}>
           {error}
         </div>
       )}
@@ -509,11 +510,13 @@ export default function DoraProjectPage() {
           {(data.error || data.totals.planned === 0) && (
             <div style={{
               marginBottom: 16, padding: '10px 14px', borderRadius: 10,
-              background: data.error ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.06)',
-              border: data.error ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(239,68,68,0.25)',
+              background: data.error ? 'rgba(207,91,87,0.08)' : 'rgba(201,138,43,0.08)',
+              border: data.error ? '1px solid rgba(207,91,87,0.4)' : '1px solid rgba(201,138,43,0.25)',
               fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
             }}>
-              <span style={{ fontSize: 14 }}>{data.error ? '⛔' : '⚠️'}</span>
+              <span style={{ display: 'inline-flex', color: data.error ? '#cf5b57' : '#c98a2b' }}>
+                <NavIcon name="alert" size={16} />
+              </span>
               <span style={{ flex: 1, minWidth: 280 }}>
                 {data.error
                   ? <>{data.error}</>
@@ -536,12 +539,12 @@ export default function DoraProjectPage() {
             }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Git activity · {days}d</div>
               <GitStat label="PRs opened" value={data.git_activity.prs_opened} />
-              <GitStat label="merged" value={data.git_activity.prs_merged} accent="#22c55e" />
-              <GitStat label="open" value={data.git_activity.prs_open} accent="#f59e0b" />
+              <GitStat label="merged" value={data.git_activity.prs_merged} accent="#3f9d6a" />
+              <GitStat label="open" value={data.git_activity.prs_open} accent="#c98a2b" />
               <GitStat label="commits" value={data.git_activity.commits} />
               <GitStat label="contributors" value={data.git_activity.contributors} />
               {data.git_activity.deployments_total > 0 && (
-                <GitStat label="deploys" value={`${data.git_activity.deployments_success}/${data.git_activity.deployments_total}`} accent="#3b82f6" />
+                <GitStat label="deploys" value={`${data.git_activity.deployments_success}/${data.git_activity.deployments_total}`} accent="#5b9bd5" />
               )}
               {data.git_activity.avg_pr_lead_time_hours !== null && (
                 <GitStat label="avg PR lead" value={`${data.git_activity.avg_pr_lead_time_hours}h`} />
@@ -558,28 +561,28 @@ export default function DoraProjectPage() {
             <KpiCard
               label={t('dora.project.predictability')}
               value={data.kpi.predictability}
-              color="#22c55e"
+              color="#3f9d6a"
               hint={`${data.totals.completed}/${data.totals.planned} planned done`}
             />
             <KpiCard
               label={t('dora.project.productivity')}
               value={data.kpi.productivity}
               suffix="/wk"
-              color="#3b82f6"
+              color="#5b9bd5"
               hint='completed throughput'
             />
             <KpiCard
               label={t('dora.project.leadTime')}
               value={data.avg_lead_time_hours}
               suffix='h'
-              color="#8b5cf6"
+              color="var(--muted)"
               hint='avg create → done'
             />
             <KpiCard
               label={t('dora.project.wip')}
               value={data.wip_count}
               suffix=''
-              color="#f59e0b"
+              color="#c98a2b"
               hint='currently running'
             />
           </div>
@@ -587,15 +590,15 @@ export default function DoraProjectPage() {
           {/* Totals summary row */}
           <div style={{ display: 'flex', gap: 24, marginBottom: 32, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#64748b' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--muted)' }} />
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('dora.project.planned')}: <strong style={{ color: 'var(--ink)' }}>{data.totals.planned}</strong></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3f9d6a' }} />
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('dora.project.completed')}: <strong style={{ color: 'var(--ink)' }}>{data.totals.completed}</strong></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#cf5b57' }} />
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('dora.project.failed')}: <strong style={{ color: 'var(--ink)' }}>{data.totals.failed}</strong></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -619,7 +622,7 @@ export default function DoraProjectPage() {
               {data.weekly_trend.length > 0 ? (
                 <BarChart
                   data={data.weekly_trend.slice(-8).map((w) => ({ label: w.week, value: w.completed }))}
-                  barColor="#5eead4"
+                  barColor="#5b9bd5"
                   height={160}
                 />
               ) : (
@@ -631,8 +634,8 @@ export default function DoraProjectPage() {
               {data.time_trend.length > 0 ? (
                 <DualLineChart
                   data={data.time_trend.map((item) => ({ label: item.date, v1: item.avg_cycle_time_hours, v2: item.avg_lead_time_hours }))}
-                  color1="#38bdf8"
-                  color2="#a78bfa"
+                  color1="#5b9bd5"
+                  color2="#94a3b8"
                   label1={t('dora.project.cycleTime')}
                   label2={t('dora.project.leadTime')}
                   height={160}
@@ -646,8 +649,8 @@ export default function DoraProjectPage() {
               {data.throughput_trend.length > 0 ? (
                 <LineChart
                   data={data.throughput_trend.map((item) => ({ label: item.week, value: item.throughput }))}
-                  lineColor="#22c55e"
-                  fillColor="rgba(34,197,94,0.12)"
+                  lineColor="#3f9d6a"
+                  fillColor="rgba(63,157,106,0.10)"
                   height={160}
                 />
               ) : (
@@ -664,10 +667,10 @@ export default function DoraProjectPage() {
 
               {/* Sprint Assignee List */}
               <div style={{ ...box, marginBottom: 24 }}>
-                <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{t('dora.sprint.assigneeTitle')}</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>{t('dora.sprint.assigneeTitle')}</h2>
                 {sprint.assignees.length > 0 ? (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="ent-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
                           <th style={thStyle}>{t('dora.sprint.teamMember')}</th>
@@ -687,7 +690,7 @@ export default function DoraProjectPage() {
                             <td style={tdStyle}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--panel-border)', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${Math.min(a.delivery_rate_count, 100)}%`, background: '#22c55e', borderRadius: 2 }} />
+                                  <div style={{ height: '100%', width: `${Math.min(a.delivery_rate_count, 100)}%`, background: '#3f9d6a', borderRadius: 2 }} />
                                 </div>
                                 <span style={{ fontSize: 11, fontFamily: 'monospace', minWidth: 40, textAlign: 'right' }}>{a.delivery_rate_count.toFixed(1)}%</span>
                               </div>
@@ -695,7 +698,7 @@ export default function DoraProjectPage() {
                             <td style={tdStyle}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--panel-border)', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${Math.min(a.delivery_rate_effort, 100)}%`, background: '#8b5cf6', borderRadius: 2 }} />
+                                  <div style={{ height: '100%', width: `${Math.min(a.delivery_rate_effort, 100)}%`, background: 'var(--acc)', borderRadius: 2 }} />
                                 </div>
                                 <span style={{ fontSize: 11, fontFamily: 'monospace', minWidth: 40, textAlign: 'right' }}>{a.delivery_rate_effort.toFixed(1)}%</span>
                               </div>
@@ -715,9 +718,9 @@ export default function DoraProjectPage() {
               <div style={{ ...box, marginBottom: 24 }}>
                 <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
                   {([
-                    { key: 'completed' as const, label: t('dora.sprint.completedItems'), count: sprint.completed_items.length, color: '#22c55e' },
-                    { key: 'incomplete' as const, label: t('dora.sprint.incompleteItems'), count: sprint.incomplete_items.length, color: '#f59e0b' },
-                    { key: 'removed' as const, label: t('dora.sprint.removedItems'), count: sprint.removed_items.length, color: '#ef4444' },
+                    { key: 'completed' as const, label: t('dora.sprint.completedItems'), count: sprint.completed_items.length, color: '#3f9d6a' },
+                    { key: 'incomplete' as const, label: t('dora.sprint.incompleteItems'), count: sprint.incomplete_items.length, color: '#c98a2b' },
+                    { key: 'removed' as const, label: t('dora.sprint.removedItems'), count: sprint.removed_items.length, color: '#cf5b57' },
                   ]).map((tab) => (
                     <button
                       key={tab.key}
@@ -751,19 +754,19 @@ export default function DoraProjectPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 24 }}>
                 {/* Donut: Task vs Bug */}
                 <div style={box}>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{t('dora.sprint.typeDistribution')}</h2>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>{t('dora.sprint.typeDistribution')}</h2>
                   <DonutChart
                     data={sprint.type_distribution.map((d) => ({
                       label: d.type,
                       value: d.count,
-                      color: d.type === 'Bug' ? '#ef4444' : '#3b82f6',
+                      color: d.type === 'Bug' ? '#cf5b57' : '#5b9bd5',
                     }))}
                   />
                 </div>
 
                 {/* Scope Change */}
                 <div style={box}>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', margin: '0 0 16px' }}>{t('dora.sprint.scopeChange')}</h2>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 16px' }}>{t('dora.sprint.scopeChange')}</h2>
                   {sprint.scope_change.length > 0 ? (
                     <ScopeChangeChart
                       data={sprint.scope_change}

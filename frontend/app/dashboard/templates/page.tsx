@@ -257,7 +257,7 @@ export default function TemplatesPage() {
     <div style={{ display: 'grid', gap: 22 }}>
       <div>
         <div className='section-label'>{t('nav.templates')}</div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>{t('flows.templateMarketplace')}</h1>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6 }}>{t('flows.templateMarketplace')}</h1>
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
@@ -270,27 +270,27 @@ export default function TemplatesPage() {
       </div>
 
       {(message || error) && (
-        <div style={{ borderRadius: 10, padding: '10px 12px', border: '1px solid ' + (error ? 'rgba(248,113,113,0.35)' : 'rgba(34,197,94,0.3)'), background: error ? 'rgba(248,113,113,0.08)' : 'rgba(34,197,94,0.08)', color: error ? '#f87171' : '#22c55e', fontSize: 13 }}>
+        <div style={{ borderRadius: 8, padding: '10px 12px', border: '1px solid ' + (error ? 'rgba(207,91,87,0.35)' : 'rgba(63,157,106,0.3)'), background: error ? 'rgba(207,91,87,0.08)' : 'rgba(63,157,106,0.08)', color: error ? '#cf5b57' : '#3f9d6a', fontSize: 13 }}>
           {error || message}
         </div>
       )}
 
       {empty && (
-        <div style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 18, color: 'var(--ink-50)', fontSize: 13 }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 18, color: 'var(--ink-50)', fontSize: 13 }}>
           {t('flows.templatesEmpty')}
         </div>
       )}
 
       <div className="dash-grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(260px, 1fr))', gap: 12 }}>
         {templates.map((tp) => (
-          <div key={tp.id} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 14 }}>
+          <div key={tp.id} style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 14 }}>
             <div style={{ fontWeight: 700, color: 'var(--ink-90)', marginBottom: 6 }}>{localizeTemplateMeta(tp, t).name}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-42)', marginBottom: 12 }}>{localizeTemplateMeta(tp, t).description || t('templates.noDescription')}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => void importToFlows(tp)} style={{ padding: '7px 11px', borderRadius: 8, border: '1px solid rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+              <button onClick={() => void importToFlows(tp)} style={{ padding: '7px 11px', borderRadius: 6, border: '1px solid var(--panel-border-2)', background: 'var(--acc-soft)', color: 'var(--acc)', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
                 {t('flows.importTemplate')}
               </button>
-              <button onClick={() => void removeTemplate(tp.id)} style={{ padding: '7px 11px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.1)', color: '#f87171', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+              <button onClick={() => void removeTemplate(tp.id)} style={{ padding: '7px 11px', borderRadius: 6, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.1)', color: '#cf5b57', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
                 {t('flows.templatesDelete')}
               </button>
             </div>

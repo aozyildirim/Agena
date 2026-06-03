@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
+import MappingHub from '@/components/integrations/MappingHub';
 
 interface SentryProject {
   slug: string;
@@ -101,7 +103,7 @@ interface RepoMapping {
   repo_name: string;
 }
 
-function Sparkline({ values, width = 80, height = 22, color = '#f87171' }: { values: number[]; width?: number; height?: number; color?: string }) {
+function Sparkline({ values, width = 80, height = 22, color = '#cf5b57' }: { values: number[]; width?: number; height?: number; color?: string }) {
   if (!values || values.length === 0) return null;
   const max = Math.max(1, ...values);
   const step = values.length > 1 ? width / (values.length - 1) : width;
@@ -118,13 +120,13 @@ function Sparkline({ values, width = 80, height = 22, color = '#f87171' }: { val
   );
 }
 
-function Pill({ children, color = '#94a3b8', bg }: { children: React.ReactNode; color?: string; bg?: string }) {
+function Pill({ children, color = 'var(--muted)', bg }: { children: React.ReactNode; color?: string; bg?: string }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
       padding: '2px 7px', borderRadius: 4,
-      color, background: bg ?? `${color}1f`,
+      color, background: bg ?? (color.startsWith('#') ? `${color}1f` : 'var(--acc-soft)'),
       whiteSpace: 'nowrap',
     }}>{children}</span>
   );
@@ -133,16 +135,16 @@ function Pill({ children, color = '#94a3b8', bg }: { children: React.ReactNode; 
 function FixabilityBadge({ score }: { score: number | null }) {
   if (score == null) return null;
   const pct = Math.round(score * 100);
-  const color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#eab308' : '#94a3b8';
+  const color = pct >= 70 ? '#3f9d6a' : pct >= 40 ? '#c98a2b' : 'var(--muted)';
   return <Pill color={color}>AI {pct}%</Pill>;
 }
 
 function RegressionBadge({ substatus }: { substatus: string | null }) {
   if (!substatus) return null;
   const s = substatus.toLowerCase();
-  if (s === 'regressed') return <Pill color='#ef4444'>REGRESSION</Pill>;
-  if (s === 'new') return <Pill color='#3b82f6'>NEW</Pill>;
-  if (s === 'escalating') return <Pill color='#f97316'>ESCALATING</Pill>;
+  if (s === 'regressed') return <Pill color='#cf5b57'>REGRESSION</Pill>;
+  if (s === 'new') return <Pill color='var(--acc)'>NEW</Pill>;
+  if (s === 'escalating') return <Pill color='#c98a2b'>ESCALATING</Pill>;
   return null;
 }
 
@@ -336,6 +338,26 @@ export default function SentryPage() {
     }
   }
 
+  // One-step map: create the mapping already linked to a repo (the backend
+  // accepts repo_mapping_id on create), so the user picks a repo directly on
+  // an unmapped project instead of "Map" then "select repo".
+  async function mapProjectToRepo(project: SentryProject, repoId: number) {
+    try {
+      await apiFetch('/sentry/mappings', {
+        method: 'POST',
+        body: JSON.stringify({
+          project_slug: project.slug,
+          project_name: project.name,
+          repo_mapping_id: repoId,
+        }),
+      });
+      setMsg((t('integrations.sentry.mapped') || '"{name}" mapped').replace('{name}', project.name));
+      await loadMappings();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add mapping');
+    }
+  }
+
   async function updateMapping(id: number, updates: Record<string, unknown>) {
     try {
       await apiFetch(`/sentry/mappings/${id}`, { method: 'PUT', body: JSON.stringify(updates) });
@@ -496,14 +518,14 @@ export default function SentryPage() {
   }
 
   const cardStyle: React.CSSProperties = {
-    background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 16,
+    background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 16,
   };
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border)',
     background: 'var(--glass)', color: 'var(--ink)', fontSize: 13,
   };
   const btnPrimary: React.CSSProperties = {
-    padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1CE783', color: '#000',
+    padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff',
     fontSize: 12, fontWeight: 600, cursor: 'pointer',
   };
   const btnSmall: React.CSSProperties = {
@@ -538,21 +560,21 @@ export default function SentryPage() {
       {/* Hero header */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        borderRadius: 16,
+        borderRadius: 10,
         border: '1px solid var(--panel-border)',
-        background: 'linear-gradient(135deg, rgba(75,46,131,0.18), rgba(249,115,22,0.10) 60%, rgba(28,231,131,0.08))',
+        background: 'var(--surface)',
         padding: '20px 22px',
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #4b2e83, #f97316, #1CE783)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'var(--panel-border)' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
           <div style={{
             width: 44, height: 44, borderRadius: 10,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(75,46,131,0.18)', border: '1px solid rgba(75,46,131,0.4)',
-            fontSize: 22,
-          }}>🛡️</div>
+            background: 'var(--acc-soft)', border: '1px solid var(--panel-border)',
+            color: 'var(--acc)',
+          }}><NavIcon name="shield" size={22} /></div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: -0.3 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', letterSpacing: -0.3 }}>
               {t('integrations.providerSentry')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-58)', marginTop: 3, lineHeight: 1.5 }}>
@@ -561,8 +583,8 @@ export default function SentryPage() {
             {orgSlug && (
               <div style={{ fontSize: 11, color: 'var(--ink-45)', marginTop: 6, fontFamily: 'monospace' }}>
                 <span style={{ color: 'var(--ink-30)' }}>org:</span> <strong style={{ color: 'var(--ink)' }}>{orgSlug}</strong>
-                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e', marginLeft: 8, verticalAlign: 'middle' }} />
-                <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: 4, fontFamily: 'inherit' }}>connected</span>
+                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3f9d6a', marginLeft: 8, verticalAlign: 'middle' }} />
+                <span style={{ color: '#3f9d6a', fontWeight: 600, marginLeft: 4, fontFamily: 'inherit' }}>connected</span>
               </div>
             )}
           </div>
@@ -572,17 +594,17 @@ export default function SentryPage() {
         {totalMappings > 0 && (
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             {[
-              { label: t('integrations.sentry.statMapped') || 'Mapped projects', value: totalMappings, color: 'var(--ink)' },
-              { label: t('integrations.sentry.statWithRepo') || 'Linked to a repo', value: `${repoMappings}/${totalMappings}`, color: '#60a5fa' },
-              { label: t('integrations.sentry.statAuto') || 'Auto-import on', value: autoMappings, color: '#1CE783' },
+              { label: t('integrations.sentry.statMapped') || 'Mapped projects', value: totalMappings, color: 'var(--ink-90)' },
+              { label: t('integrations.sentry.statWithRepo') || 'Linked to a repo', value: `${repoMappings}/${totalMappings}`, color: 'var(--acc)' },
+              { label: t('integrations.sentry.statAuto') || 'Auto-import on', value: autoMappings, color: 'var(--acc)' },
             ].map((tile) => (
               <div key={tile.label} style={{
                 flex: 1, minWidth: 130,
                 padding: '10px 14px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--panel-border)',
+                background: 'var(--panel-alt)', border: '1px solid var(--panel-border)',
               }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{tile.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: tile.color, marginTop: 4 }}>{tile.value}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: tile.color, marginTop: 4 }}>{tile.value}</div>
               </div>
             ))}
           </div>
@@ -594,35 +616,34 @@ export default function SentryPage() {
         <div style={{
           position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)',
           zIndex: 9999, maxWidth: 'min(94vw, 460px)',
-          padding: '12px 18px', borderRadius: 12,
+          padding: '12px 18px', borderRadius: 10,
           display: 'flex', alignItems: 'center', gap: 10,
           fontSize: 13, fontWeight: 700,
-          color: error ? '#fecaca' : runningSlug ? '#fde68a' : '#bbf7d0',
-          background: error ? 'rgba(127,29,29,0.95)' : runningSlug ? 'rgba(120,53,15,0.95)' : 'rgba(20,83,45,0.95)',
-          border: `1px solid ${error ? 'rgba(248,113,113,0.4)' : runningSlug ? 'rgba(251,191,36,0.4)' : 'rgba(34,197,94,0.4)'}`,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-          backdropFilter: 'blur(8px)',
+          color: error ? '#cf5b57' : runningSlug ? '#c98a2b' : '#3f9d6a',
+          background: 'var(--surface)',
+          border: `1px solid ${error ? '#cf5b57' : runningSlug ? '#c98a2b' : '#3f9d6a'}`,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
         }}>
           {runningSlug ? (
             <>
               <span style={{
                 display: 'inline-block', width: 14, height: 14,
-                border: '2px solid rgba(251,191,36,0.4)', borderTopColor: '#fbbf24',
+                border: '2px solid var(--panel-border)', borderTopColor: '#c98a2b',
                 borderRadius: '50%', animation: 'sentry-spin 0.7s linear infinite',
               }} />
               <span>{(t('integrations.sentry.toastImporting') || 'Importing from {p}…').replace('{p}', runningSlug === '__all__' ? 'all projects' : runningSlug)}</span>
             </>
           ) : error ? (
             <>
-              <span>✗</span>
+              <NavIcon name="alert" size={16} />
               <span style={{ flex: 1 }}>{error}</span>
-              <button onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+              <button onClick={() => setError('')} style={{ background: 'transparent', border: 'none', color: '#cf5b57', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
             </>
           ) : (
             <>
-              <span>✓</span>
+              <NavIcon name="activity" size={16} />
               <span style={{ flex: 1 }}>{msg}</span>
-              <button onClick={() => setMsg('')} style={{ background: 'transparent', border: 'none', color: '#86efac', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+              <button onClick={() => setMsg('')} style={{ background: 'transparent', border: 'none', color: '#3f9d6a', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
             </>
           )}
           <style>{`@keyframes sentry-spin { to { transform: rotate(360deg); } }`}</style>
@@ -648,99 +669,66 @@ export default function SentryPage() {
         </div>
       </div>
 
-      {projects.length > 0 && (
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <h3 style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', margin: 0 }}>
-              {t('integrations.sentry.projectsCount').replace('{n}', String(projects.length))}
-            </h3>
-          </div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {projects.map((p) => {
-              const mapping = mappings.find((m) => m.project_slug === p.slug);
-              const isSelected = selectedProject === p.slug;
-              return (
-                <div key={p.slug} className='sentry-row-card' style={{
-                  padding: '10px 12px', borderRadius: 10,
-                  background: isSelected ? 'rgba(75,46,131,0.10)' : 'var(--glass)',
-                  border: `1px solid ${isSelected ? 'rgba(75,46,131,0.4)' : 'var(--panel-border)'}`,
-                  transition: 'background 0.15s, border 0.15s',
-                }}>
-                  <div className='sentry-row-icon' style={{
-                    width: 30, height: 30, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: mapping ? 'rgba(28,231,131,0.12)' : 'rgba(148,163,184,0.10)',
-                    border: `1px solid ${mapping ? 'rgba(28,231,131,0.30)' : 'var(--panel-border)'}`,
-                    fontSize: 14, color: mapping ? '#1CE783' : 'var(--ink-35)',
-                  }}>
-                    {mapping ? '✓' : '○'}
-                  </div>
-                  <div className='sentry-row-title'>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.name}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
-                      <span style={{ fontSize: 10, color: 'var(--ink-35)', fontFamily: 'monospace' }}>{p.slug}</span>
-                      {mapping && mapping.repo_display_name && (
-                        <span style={{ fontSize: 10, color: '#60a5fa', fontWeight: 600 }}>→ {mapping.repo_display_name}</span>
-                      )}
-                      {mapping && mapping.auto_import && (
-                        <Pill color='#1CE783'>AUTO</Pill>
-                      )}
-                    </div>
-                  </div>
-                  <div className='sentry-row-actions'>
-                    <button onClick={() => void fetchIssues(p.slug)} title={t('integrations.sentry.issuesBtn')}
-                      className='sentry-icon-btn' style={{ ...btnSmall }}>📋</button>
-                    {!mapping ? (
-                      <button onClick={() => void addMapping(p)}
-                        style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.4)', height: 30, padding: '0 12px' }}>
-                        + {t('integrations.common.map')}
-                      </button>
-                    ) : (
-                      <>
-                        <select
-                          value={mapping.repo_mapping_id ?? ''}
-                          onChange={(ev) => void updateMapping(mapping.id, { repo_mapping_id: ev.target.value ? parseInt(ev.target.value) : null })}
-                          style={{ ...inputStyle, width: 140, fontSize: 11, padding: '4px 8px', height: 30 }}
-                        >
-                          <option value="">{t('integrations.common.selectRepo')}</option>
-                          {repos.map((r) => (
-                            <option key={r.id} value={r.id}>{r.owner}/{r.repo_name}</option>
-                          ))}
-                        </select>
-                        <button onClick={() => void importIssues(mapping.project_slug)} title={t('integrations.common.import')}
-                          disabled={runningSlug === mapping.project_slug}
-                          className='sentry-icon-btn' style={{ ...btnSmall, opacity: runningSlug === mapping.project_slug ? 0.6 : 1 }}>
-                          {runningSlug === mapping.project_slug ? '…' : '⬇'}
-                        </button>
-                        {rowResult[mapping.project_slug] && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4,
-                            color: rowResult[mapping.project_slug].kind === 'ok' ? '#22c55e' : '#f87171',
-                            background: rowResult[mapping.project_slug].kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                            whiteSpace: 'nowrap',
-                          }}>{rowResult[mapping.project_slug].text}</span>
-                        )}
-                        <button onClick={() => void deleteMapping(mapping.id)} title={t('integrations.common.unmap') || 'Unmap'}
-                          className='sentry-icon-btn' style={{ ...btnSmall, color: '#f87171', borderColor: 'rgba(248,113,113,0.2)' }}>×</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Project → repo mapping (shared guided MappingHub) */}
+      <MappingHub
+        title='Sentry'
+        logo={<NavIcon name='shield' size={15} />}
+        loading={loading}
+        hint={t('integrations.sentry.heroSubtitle') || 'Map a project to a repo so AI can auto-fix its production errors and ship the patch.'}
+        searchPlaceholder={t('integrations.sentry.searchPlaceholderN').replace('{n}', String(projects.length))}
+        onboardingSteps={[
+          t('integrations.sentry.onboardingStep1'),
+          t('integrations.sentry.onboardingStep2'),
+          t('integrations.sentry.onboardingStep3'),
+        ]}
+        repos={repos.map((r) => ({ id: r.id, label: `${r.owner}/${r.repo_name}` }))}
+        items={projects.map((p) => {
+          const m = mappings.find((mm) => mm.project_slug === p.slug);
+          return {
+            id: p.slug,
+            name: p.name,
+            sublabel: p.slug,
+            live: true,
+            mappedRepoId: m?.repo_mapping_id ?? null,
+            autoImport: m?.auto_import,
+          };
+        })}
+        onMapRepo={(item, repoId) => {
+          const p = projects.find((x) => x.slug === item.id);
+          const m = mappings.find((mm) => mm.project_slug === item.id);
+          if (m) void updateMapping(m.id, { repo_mapping_id: repoId });
+          else if (p && repoId != null) void mapProjectToRepo(p, repoId);
+        }}
+        onToggleAuto={(item) => {
+          const m = mappings.find((mm) => mm.project_slug === item.id);
+          if (m) void updateMapping(m.id, { auto_import: !m.auto_import });
+        }}
+        renderActions={(item) => {
+          const m = mappings.find((mm) => mm.project_slug === item.id);
+          return (
+            <>
+              <button onClick={() => void fetchIssues(item.id)} title={t('integrations.sentry.issuesBtn')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><NavIcon name='clipboard' size={13} /></button>
+              {m && (
+                <button onClick={() => void importIssues(m.project_slug)} disabled={runningSlug === m.project_slug} title={t('integrations.common.import')} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: runningSlug === m.project_slug ? 0.6 : 1 }}>{runningSlug === m.project_slug ? '…' : <NavIcon name='send' size={13} />}</button>
+              )}
+              {m && (
+                <button onClick={() => void deleteMapping(m.id)} title={t('integrations.common.unmap') || 'Unmap'} style={{ ...btnSmall, height: 32, width: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cf5b57', borderColor: 'var(--panel-border)' }}><NavIcon name='close' size={13} /></button>
+              )}
+              {rowResult[item.id] && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: rowResult[item.id].kind === 'ok' ? '#3f9d6a' : '#cf5b57', whiteSpace: 'nowrap' }}>{rowResult[item.id].text}</span>
+              )}
+            </>
+          );
+        }}
+      />
 
       {selectedProject && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-58)' }}>{t('integrations.sentry.issuesFor').replace('{name}', selectedProject)}</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-90)' }}>{t('integrations.sentry.issuesFor').replace('{name}', selectedProject)}</h3>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => void importFiltered()} disabled={issues.length === 0}
-                style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.4)', opacity: issues.length === 0 ? 0.5 : 1 }}>
+                style={{ ...btnSmall, color: 'var(--acc)', borderColor: 'var(--acc)', opacity: issues.length === 0 ? 0.5 : 1 }}>
                 {(t('integrations.sentry.importFiltered') || 'Import filtered ({n})').replace('{n}', String(issues.length))}
               </button>
               <button onClick={() => void importIssues(selectedProject)} style={btnPrimary}>{t('integrations.common.importAsTasks')}</button>
@@ -755,8 +743,8 @@ export default function SentryPage() {
             const newCount = issues.filter((i) => (i.substatus || '').toLowerCase() === 'new').length;
             const unhandled = issues.filter((i) => i.is_unhandled).length;
             const importedDone = issues.filter((i) => i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'completed').length;
-            const tile = (label: string, value: string | number, color = 'var(--ink)') => (
-              <div style={{ flex: 1, minWidth: 110, padding: '8px 10px', borderRadius: 8, background: 'var(--glass)' }}>
+            const tile = (label: string, value: string | number, color = 'var(--ink-90)') => (
+              <div style={{ flex: 1, minWidth: 110, padding: '8px 10px', borderRadius: 8, background: 'var(--panel-alt)' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{label}</div>
                 <div style={{ fontSize: 18, fontWeight: 700, color, marginTop: 2 }}>{value}</div>
               </div>
@@ -764,12 +752,12 @@ export default function SentryPage() {
             return (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                 {tile(t('integrations.sentry.healthIssues') || 'Issues', issues.length)}
-                {tile(t('integrations.sentry.healthEvents') || 'Events', totalEvents.toLocaleString(), '#f87171')}
-                {tile(t('integrations.sentry.healthUsers') || 'Users', totalUsers.toLocaleString(), '#fbbf24')}
-                {regressed > 0 && tile(t('integrations.sentry.healthRegressed') || 'Regressed', regressed, '#ef4444')}
-                {newCount > 0 && tile(t('integrations.sentry.healthNew') || 'New', newCount, '#3b82f6')}
-                {unhandled > 0 && tile(t('integrations.sentry.healthUnhandled') || 'Unhandled', unhandled, '#ef4444')}
-                {importedDone > 0 && tile(t('integrations.sentry.healthFixed') || 'AI-fixed', importedDone, '#22c55e')}
+                {tile(t('integrations.sentry.healthEvents') || 'Events', totalEvents.toLocaleString(), '#cf5b57')}
+                {tile(t('integrations.sentry.healthUsers') || 'Users', totalUsers.toLocaleString(), '#c98a2b')}
+                {regressed > 0 && tile(t('integrations.sentry.healthRegressed') || 'Regressed', regressed, '#cf5b57')}
+                {newCount > 0 && tile(t('integrations.sentry.healthNew') || 'New', newCount, 'var(--acc)')}
+                {unhandled > 0 && tile(t('integrations.sentry.healthUnhandled') || 'Unhandled', unhandled, '#cf5b57')}
+                {importedDone > 0 && tile(t('integrations.sentry.healthFixed') || 'AI-fixed', importedDone, '#3f9d6a')}
               </div>
             );
           })()}
@@ -804,11 +792,11 @@ export default function SentryPage() {
               {issues.map((i) => {
                 const expanded = expandedIssueId === i.id;
                 const preview = previewById[i.id];
-                const levelColor = i.level === 'fatal' || i.level === 'error' ? '#f87171' : i.level === 'warning' ? '#f59e0b' : '#94a3b8';
+                const levelColor = i.level === 'fatal' || i.level === 'error' ? '#cf5b57' : i.level === 'warning' ? '#c98a2b' : 'var(--muted)';
                 return (
                   <div key={i.id} style={{
-                    padding: '10px 12px', borderRadius: 10,
-                    background: selectedIssueId === i.id ? 'var(--panel)' : 'var(--glass)',
+                    padding: '10px 12px', borderRadius: 8,
+                    background: selectedIssueId === i.id ? 'var(--panel)' : 'var(--panel-alt)',
                     border: '1px solid var(--panel-border)',
                   }}>
                     <div className='sentry-issue-card' style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -816,25 +804,25 @@ export default function SentryPage() {
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
                           <Pill color={levelColor}>{i.level.toUpperCase()}</Pill>
                           <RegressionBadge substatus={i.substatus} />
-                          {i.is_unhandled && <Pill color='#ef4444'>UNHANDLED</Pill>}
+                          {i.is_unhandled && <Pill color='#cf5b57'>UNHANDLED</Pill>}
                           <FixabilityBadge score={i.fixability_score} />
-                          {i.platform && <Pill color='#64748b'>{i.platform}</Pill>}
+                          {i.platform && <Pill color='var(--muted)'>{i.platform}</Pill>}
                           {i.imported_task_id && (
-                            <a href={`/tasks/${i.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}>
+                            <a href={`/tasks/${i.imported_task_id}`} style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}>
                               TASK #{i.imported_task_id}
                             </a>
                           )}
                           {i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'completed' && (
-                            <Pill color='#22c55e'>✓ {t('integrations.sentry.aiResolved') || 'AI RESOLVED'}</Pill>
+                            <Pill color='#3f9d6a'>{t('integrations.sentry.aiResolved') || 'AI RESOLVED'}</Pill>
                           )}
                           {i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'running' && (
-                            <Pill color='#3b82f6'>⏵ {t('integrations.sentry.aiRunning') || 'AI WORKING'}</Pill>
+                            <Pill color='var(--acc)'>{t('integrations.sentry.aiRunning') || 'AI WORKING'}</Pill>
                           )}
                           {i.imported_task_id && (i.imported_task_status || '').toLowerCase() === 'failed' && (
-                            <Pill color='#ef4444'>✗ {t('integrations.sentry.aiFailed') || 'AI FAILED'}</Pill>
+                            <Pill color='#cf5b57'>{t('integrations.sentry.aiFailed') || 'AI FAILED'}</Pill>
                           )}
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {i.title}
                         </div>
                         {(i.culprit || i.short_id) && (
@@ -843,8 +831,8 @@ export default function SentryPage() {
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6, fontSize: 10, color: 'var(--ink-45)', flexWrap: 'wrap' }}>
-                          <span><strong style={{ color: '#f87171' }}>{i.count.toLocaleString()}</strong> events</span>
-                          {i.user_count > 0 && <span><strong style={{ color: '#fbbf24' }}>{i.user_count.toLocaleString()}</strong> {(t('integrations.sentry.usersAffected') || 'users')}</span>}
+                          <span><strong style={{ color: '#cf5b57' }}>{i.count.toLocaleString()}</strong> events</span>
+                          {i.user_count > 0 && <span><strong style={{ color: '#c98a2b' }}>{i.user_count.toLocaleString()}</strong> {(t('integrations.sentry.usersAffected') || 'users')}</span>}
                           {i.last_seen && <span>{(t('integrations.common.lastSeen') || 'Last seen')}: {new Date(i.last_seen).toLocaleString()}</span>}
                         </div>
                       </div>
@@ -856,12 +844,12 @@ export default function SentryPage() {
                           <button onClick={() => void togglePreview(i.id)} style={btnSmall}>
                             {expanded ? '▾' : '▸'} {t('integrations.sentry.preview') || 'Preview'}
                           </button>
-                          <button onClick={() => void openAiFixPreview(i)} style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.4)' }}>
-                            ✦ {t('integrations.sentry.aiFix') || 'AI Fix'}
+                          <button onClick={() => void openAiFixPreview(i)} style={{ ...btnSmall, color: 'var(--acc)', borderColor: 'var(--acc)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <NavIcon name="zap" size={13} /> {t('integrations.sentry.aiFix') || 'AI Fix'}
                           </button>
                           {i.permalink && (
-                            <a href={i.permalink} target='_blank' rel='noreferrer' style={{ ...btnSmall, color: '#f97316', textDecoration: 'none', borderColor: 'rgba(249,115,22,0.4)' }}>
-                              ↗
+                            <a href={i.permalink} target='_blank' rel='noreferrer' style={{ ...btnSmall, color: 'var(--ink-65)', textDecoration: 'none', borderColor: 'var(--panel-border)', display: 'inline-flex', alignItems: 'center' }}>
+                              <NavIcon name="chevron-right" size={13} />
                             </a>
                           )}
                         </div>
@@ -874,7 +862,7 @@ export default function SentryPage() {
                         ) : (
                           <div style={{ display: 'grid', gap: 8 }}>
                             {(preview.exception_type || preview.exception_value) && (
-                              <div style={{ fontSize: 12, fontFamily: 'monospace', background: 'rgba(248,113,113,0.08)', padding: '6px 10px', borderRadius: 6, color: '#fca5a5' }}>
+                              <div style={{ fontSize: 12, fontFamily: 'monospace', background: 'var(--panel-alt)', padding: '6px 10px', borderRadius: 6, color: '#cf5b57' }}>
                                 {preview.exception_type && <strong>{preview.exception_type}: </strong>}
                                 {preview.exception_value}
                               </div>
@@ -890,14 +878,14 @@ export default function SentryPage() {
                             ) : (
                               <div style={{ display: 'grid', gap: 6 }}>
                                 {preview.frames.slice(0, 3).map((fr, idx) => (
-                                  <div key={idx} style={{ background: 'var(--panel)', borderRadius: 6, padding: '6px 10px', fontFamily: 'monospace', fontSize: 11, border: fr.in_app ? '1px solid rgba(28,231,131,0.3)' : '1px solid var(--panel-border)' }}>
-                                    <div style={{ color: 'var(--ink-58)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                      <span style={{ color: fr.in_app ? '#1CE783' : 'var(--ink-35)' }}>{fr.in_app ? '★ ' : ''}</span>
-                                      <span style={{ color: 'var(--ink)' }}>{fr.filename || fr.abs_path || '<unknown>'}</span>
-                                      {fr.lineno != null && <span style={{ color: '#f59e0b' }}>:{fr.lineno}</span>}
+                                  <div key={idx} style={{ background: 'var(--panel)', borderRadius: 6, padding: '6px 10px', fontFamily: 'monospace', fontSize: 11, border: fr.in_app ? '1px solid var(--acc)' : '1px solid var(--panel-border)' }}>
+                                    <div style={{ color: 'var(--ink-65)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <span style={{ color: fr.in_app ? 'var(--acc)' : 'var(--ink-35)' }}>{fr.in_app ? '★ ' : ''}</span>
+                                      <span style={{ color: 'var(--ink-90)' }}>{fr.filename || fr.abs_path || '<unknown>'}</span>
+                                      {fr.lineno != null && <span style={{ color: '#c98a2b' }}>:{fr.lineno}</span>}
                                       {fr.function && <span style={{ color: 'var(--ink-50)' }}> in {fr.function}</span>}
                                       {fr.repo_url && (
-                                        <a href={fr.repo_url} target='_blank' rel='noreferrer' style={{ marginLeft: 'auto', fontSize: 10, color: '#60a5fa', textDecoration: 'none', padding: '1px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.12)' }}>
+                                        <a href={fr.repo_url} target='_blank' rel='noreferrer' style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--acc)', textDecoration: 'none', padding: '1px 6px', borderRadius: 4, background: 'var(--acc-soft)' }}>
                                           {t('integrations.sentry.openInRepo') || 'open in repo'} ↗
                                         </a>
                                       )}
@@ -921,8 +909,8 @@ export default function SentryPage() {
                                 <div style={{ marginTop: 6, display: 'grid', gap: 3 }}>
                                   {preview.breadcrumbs.map((b, idx) => (
                                     <div key={idx} style={{ fontSize: 10, color: 'var(--ink-50)', fontFamily: 'monospace' }}>
-                                      <span style={{ color: '#94a3b8' }}>{b.timestamp}</span>{' '}
-                                      <span style={{ color: '#f59e0b' }}>{b.category}</span>{' '}
+                                      <span style={{ color: 'var(--muted)' }}>{b.timestamp}</span>{' '}
+                                      <span style={{ color: '#c98a2b' }}>{b.category}</span>{' '}
                                       <span>{b.message || b.type}</span>
                                     </div>
                                   ))}
@@ -946,7 +934,7 @@ export default function SentryPage() {
 
       {selectedIssueId && (
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-58)', marginBottom: 8 }}>{t('integrations.sentry.tracesFor').replace('{id}', selectedIssueId)}</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 8 }}>{t('integrations.sentry.tracesFor').replace('{id}', selectedIssueId)}</h3>
           {eventsLoading ? (
             <div style={{ fontSize: 12, color: 'var(--ink-35)', padding: 12 }}>{t('integrations.common.loading')}</div>
           ) : events.length === 0 ? (
@@ -954,13 +942,13 @@ export default function SentryPage() {
           ) : (
             <div style={{ display: 'grid', gap: 6 }}>
               {events.map((ev) => (
-                <div key={ev.event_id || `${ev.title}_${ev.timestamp || ''}`} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--glass)' }}>
+                <div key={ev.event_id || `${ev.title}_${ev.timestamp || ''}`} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--panel-alt)' }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11, marginBottom: 4 }}>
-                    <span style={{ color: '#f97316', fontWeight: 700 }}>{(ev.level || 'error').toUpperCase()}</span>
-                    <span style={{ color: 'var(--ink-30)' }}>{ev.timestamp || '-'}</span>
+                    <span style={{ color: '#c98a2b', fontWeight: 700 }}>{(ev.level || 'error').toUpperCase()}</span>
+                    <span style={{ color: 'var(--ink-35)' }}>{ev.timestamp || '-'}</span>
                     <span style={{ color: 'var(--ink-35)' }}>{ev.location || '-'}</span>
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{ev.title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-90)' }}>{ev.title}</div>
                   {ev.trace_preview && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--ink-45)', whiteSpace: 'pre-wrap' }}>{ev.trace_preview}</div>}
                   {ev.message && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--ink-50)', whiteSpace: 'pre-wrap' }}>{ev.message}</div>}
                 </div>
@@ -981,11 +969,11 @@ export default function SentryPage() {
         </div>
         {mappings.length === 0 ? (
           <div style={{
-            padding: '28px 18px', textAlign: 'center', borderRadius: 12,
-            background: 'var(--glass)', border: '1px dashed var(--panel-border)',
+            padding: '28px 18px', textAlign: 'center', borderRadius: 10,
+            background: 'var(--panel-alt)', border: '1px dashed var(--panel-border)',
           }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>🪤</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+            <div style={{ marginBottom: 6, display: 'flex', justifyContent: 'center', color: 'var(--ink-35)' }}><NavIcon name="plug" size={28} /></div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>
               {t('integrations.sentry.noMappingsTitle') || 'No project mappings yet'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 4, lineHeight: 1.5, maxWidth: 380, margin: '4px auto 0' }}>
@@ -1017,33 +1005,33 @@ export default function SentryPage() {
               })() : null;
               return (
                 <div key={m.id} className='sentry-row-card' style={{
-                  padding: '12px 14px', borderRadius: 12,
-                  background: 'var(--glass)',
+                  padding: '12px 14px', borderRadius: 8,
+                  background: 'var(--panel-alt)',
                   border: '1px solid var(--panel-border)',
                 }}>
                   <div className='sentry-row-icon' style={{
                     width: 36, height: 36, borderRadius: 10,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: m.auto_import ? 'rgba(28,231,131,0.10)' : 'rgba(96,165,250,0.10)',
-                    border: `1px solid ${m.auto_import ? 'rgba(28,231,131,0.35)' : 'rgba(96,165,250,0.35)'}`,
-                    fontSize: 16,
+                    background: 'var(--acc-soft)',
+                    border: '1px solid var(--panel-border)',
+                    color: 'var(--acc)',
                   }}>
-                    {m.auto_import ? '⚡' : '🔗'}
+                    <NavIcon name={m.auto_import ? 'zap' : 'plug'} size={16} />
                   </div>
                   <div className='sentry-row-title'>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{m.project_name}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>{m.project_name}</span>
                       {m.repo_display_name ? (
-                        <span style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600 }}>→ {m.repo_display_name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--acc)', fontWeight: 600 }}>→ {m.repo_display_name}</span>
                       ) : (
-                        <Pill color='#f59e0b'>{(t('integrations.sentry.noRepoLinked') || 'no repo linked').toUpperCase()}</Pill>
+                        <Pill color='#c98a2b'>{(t('integrations.sentry.noRepoLinked') || 'no repo linked').toUpperCase()}</Pill>
                       )}
-                      {m.auto_import && <Pill color='#1CE783'>AUTO</Pill>}
+                      {m.auto_import && <Pill color='var(--acc)'>AUTO</Pill>}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--ink-35)', marginTop: 3, fontFamily: 'monospace' }}>
                       {m.project_slug}
                       {lastImportRel && <span style={{ color: 'var(--ink-50)', fontFamily: 'inherit', marginLeft: 8 }}>· {(t('integrations.sentry.lastImport') || 'Last import')}: {lastImportRel}</span>}
-                      {nextRunRel && <span style={{ color: '#1CE783', fontFamily: 'inherit', marginLeft: 8 }}>· {nextRunRel}</span>}
+                      {nextRunRel && <span style={{ color: 'var(--acc)', fontFamily: 'inherit', marginLeft: 8 }}>· {nextRunRel}</span>}
                       {!lastImportRel && m.import_interval_minutes && m.auto_import && <span style={{ color: 'var(--ink-50)', fontFamily: 'inherit', marginLeft: 8 }}>· {(t('integrations.sentry.everyN') || 'every {n}min').replace('{n}', String(m.import_interval_minutes))}</span>}
                     </div>
                   </div>
@@ -1061,24 +1049,24 @@ export default function SentryPage() {
                     <label style={{
                       display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
                       fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                      color: m.auto_import ? '#1CE783' : 'var(--ink-50)',
+                      color: m.auto_import ? 'var(--acc)' : 'var(--ink-50)',
                       padding: '6px 10px', borderRadius: 6,
-                      background: m.auto_import ? 'rgba(28,231,131,0.10)' : 'transparent',
-                      border: `1px solid ${m.auto_import ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
+                      background: m.auto_import ? 'var(--acc-soft)' : 'transparent',
+                      border: `1px solid ${m.auto_import ? 'var(--acc)' : 'var(--panel-border)'}`,
                     }}>
                       <input type='checkbox' checked={m.auto_import} onChange={(e) => void updateMapping(m.id, { auto_import: e.target.checked })} style={{ margin: 0 }} />
                       {t('integrations.common.auto').toUpperCase()}
                     </label>
                     <button onClick={() => void importIssues(m.project_slug)} title={t('integrations.sentry.runNow') || 'Run now'}
                       disabled={runningSlug === m.project_slug}
-                      className='sentry-icon-btn' style={{ ...btnSmall, color: '#1CE783', borderColor: 'rgba(28,231,131,0.3)', opacity: runningSlug === m.project_slug ? 0.6 : 1 }}>
-                      {runningSlug === m.project_slug ? '…' : '▶'}
+                      className='sentry-icon-btn' style={{ ...btnSmall, color: 'var(--acc)', borderColor: 'var(--acc)', opacity: runningSlug === m.project_slug ? 0.6 : 1 }}>
+                      {runningSlug === m.project_slug ? '…' : <NavIcon name="send" size={13} />}
                     </button>
                     {rowResult[m.project_slug] && (
                       <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4,
-                        color: rowResult[m.project_slug].kind === 'ok' ? '#22c55e' : '#f87171',
-                        background: rowResult[m.project_slug].kind === 'ok' ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
+                        fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6,
+                        color: rowResult[m.project_slug].kind === 'ok' ? '#3f9d6a' : '#cf5b57',
+                        background: 'var(--panel-alt)',
                         whiteSpace: 'nowrap',
                       }}>{rowResult[m.project_slug].text}</span>
                     )}
@@ -1086,7 +1074,7 @@ export default function SentryPage() {
                       {t('integrations.newrelic.request') || 'Request'}
                     </button>
                     <button onClick={() => void deleteMapping(m.id)} title={t('integrations.common.unmap') || 'Unmap'}
-                      className='sentry-icon-btn' style={{ ...btnSmall, color: '#f87171', borderColor: 'rgba(248,113,113,0.2)' }}>×</button>
+                      className='sentry-icon-btn' style={{ ...btnSmall, color: '#cf5b57', borderColor: 'var(--panel-border)' }}>×</button>
                   </div>
                 </div>
               );
@@ -1099,17 +1087,17 @@ export default function SentryPage() {
         <div onClick={closeAiFixPreview} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)' }}>
           <div onClick={(ev) => ev.stopPropagation()} style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14,
+            background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10,
             width: 'min(680px, calc(100vw - 32px))', maxHeight: '85vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
           }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>✦</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{t('integrations.sentry.aiFixTitle') || 'AI Fix Preview'}</span>
-                  {aiFixData?.cached && <Pill color='#94a3b8'>cached</Pill>}
+                  <span style={{ color: 'var(--acc)', display: 'inline-flex' }}><NavIcon name="zap" size={18} /></span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)' }}>{t('integrations.sentry.aiFixTitle') || 'AI Fix Preview'}</span>
+                  {aiFixData?.cached && <Pill color='var(--muted)'>cached</Pill>}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--ink-45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {aiFixIssue.title}
@@ -1124,7 +1112,7 @@ export default function SentryPage() {
                 </div>
               )}
               {aiFixError && (
-                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(248,113,113,0.12)', color: '#f87171', fontSize: 12, fontWeight: 600 }}>
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--panel-alt)', color: '#cf5b57', fontSize: 12, fontWeight: 600 }}>
                   {aiFixError}
                 </div>
               )}
@@ -1134,7 +1122,7 @@ export default function SentryPage() {
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--ink-35)', textTransform: 'uppercase', marginBottom: 6 }}>
                       {t('integrations.sentry.aiFixSummary') || 'Root cause'}
                     </div>
-                    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55 }}>
+                    <div style={{ fontSize: 13, color: 'var(--ink-90)', lineHeight: 1.55 }}>
                       {aiFixData.summary}
                     </div>
                   </div>
@@ -1165,9 +1153,9 @@ export default function SentryPage() {
                       {t('integrations.sentry.aiFixConfidence') || 'Confidence'}
                     </div>
                     <div style={{ flex: 1, height: 6, background: 'var(--panel-border)', borderRadius: 999, overflow: 'hidden' }}>
-                      <div style={{ width: `${aiFixData.confidence}%`, height: '100%', background: aiFixData.confidence >= 70 ? '#22c55e' : aiFixData.confidence >= 40 ? '#eab308' : '#94a3b8' }} />
+                      <div style={{ width: `${aiFixData.confidence}%`, height: '100%', background: aiFixData.confidence >= 70 ? '#3f9d6a' : aiFixData.confidence >= 40 ? '#c98a2b' : 'var(--muted)' }} />
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', minWidth: 30, textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-90)', minWidth: 30, textAlign: 'right' }}>
                       {aiFixData.confidence}%
                     </div>
                   </div>
@@ -1205,12 +1193,12 @@ export default function SentryPage() {
             style={{
               position: 'fixed',
               top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14,
+              background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10,
               width: 'min(760px, calc(100vw - 32px))',
               maxWidth: 'calc(100vw - 32px)',
               height: 'min(80vh, 720px)',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.35)', color: 'var(--ink)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.25)', color: 'var(--ink-90)',
               boxSizing: 'border-box',
             }}
           >
@@ -1224,7 +1212,7 @@ export default function SentryPage() {
                     ? (t('integrations.newrelic.fetchingAll') || 'Fetching issues...')
                     : `${modalIssues.length} ${t('integrations.newrelic.errors') || 'issues'}`}
                   {modalSelected.size > 0 && (
-                    <span style={{ marginLeft: 8, color: '#1CE783', fontWeight: 600 }}>
+                    <span style={{ marginLeft: 8, color: 'var(--acc)', fontWeight: 600 }}>
                       · {(t('integrations.newrelic.selectedCount') || '{n} selected').replace('{n}', String(modalSelected.size))}
                     </span>
                   )}
@@ -1268,9 +1256,9 @@ export default function SentryPage() {
                         display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 10,
                         alignItems: 'start',
                         width: '100%', boxSizing: 'border-box',
-                        padding: '10px 12px', borderRadius: 10, marginBottom: 6,
-                        background: isSelected ? 'rgba(28,231,131,0.10)' : 'var(--glass)',
-                        border: `1px solid ${isSelected ? 'rgba(28,231,131,0.4)' : 'var(--panel-border)'}`,
+                        padding: '10px 12px', borderRadius: 8, marginBottom: 6,
+                        background: isSelected ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                        border: `1px solid ${isSelected ? 'var(--acc)' : 'var(--panel-border)'}`,
                         cursor: isImported ? 'not-allowed' : 'pointer',
                         opacity: isImported ? 0.55 : 1,
                       }}
@@ -1283,7 +1271,7 @@ export default function SentryPage() {
                         style={{ marginTop: 3 }}
                       />
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                           {i.title}
                         </div>
                         {(i.culprit || i.short_id) && (
@@ -1296,7 +1284,7 @@ export default function SentryPage() {
                             <a
                               href={`/tasks/${i.imported_task_id}`}
                               onClick={(ev) => ev.stopPropagation()}
-                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(96,165,250,0.18)', color: '#60a5fa', textDecoration: 'none' }}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}
                             >
                               {(t('integrations.common.alreadyImported') || 'Already imported — task #{id}').replace('{id}', String(i.imported_task_id))}
                             </a>
@@ -1307,22 +1295,22 @@ export default function SentryPage() {
                               target='_blank'
                               rel='noreferrer'
                               onClick={(ev) => ev.stopPropagation()}
-                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(168,85,247,0.18)', color: '#a855f7', textDecoration: 'none' }}
+                              style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textDecoration: 'none' }}
                             >
                               {t('integrations.common.viewWorkItem') || 'Open work item'} ↗
                             </a>
                           )}
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--panel-alt)', color: '#cf5b57' }}>
                             {(t('integrations.common.countX') || '{n} times').replace('{n}', i.count.toLocaleString())}
                           </span>
-                          {i.level && <span style={{ textTransform: 'uppercase', color: i.level === 'fatal' || i.level === 'error' ? '#f87171' : '#f97316', fontWeight: 600 }}>{i.level}</span>}
+                          {i.level && <span style={{ textTransform: 'uppercase', color: i.level === 'fatal' || i.level === 'error' ? '#cf5b57' : '#c98a2b', fontWeight: 600 }}>{i.level}</span>}
                           {i.last_seen && (
                             <span>
                               {(t('integrations.common.lastSeen') || 'Last seen')}: {new Date(i.last_seen).toLocaleString()}
                             </span>
                           )}
                           {i.permalink && (
-                            <a href={i.permalink} target='_blank' rel='noreferrer' onClick={(ev) => ev.stopPropagation()} style={{ color: '#f97316', textDecoration: 'none' }}>
+                            <a href={i.permalink} target='_blank' rel='noreferrer' onClick={(ev) => ev.stopPropagation()} style={{ color: 'var(--acc)', textDecoration: 'none' }}>
                               {t('integrations.sentry.openExternal')}
                             </a>
                           )}
@@ -1392,10 +1380,10 @@ export default function SentryPage() {
                 position: 'absolute', inset: 0,
                 background: 'rgba(0,0,0,0.4)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 20, borderRadius: 14,
+                padding: 20, borderRadius: 10,
               }}>
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.35)' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 18, width: '100%', maxWidth: 440, boxShadow: '0 20px 48px rgba(0,0,0,0.25)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 8 }}>
                     {t('integrations.common.confirmImportTitle') || 'Onayla ve oluştur'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-58)', marginBottom: 12 }}>

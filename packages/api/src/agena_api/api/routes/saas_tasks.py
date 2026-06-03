@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_models.schemas.saas_task import (
     AssignTaskRequest,
@@ -61,6 +61,127 @@ async def _get_repo_mapping_name(db: AsyncSession, mapping_id: int | None) -> st
     return row.repo_name if row else None
 
 
+async def _persist_external_attachments(
+    db: AsyncSession,
+    organization_id: int,
+    user_id: int,
+    task_id: int,
+    items: list[tuple[str, bytes, str]],
+) -> int:
+    """Save (filename, bytes, mime) tuples as TaskAttachment rows on disk
+    and in the DB. Returns the count actually persisted. Skips files
+    whose (filename, size) already match an existing attachment row so
+    a refresh-from-source call doesn't pile up duplicates."""
+    if not items:
+        return 0
+    from agena_models.models.task_attachment import TaskAttachment
+
+    existing = (await db.execute(
+        select(TaskAttachment).where(
+            TaskAttachment.task_id == task_id,
+            TaskAttachment.organization_id == organization_id,
+        )
+    )).scalars().all()
+    existing_keys = {(row.filename, row.size_bytes) for row in existing}
+
+    target_dir = ATTACHMENT_ROOT / str(organization_id) / str(task_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    saved = 0
+    for name, data, mime in items:
+        try:
+            if not data:
+                continue
+            display_name = (name or 'attachment')[:512]
+            if (display_name, len(data)) in existing_keys:
+                continue
+            ext = Path(name).suffix[:32]
+            disk_name = f'{uuid.uuid4().hex}{ext}'
+            disk_path = target_dir / disk_name
+            disk_path.write_bytes(data)
+            row = TaskAttachment(
+                task_id=task_id,
+                organization_id=organization_id,
+                uploaded_by_user_id=user_id,
+                filename=display_name,
+                content_type=(mime or 'application/octet-stream')[:128],
+                size_bytes=len(data),
+                storage_path=str(disk_path),
+            )
+            db.add(row)
+            existing_keys.add((display_name, len(data)))
+            saved += 1
+        except Exception:
+            continue
+    if saved:
+        await db.commit()
+    return saved
+
+
+async def _import_external_attachments_for_task(
+    db: AsyncSession,
+    organization_id: int,
+    user_id: int,
+    task_id: int,
+    source: str,
+    external_id: str,
+    description_html: str,
+) -> int:
+    """Best-effort: pull AttachedFile relations + inline <img> screenshots
+    from the source work item this task was imported from and persist
+    them as TaskAttachment rows. Returns the count saved. Failures are
+    swallowed so the import path never fails because attachments
+    couldn't be fetched."""
+    src = (source or '').lower()
+    cfg_service = IntegrationConfigService(db)
+    config = await cfg_service.get_config(organization_id, src)
+    if config is None or not config.secret:
+        return 0
+
+    items: list[tuple[str, bytes, str]] = []
+    if src == 'azure':
+        from agena_services.integrations.azure_client import AzureDevOpsClient
+        cfg = {
+            'org_url': config.base_url or '',
+            'pat': config.secret,
+            'project': config.project or '',
+        }
+        client = AzureDevOpsClient()
+        try:
+            items.extend(await client.fetch_work_item_attachments(external_id, cfg=cfg))
+        except Exception:
+            pass
+        try:
+            items.extend(await client.fetch_description_images(description_html or '', cfg=cfg))
+        except Exception:
+            pass
+    elif src == 'jira':
+        from agena_services.integrations.jira_client import JiraClient
+        cfg = {
+            'base_url': config.base_url or '',
+            'email': (config.username or '').strip(),
+            'api_token': config.secret,
+        }
+        client = JiraClient()
+        try:
+            items.extend(await client.fetch_issue_attachments(external_id, cfg=cfg))
+        except Exception:
+            pass
+        try:
+            items.extend(await client.fetch_issue_images(issue_key=external_id, cfg=cfg))
+        except Exception:
+            pass
+    else:
+        return 0
+
+    return await _persist_external_attachments(
+        db=db,
+        organization_id=organization_id,
+        user_id=user_id,
+        task_id=task_id,
+        items=items,
+    )
+
+
 async def _to_task_response(service: TaskService, organization_id: int, task) -> TaskResponse:
     insights = await service.get_task_insights(organization_id, task)
     preferred_agent_model, preferred_agent_provider = service._extract_preferred_agent_selection(task.description)
@@ -83,6 +204,8 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
             pr_url=a.pr_url,
             branch_name=a.branch_name,
             failure_reason=a.failure_reason,
+            revision_count=a.revision_count or 0,
+            pr_merged=(a.status or '').lower() == 'merged',
         )
         for a, m in assign_rows
     ]
@@ -128,6 +251,8 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         pr_risk_level=insights['pr_risk_level'],
         pr_risk_reason=insights['pr_risk_reason'],
         total_tokens=insights['total_tokens'],
+        cached_tokens=insights.get('cached_tokens'),
+        cache_savings_usd=insights.get('cache_savings_usd'),
         sprint_name=getattr(task, 'sprint_name', None),
         sprint_path=getattr(task, 'sprint_path', None),
         repo_mapping_id=getattr(task, 'repo_mapping_id', None),
@@ -206,6 +331,29 @@ async def create_task(
                 ))
             await db.commit()
             await db.refresh(task)
+
+    # Pull attachments from the source work item — AttachedFile docs +
+    # inline <img> screenshots from the description — so the task
+    # carries the same visual context the PM saw on Azure / Jira.
+    # Best-effort and only on first import (skip if the task already
+    # existed and was just returned).
+    if (
+        request.source in ('azure', 'jira')
+        and request.external_id
+        and not getattr(task, '_was_existing', False)
+    ):
+        try:
+            await _import_external_attachments_for_task(
+                db=db,
+                organization_id=tenant.organization_id,
+                user_id=tenant.user_id,
+                task_id=task.id,
+                source=request.source,
+                external_id=request.external_id,
+                description_html=request.description or '',
+            )
+        except Exception:
+            pass  # Non-fatal — task is already created.
 
     response = await _to_task_response(service, tenant.organization_id, task)
     response.was_existing = bool(getattr(task, '_was_existing', False))
@@ -674,7 +822,11 @@ async def link_work_item(
     return await _to_task_response(service, tenant.organization_id, task)
 
 
-@router.post('/{task_id}/assign', response_model=AssignTaskResponse)
+@router.post(
+    '/{task_id}/assign',
+    response_model=AssignTaskResponse,
+    dependencies=[Depends(require_workspace_perm('tasks:run-ai'))],
+)
 async def assign_task(
     task_id: int,
     payload: AssignTaskRequest = Body(default_factory=AssignTaskRequest),
@@ -891,23 +1043,29 @@ async def cancel_task(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    # Kill active CLI stream on bridge so the process stops immediately
+    # Kill active CLI stream on bridge so the process stops immediately.
+    # task_id alone is enough — the bridge keys activeStreams by
+    # `task:<id>` whenever the worker passes one, which it always does
+    # for orchestrated runs. We log every step explicitly so a silent
+    # cancel-but-process-still-running regression doesn't repeat:
+    # the old except: pass swallowed the error and made it impossible
+    # to tell whether the bridge call even left the API container.
+    import logging
     import os
+    logger = logging.getLogger(__name__)
     bridge_url = os.getenv('CLI_BRIDGE_URL', 'http://host.docker.internal:9876')
     try:
-        repo_path = None
-        if task.repo_mapping_id:
-            from agena_models.models.repo_mapping import RepoMapping
-            rm = await db.get(RepoMapping, task.repo_mapping_id)
-            if rm and rm.local_path:
-                repo_path = rm.local_path
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(
+        async with httpx.AsyncClient(timeout=10) as client:
+            kill_resp = await client.post(
                 f'{bridge_url}/kill-stream',
-                json={'task_id': str(task_id), 'repo_path': repo_path or ''},
+                json={'task_id': str(task_id)},
             )
-    except Exception:
-        pass  # best effort — task is already cancelled in DB
+            logger.info(
+                'cancel_task: kill-stream task_id=%s status=%s body=%s',
+                task_id, kill_resp.status_code, (kill_resp.text or '')[:200],
+            )
+    except Exception as exc:
+        logger.warning('cancel_task: kill-stream failed for task_id=%s: %s', task_id, exc)
 
     return await _to_task_response(service, tenant.organization_id, task)
 
@@ -1214,6 +1372,151 @@ async def _load_task_for_org(db: AsyncSession, organization_id: int, task_id: in
     if row is None:
         raise HTTPException(status_code=404, detail='Task not found')
     return row
+
+
+class RefreshFromSourceResponse(BaseModel):
+    new_attachments: int
+    description_updated: bool
+
+
+@router.post('/{task_id}/refresh-from-source', response_model=RefreshFromSourceResponse)
+async def refresh_task_from_source(
+    task_id: int,
+    tenant: CurrentTenant = Depends(require_permission('tasks:write')),
+    db: AsyncSession = Depends(get_db_session),
+) -> RefreshFromSourceResponse:
+    """Re-pull the source work item from Azure / Jira: refresh title +
+    description (re-enriched with the latest comments) and import any
+    new attachments. Existing attachments matched by (filename, size)
+    are skipped — this is additive on attachments, but title and
+    description ARE replaced when upstream has changed since import."""
+    task = await _load_task_for_org(db, tenant.organization_id, task_id)
+    src = (task.source or '').lower()
+    if src not in ('azure', 'jira') or not task.external_id:
+        raise HTTPException(status_code=400, detail='Task has no Azure/Jira source to refresh from')
+
+    description_updated = False
+    title_updated = False
+    try:
+        service = TaskService(db)
+        cfg_service = IntegrationConfigService(db)
+        config = await cfg_service.get_config(tenant.organization_id, src)
+        if config and config.secret and src == 'azure':
+            from agena_services.integrations.azure_client import AzureDevOpsClient
+            cfg = {
+                'org_url': config.base_url or '',
+                'pat': config.secret,
+                'project': config.project or '',
+            }
+            client = AzureDevOpsClient()
+            fields = await client.fetch_work_item_fields(task.external_id, cfg=cfg)
+            if fields:
+                # Use the work item's own containing project for the
+                # downstream comments / attachments lookups — orgs
+                # with multiple Azure projects often import items from
+                # a project that isn't the integration default
+                # (e.g. integration is "Flo - Tech" but the ticket
+                # lives in "Boards Management"). Without this swap
+                # the comments endpoint 404s and the user sees
+                # "Nothing new" even when comments exist.
+                wi_project = (fields.get('project') or '').strip()
+                if wi_project:
+                    cfg['project'] = wi_project
+
+                # Title — strip the "[Azure #N]" prefix import added so
+                # we compare against the actual upstream value, then
+                # re-prefix when persisting (the prefix is what makes
+                # the task searchable / linkable).
+                upstream_title = (fields.get('title') or '').strip()
+                if upstream_title:
+                    prefix = f'[Azure #{task.external_id}] '
+                    current_core = (task.title or '').strip()
+                    if current_core.startswith(prefix):
+                        current_core = current_core[len(prefix):].strip()
+                    if upstream_title != current_core:
+                        # Preserve prefix iff the original title had one
+                        new_title = f'{prefix}{upstream_title}' if (task.title or '').startswith(prefix) else upstream_title
+                        task.title = new_title
+                        title_updated = True
+
+                # Description — fresh upstream + comments. Single-item
+                # imports tack a footer onto the description ("---\n
+                # External Source: …\nLocal Repo Mapping: …") so the
+                # context survives. Detect that footer and re-attach
+                # it after the refresh so it doesn't get blown away.
+                upstream_desc = fields.get('description') or ''
+                enriched = await service._enrich_description_with_azure_comments(
+                    cfg, upstream_desc, task.external_id,
+                )
+                footer = ''
+                marker = '\n\n---\nExternal Source:'
+                if task.description and marker in task.description:
+                    footer = task.description[task.description.index(marker):]
+                new_desc = f'{enriched}{footer}' if footer else enriched
+                if new_desc and new_desc != (task.description or ''):
+                    task.description = new_desc
+                    description_updated = True
+
+                if title_updated or description_updated:
+                    db.add(task)
+                    await db.commit()
+        elif config and config.secret and src == 'jira':
+            from agena_services.integrations.jira_client import JiraClient
+            jira_cfg = {
+                'base_url': config.base_url or '',
+                'email': config.username or '',
+                'api_token': config.secret,
+            }
+            client = JiraClient()
+            fields = await client.fetch_issue_fields(
+                cfg=jira_cfg, issue_key=task.external_id,
+            )
+            if fields:
+                upstream_title = (fields.get('title') or '').strip()
+                if upstream_title and upstream_title != (task.title or '').strip():
+                    task.title = upstream_title
+                    title_updated = True
+
+                upstream_desc = fields.get('description') or ''
+                enriched = await service._enrich_description_with_jira_comments(
+                    jira_cfg, upstream_desc, task.external_id,
+                )
+                # Preserve the import footer if present (mirrors Azure).
+                footer = ''
+                marker = '\n\n---\nExternal Source:'
+                if task.description and marker in task.description:
+                    footer = task.description[task.description.index(marker):]
+                new_desc = f'{enriched}{footer}' if footer else enriched
+                if new_desc and new_desc != (task.description or ''):
+                    task.description = new_desc
+                    description_updated = True
+
+                if title_updated or description_updated:
+                    db.add(task)
+                    await db.commit()
+    except Exception:
+        # Title / description refresh is opportunistic — never blocks
+        # the attachment side of the refresh.
+        pass
+
+    new_count = 0
+    try:
+        new_count = await _import_external_attachments_for_task(
+            db=db,
+            organization_id=tenant.organization_id,
+            user_id=tenant.user_id,
+            task_id=task_id,
+            source=task.source,
+            external_id=task.external_id,
+            description_html=task.description or '',
+        )
+    except Exception:
+        pass
+
+    return RefreshFromSourceResponse(
+        new_attachments=new_count,
+        description_updated=(description_updated or title_updated),
+    )
 
 
 @router.post('/{task_id}/attachments', response_model=list[TaskAttachmentResponse])

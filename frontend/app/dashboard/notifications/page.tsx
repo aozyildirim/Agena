@@ -4,18 +4,19 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { clearAllNotifications, listNotifications, markAllNotificationsRead, markNotificationRead, type NotificationItem } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type GroupKey = 'all' | 'tasks' | 'prs' | 'failures' | 'queue' | 'integrations' | 'other';
 const NOTIF_SYNC_EVENT = 'agena:notification-sync';
 const LS_UNREAD_KEY = 'agena_notification_unread_count';
 
 const GROUP_META: Record<Exclude<GroupKey, 'all'>, { color: string; icon: string }> = {
-  tasks: { color: '#22c55e', icon: '○' },
-  prs: { color: '#38bdf8', icon: '⎇' },
-  failures: { color: '#ef4444', icon: '✕' },
-  queue: { color: '#f59e0b', icon: '◷' },
-  integrations: { color: '#a78bfa', icon: '⚡' },
-  other: { color: '#94a3b8', icon: '•' },
+  tasks: { color: '#3f9d6a', icon: 'activity' },
+  prs: { color: '#5b9bd5', icon: 'chevron-right' },
+  failures: { color: '#cf5b57', icon: 'alert' },
+  queue: { color: '#c98a2b', icon: 'clock' },
+  integrations: { color: 'var(--acc)', icon: 'zap' },
+  other: { color: 'var(--muted)', icon: 'dot' },
 };
 
 const GROUP_ORDER: Exclude<GroupKey, 'all'>[] = ['tasks', 'prs', 'failures', 'queue', 'integrations', 'other'];
@@ -110,19 +111,19 @@ export default function NotificationsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
         <div>
           <div className='section-label'>{t('notifications.section')}</div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', margin: '6px 0 4px' }}>{t('notifications.title')}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: '6px 0 4px' }}>{t('notifications.title')}</h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{t('notifications.unread')}: {unreadCount} • {t('notifications.total')}: {total}</p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 999, overflow: 'hidden' }}>
+          <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
             {(['all', 'unread', 'read'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => { setPage(1); setReadStatus(s); }}
                 style={{
                   padding: '6px 10px', border: 'none', fontSize: 12, cursor: 'pointer',
-                  background: readStatus === s ? 'rgba(34,197,94,0.15)' : 'transparent',
-                  color: readStatus === s ? '#22c55e' : 'var(--muted)',
+                  background: readStatus === s ? 'var(--acc-soft)' : 'transparent',
+                  color: readStatus === s ? 'var(--acc)' : 'var(--muted)',
                 }}
               >
                 {s === 'all' ? t('notifications.all') : s === 'unread' ? t('notifications.unreadOnly') : t('notifications.readOnly')}
@@ -136,7 +137,7 @@ export default function NotificationsPage() {
           }}>{t('notifications.markAllRead')}</button>
           <button
             className='button button-outline'
-            style={{ fontSize: 11, padding: '5px 10px', borderColor: 'rgba(239,68,68,0.35)', color: '#ef4444' }}
+            style={{ fontSize: 11, padding: '5px 10px', borderColor: 'rgba(207,91,87,0.35)', color: '#cf5b57' }}
             onClick={() => {
               if (typeof window !== 'undefined' && !window.confirm(t('notifications.confirmDeleteAll'))) return;
               setItems([]); setTotal(0); setUnreadCount(0); syncUnread(0); setPage(1);
@@ -150,7 +151,7 @@ export default function NotificationsPage() {
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
         {(['all', ...GROUP_ORDER] as GroupKey[]).map((g) => {
           const isActive = activeTab === g;
-          const color = g === 'all' ? '#22c55e' : GROUP_META[g].color;
+          const color = g === 'all' ? 'var(--acc)' : GROUP_META[g].color;
           const count = groupCounts[g] || 0;
           const icon = g === 'all' ? '' : GROUP_META[g].icon;
           return (
@@ -168,12 +169,12 @@ export default function NotificationsPage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+              {icon && <span style={{ display: 'inline-flex', color }}><NavIcon name={icon} size={14} /></span>}
               {groupLabel(g)}
               <span style={{
                 minWidth: 20, height: 20, borderRadius: 999, lineHeight: '20px', textAlign: 'center',
-                fontSize: 11, fontWeight: 800, padding: '0 6px',
-                background: isActive ? `${color}22` : 'var(--glass)',
+                fontSize: 11, fontWeight: 700, padding: '0 6px',
+                background: isActive ? 'var(--acc-soft)' : 'var(--surface)',
                 color: isActive ? color : 'var(--muted)',
               }}>
                 {count}
@@ -184,7 +185,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification list */}
-      <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--panel)' }}>
+      <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--panel)' }}>
         {loading ? (
           <div style={{ padding: 20, color: 'var(--muted)' }}>{t('notifications.loading')}</div>
         ) : visibleItems.length === 0 ? (
@@ -204,7 +205,7 @@ export default function NotificationsPage() {
                   gridTemplateColumns: '4px 1fr auto',
                   gap: 0,
                   borderTop: idx === 0 ? 'none' : '1px solid var(--panel-border)',
-                  background: n.is_read ? 'transparent' : `${meta.color}08`,
+                  background: n.is_read ? 'transparent' : 'var(--surface)',
                 }}
               >
                 {/* Color bar */}
@@ -213,7 +214,7 @@ export default function NotificationsPage() {
                 {/* Content */}
                 <div style={{ padding: '12px 14px', display: 'grid', gap: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{n.title}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)' }}>{n.title}</span>
                     {!n.is_read && (
                       <span style={{ width: 7, height: 7, borderRadius: 999, background: meta.color, flexShrink: 0 }} />
                     )}

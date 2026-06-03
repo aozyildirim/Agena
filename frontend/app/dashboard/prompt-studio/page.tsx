@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { loadPromptCatalog, savePromptOverrides, type PromptCatalog } from '@/lib/api';
 import { useLocale, type Lang } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type PromptMeta = {
   title: string;
@@ -174,14 +175,14 @@ export default function PromptStudioPage() {
     return <div style={plainInfoStyle}>{lang === 'tr' ? 'Yükleniyor...' : 'Loading...'}</div>;
   }
   if (!catalog) {
-    return <div style={{ ...plainInfoStyle, color: '#b91c1c' }}>{lang === 'tr' ? 'Açılamadı.' : 'Unavailable.'}</div>;
+    return <div style={{ ...plainInfoStyle, color: '#cf5b57' }}>{lang === 'tr' ? 'Açılamadı.' : 'Unavailable.'}</div>;
   }
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={topBarStyle}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--ink-90)' }}>{t('promptStudio.title')}</div>
+          <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)' }}>{t('promptStudio.title')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>
             {t('promptStudio.subtitle')}
           </div>
@@ -199,9 +200,9 @@ export default function PromptStudioPage() {
       {notice ? (
         <div style={{
           borderRadius: 10,
-          border: `1px solid ${notice.type === 'ok' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-          background: notice.type === 'ok' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
-          color: notice.type === 'ok' ? 'var(--brand-2)' : 'var(--danger)',
+          border: `1px solid ${notice.type === 'ok' ? 'rgba(63,157,106,0.3)' : 'rgba(207,91,87,0.3)'}`,
+          background: notice.type === 'ok' ? 'rgba(63,157,106,0.08)' : 'rgba(207,91,87,0.08)',
+          color: notice.type === 'ok' ? '#3f9d6a' : '#cf5b57',
           fontSize: 12,
           padding: '8px 10px',
         }}
@@ -238,7 +239,7 @@ export default function PromptStudioPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink-90)' }}>{item.title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)' }}>{item.title}</div>
                   <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 2 }}>{item.summary}</div>
                   <div style={{ fontSize: 10, marginTop: 4, color: customized ? 'var(--accent)' : 'var(--ink-42)' }}>
                     {customized ? (lang === 'tr' ? 'Özel' : 'Custom') : (lang === 'tr' ? 'Varsayılan' : 'Default')}
@@ -253,18 +254,20 @@ export default function PromptStudioPage() {
           {activeKey ? (
             <>
               <div style={{ display: 'grid', gap: 3 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--ink-90)' }}>{meta.title}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{meta.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>{meta.summary}</div>
                 <div style={{ fontSize: 10, color: 'var(--ink-42)' }}>{activeKey}</div>
               </div>
 
               {customText ? (
-                <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 8, fontWeight: 600 }}>
-                  {lang === 'tr' ? '✏️ Özelleştirilmiş — değişiklikler kaydedilecek' : '✏️ Customized — changes will be saved'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--accent)', marginTop: 8, fontWeight: 600 }}>
+                  <NavIcon name="pencil" size={14} />
+                  {lang === 'tr' ? 'Özelleştirilmiş — değişiklikler kaydedilecek' : 'Customized — changes will be saved'}
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: 'var(--ink-42)', marginTop: 8 }}>
-                  {lang === 'tr' ? '📄 Sistem varsayılanı — düzenleyerek özelleştirin' : '📄 System default — edit to customize'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-42)', marginTop: 8 }}>
+                  <NavIcon name="clipboard" size={14} />
+                  {lang === 'tr' ? 'Sistem varsayılanı — düzenleyerek özelleştirin' : 'System default — edit to customize'}
                 </div>
               )}
               <textarea
@@ -356,7 +359,7 @@ const panelStyle: CSSProperties = {
 const inputStyle: CSSProperties = {
   width: '100%',
   border: '1px solid var(--panel-border)',
-  borderRadius: 10,
+  borderRadius: 8,
   padding: '9px 10px',
   background: 'var(--bg)',
   color: 'var(--ink-90)',
@@ -366,7 +369,7 @@ const inputStyle: CSSProperties = {
 
 const btnPrimary: CSSProperties = {
   border: 'none',
-  borderRadius: 10,
+  borderRadius: 8,
   background: 'var(--brand)',
   color: '#fff',
   padding: '8px 12px',
@@ -377,7 +380,7 @@ const btnPrimary: CSSProperties = {
 
 const btnGhost: CSSProperties = {
   border: '1px solid var(--panel-border)',
-  borderRadius: 10,
+  borderRadius: 8,
   background: 'var(--panel)',
   color: 'var(--ink-75)',
   padding: '8px 12px',

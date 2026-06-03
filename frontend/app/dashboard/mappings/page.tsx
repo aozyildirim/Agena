@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, loadPrefs, RepoMapping, RepoProfileSummary, savePrefs, scanRepoProfile } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 const LS_REPO_MAPPINGS = 'agena_repo_mappings';
 type Opt = { id: string; name: string };
@@ -59,6 +60,17 @@ export default function RepoMappingsPage() {
   const [githubRepoCount, setGithubRepoCount] = useState(0);
   const [githubRepoError, setGithubRepoError] = useState('');
   const [path, setPath] = useState('');
+  // Local-path autosuggest from the host bridge — populated whenever
+  // the user picks a repo. The bridge scans common dev folders
+  // (~/sites, ~/code, ~/projects, …) so the user can one-click set
+  // the path instead of typing the full absolute string by hand.
+  const [pathSuggestions, setPathSuggestions] = useState<{ path: string; is_git: boolean; score: number }[]>([]);
+  // Track whether the path was auto-filled from a single high-confidence
+  // suggestion vs. typed/clicked manually. We use this purely so the UI
+  // can render a tiny "auto" hint next to the input — clobber prevention
+  // is handled inside the suggest effect.
+  const [pathAutoFilled, setPathAutoFilled] = useState(false);
+  const [pathSuggestLoading, setPathSuggestLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [repoPlaybook, setRepoPlaybook] = useState('');
   const [analyzePrompt, setAnalyzePrompt] = useState('');
@@ -73,6 +85,8 @@ export default function RepoMappingsPage() {
   const [hasGithubIntegration, setHasGithubIntegration] = useState(false);
   const [repoProfiles, setRepoProfiles] = useState<Record<string, RepoProfileSummary>>({});
   const [scanningId, setScanningId] = useState<string | null>(null);
+  type IndexStatus = { indexed: boolean; points_count: number; head_sha: string | null; is_fresh: boolean; current_head_sha: string | null };
+  const [indexStatuses, setIndexStatuses] = useState<Record<string, IndexStatus | 'loading' | 'error' | 'reindexing'>>({});
   const [agentsMdContent, setAgentsMdContent] = useState<string | null>(null);
   const [agentsMdViewId, setAgentsMdViewId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Array<{ name: string; is_default: boolean }>>([]);
@@ -208,6 +222,53 @@ export default function RepoMappingsPage() {
     setPendingRepoUrl('');
     setPendingRepoName('');
   }, [pendingRepoUrl, repos]);
+
+  useEffect(() => {
+    const paths = items.map((m) => m.local_path).filter(Boolean);
+    if (!paths.length) return;
+    let cancelled = false;
+    setIndexStatuses((prev) => {
+      const next = { ...prev };
+      for (const p of paths) if (!next[p]) next[p] = 'loading';
+      return next;
+    });
+    Promise.all(paths.map((p) =>
+      apiFetch<IndexStatus>(`/repo-mappings/index-status?path=${encodeURIComponent(p)}`)
+        .then((res) => ({ p, res, err: null as Error | null }))
+        .catch((err) => ({ p, res: null, err }))
+    )).then((rows) => {
+      if (cancelled) return;
+      setIndexStatuses((prev) => {
+        const next = { ...prev };
+        for (const r of rows) {
+          if (r.res) next[r.p] = r.res;
+          else next[r.p] = 'error';
+        }
+        return next;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [items]);
+
+  async function reindexMapping(localPath: string) {
+    setIndexStatuses((prev) => ({ ...prev, [localPath]: 'reindexing' }));
+    try {
+      await apiFetch(`/repo-mappings/reindex?path=${encodeURIComponent(localPath)}`, { method: 'POST' });
+      const poll = async () => {
+        for (let i = 0; i < 60; i += 1) {
+          await new Promise((r) => setTimeout(r, 5000));
+          try {
+            const res = await apiFetch<IndexStatus>(`/repo-mappings/index-status?path=${encodeURIComponent(localPath)}`);
+            setIndexStatuses((prev) => ({ ...prev, [localPath]: res }));
+            if (res.is_fresh) return;
+          } catch { /* keep polling */ }
+        }
+      };
+      void poll();
+    } catch {
+      setIndexStatuses((prev) => ({ ...prev, [localPath]: 'error' }));
+    }
+  }
 
   async function persist(next: RepoMapping[]) {
     setSaving(true);
@@ -408,6 +469,78 @@ export default function RepoMappingsPage() {
     }
   }, [sourceProvider, selRepoUrl, selProject, selGithubRepo]);
 
+  // Ask the host bridge for likely local-path matches whenever the
+  // user picks a different repo. Bridge scans common dev folders (one
+  // level deep) and ranks dirs by how well their name matches the
+  // repo name, plus a small bonus when the dir is actually a git
+  // checkout. Failure is non-fatal — the user can still type the
+  // path by hand.
+  // We need to read pathAutoFilled inside the suggest effect without
+  // making the effect re-run on its own setter (that would cause an
+  // infinite loop where the auto-fill clears its own pill which clears
+  // the path which re-triggers the suggest…). A ref keeps the latest
+  // value readable from inside the async callback.
+  const pathAutoFilledRef = useRef(pathAutoFilled);
+  useEffect(() => { pathAutoFilledRef.current = pathAutoFilled; }, [pathAutoFilled]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPathSuggestions([]);
+    let repoName = '';
+    if (sourceProvider === 'azure') {
+      repoName = repos.find((r) => r.remote_url === selRepoUrl)?.name
+        || pendingRepoName
+        || (selRepoUrl ? selRepoUrl.split('/').pop() || '' : '');
+    } else if (sourceProvider === 'github') {
+      repoName = selGithubRepo.split('/')[1] || '';
+    }
+    if (!repoName.trim()) return;
+    // When the repo selection changes, the previously auto-filled path
+    // is stale — clear it eagerly so the new repo's match can take
+    // over. A user-typed path (pathAutoFilled === false) is preserved.
+    if (pathAutoFilledRef.current) {
+      setPath('');
+      setPathAutoFilled(false);
+    }
+    setPathSuggestLoading(true);
+    fetch(`http://localhost:9876/find-repo-paths?repo_name=${encodeURIComponent(repoName.trim())}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`bridge ${r.status}`))))
+      .then((data: { matches?: { path: string; is_git: boolean; score: number }[] }) => {
+        if (cancelled) return;
+        const matches = Array.isArray(data?.matches) ? data.matches : [];
+        setPathSuggestions(matches);
+        // Hybrid: auto-fill when the top match is unambiguously the
+        // right one. That's either a single match with score ≥ 100,
+        // or multiple matches where the leader is a clean exact-name
+        // hit (≥100) AND clears the runner-up by at least 5 points
+        // — which is what happens when a level-1 ~/sites/Agena beats
+        // a level-3 ~/sites/Agena/skills/agena. Anything tighter
+        // than that keeps the chip picker so the user picks
+        // consciously.
+        const top = matches[0];
+        const second = matches[1];
+        const topIsExact = !!top && top.score >= 100;
+        const beatsRunnerUp = !second || (top.score - second.score) >= 5;
+        const isHighConfidence = topIsExact && beatsRunnerUp;
+        setPath((current) => {
+          // Preserve any text the user typed by hand. Auto-filled
+          // values were already wiped above, so an empty `current`
+          // here means "nothing manual to protect."
+          if (current.trim()) return current;
+          if (!isHighConfidence) return current;
+          setPathAutoFilled(true);
+          return top.path;
+        });
+      })
+      .catch(() => { /* bridge offline — silent fallback */ })
+      .finally(() => { if (!cancelled) setPathSuggestLoading(false); });
+    return () => { cancelled = true; };
+  }, [sourceProvider, selRepoUrl, selGithubRepo, pendingRepoName, repos]);
+
+  // Any manual edit clears the "auto-filled" flag so the hint stops
+  // claiming credit for a value the user has changed.
+  useEffect(() => { setPathAutoFilled(false); }, [editingId]);
+
   async function upsertMapping() {
     const currentEditing = editingId ? items.find((m) => m.id === editingId) : undefined;
     let mapping: RepoMapping;
@@ -521,7 +654,7 @@ export default function RepoMappingsPage() {
     <div style={{ display: 'grid', gap: 20, maxWidth: 1180 }}>
       <div>
         <div className='section-label'>{t('nav.mappings')}</div>
-        <h1 style={{ fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: 800, color: 'var(--ink-90)', marginTop: 6 }}>
+        <h1 style={{ fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 700, color: 'var(--ink-90)', marginTop: 6 }}>
           {t('mappings.title')}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--ink-35)', marginTop: 6 }}>
@@ -530,19 +663,19 @@ export default function RepoMappingsPage() {
       </div>
 
       <div className="dash-grid-responsive mappings-layout" style={{ display: 'grid', gap: 14, alignItems: 'start' }}>
-        <div style={{ borderRadius: 16, border: '1px solid rgba(56,189,248,0.24)', background: 'var(--surface)', padding: '12px', display: 'grid', gap: 10 }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--surface)', padding: '12px', display: 'grid', gap: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7dd3fc' }}>{t('mappings.createMapping')}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-90)' }}>{t('mappings.createMapping')}</div>
             <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('mappings.totalCount', { n: items.length })}</div>
           </div>
 
           <div className="dash-grid-responsive mappings-two-col" style={{ display: 'grid', gap: 8 }}>
             <button type='button' onClick={() => setSourceProvider('azure')} className='button'
-              style={{ borderColor: sourceProvider === 'azure' ? 'rgba(56,189,248,0.45)' : 'var(--panel-border-3)', background: sourceProvider === 'azure' ? 'rgba(56,189,248,0.12)' : 'var(--panel-alt)', color: sourceProvider === 'azure' ? '#7dd3fc' : 'var(--ink-58)' }}>
+              style={{ borderColor: sourceProvider === 'azure' ? 'var(--acc)' : 'var(--panel-border-3)', background: sourceProvider === 'azure' ? 'var(--acc-soft)' : 'var(--panel-alt)', color: sourceProvider === 'azure' ? 'var(--acc)' : 'var(--ink-58)' }}>
               {t('mappings.providerAzure')}
             </button>
             <button type='button' onClick={() => setSourceProvider('github')} className='button'
-              style={{ borderColor: sourceProvider === 'github' ? 'rgba(167,139,250,0.45)' : 'var(--panel-border-3)', background: sourceProvider === 'github' ? 'rgba(167,139,250,0.12)' : 'var(--panel-alt)', color: sourceProvider === 'github' ? '#c4b5fd' : 'var(--ink-58)' }}>
+              style={{ borderColor: sourceProvider === 'github' ? 'var(--acc)' : 'var(--panel-border-3)', background: sourceProvider === 'github' ? 'var(--acc-soft)' : 'var(--panel-alt)', color: sourceProvider === 'github' ? 'var(--acc)' : 'var(--ink-58)' }}>
               {t('mappings.providerGithub')}
             </button>
           </div>
@@ -577,9 +710,9 @@ export default function RepoMappingsPage() {
                   <option value='' style={{ background: 'var(--surface)' }}>
                     {!hasGithubIntegration ? t('mappings.connectGithubFirst') : (loadingGithubRepos ? t('mappings.loadingGithubRepos') : t('mappings.selectGithubRepo'))}
                   </option>
-                  {githubSelectOptions.map((r) => <option key={r.id} value={r.full_name} style={{ background: 'var(--surface)' }}>{r.full_name}{r.private ? ' 🔒' : ''}</option>)}
+                  {githubSelectOptions.map((r) => <option key={r.id} value={r.full_name} style={{ background: 'var(--surface)' }}>{r.full_name}{r.private ? ' (private)' : ''}</option>)}
                 </select>
-                <div style={{ fontSize: 10, color: githubRepoError ? '#fda4af' : 'var(--ink-45)', marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: githubRepoError ? '#cf5b57' : 'var(--ink-45)', marginTop: 4 }}>
                   {githubRepoError || `${t('mappings.githubRepoCount')}: ${githubRepoCount}`}
                 </div>
               </div>
@@ -587,22 +720,70 @@ export default function RepoMappingsPage() {
           )}
 
           {sourceProvider === 'azure' && selectedRepo && (
-            <div style={{ borderRadius: 10, border: '1px solid rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.08)', padding: '8px 10px', minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#7dd3fc' }}>{selectedRepo.name}</div>
+            <div style={{ borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--acc-soft)', padding: '8px 10px', minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--acc)' }}>{selectedRepo.name}</div>
               <div style={{ fontSize: 10, color: 'var(--ink-45)', marginTop: 2, wordBreak: 'break-all' }}>{selectedRepo.remote_url}</div>
             </div>
           )}
           {sourceProvider === 'github' && selectedGithubRepo && (
-            <div style={{ borderRadius: 10, border: '1px solid rgba(167,139,250,0.3)', background: 'rgba(167,139,250,0.08)', padding: '8px 10px', minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#c4b5fd' }}>{selectedGithubRepo.full_name}</div>
+            <div style={{ borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--acc-soft)', padding: '8px 10px', minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--acc)' }}>{selectedGithubRepo.full_name}</div>
               <div style={{ fontSize: 10, color: 'var(--ink-45)', marginTop: 2 }}>{selectedGithubRepo.private ? t('mappings.private') : t('mappings.public')}</div>
             </div>
           )}
 
           <div className="dash-grid-responsive mappings-two-col" style={{ display: 'grid', gap: 10 }}>
             <div>
-              <div style={fieldLabelStyle}>{t('mappings.localPath')}</div>
-              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={t('mappings.pathPlaceholder')} style={fieldStyle} />
+              <div style={fieldLabelStyle}>
+                {t('mappings.localPath')}
+                {pathAutoFilled && (
+                  <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', textTransform: 'uppercase', letterSpacing: 0.5, verticalAlign: 'middle' }}>
+                    auto
+                  </span>
+                )}
+              </div>
+              <input
+                value={path}
+                onChange={(e) => { setPath(e.target.value); if (pathAutoFilled) setPathAutoFilled(false); }}
+                placeholder={t('mappings.pathPlaceholder')}
+                style={fieldStyle}
+              />
+              {/* Suggestion chips — only render when there's real
+                  ambiguity. A clear winner has already been
+                  auto-filled above (and the "auto" pill explains
+                  it), so we suppress the chips to keep the row
+                  quiet. We re-show them when the user manually
+                  cleared the input so they can re-pick. */}
+              {(pathSuggestLoading || (pathSuggestions.length > 0 && (!pathAutoFilled || !path))) && pathSuggestions.length > 1 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, alignItems: 'center' }}>
+                  {pathSuggestLoading && (
+                    <span style={{ fontSize: 10, color: 'var(--ink-35)' }}>{t('mappings.loading')}…</span>
+                  )}
+                  {pathSuggestions.map((s) => {
+                    const active = s.path === path;
+                    return (
+                      <button
+                        key={s.path}
+                        type='button'
+                        onClick={() => { setPath(s.path); setPathAutoFilled(false); }}
+                        title={s.path}
+                        style={{
+                          padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          border: `1px solid ${active ? 'var(--acc)' : 'var(--panel-border-2)'}`,
+                          background: active ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                          color: active ? 'var(--acc)' : 'var(--ink-58)',
+                          cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <span style={{ opacity: 0.7, display: 'inline-flex' }}><NavIcon name={s.is_git ? 'terminal' : 'box'} size={14} /></span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.path.replace(/^\/Users\/[^/]+/, '~')}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <div style={fieldLabelStyle}>{t('mappings.branch')}</div>
@@ -682,23 +863,23 @@ export default function RepoMappingsPage() {
           </div>
 
           <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>
-            {t('mappings.selectedRepoMappings')}: <span style={{ color: '#7dd3fc', fontWeight: 700 }}>{selectedRepoMappings.length}</span>
+            {t('mappings.selectedRepoMappings')}: <span style={{ color: 'var(--acc)', fontWeight: 700 }}>{selectedRepoMappings.length}</span>
           </div>
         </div>
 
         <div style={{ display: 'grid', gap: 10 }}>
           {empty ? (
-            <div style={{ padding: 20, color: 'var(--ink-50)', fontSize: 13, borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)' }}>
+            <div style={{ padding: 20, color: 'var(--ink-50)', fontSize: 13, borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)' }}>
               {t('mappings.empty')}
             </div>
           ) : (
             items.map((m) => (
-              <div key={m.id} style={{ borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: '12px 14px', display: 'grid', gap: 8, overflow: 'hidden' }}>
+              <div key={m.id} style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--surface)', padding: '12px 14px', display: 'grid', gap: 8, overflow: 'hidden' }}>
                 {/* Header: Provider + Repo name + actions */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 6, flexShrink: 0, background: (m.provider === 'github') ? 'rgba(167,139,250,0.12)' : 'rgba(56,189,248,0.12)', color: (m.provider === 'github') ? '#a78bfa' : '#38bdf8', border: `1px solid ${(m.provider === 'github') ? 'rgba(167,139,250,0.3)' : 'rgba(56,189,248,0.3)'}` }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 6, flexShrink: 0, background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--panel-border)' }}>
                         {(m.provider === 'github') ? t('mappings.providerGithub') : t('mappings.providerAzure')}
                       </span>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
@@ -708,7 +889,7 @@ export default function RepoMappingsPage() {
                     <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{m.local_path}</span>
                       {m.default_branch && (
-                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 6, background: 'rgba(94,234,212,0.12)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.3)', fontFamily: 'inherit', flexShrink: 0 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 6, background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--panel-border)', fontFamily: 'inherit', flexShrink: 0 }}>
                           {m.default_branch}
                         </span>
                       )}
@@ -716,7 +897,7 @@ export default function RepoMappingsPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => startEdit(m)} className='button button-outline' style={{ padding: '5px 10px', fontSize: 11 }}>{t('mappings.edit')}</button>
-                    <button onClick={() => setConfirmDeleteId(m.id)} className='button button-outline' style={{ padding: '5px 10px', fontSize: 11, borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444' }}>{t('mappings.delete')}</button>
+                    <button onClick={() => setConfirmDeleteId(m.id)} className='button button-outline' style={{ padding: '5px 10px', fontSize: 11, borderColor: 'var(--panel-border)', color: '#cf5b57' }}>{t('mappings.delete')}</button>
                   </div>
                 </div>
 
@@ -733,7 +914,7 @@ export default function RepoMappingsPage() {
                     <>
                       <div
                         title={`${(repoProfiles[m.id].stack || []).slice(0, 3).join(', ')} · ${(repoProfiles[m.id].scanned_by_provider || t('mappings.localSource'))}${repoProfiles[m.id].scanned_model ? ` / ${repoProfiles[m.id].scanned_model}` : ''}`}
-                        style={{ fontSize: 11, color: '#86efac', fontWeight: 700, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        style={{ fontSize: 11, color: '#3f9d6a', fontWeight: 700, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                       >
                         {(repoProfiles[m.id].stack || []).slice(0, 2).join(', ') || t('mappings.profileReady')}
                         {' · '}
@@ -743,6 +924,48 @@ export default function RepoMappingsPage() {
                   ) : (
                     <div style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('mappings.notScanned')}</div>
                   )}
+                  {m.local_path && (() => {
+                    const st = indexStatuses[m.local_path];
+                    let badge: { label: string; color: string; bg: string; border: string };
+                    let title = '';
+                    if (st === 'loading' || st === undefined) {
+                      badge = { label: 'RAG · checking…', color: 'var(--muted)', bg: 'var(--panel-alt)', border: 'var(--panel-border)' };
+                    } else if (st === 'reindexing') {
+                      badge = { label: 'RAG · reindexing…', color: 'var(--acc)', bg: 'var(--acc-soft)', border: 'var(--panel-border)' };
+                    } else if (st === 'error') {
+                      badge = { label: 'RAG · status unavailable', color: '#cf5b57', bg: 'var(--panel-alt)', border: 'var(--panel-border)' };
+                    } else if (!st.indexed) {
+                      badge = { label: 'RAG · not indexed yet', color: '#c98a2b', bg: 'var(--panel-alt)', border: 'var(--panel-border)' };
+                    } else if (st.is_fresh) {
+                      badge = { label: `RAG · indexed (${st.points_count})`, color: '#3f9d6a', bg: 'var(--panel-alt)', border: 'var(--panel-border)' };
+                      title = `HEAD ${(st.head_sha || '').slice(0, 8)}`;
+                    } else {
+                      badge = { label: `RAG · stale (${st.points_count}, HEAD moved)`, color: '#c98a2b', bg: 'var(--panel-alt)', border: 'var(--panel-border)' };
+                      title = `indexed: ${(st.head_sha || '').slice(0, 8)} · current: ${(st.current_head_sha || '').slice(0, 8)}`;
+                    }
+                    const inProgress = st === 'reindexing' || st === 'loading';
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        <span title={title} style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: badge.color, background: badge.bg, border: `1px solid ${badge.border}` }}>
+                          {badge.label}
+                        </span>
+                        <button
+                          onClick={() => void reindexMapping(m.local_path)}
+                          disabled={inProgress}
+                          style={{
+                            padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                            border: '1px solid var(--panel-border)',
+                            background: 'var(--panel-alt)',
+                            color: 'var(--ink-78)',
+                            cursor: inProgress ? 'not-allowed' : 'pointer',
+                            opacity: inProgress ? 0.6 : 1,
+                          }}
+                        >
+                          Reindex
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     <button
                       onClick={() => void runProfileScan(m)}
@@ -750,9 +973,9 @@ export default function RepoMappingsPage() {
                       style={{
                         padding: '4px 8px',
                         borderRadius: 8,
-                        border: '1px solid rgba(34,197,94,0.35)',
-                        background: 'rgba(34,197,94,0.12)',
-                        color: '#86efac',
+                        border: '1px solid var(--panel-border)',
+                        background: 'var(--panel-alt)',
+                        color: '#3f9d6a',
                         fontSize: 11,
                         cursor: scanningId === m.id ? 'not-allowed' : 'pointer',
                         fontWeight: 700,
@@ -769,7 +992,7 @@ export default function RepoMappingsPage() {
                             .then((r) => setAgentsMdContent(r.content))
                             .catch(() => setAgentsMdContent(t('mappings.agentsLoadFailed')));
                         }}
-                        style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.12)', color: '#c084fc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--acc-soft)', color: 'var(--acc)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                       >
                         {t('mappings.agentsMdButton', {
                           kb: Math.round((repoProfiles[m.id]?.agents_md_size || 0) / 1024),
@@ -792,8 +1015,8 @@ export default function RepoMappingsPage() {
                         disabled={scanningId === m.id}
                         style={{
                           padding: '4px 8px', borderRadius: 8,
-                          border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.12)',
-                          color: '#c084fc', fontSize: 11, cursor: 'pointer', fontWeight: 700,
+                          border: '1px solid var(--panel-border)', background: 'var(--acc-soft)',
+                          color: 'var(--acc)', fontSize: 11, cursor: 'pointer', fontWeight: 700,
                         }}
                       >
                         {t('mappings.agentsCreate')}
@@ -808,7 +1031,7 @@ export default function RepoMappingsPage() {
       </div>
 
       {(msg || err) && (
-        <div style={{ borderRadius: 10, padding: '10px 12px', border: '1px solid ' + (err ? 'rgba(248,113,113,0.35)' : 'rgba(34,197,94,0.3)'), background: err ? 'rgba(248,113,113,0.08)' : 'rgba(34,197,94,0.08)', color: err ? '#f87171' : '#22c55e', fontSize: 13 }}>
+        <div style={{ borderRadius: 8, padding: '10px 12px', border: '1px solid var(--panel-border)', background: 'var(--panel-alt)', color: err ? '#cf5b57' : '#3f9d6a', fontSize: 13 }}>
           {err || msg}
         </div>
       )}
@@ -817,15 +1040,15 @@ export default function RepoMappingsPage() {
       {agentsMdViewId !== null && (
         <div
           onClick={() => { setAgentsMdViewId(null); setAgentsMdContent(null); }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '90vw', maxWidth: 900, maxHeight: '85vh', display: 'grid', gridTemplateRows: 'auto 1fr auto', overflow: 'hidden' }}
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, width: '90vw', maxWidth: 900, maxHeight: '85vh', display: 'grid', gridTemplateRows: 'auto 1fr auto', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.28)' }}
           >
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: 16, color: 'var(--ink)' }}>{t('mappings.agentsMdTitle')}</h3>
-              <button onClick={() => { setAgentsMdViewId(null); setAgentsMdContent(null); }} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>✕</button>
+              <button onClick={() => { setAgentsMdViewId(null); setAgentsMdContent(null); }} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}><NavIcon name="close" size={16} /></button>
             </div>
             <div style={{ overflow: 'auto', padding: '16px 20px' }}>
               {agentsMdContent === null ? (
@@ -864,16 +1087,16 @@ export default function RepoMappingsPage() {
 
       {/* Delete confirmation modal */}
       {confirmDeleteId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setConfirmDeleteId(null)}>
-          <div style={{ width: 'min(400px, 90vw)', borderRadius: 16, background: 'var(--surface)', border: '1px solid rgba(239,68,68,0.2)', padding: '24px', boxShadow: '0 16px 48px rgba(0,0,0,0.4)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>{t('mappings.confirmDeleteTitle')}</div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setConfirmDeleteId(null)}>
+          <div style={{ width: 'min(400px, 90vw)', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', padding: '24px', boxShadow: '0 16px 48px rgba(0,0,0,0.28)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 8 }}>{t('mappings.confirmDeleteTitle')}</div>
             <div style={{ fontSize: 13, color: 'var(--ink-58)', marginBottom: 6 }}>
               {items.find((m) => m.id === confirmDeleteId)?.name || ''}
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-42)', marginBottom: 20 }}>{t('mappings.confirmDeleteDesc')}</div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmDeleteId(null)} style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-58)', cursor: 'pointer' }}>{t('mappings.cancel')}</button>
-              <button onClick={() => { void removeMapping(confirmDeleteId); setConfirmDeleteId(null); }} style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer' }}>{t('mappings.confirmDelete')}</button>
+              <button onClick={() => setConfirmDeleteId(null)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: 'var(--panel)', border: '1px solid var(--panel-border)', color: 'var(--ink-58)', cursor: 'pointer' }}>{t('mappings.cancel')}</button>
+              <button onClick={() => { void removeMapping(confirmDeleteId); setConfirmDeleteId(null); }} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#cf5b57', border: 'none', color: '#fff', cursor: 'pointer' }}>{t('mappings.confirmDelete')}</button>
             </div>
           </div>
         </div>

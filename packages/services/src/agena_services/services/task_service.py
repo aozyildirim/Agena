@@ -198,6 +198,79 @@ class TaskService:
             except Exception:
                 pass
 
+    async def preview_integration_rules(
+        self,
+        organization_id: int,
+        *,
+        provider: str,
+        external_id: str,
+    ) -> dict:
+        """Dry-run the IntegrationRule engine against a single live Jira issue
+        / Azure work item WITHOUT importing it. Returns the source fields, the
+        matched rule ids and the composed action so the UI can let users test
+        their rules. No DB writes — safe to call repeatedly."""
+        from agena_services.services.rule_engine import evaluate_rules
+        if self.db is None:
+            raise ValueError('DB session required')
+        provider = (provider or '').strip().lower()
+        if provider not in ('jira', 'azure'):
+            raise ValueError('provider must be jira or azure')
+        ext = str(external_id or '').strip()
+        if not ext:
+            raise ValueError('work item id / issue key is required')
+
+        config_service = IntegrationConfigService(self.db)
+        config = await config_service.get_config(organization_id, provider)
+        if config is None:
+            raise ValueError(f'{provider} integration is not configured for this organization')
+
+        if provider == 'azure':
+            cfg = {'org_url': config.base_url, 'pat': config.secret, 'project': config.project or ''}
+            fields = await self.azure_client.fetch_work_item_match_fields(ext, cfg)
+        else:
+            cfg = {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
+            fields = await self.jira_client.fetch_issue_match_fields(cfg=cfg, issue_key=ext)
+
+        if not fields:
+            return {'found': False, 'external_id': ext}
+
+        item_type = fields.get('work_item_type') or fields.get('issue_type') or ''
+        item_labels = fields.get('tags') or fields.get('labels') or []
+        payload = {
+            'reporter_email': fields.get('reporter_email'),
+            'reporter_name': fields.get('reporter_name'),
+            'created_by_email': fields.get('reporter_email'),
+            'created_by_name': fields.get('reporter_name'),
+            'created_by': fields.get('reporter_name'),
+            'work_item_type': item_type,
+            'issue_type': item_type,
+            'project': fields.get('project'),
+            'tags': item_labels,
+            'labels': item_labels,
+        }
+        action = await evaluate_rules(
+            self.db, organization_id=organization_id, provider=provider, payload=payload,
+        )
+        return {
+            'found': True,
+            'external_id': ext,
+            'title': fields.get('title') or '',
+            'fields': {
+                'project': fields.get('project') or '',
+                'type': item_type,
+                'reporter': fields.get('reporter_name') or fields.get('reporter_email') or '',
+                'labels': item_labels,
+            },
+            'matched_rule_ids': action.matched_rule_ids,
+            'action': {
+                'tags': action.tags,
+                'priority': action.priority,
+                'repo_mapping_id': action.repo_mapping_id,
+                'flow_id': action.flow_id,
+                'agent_role': action.agent_role,
+            },
+        }
+
     async def create_task_from_external(
         self,
         organization_id: int,
@@ -410,6 +483,51 @@ class TaskService:
         if not comments:
             return description
         # Azure returns newest-first; flip so the AI reads in chronological order.
+        ordered = list(reversed(comments))
+        import re as _re
+        lines: list[str] = []
+        for idx, c in enumerate(ordered, start=1):
+            text = (c.get('text') or '').strip()
+            if not text:
+                continue
+            text = _re.sub(r'<[^>]+>', '', text)
+            text = (
+                text.replace('&nbsp;', ' ')
+                .replace('&amp;', '&')
+                .replace('&lt;', '<')
+                .replace('&gt;', '>')
+            )
+            text = _re.sub(r'\n{3,}', '\n\n', text).strip()
+            who = c.get('created_by') or 'unknown'
+            when = (c.get('created_at') or '')[:19].replace('T', ' ')
+            header = f'### Comment {idx} — {who}' + (f' ({when})' if when else '')
+            lines.append(f'{header}\n{text}')
+        if not lines:
+            return description
+        block = (
+            f'\n\n---\n## Discussion ({len(lines)} comment{"" if len(lines) == 1 else "s"})\n'
+            + '\n\n'.join(lines)
+        )
+        return (description or '') + block
+
+    async def _enrich_description_with_jira_comments(
+        self,
+        cfg: dict,
+        description: str,
+        issue_key: str,
+    ) -> str:
+        """Jira mirror of the Azure helper above — pulls the issue's
+        comment thread and appends it to the description so the AI sees
+        clarifications. Best-effort; if fetch fails returns input as-is."""
+        try:
+            comments = await self.jira_client.fetch_issue_comments(
+                cfg=cfg, issue_key=issue_key,
+            )
+        except Exception:
+            return description
+        if not comments:
+            return description
+        # Jira returns newest-first (orderBy=-created); flip to chronological.
         ordered = list(reversed(comments))
         import re as _re
         lines: list[str] = []
@@ -1691,8 +1809,44 @@ class TaskService:
         duration = self._extract_duration(metrics_log.message) if metrics_log is not None else None
         return duration, total_tokens
 
+    async def get_cache_stats(self, organization_id: int, task_id: int) -> tuple[int, float]:
+        """Prompt-cache read tokens for a task and the $ they saved.
+
+        Cache reads are billed at ~10% of the input rate, so a big raw token
+        count (which folds them in) can cost far less than list price.
+        Returns ``(cached_tokens, savings_usd)`` where savings is what those
+        tokens WOULD have cost at the full input rate minus the cached rate,
+        priced per the event's own model. Read from ``details_json`` where
+        the orchestrator stashes ``cached_input_tokens`` per event.
+        """
+        if self.db is None:
+            raise ValueError('DB session required')
+        from agena_services.services.llm.cost_tracker import _lookup_price
+        rows = (await self.db.execute(
+            select(AIUsageEvent.details_json, AIUsageEvent.model).where(
+                AIUsageEvent.organization_id == organization_id,
+                AIUsageEvent.task_id == task_id,
+            )
+        )).all()
+        total = 0
+        savings = 0.0
+        for details, model in rows:
+            if not isinstance(details, dict):
+                continue
+            try:
+                cached = int(details.get('cached_input_tokens') or 0)
+            except (TypeError, ValueError):
+                continue
+            if cached <= 0:
+                continue
+            total += cached
+            in_rate, cached_rate, _ = _lookup_price(model)
+            savings += cached * (in_rate - cached_rate) / 1_000_000
+        return total, round(savings, 4)
+
     async def get_task_insights(self, organization_id: int, task: TaskRecord) -> dict:
         duration_sec, total_tokens = await self.get_task_metrics(organization_id, task.id)
+        cached_tokens, cache_savings_usd = await self.get_cache_stats(organization_id, task.id)
         logs = await self.get_logs(organization_id, task.id)
         created_at = task.created_at
         running_at = next((l.created_at for l in logs if l.stage == 'running'), None)
@@ -1755,6 +1909,8 @@ class TaskService:
             'pr_risk_level': pr_risk['level'],
             'pr_risk_reason': pr_risk['reason'],
             'total_tokens': total_tokens,
+            'cached_tokens': cached_tokens or None,
+            'cache_savings_usd': cache_savings_usd or None,
         }
 
     async def get_dependencies(self, organization_id: int, task_id: int) -> list[int]:

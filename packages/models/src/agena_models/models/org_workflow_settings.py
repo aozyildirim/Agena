@@ -17,12 +17,16 @@ class OrgWorkflowSettings(Base):
         ForeignKey('organizations.id', ondelete='CASCADE'), primary_key=True,
     )
 
-    # Triage
-    triage_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Triage — opt-in by default to avoid burning LLM credits during
+    # the worker's 6h auto-scan. Set in /dashboard/triage.
+    triage_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     triage_idle_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     # Cap how far back the scan reaches. updated_at older than this is
     # treated as ancient history and skipped. 0 disables the cap.
     triage_max_age_days: Mapped[int] = mapped_column(Integer, nullable=False, default=365)
+    # Hard cap on LLM calls per scan. Stops a runaway scan from
+    # iterating thousands of stale tickets and burning credits.
+    triage_max_decisions_per_scan: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
     triage_schedule_cron: Mapped[str] = mapped_column(String(64), nullable=False, default='0 18 * * 0')
     triage_sources: Mapped[str] = mapped_column(String(128), nullable=False, default='jira,azure_devops')
 

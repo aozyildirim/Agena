@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,6 +9,8 @@ import { apiFetch, loadPrefs, runFlow, FlowRunResult, RepoMapping } from '@/lib/
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
 import { SPRINT_CHANGED_EVENT } from '@/components/SprintSwitcher';
+import RichDescription from '@/components/RichDescription';
+import NavIcon from '@/components/NavIcon';
 
 type Opt = {
   id: string;
@@ -57,42 +59,42 @@ const STATES_ORDER = ['Backlog','To Do','In Progress','Code Review','QA To Do','
 
 const STATE_COLORS: Record<string, { color: string; bg: string; border: string }> = {
   // Gray — Backlog / not started
-  'Backlog':        { color: '#6b7280', bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.2)' },
-  'Open':           { color: '#6b7280', bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.2)' },
+  'Backlog':        { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
+  'Open':           { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
   // Amber — To do / new / selected
-  'To Do':          { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
-  'New':            { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
-  'Selected for Development': { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.2)' },
-  'Ready':          { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
-  'Approved':       { color: '#f59e0b', bg: 'rgba(245,158,11,0.07)',  border: 'rgba(245,158,11,0.2)'  },
-  // Cyan — In progress / active / development
-  'In Progress':    { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
-  'Active':         { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
-  'In Development': { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
-  'Committed':      { color: '#38bdf8', bg: 'rgba(56,189,248,0.07)',  border: 'rgba(56,189,248,0.2)'  },
-  // Purple — Review / testing
-  'Code Review':    { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
-  'In Review':      { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
-  'Review':         { color: '#a78bfa', bg: 'rgba(167,139,250,0.07)', border: 'rgba(167,139,250,0.2)' },
-  // Pink — QA / testing
-  'QA To Do':       { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
-  'In QA':          { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
-  'Testing':        { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
-  'In Testing':     { color: '#f472b6', bg: 'rgba(244,114,182,0.07)', border: 'rgba(244,114,182,0.2)' },
+  'To Do':          { color: '#c98a2b', bg: 'rgba(201,138,43,0.07)',  border: 'rgba(201,138,43,0.2)'  },
+  'New':            { color: '#c98a2b', bg: 'rgba(201,138,43,0.07)',  border: 'rgba(201,138,43,0.2)'  },
+  'Selected for Development': { color: '#c98a2b', bg: 'rgba(201,138,43,0.07)', border: 'rgba(201,138,43,0.2)' },
+  'Ready':          { color: '#c98a2b', bg: 'rgba(201,138,43,0.07)',  border: 'rgba(201,138,43,0.2)'  },
+  'Approved':       { color: '#c98a2b', bg: 'rgba(201,138,43,0.07)',  border: 'rgba(201,138,43,0.2)'  },
+  // In progress / active / development
+  'In Progress':    { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)',  border: 'rgba(91,155,213,0.2)'  },
+  'Active':         { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)',  border: 'rgba(91,155,213,0.2)'  },
+  'In Development': { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)',  border: 'rgba(91,155,213,0.2)'  },
+  'Committed':      { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)',  border: 'rgba(91,155,213,0.2)'  },
+  // Review
+  'Code Review':    { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)', border: 'rgba(91,155,213,0.2)' },
+  'In Review':      { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)', border: 'rgba(91,155,213,0.2)' },
+  'Review':         { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)', border: 'rgba(91,155,213,0.2)' },
+  // QA / testing
+  'QA To Do':       { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
+  'In QA':          { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
+  'Testing':        { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
+  'In Testing':     { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
   // Red — Blocked
-  'Blocked':        { color: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.2)'   },
-  'Impediment':     { color: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.2)'   },
-  'On Hold':        { color: '#ef4444', bg: 'rgba(239,68,68,0.07)',   border: 'rgba(239,68,68,0.2)'   },
+  'Blocked':        { color: '#cf5b57', bg: 'rgba(207,91,87,0.07)',   border: 'rgba(207,91,87,0.2)'   },
+  'Impediment':     { color: '#cf5b57', bg: 'rgba(207,91,87,0.07)',   border: 'rgba(207,91,87,0.2)'   },
+  'On Hold':        { color: '#cf5b57', bg: 'rgba(207,91,87,0.07)',   border: 'rgba(207,91,87,0.2)'   },
   // Green — Done / closed / resolved
-  'Done':           { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
-  'Closed':         { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
-  'Resolved':       { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
-  'Complete':       { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
-  'Completed':      { color: '#22c55e', bg: 'rgba(34,197,94,0.07)',   border: 'rgba(34,197,94,0.2)'   },
+  'Done':           { color: '#3f9d6a', bg: 'rgba(63,157,106,0.07)',   border: 'rgba(63,157,106,0.2)'   },
+  'Closed':         { color: '#3f9d6a', bg: 'rgba(63,157,106,0.07)',   border: 'rgba(63,157,106,0.2)'   },
+  'Resolved':       { color: '#3f9d6a', bg: 'rgba(63,157,106,0.07)',   border: 'rgba(63,157,106,0.2)'   },
+  'Complete':       { color: '#3f9d6a', bg: 'rgba(63,157,106,0.07)',   border: 'rgba(63,157,106,0.2)'   },
+  'Completed':      { color: '#3f9d6a', bg: 'rgba(63,157,106,0.07)',   border: 'rgba(63,157,106,0.2)'   },
 };
 const fallbackPalette = [
-  { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' },
-  { color: '#fb923c', bg: 'rgba(251,146,60,0.07)', border: 'rgba(251,146,60,0.2)' },
+  { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)', border: 'rgba(91,155,213,0.2)' },
+  { color: '#94a3b8', bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)' },
 ];
 const sc = (s: string, i: number) => {
   if (STATE_COLORS[s]) return STATE_COLORS[s];
@@ -145,68 +147,6 @@ function toPlainText(input?: string): string {
     .replace(/\u00A0/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function sanitizeWorkItemDescriptionHtml(input?: string): string {
-  if (!input || typeof window === 'undefined') return '';
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(input, 'text/html');
-  const allowedTags = new Set([
-    'a', 'b', 'blockquote', 'br', 'code', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td',
-    'th', 'thead', 'tr', 'u', 'ul',
-  ]);
-  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta']);
-  const allowedUrl = (value: string): boolean => /^(https?:|mailto:|tel:|#|\/)/i.test(value);
-  const allowedImgSrc = (value: string): boolean => /^(https?:|data:image\/|blob:|\/)/i.test(value);
-
-  const elements = Array.from(doc.body.querySelectorAll('*'));
-  elements.forEach((el) => {
-    const tag = el.tagName.toLowerCase();
-    if (blockedTags.has(tag)) {
-      el.remove();
-      return;
-    }
-    if (!allowedTags.has(tag)) {
-      const parent = el.parentNode;
-      while (el.firstChild) parent?.insertBefore(el.firstChild, el);
-      parent?.removeChild(el);
-      return;
-    }
-    Array.from(el.attributes).forEach((attr) => {
-      const name = attr.name.toLowerCase();
-      const value = attr.value.trim();
-      if (name.startsWith('on') || name === 'style') {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag === 'a' && name === 'href' && !allowedUrl(value)) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag === 'img' && name === 'src' && !allowedImgSrc(value)) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag === 'img' && !['src', 'alt', 'title', 'width', 'height'].includes(name)) {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if (tag !== 'img' && !['href', 'title', 'target', 'rel', 'colspan', 'rowspan'].includes(name) && name !== 'class') {
-        el.removeAttribute(attr.name);
-      }
-    });
-    if (tag === 'a' && el.getAttribute('href')) {
-      el.setAttribute('target', '_blank');
-      el.setAttribute('rel', 'noopener noreferrer');
-    }
-    if (tag === 'img' && el.getAttribute('src')) {
-      el.setAttribute('loading', 'lazy');
-      el.setAttribute('style', 'max-width:100%;height:auto;border-radius:6px;display:block;margin:8px 0;');
-    }
-  });
-
-  return doc.body.innerHTML.trim();
 }
 
 function truncateText(input: string, max = 110): string {
@@ -1056,20 +996,26 @@ export default function SprintsPage() {
   // applies on every board they switch to — they're hiding the same
   // categories everywhere, not configuring per-sprint policies.
   const _filterKey = 'agena_sprint_filters_global';
-  // Load once on mount.
+  // Gate the persist effect on the load having finished. Without this
+  // the persist runs on mount with the default empty Set and clobbers
+  // the saved value before the load effect's setHiddenStates re-render
+  // — under StrictMode's double-invoke that ate the filters on refresh.
+  const filtersHydrated = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') { filtersHydrated.current = true; return; }
     try {
       const raw = window.localStorage.getItem(_filterKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.states)) setHiddenStates(new Set(parsed.states));
-      if (Array.isArray(parsed.types)) setHiddenTypes(new Set(parsed.types));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.states)) setHiddenStates(new Set(parsed.states));
+        if (Array.isArray(parsed.types)) setHiddenTypes(new Set(parsed.types));
+      }
     } catch { /* malformed — keep defaults */ }
+    filtersHydrated.current = true;
   }, []);
-  // Persist on change.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!filtersHydrated.current) return;
     try {
       window.localStorage.setItem(_filterKey, JSON.stringify({
         states: Array.from(hiddenStates),
@@ -1107,31 +1053,31 @@ export default function SprintsPage() {
       {/* Header */}
       <div>
         <div className="section-label">{t('sprints.section')}</div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink-90)', marginTop: 6, marginBottom: 4 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 6, marginBottom: 4 }}>
           {t('sprints.title')}
         </h1>
         {((provider === 'azure' && !hasAzure) || (provider === 'jira' && !hasJira)) && !lpj ? (
-          <div style={{ marginTop: 8, padding: '14px 18px', borderRadius: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 20 }}>🔌</span>
+          <div style={{ marginTop: 8, padding: '14px 18px', borderRadius: 10, background: 'rgba(201,138,43,0.08)', border: '1px solid rgba(201,138,43,0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NavIcon name="plug" size={20} />
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 13, color: '#fbbf24', margin: 0, fontWeight: 600 }}>
+              <p style={{ fontSize: 13, color: '#c98a2b', margin: 0, fontWeight: 600 }}>
                 {t('sprints.noIntegration')}
               </p>
-              <p style={{ fontSize: 12, color: 'rgba(251,191,36,0.7)', margin: '4px 0 0' }}>
-                <a href="/dashboard/integrations" style={{ color: '#fbbf24', textDecoration: 'underline' }}>{t('sprints.setupIntegration')}</a>
+              <p style={{ fontSize: 12, color: 'rgba(201,138,43,0.7)', margin: '4px 0 0' }}>
+                <a href="/dashboard/integrations" style={{ color: '#c98a2b', textDecoration: 'underline' }}>{t('sprints.setupIntegration')}</a>
                 {' · '}
-                <a href="/dashboard/onboarding" style={{ color: '#fbbf24', textDecoration: 'underline' }}>{t('nav.onboarding')}</a>
+                <a href="/dashboard/onboarding" style={{ color: '#c98a2b', textDecoration: 'underline' }}>{t('nav.onboarding')}</a>
               </p>
             </div>
           </div>
         ) : !project && !lpj ? (
-          <div style={{ marginTop: 8, padding: '14px 18px', borderRadius: 12, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 20 }}>📋</span>
+          <div style={{ marginTop: 8, padding: '14px 18px', borderRadius: 10, background: 'var(--acc-soft)', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NavIcon name="clipboard" size={20} />
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 13, color: '#7dd3fc', margin: 0, fontWeight: 600 }}>
+              <p style={{ fontSize: 13, color: 'var(--acc)', margin: 0, fontWeight: 600 }}>
                 {t('sprints.noSprintSelected')}
               </p>
-              <p style={{ fontSize: 12, color: 'rgba(125,211,252,0.6)', margin: '4px 0 0' }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-50)', margin: '4px 0 0' }}>
                 {t('sprints.selectSprintHint')}
               </p>
             </div>
@@ -1147,10 +1093,10 @@ export default function SprintsPage() {
             onClick={() => setProvider('azure')}
             style={{
               padding: '6px 12px',
-              borderRadius: 999,
-              border: provider === 'azure' ? '1px solid rgba(56,189,248,0.45)' : '1px solid var(--panel-border-3)',
-              background: provider === 'azure' ? 'rgba(56,189,248,0.12)' : 'var(--panel-alt)',
-              color: provider === 'azure' ? '#7dd3fc' : 'var(--ink-58)',
+              borderRadius: 8,
+              border: provider === 'azure' ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+              background: provider === 'azure' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+              color: provider === 'azure' ? 'var(--acc)' : 'var(--ink-58)',
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
@@ -1164,10 +1110,10 @@ export default function SprintsPage() {
             onClick={() => setProvider('jira')}
             style={{
               padding: '6px 12px',
-              borderRadius: 999,
-              border: provider === 'jira' ? '1px solid rgba(129,140,248,0.45)' : '1px solid var(--panel-border-3)',
-              background: provider === 'jira' ? 'rgba(129,140,248,0.12)' : 'var(--panel-alt)',
-              color: provider === 'jira' ? '#a5b4fc' : 'var(--ink-58)',
+              borderRadius: 8,
+              border: provider === 'jira' ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+              background: provider === 'jira' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+              color: provider === 'jira' ? 'var(--acc)' : 'var(--ink-58)',
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
@@ -1181,10 +1127,10 @@ export default function SprintsPage() {
           style={{
             marginLeft: 'auto',
             padding: '6px 12px',
-            borderRadius: 999,
-            border: '1px solid rgba(94,234,212,0.45)',
-            background: 'rgba(94,234,212,0.12)',
-            color: '#5eead4',
+            borderRadius: 8,
+            border: '1px solid var(--acc)',
+            background: 'var(--acc-soft)',
+            color: 'var(--acc)',
             fontSize: 12,
             fontWeight: 700,
             textDecoration: 'none',
@@ -1202,8 +1148,8 @@ export default function SprintsPage() {
           breadcrumb feel between project › team › sprint. */}
       <div style={{
         position: 'sticky', top: 72, zIndex: 40,
-        borderRadius: 12, border: '1px solid var(--panel-border-2)',
-        background: 'var(--surface)', backdropFilter: 'blur(24px)',
+        borderRadius: 10, border: '1px solid var(--panel-border-2)',
+        background: 'var(--surface)',
         padding: '8px 12px',
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
         fontSize: 12,
@@ -1245,14 +1191,14 @@ export default function SprintsPage() {
           minWidth={220}
         />
         {sprints.find((s) => (s.path ?? s.name) === sprint)?.is_current && (
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '2px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#3f9d6a', padding: '2px 8px', borderRadius: 6, background: 'rgba(63,157,106,0.12)', border: '1px solid rgba(63,157,106,0.35)' }}>
             {t('sprints.activeSelected') || 'AKTİF'}
           </span>
         )}
       </div>
 
       {(msg || err) ? (
-        <div style={{ padding: '10px 16px', borderRadius: 10, fontSize: 13, background: err ? 'rgba(248,113,113,0.1)' : 'rgba(34,197,94,0.1)', border: '1px solid ' + (err ? 'rgba(248,113,113,0.3)' : 'rgba(34,197,94,0.3)'), color: err ? '#f87171' : '#22c55e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '10px 16px', borderRadius: 8, fontSize: 13, background: err ? 'rgba(207,91,87,0.1)' : 'rgba(63,157,106,0.1)', border: '1px solid ' + (err ? 'rgba(207,91,87,0.3)' : 'rgba(63,157,106,0.3)'), color: err ? '#cf5b57' : '#3f9d6a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>{err || msg}</span>
           <button onClick={() => { setErr(''); setMsg(''); }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 16 }}>×</button>
         </div>
@@ -1268,15 +1214,16 @@ export default function SprintsPage() {
               type='button'
               onClick={() => setFilterPanelOpen((v) => !v)}
               style={{
-                padding: '5px 11px', fontSize: 11, fontWeight: 700, borderRadius: 999,
+                padding: '5px 11px', fontSize: 11, fontWeight: 700, borderRadius: 8,
                 border: '1px solid var(--panel-border-2)',
                 background: filterPanelOpen ? 'var(--panel-alt)' : 'transparent',
                 color: 'var(--ink-50)', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
               }}
             >
-              ⚙ {t('sprints.filters' as TranslationKey) || 'Filtreler'}
+              <NavIcon name="sliders" size={14} /> {t('sprints.filters' as TranslationKey) || 'Filtreler'}
               {(hiddenStates.size + hiddenTypes.size) > 0 && (
-                <span style={{ marginLeft: 6, color: '#f59e0b', fontWeight: 800 }}>
+                <span style={{ marginLeft: 6, color: '#c98a2b', fontWeight: 800 }}>
                   ({hiddenStates.size + hiddenTypes.size})
                 </span>
               )}
@@ -1287,9 +1234,9 @@ export default function SprintsPage() {
                 type='button'
                 onClick={() => { setHiddenStates(new Set()); setHiddenTypes(new Set()); }}
                 style={{
-                  padding: '5px 11px', fontSize: 11, fontWeight: 600, borderRadius: 999,
-                  border: '1px solid rgba(248,113,113,0.3)', background: 'transparent',
-                  color: '#f87171', cursor: 'pointer',
+                  padding: '5px 11px', fontSize: 11, fontWeight: 600, borderRadius: 8,
+                  border: '1px solid rgba(207,91,87,0.3)', background: 'transparent',
+                  color: '#cf5b57', cursor: 'pointer',
                 }}
               >
                 ✕ {t('sprints.filters.clear' as TranslationKey) || 'Filtreleri temizle'}
@@ -1315,10 +1262,10 @@ export default function SprintsPage() {
                             return next;
                           })}
                           style={{
-                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 999,
-                            border: '1px solid ' + (on ? 'rgba(94,234,212,0.45)' : 'rgba(148,163,184,0.35)'),
-                            background: on ? 'rgba(94,234,212,0.12)' : 'transparent',
-                            color: on ? '#5eead4' : 'var(--ink-35)',
+                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                            border: '1px solid ' + (on ? 'var(--acc)' : 'var(--muted)'),
+                            background: on ? 'var(--acc-soft)' : 'transparent',
+                            color: on ? 'var(--acc)' : 'var(--ink-35)',
                             cursor: 'pointer',
                             textDecoration: on ? 'none' : 'line-through',
                           }}
@@ -1347,10 +1294,10 @@ export default function SprintsPage() {
                             return next;
                           })}
                           style={{
-                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 999,
-                            border: '1px solid ' + (on ? 'rgba(168,85,247,0.45)' : 'rgba(148,163,184,0.35)'),
-                            background: on ? 'rgba(168,85,247,0.10)' : 'transparent',
-                            color: on ? '#c084fc' : 'var(--ink-35)',
+                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 8,
+                            border: '1px solid ' + (on ? 'var(--acc)' : 'var(--muted)'),
+                            background: on ? 'var(--acc-soft)' : 'transparent',
+                            color: on ? 'var(--acc)' : 'var(--ink-35)',
                             cursor: 'pointer',
                             textDecoration: on ? 'none' : 'line-through',
                           }}
@@ -1395,17 +1342,17 @@ export default function SprintsPage() {
                 })
                 .map(({ item }) => item);
               return (
-                <div key={state} style={{ borderRadius: 14, border: '1px solid ' + s.border, background: s.bg, overflow: 'hidden', minWidth: 200, width: 220, flexShrink: 0 }}>
+                <div key={state} style={{ borderRadius: 10, border: '1px solid ' + s.border, background: s.bg, overflow: 'hidden', minWidth: 200, width: 220, flexShrink: 0 }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid ' + s.border, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, boxShadow: '0 0 6px ' + s.color, flexShrink: 0 }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
                       <span style={{ fontWeight: 700, fontSize: 10, color: s.color, textTransform: 'uppercase', letterSpacing: 0.8 }}>{state}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: s.color + '22', color: s.color }}>{lbd ? '…' : col.length}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: s.color + '22', color: s.color }}>{lbd ? '…' : col.length}</span>
                     </div>
                     {!lbd && col.length > 0 ? (
                       <button onClick={() => doImport(state)} disabled={imp === state}
                         className='sprint-col-import'
-                        style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: s.color + '18', border: '1px solid ' + s.color + '40', color: s.color, cursor: imp === state ? 'not-allowed' : 'pointer' }}>
+                        style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: s.color + '18', border: '1px solid ' + s.color + '40', color: s.color, cursor: imp === state ? 'not-allowed' : 'pointer' }}>
                         {imp === state ? '…' : t('sprints.import')}
                       </button>
                     ) : null}
@@ -1428,7 +1375,7 @@ export default function SprintsPage() {
           </div>
         ) : (
           <div style={{ flex: 1, textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 14, opacity: 0.1 }}>◎</div>
+            <div style={{ marginBottom: 14, opacity: 0.2, display: 'flex', justifyContent: 'center' }}><NavIcon name="sprints" size={48} /></div>
             <div style={{ color: 'var(--ink-25)', fontSize: 14 }}>{t('sprints.selectPrompt')}</div>
           </div>
         )}
@@ -1459,7 +1406,7 @@ export default function SprintsPage() {
           onClick={() => setImportPickerItem(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 10000,
-            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.65)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
           }}
@@ -1469,8 +1416,8 @@ export default function SprintsPage() {
             style={{
               width: 460, maxWidth: '100%', maxHeight: '90vh',
               background: 'var(--surface)', color: 'var(--ink-90)',
-              border: '1px solid var(--panel-border-3)', borderRadius: 14,
-              padding: 18, boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+              border: '1px solid var(--panel-border-3)', borderRadius: 10,
+              padding: 18, boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
               display: 'flex', flexDirection: 'column', minHeight: 0,
             }}
           >
@@ -1491,8 +1438,8 @@ export default function SprintsPage() {
                     key={m.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-                      borderRadius: 8, border: '1px solid ' + (selected ? 'rgba(13,148,136,0.55)' : 'var(--panel-border-2)'),
-                      background: selected ? 'rgba(13,148,136,0.1)' : 'var(--panel-alt)',
+                      borderRadius: 8, border: '1px solid ' + (selected ? 'var(--acc)' : 'var(--panel-border-2)'),
+                      background: selected ? 'var(--acc-soft)' : 'var(--panel-alt)',
                       cursor: 'pointer', fontSize: 12, color: 'var(--ink-78)',
                     }}
                   >
@@ -1501,7 +1448,7 @@ export default function SprintsPage() {
                       name='import-repo'
                       checked={selected}
                       onChange={() => setImportPickerRepoId(String(m.id))}
-                      style={{ accentColor: '#0d9488', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
+                      style={{ accentColor: '#5b9bd5', width: 16, height: 16, flexShrink: 0, padding: 0, margin: 0 }}
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
                       <span style={{ fontWeight: 700, color: 'var(--ink-90)' }}>{m.name}</span>
@@ -1515,8 +1462,8 @@ export default function SprintsPage() {
             </div>
             <label style={{
               display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
-              borderRadius: 10, border: '1px solid rgba(168,85,247,0.35)',
-              background: 'rgba(168,85,247,0.06)',
+              borderRadius: 8, border: '1px solid var(--panel-border-2)',
+              background: 'var(--acc-soft)',
               fontSize: 12, color: 'var(--ink-78)',
               cursor: 'pointer', marginBottom: 12,
             }}>
@@ -1524,10 +1471,10 @@ export default function SprintsPage() {
                 type='checkbox'
                 checked={importAiFill}
                 onChange={(e) => setImportAiFill(e.target.checked)}
-                style={{ accentColor: '#a855f7', marginTop: 2 }}
+                style={{ accentColor: '#5b9bd5', marginTop: 2 }}
               />
               <span>
-                <strong style={{ color: '#c084fc' }}>🪄 {t('tasks.aiFill.checkboxTitle' as TranslationKey) || 'AI ile Doldur'}</strong>
+                <strong style={{ color: 'var(--acc)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><NavIcon name="zap" size={14} /> {t('tasks.aiFill.checkboxTitle' as TranslationKey) || 'AI ile Doldur'}</strong>
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-50)', marginTop: 2 }}>
                   {t('tasks.aiFill.checkboxDesc' as TranslationKey) || 'Story Context, Acceptance Criteria ve Edge Cases alanları, kullanıcının tercih ettiği AI ile (CLI varsa CLI, yoksa hosted) otomatik doldurulur.'}
                 </span>
@@ -1566,12 +1513,12 @@ export default function SprintsPage() {
       {aiResult && (
         <div style={{
           position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 9999,
-          minWidth: 280, maxWidth: 480, padding: '12px 20px', borderRadius: 12,
+          minWidth: 280, maxWidth: 480, padding: '12px 20px', borderRadius: 10,
           background: aiResult.includes('❌') || aiResult.toLowerCase().includes('fail') || aiResult.toLowerCase().includes('hata')
-            ? 'rgba(127,29,29,0.92)' : 'rgba(5,46,22,0.92)',
+            ? '#cf5b57' : '#3f9d6a',
           border: '1px solid ' + (aiResult.includes('❌') || aiResult.toLowerCase().includes('fail') || aiResult.toLowerCase().includes('hata')
-            ? 'rgba(248,113,113,0.4)' : 'rgba(34,197,94,0.4)'),
-          boxShadow: '0 10px 30px rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+            ? 'rgba(207,91,87,0.4)' : 'rgba(63,157,106,0.4)'),
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
           fontSize: 13, color: '#fff', fontWeight: 600, textAlign: 'center',
           display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
         }}>
@@ -1584,14 +1531,14 @@ export default function SprintsPage() {
       {flowError && (
         <div style={{
           position: 'fixed', right: 20, bottom: 20, zIndex: 9999,
-          minWidth: 260, maxWidth: 420, padding: '12px 16px', borderRadius: 12,
-          background: 'rgba(127,29,29,0.92)', border: '1px solid rgba(248,113,113,0.4)',
-          boxShadow: '0 10px 30px rgba(127,29,29,0.4)', backdropFilter: 'blur(4px)',
-          fontSize: 13, color: '#fecaca', fontWeight: 600, lineHeight: 1.5,
+          minWidth: 260, maxWidth: 420, padding: '12px 16px', borderRadius: 10,
+          background: '#cf5b57', border: '1px solid rgba(207,91,87,0.4)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          fontSize: 13, color: '#fff', fontWeight: 600, lineHeight: 1.5,
         }}>
           {t('sprints.noLlmKey')}
           <div style={{ marginTop: 8 }}>
-            <a href="/dashboard/integrations" style={{ color: '#fbbf24', fontSize: 12, textDecoration: 'underline' }}>
+            <a href="/dashboard/integrations" style={{ color: '#fff', fontSize: 12, textDecoration: 'underline' }}>
               {t('sprints.goIntegrationsLink')}
             </a>
           </div>
@@ -1605,7 +1552,7 @@ export default function SprintsPage() {
 
 function SkeletonCard({ opacity = 1 }: { opacity?: number }) {
   return (
-    <div style={{ borderRadius: 9, border: '1px solid var(--panel-alt)', background: 'var(--panel-alt)', padding: '10px 11px', opacity }}>
+    <div style={{ borderRadius: 8, border: '1px solid var(--panel-alt)', background: 'var(--panel-alt)', padding: '10px 11px', opacity }}>
       <div style={{ height: 11, borderRadius: 4, background: 'var(--panel-border)', width: '80%', marginBottom: 7 }} />
       <div style={{ height: 9, borderRadius: 4, background: 'var(--glass)', width: '50%' }} />
     </div>
@@ -1620,10 +1567,10 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
   const isImported = typeof agenaTaskId === 'number';
   const statusColor = (() => {
     switch ((agenaStatus || '').toLowerCase()) {
-      case 'running': return '#38bdf8';
-      case 'queued': return '#f59e0b';
-      case 'completed': return '#22c55e';
-      case 'failed': return '#f87171';
+      case 'running': return '#5b9bd5';
+      case 'queued': return '#c98a2b';
+      case 'completed': return '#3f9d6a';
+      case 'failed': return '#cf5b57';
       case 'cancelled': return '#94a3b8';
       default: return '#94a3b8'; // new / unknown
     }
@@ -1641,7 +1588,7 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
     <div
       onClick={onClick}
       style={{
-        borderRadius: 9,
+        borderRadius: 8,
         // Imported cards get a colored left rail + tinted background
         // so a glance over the sprint board immediately separates "I've
         // already pulled this into Agena" from fresh untouched items.
@@ -1659,7 +1606,7 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
         paddingLeft: isImported ? 9 : 11,
         transition: 'all 0.15s',
         transform: hovered ? 'translateY(-1px)' : 'none',
-        boxShadow: active ? '0 3px 16px ' + stateColor + '18' : 'none',
+        boxShadow: active ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
         cursor: 'pointer',
         position: 'relative',
       }}
@@ -1673,13 +1620,14 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
         <span style={{
           position: 'absolute', top: 6, right: 6,
           fontSize: 8, fontWeight: 800, letterSpacing: 0.6,
-          padding: '1px 6px', borderRadius: 999,
+          padding: '1px 6px', borderRadius: 6,
           background: statusColor + '22', color: statusColor,
           border: '1px solid ' + statusColor + '55',
           textTransform: 'uppercase',
           pointerEvents: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
         }}>
-          ✓ {agenaStatus || 'agena'}
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor, flexShrink: 0 }} /> {agenaStatus || 'agena'}
         </span>
       )}
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4, marginBottom: 6, paddingRight: isImported ? 60 : 0 }}>{item.title}</div>
@@ -1692,7 +1640,7 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
       {/* Atanan kişi */}
       {item.assigned_to && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-          <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+          <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--acc)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
             {item.assigned_to[0]?.toUpperCase()}
           </div>
           <span style={{ fontSize: 10, color: 'var(--ink-45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1705,8 +1653,8 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
         <span style={{ fontSize: 9, color: 'var(--ink-45)', fontFamily: 'monospace' }}>#{item.id}</span>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {timeLabel && (
-            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)', color: 'var(--ink-35)' }}>
-              ⏱ {timeLabel}
+            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-3)', color: 'var(--ink-35)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <NavIcon name="clock" size={10} /> {timeLabel}
             </span>
           )}
           {onImport && !isImported && (
@@ -1729,7 +1677,7 @@ function BoardCard({ item, stateColor, selected, onClick, onImport, agenaTaskId,
               }}
               title={t('sprints.openInAgena' as TranslationKey, { status: agenaStatus || '—' })}
             >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, boxShadow: '0 0 4px ' + statusColor + '80' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor }} />
               #{agenaTaskId}
             </a>
           )}
@@ -1760,11 +1708,10 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
     de: 'de-DE',
     ja: 'ja-JP',
   };
-  const stateInfo = STATE_COLORS[item.state ?? ''] ?? { color: '#5eead4', bg: 'rgba(94,234,212,0.07)', border: 'rgba(94,234,212,0.2)' };
+  const stateInfo = STATE_COLORS[item.state ?? ''] ?? { color: '#5b9bd5', bg: 'rgba(91,155,213,0.07)', border: 'rgba(91,155,213,0.2)' };
   const openDuration  = elapsed(item.created_date);
   const toActiveDuration = item.activated_date ? elapsed(item.created_date, item.activated_date) : null;
   const plainDescription = toPlainText(item.description);
-  const sanitizedDescriptionHtml = useMemo(() => sanitizeWorkItemDescriptionHtml(item.description), [item.description]);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Array<{ id: number; text: string; created_by: string; created_at: string }> | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -1798,28 +1745,28 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   return createPortal(
     <div
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)' }}
     >
     <div
       onClick={(e) => e.stopPropagation()}
       style={{
       width: 420, maxWidth: 'calc(100vw - 24px)',
-      borderRadius: 18,
+      borderRadius: 10,
       border: '1px solid var(--panel-border-3)',
       background: 'var(--surface)',
       overflow: 'hidden',
-      boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+      boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
       display: 'flex', flexDirection: 'column',
       height: 'calc(100vh - 32px)',
       position: 'fixed', top: 16, right: 16, zIndex: 10000,
     }}>
-      <div style={{ height: 2, background: 'linear-gradient(90deg, ' + stateInfo.color + ', #7c3aed)' }} />
+      <div style={{ height: 2, background: 'var(--panel-border)' }} />
 
       {/* Header */}
       <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: stateInfo.color, boxShadow: '0 0 6px ' + stateInfo.color, flexShrink: 0 }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: stateInfo.color, flexShrink: 0 }} />
             <span style={{ fontSize: 10, fontWeight: 700, color: stateInfo.color, textTransform: 'uppercase', letterSpacing: 0.8 }}>{item.state}</span>
             <span style={{ fontSize: 10, color: 'var(--ink-25)', fontFamily: 'monospace', marginLeft: 'auto' }}>#{item.id}</span>
           </div>
@@ -1834,10 +1781,10 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
             style={{
               width: 26,
               height: 26,
-              borderRadius: '50%',
-              border: '1px solid rgba(94,234,212,0.35)',
-              background: 'rgba(13,148,136,0.12)',
-              color: '#5eead4',
+              borderRadius: 6,
+              border: '1px solid var(--panel-border-3)',
+              background: 'var(--acc-soft)',
+              color: 'var(--acc)',
               textDecoration: 'none',
               cursor: 'pointer',
               fontSize: 12,
@@ -1855,24 +1802,24 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <DetailRow icon="👤" label={t('sprints.assignee')}>{item.assigned_to || '—'}</DetailRow>
+        <DetailRow icon={<NavIcon name="user-check" size={14} />} label={t('sprints.assignee')}>{item.assigned_to || '—'}</DetailRow>
 
         {item.created_date && (
-          <DetailRow icon="📅" label={t('sprints.opened')}>
+          <DetailRow icon={<NavIcon name="clock" size={14} />} label={t('sprints.opened')}>
             {new Date(item.created_date).toLocaleDateString(dateLocaleByLang[lang], { day: 'numeric', month: 'short', year: 'numeric' })}
-            {openDuration && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink-30)', background: 'var(--panel-alt)', padding: '1px 6px', borderRadius: 999 }}>{openDuration} {t('sprints.ago')}</span>}
+            {openDuration && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink-30)', background: 'var(--panel-alt)', padding: '1px 6px', borderRadius: 6 }}>{openDuration} {t('sprints.ago')}</span>}
           </DetailRow>
         )}
-        {toActiveDuration && <DetailRow icon="⚡" label={t('sprints.openToInProgress')}><span style={{ color: '#38bdf8', fontWeight: 700 }}>{toActiveDuration}</span></DetailRow>}
-        {!toActiveDuration && item.created_date && <DetailRow icon="⏳" label={t('sprints.openDuration')}><span style={{ color: '#f59e0b', fontWeight: 700 }}>{openDuration}</span></DetailRow>}
+        {toActiveDuration && <DetailRow icon={<NavIcon name="zap" size={14} />} label={t('sprints.openToInProgress')}><span style={{ color: '#5b9bd5', fontWeight: 700 }}>{toActiveDuration}</span></DetailRow>}
+        {!toActiveDuration && item.created_date && <DetailRow icon={<NavIcon name="clock" size={14} />} label={t('sprints.openDuration')}><span style={{ color: '#c98a2b', fontWeight: 700 }}>{openDuration}</span></DetailRow>}
 
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-25)', marginBottom: 6 }}>{t('sprints.description')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-50)', lineHeight: 1.6, background: 'var(--panel-alt)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--panel-border)' }}>
-            {sanitizedDescriptionHtml ? (
-              <div
+            {(item.description || '').trim() ? (
+              <RichDescription
+                html={item.description}
                 style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}
-                dangerouslySetInnerHTML={{ __html: sanitizedDescriptionHtml }}
               />
             ) : (
               plainDescription || t('sprints.noDescriptionFound')
@@ -1906,7 +1853,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
               fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase',
             }}
           >
-            <span>💬 {t('sprints.comments') || 'Yorumlar'}{comments ? ` (${comments.length})` : ''}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NavIcon name="mail" size={13} /> {t('sprints.comments') || 'Yorumlar'}{comments ? ` (${comments.length})` : ''}</span>
             <span style={{ fontSize: 10, color: 'var(--ink-35)' }}>{commentsOpen ? '▴' : '▾'}</span>
           </button>
           {commentsOpen && (
@@ -1922,9 +1869,9 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
                       <span style={{ fontWeight: 600, color: 'var(--ink-50)' }}>{c.created_by || '—'}</span>
                       <span>{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
                     </div>
-                    <div
+                    <RichDescription
+                      html={c.text}
                       style={{ fontSize: 12, color: 'var(--ink-78)', lineHeight: 1.5, overflowWrap: 'anywhere' }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeWorkItemDescriptionHtml(c.text) }}
                     />
                   </div>
                 ))
@@ -1943,12 +1890,12 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
             <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
               {repoMappings.length > 0 && (
                 <button onClick={() => setRepoSource('mapping')}
-                  style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoSource === 'mapping' ? '1px solid rgba(56,189,248,0.5)' : '1px solid var(--panel-border-2)', background: repoSource === 'mapping' ? 'rgba(56,189,248,0.12)' : 'transparent', color: repoSource === 'mapping' ? '#7dd3fc' : 'var(--ink-45)' }}>
+                  style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoSource === 'mapping' ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)', background: repoSource === 'mapping' ? 'var(--acc-soft)' : 'transparent', color: repoSource === 'mapping' ? 'var(--acc)' : 'var(--ink-45)' }}>
                   {t('common.mapping')}
                 </button>
               )}
               <button onClick={() => setRepoSource('remote')}
-                style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoSource === 'remote' ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-2)', background: repoSource === 'remote' ? 'rgba(94,234,212,0.12)' : 'transparent', color: repoSource === 'remote' ? '#5eead4' : 'var(--ink-45)' }}>
+                style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: repoSource === 'remote' ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)', background: repoSource === 'remote' ? 'var(--acc-soft)' : 'transparent', color: repoSource === 'remote' ? 'var(--acc)' : 'var(--ink-45)' }}>
                 {t('common.remoteRepo')}
               </button>
             </div>
@@ -1970,7 +1917,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
             {repoSource === 'remote' && (
               <RemoteRepoSelector compact onChange={setRemoteRepoSel} />
             )}
-            <Link href='/dashboard/mappings' style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#38bdf8', textDecoration: 'none' }}>
+            <Link href='/dashboard/mappings' style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: 'var(--acc)', textDecoration: 'none' }}>
               + {t('sprints.manageMapping')} →
             </Link>
           </div>
@@ -1979,18 +1926,18 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
           <div>
             <label style={dpLabelStyle}>{t('sprints.agent')}</label>
             {enabledAgents.length === 0 ? (
-              <a href="/dashboard/agents" style={{ fontSize: 12, color: '#f59e0b', textDecoration: 'none' }}>⚠ {t('sprints.selectAgentModel')} →</a>
+              <a href="/dashboard/agents" style={{ fontSize: 12, color: '#c98a2b', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}><NavIcon name="alert" size={13} /> {t('sprints.selectAgentModel')} →</a>
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {enabledAgents.map((a) => (
                   <button key={a.role} onClick={() => setSelAgent(selAgent === a.role ? '' : a.role)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, border: '1px solid ' + (selAgent === a.role ? 'rgba(13,148,136,0.4)' : 'var(--panel-border)'), background: selAgent === a.role ? 'rgba(13,148,136,0.1)' : 'var(--panel)', cursor: 'pointer', textAlign: 'left' }}>
-                    <span style={{ fontSize: 14 }}>{a.icon ?? '🤖'}</span>
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (selAgent === a.role ? 'var(--acc)' : 'var(--panel-border)'), background: selAgent === a.role ? 'var(--acc-soft)' : 'var(--panel)', cursor: 'pointer', textAlign: 'left' }}>
+                    <span style={{ fontSize: 14 }}>{a.icon ?? <NavIcon name="agents" size={14} />}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-78)' }}>{a.label}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink-30)' }}>{a.provider} · {a.model || a.custom_model}</div>
                     </div>
-                    {selAgent === a.role && <span style={{ fontSize: 12, color: '#5eead4' }}>✓</span>}
+                    {selAgent === a.role && <span style={{ fontSize: 12, color: 'var(--acc)' }}>✓</span>}
                   </button>
                 ))}
               </div>
@@ -2007,7 +1954,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
               style={{
                 width: '100%',
                 padding: '9px 10px',
-                borderRadius: 9,
+                borderRadius: 8,
                 border: '1px solid var(--panel-border-3)',
                 background: 'var(--panel-alt)',
                 color: 'var(--ink-78)',
@@ -2021,8 +1968,8 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
         </div>
 
         {aiResult && (
-          <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.25)', fontSize: 12, color: '#5eead4', lineHeight: 1.5 }}>
-            🤖 {aiResult}
+          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--acc-soft)', border: '1px solid var(--panel-border-2)', fontSize: 12, color: 'var(--acc)', lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+            <NavIcon name="agents" size={14} /> {aiResult}
           </div>
         )}
 
@@ -2035,12 +1982,12 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
               {savedFlows.map((f) => <option key={f.id} value={f.id} style={{ background: 'var(--surface)' }}>{f.name}</option>)}
             </select>
             {flowResult && (
-              <div style={{ padding: '8px 10px', borderRadius: 9, background: flowResult.status === 'completed' ? 'rgba(34,197,94,0.08)' : 'rgba(248,113,113,0.08)', border: '1px solid ' + (flowResult.status === 'completed' ? 'rgba(34,197,94,0.25)' : 'rgba(248,113,113,0.25)'), fontSize: 11, color: flowResult.status === 'completed' ? '#22c55e' : '#f87171' }}>
+              <div style={{ padding: '8px 10px', borderRadius: 8, background: flowResult.status === 'completed' ? 'rgba(63,157,106,0.08)' : 'rgba(207,91,87,0.08)', border: '1px solid ' + (flowResult.status === 'completed' ? 'rgba(63,157,106,0.25)' : 'rgba(207,91,87,0.25)'), fontSize: 11, color: flowResult.status === 'completed' ? '#3f9d6a' : '#cf5b57' }}>
                 {flowResult.status === 'completed' ? '✓' : '✗'} {flowResult.status} · {flowResult.steps.length} {t('sprints.steps')}
                 {flowResult.status !== 'completed' && (() => {
                   const failedStep = flowResult.steps.find((s) => s.status === 'failed' && s.error_msg);
                   return failedStep?.error_msg ? (
-                    <div style={{ marginTop: 5, color: '#fca5a5', fontSize: 10, wordBreak: 'break-word' }}>
+                    <div style={{ marginTop: 5, color: '#cf5b57', fontSize: 10, wordBreak: 'break-word' }}>
                       {failedStep.node_label || failedStep.node_type}: {failedStep.error_msg}
                     </div>
                   ) : null;
@@ -2055,7 +2002,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--panel-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {savedFlows.length > 0 && (
           <button onClick={() => selFlow && onRunFlow(selFlow, { project: selectedLocalMapping?.azure_project || project || undefined, azureRepo: selectedLocalMapping?.azure_repo_url || undefined, localRepoMapping: selectedLocalMapping?.name || undefined, localRepoPath: selectedLocalMapping?.local_path || undefined, repoPlaybook: selectedLocalMapping?.repo_playbook || undefined, executionPrompt: executionPrompt.trim() || undefined })} disabled={flowRunning || !selFlow}
-            style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none', background: flowRunning ? 'rgba(167,139,250,0.3)' : selFlow ? 'linear-gradient(135deg, #7c3aed, #a78bfa)' : 'var(--panel-border)', color: selFlow ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: flowRunning || !selFlow ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: flowRunning ? 'var(--acc-soft)' : selFlow ? 'var(--acc)' : 'var(--panel-border)', color: selFlow ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: flowRunning || !selFlow ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {flowRunning ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.flowRunning')}</> : <><span style={{ fontSize: 14 }}>▶</span> {selFlow ? t('sprints.runFlow') : t('sprints.selectFlow')}</>}
           </button>
         )}
@@ -2063,15 +2010,15 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
           const remoteM = repoSource === 'remote' && remoteRepoSel ? remoteRepoSel.meta : undefined;
           onAssignAI({ project: selectedLocalMapping?.azure_project || remoteRepoSel?.project, azureRepo: selectedLocalMapping?.azure_repo_url || remoteRepoSel?.repoUrl, localRepoMapping: repoSource === 'mapping' ? selectedLocalMapping?.name : undefined, localRepoPath: repoSource === 'mapping' ? selectedLocalMapping?.local_path : undefined, repoPlaybook: selectedLocalMapping?.repo_playbook, mode: 'mcp_agent', executionPrompt: executionPrompt.trim() || undefined, createPr: true, ...(remoteM ? { remoteRepo: remoteM } : {}) });
         }} disabled={aiLoading || (repoSource === 'mapping' ? !selectedLocalMapping : !remoteRepoSel)}
-          style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(8,145,178,0.3)' : (repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? 'linear-gradient(135deg, #0891b2, #06b6d4)' : 'var(--panel-border)', color: (repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: aiLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><span style={{ fontSize: 14 }}>⚡</span> {(repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? t('tasks.assignMcp' as TranslationKey) : t('sprints.selectMappingShort')}</>}
+          style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: aiLoading ? 'var(--acc-soft)' : (repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? 'var(--acc)' : 'var(--panel-border)', color: (repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: aiLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><NavIcon name="zap" size={14} /> {(repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? t('tasks.assignMcp' as TranslationKey) : t('sprints.selectMappingShort')}</>}
         </button>
         <button onClick={() => {
           const remoteM = repoSource === 'remote' && remoteRepoSel ? remoteRepoSel.meta : undefined;
           onAssignAI({ project: selectedLocalMapping?.azure_project || remoteRepoSel?.project, azureRepo: selectedLocalMapping?.azure_repo_url || remoteRepoSel?.repoUrl, localRepoMapping: repoSource === 'mapping' ? selectedLocalMapping?.name : undefined, localRepoPath: repoSource === 'mapping' ? selectedLocalMapping?.local_path : undefined, repoPlaybook: selectedLocalMapping?.repo_playbook, agentRole: selAgent || undefined, agentProvider: selectedAgent?.provider, agentModel: selectedAgent?.custom_model || selectedAgent?.model, executionPrompt: executionPrompt.trim() || undefined, createPr: selectedAgent?.create_pr ?? true, ...(remoteM ? { remoteRepo: remoteM } : {}) });
         }} disabled={aiLoading || !selAgent || (repoSource === 'mapping' ? !selectedLocalMapping : !remoteRepoSel)}
-          style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: aiLoading ? 'rgba(13,148,136,0.3)' : selAgent ? 'linear-gradient(135deg, #0d9488, #7c3aed)' : 'var(--panel-border)', color: selAgent ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><span style={{ fontSize: 14 }}>🤖</span> {selAgent ? ((repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? t('sprints.assignAi') : t('sprints.selectMappingShort')) : t('sprints.selectAgent')}</>}
+          style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: aiLoading ? 'var(--acc-soft)' : selAgent ? 'var(--acc)' : 'var(--panel-border)', color: selAgent ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: aiLoading || !selAgent ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          {aiLoading ? <><span style={{ fontSize: 14 }}>⟳</span> {t('sprints.aiRunning')}</> : <><NavIcon name="agents" size={14} /> {selAgent ? ((repoSource === 'mapping' ? selectedLocalMapping : remoteRepoSel) ? t('sprints.assignAi') : t('sprints.selectMappingShort')) : t('sprints.selectAgent')}</>}
         </button>
         <div style={{ fontSize: 10, color: 'var(--ink-25)', textAlign: 'center' }}>{t('sprints.aiHint')}</div>
       </div>
@@ -2086,15 +2033,15 @@ const dpLabelStyle: React.CSSProperties = {
   color: 'var(--ink-30)', display: 'block', marginBottom: 5,
 };
 const dpSelectStyle: React.CSSProperties = {
-  width: '100%', padding: '8px 10px', borderRadius: 9,
+  width: '100%', padding: '8px 10px', borderRadius: 8,
   border: '1px solid var(--panel-border-3)', background: 'var(--glass)',
   color: 'var(--ink-78)', fontSize: 12, outline: 'none', appearance: 'none', cursor: 'pointer',
 };
 
-function DetailRow({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) {
+function DetailRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-      <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+      <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1, display: 'inline-flex' }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--ink-25)', marginBottom: 3 }}>{label}</div>
         <div style={{ fontSize: 12, color: 'var(--ink-72)', lineHeight: 1.4 }}>{children}</div>
@@ -2111,12 +2058,12 @@ function Sel({ step, t, label, value, onChange, options, loading, placeholder, a
   return (
     <div style={{ opacity: active ? 1 : 0.4, transition: 'opacity 0.2s' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-        <span style={{ width: 18, height: 18, borderRadius: '50%', fontSize: 9, fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: value ? 'linear-gradient(135deg, #0d9488, #22c55e)' : 'var(--panel-border-2)', color: value ? '#fff' : 'var(--ink-35)' }}>{step}</span>
-        <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.1, textTransform: 'uppercase', color: value ? '#5eead4' : 'var(--ink-35)' }}>{label}</label>
+        <span style={{ width: 18, height: 18, borderRadius: '50%', fontSize: 9, fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: value ? 'var(--acc)' : 'var(--panel-border-2)', color: value ? '#fff' : 'var(--ink-35)' }}>{step}</span>
+        <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.1, textTransform: 'uppercase', color: value ? 'var(--acc)' : 'var(--ink-35)' }}>{label}</label>
         {loading ? <span style={{ fontSize: 10, color: 'var(--ink-30)' }}>{t('sprints.loadingShort')}</span> : null}
       </div>
       <select value={value} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)} disabled={!active || loading}
-        style={{ width: '100%', border: '1px solid ' + (value ? 'rgba(13,148,136,0.4)' : 'var(--panel-border-3)'), borderRadius: 10, padding: '9px 12px', font: 'inherit', fontSize: 12, background: value ? 'rgba(13,148,136,0.08)' : 'var(--glass)', color: value ? 'var(--ink-90)' : 'var(--ink-35)', cursor: active && !loading ? 'pointer' : 'not-allowed', appearance: 'none', outline: 'none' }}>
+        style={{ width: '100%', border: '1px solid ' + (value ? 'var(--acc)' : 'var(--panel-border-3)'), borderRadius: 8, padding: '9px 12px', font: 'inherit', fontSize: 12, background: value ? 'var(--acc-soft)' : 'var(--glass)', color: value ? 'var(--ink-90)' : 'var(--ink-35)', cursor: active && !loading ? 'pointer' : 'not-allowed', appearance: 'none', outline: 'none' }}>
         <option value="" style={{ background: 'var(--surface)' }}>{placeholder}</option>
       {options.map((o) => (
           <option key={o.id} value={o.id} style={{ background: 'var(--surface)' }}>
@@ -2125,7 +2072,7 @@ function Sel({ step, t, label, value, onChange, options, loading, placeholder, a
         ))}
       </select>
       {options.find((o) => o.id === value)?.is_current ? (
-        <div style={{ marginTop: 6, fontSize: 10, color: '#5eead4', fontWeight: 700 }}>{t('sprints.currentSelected')}</div>
+        <div style={{ marginTop: 6, fontSize: 10, color: 'var(--acc)', fontWeight: 700 }}>{t('sprints.currentSelected')}</div>
       ) : null}
     </div>
   );
@@ -2162,8 +2109,8 @@ function CompactSelect({ label, value, onChange, options, loading, placeholder, 
           fontSize: 12,
           padding: '5px 8px',
           borderRadius: 8,
-          border: '1px solid ' + (value ? 'rgba(13,148,136,0.45)' : 'var(--panel-border-3)'),
-          background: value ? 'rgba(13,148,136,0.08)' : 'var(--glass)',
+          border: '1px solid ' + (value ? 'var(--acc)' : 'var(--panel-border-3)'),
+          background: value ? 'var(--acc-soft)' : 'var(--glass)',
           color: value ? 'var(--ink-90)' : 'var(--ink-50)',
           font: 'inherit',
           outline: 'none',

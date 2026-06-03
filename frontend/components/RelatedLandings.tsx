@@ -30,6 +30,7 @@ const META: Record<string, LandingMeta> = {
   '/ai-sprint-refinement': { slug: '/ai-sprint-refinement', icon: '✨', title: 'AI Sprint Refinement', blurb: 'Auto-estimate story points and write acceptance criteria' },
   '/vs/seer': { slug: '/vs/seer', icon: '⚖️', title: 'AGENA vs Sentry Seer', blurb: 'Inline suggestions vs end-to-end auto-fix loop' },
   '/vs/coderabbit': { slug: '/vs/coderabbit', icon: '⚖️', title: 'AGENA vs CodeRabbit', blurb: 'Custom reviewer personas, BYO LLM, self-hostable' },
+  '/workspaces': { slug: '/workspaces', icon: '🗄', title: 'Workspaces for Big Teams', blurb: 'One platform, a workspace per squad — invite-code joins, role-based titles' },
 };
 
 // Each key maps to 3 related slugs. The list is deliberately short so
@@ -46,6 +47,7 @@ const RELATED: Record<string, string[]> = {
   '/ai-sprint-refinement': ['/jira-ai-agent', '/stale-ticket-triage', '/azure-devops-ai-bot'],
   '/vs/seer': ['/sentry-ai-auto-fix', '/cross-source-insights', '/ai-code-review'],
   '/vs/coderabbit': ['/ai-code-review', '/cross-source-insights', '/sentry-ai-auto-fix'],
+  '/workspaces': ['/ai-code-review', '/cross-source-insights', '/ai-sprint-refinement'],
 };
 
 export default function RelatedLandings({ current, heading = 'Related' }: { current: string; heading?: string }) {

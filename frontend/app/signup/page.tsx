@@ -20,10 +20,17 @@ function toSlug(name: string): string {
     .slice(0, 63) || '';
 }
 
+type InvitePreview = {
+  workspace_name: string;
+  organization_name: string;
+  role_name: string | null;
+};
+
 function SignUpPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useLocale();
+  const inviteToken = searchParams.get('invite') || '';
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [orgName, setOrgNameVal] = useState('');
@@ -33,11 +40,24 @@ function SignUpPageContent() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
   const slugTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isLoggedIn()) router.replace('/dashboard');
-  }, [router]);
+    if (isLoggedIn()) {
+      // Logged-in user landing on signup with an invite — push them through
+      // the invite accept page instead of bouncing them to the dashboard.
+      if (inviteToken) router.replace(`/invite/${inviteToken}`);
+      else router.replace('/dashboard');
+    }
+  }, [router, inviteToken]);
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    apiFetch<InvitePreview>(`/invites/${encodeURIComponent(inviteToken)}/preview`, undefined, false)
+      .then(setInvitePreview)
+      .catch(() => setError(t('invite.invalid')));
+  }, [inviteToken, t]);
 
   const checkSlug = useCallback(async (slug: string) => {
     if (!slug || slug.length < 2) { setSlugStatus('idle'); return; }
@@ -80,14 +100,17 @@ function SignUpPageContent() {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
+      const body = inviteToken
+        ? { email, full_name: fullName, password, invite_token: inviteToken }
+        : { email, full_name: fullName, organization_name: orgName, org_slug: orgSlug, password };
       const res = await apiFetch<AuthResponse>('/auth/signup', {
         method: 'POST',
-        body: JSON.stringify({ email, full_name: fullName, organization_name: orgName, org_slug: orgSlug, password }),
+        body: JSON.stringify(body),
       }, false);
       setToken(res.access_token);
       setOrgSlug(res.org_slug);
       setOrgName(res.org_name);
-      router.push(resolveNextUrl());
+      router.push(inviteToken ? '/dashboard' : resolveNextUrl());
     } catch (err) {
       setError(err instanceof Error ? err.message : t('signup.error'));
     } finally {
@@ -116,32 +139,44 @@ function SignUpPageContent() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 6 }}>{t('signup.title')}</h1>
           <p style={{ fontSize: 13, color: 'var(--ink-30)', marginBottom: 28 }}>{t('signup.subtitle')}</p>
 
+          {invitePreview ? (
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#a78bfa', marginBottom: 4 }}>{t('invite.title')}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>{t('invite.joinWorkspace', { workspace: invitePreview.workspace_name })}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2 }}>{t('invite.partOfOrg', { org: invitePreview.organization_name })}{invitePreview.role_name ? ` · ${t('invite.asRole', { role: invitePreview.role_name })}` : ''}</div>
+            </div>
+          ) : null}
+
           <form onSubmit={(e) => void onSubmit(e)} style={{ display: 'grid', gap: 14 }}>
             <AuthInput label={t('signup.fullName')} type='text' value={fullName} onChange={setFullName} placeholder={t('signup.fullNamePlaceholder')} />
             <AuthInput label={t('signup.email')} type='email' value={email} onChange={setEmail} placeholder={t('signup.emailPlaceholder')} />
 
-            {/* Organization Name */}
-            <AuthInput label={t('signup.orgName')} type='text' value={orgName} onChange={handleOrgNameChange} placeholder={t('signup.orgPlaceholder')} />
+            {!inviteToken ? (
+              <>
+                {/* Organization Name */}
+                <AuthInput label={t('signup.orgName')} type='text' value={orgName} onChange={handleOrgNameChange} placeholder={t('signup.orgPlaceholder')} />
 
-            {/* Organization Slug */}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', display: 'block', marginBottom: 6 }}>{t('signup.orgSlug')}</label>
-              <input
-                type='text' value={orgSlug} onChange={(e) => handleSlugChange(e.target.value)}
-                placeholder='acme' required
-                style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--panel-border-3)'; }}
-              />
-              {/* Slug preview */}
-              <div style={{ marginTop: 6, fontSize: 12, color: slugColor, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ color: 'var(--ink-30)' }}>{t('signup.slugPreview')}:</span>
-                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{orgSlug || '...'}.agena.app</span>
-                {slugStatus === 'checking' && <span style={{ color: 'var(--ink-30)' }}>...</span>}
-                {slugStatus === 'available' && <span>{t('signup.slugAvailable')}</span>}
-                {slugStatus === 'taken' && <span>{t('signup.slugTaken')}</span>}
-              </div>
-            </div>
+                {/* Organization Slug */}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)', display: 'block', marginBottom: 6 }}>{t('signup.orgSlug')}</label>
+                  <input
+                    type='text' value={orgSlug} onChange={(e) => handleSlugChange(e.target.value)}
+                    placeholder='acme' required
+                    style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--panel-border-3)'; }}
+                  />
+                  {/* Slug preview */}
+                  <div style={{ marginTop: 6, fontSize: 12, color: slugColor, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: 'var(--ink-30)' }}>{t('signup.slugPreview')}:</span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{orgSlug || '...'}.agena.app</span>
+                    {slugStatus === 'checking' && <span style={{ color: 'var(--ink-30)' }}>...</span>}
+                    {slugStatus === 'available' && <span>{t('signup.slugAvailable')}</span>}
+                    {slugStatus === 'taken' && <span>{t('signup.slugTaken')}</span>}
+                  </div>
+                </div>
+              </>
+            ) : null}
 
             <AuthInput label={t('signup.password')} type='password' value={password} onChange={setPassword} placeholder={t('signup.passwordPlaceholder')} />
 
@@ -149,8 +184,8 @@ function SignUpPageContent() {
               <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)', color: '#dc2626', fontSize: 13 }}>{error}</div>
             ) : null}
 
-            <button type='submit' disabled={loading || slugStatus === 'taken'} style={{ marginTop: 4, padding: '13px', borderRadius: 12, border: 'none', background: loading ? 'rgba(139,92,246,0.4)' : 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: loading || slugStatus === 'taken' ? 'not-allowed' : 'pointer', letterSpacing: 0.3 }}>
-              {loading ? t('signup.loading') : t('signup.submit')}
+            <button type='submit' disabled={loading || (!inviteToken && slugStatus === 'taken')} style={{ marginTop: 4, padding: '13px', borderRadius: 12, border: 'none', background: loading ? 'rgba(139,92,246,0.4)' : 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: loading || (!inviteToken && slugStatus === 'taken') ? 'not-allowed' : 'pointer', letterSpacing: 0.3 }}>
+              {loading ? t('signup.loading') : (inviteToken ? t('invite.signUpCta') : t('signup.submit'))}
             </button>
           </form>
 

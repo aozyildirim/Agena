@@ -32,7 +32,7 @@ class AgentOrchestrator:
     async def run(self, task: dict[str, Any]) -> OrchestrationState:
         state: OrchestrationState = {
             'task': task,
-            'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
+            'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0},
             'model_usage': [],
         }
         return await self.graph.ainvoke(state)
@@ -171,8 +171,9 @@ class AgentOrchestrator:
         return '\n'.join(lines)
 
     def _merge_usage(self, state: OrchestrationState, usage: dict[str, int]) -> None:
-        current = state.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0})
+        current = state.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0})
         current['prompt_tokens'] = int(current.get('prompt_tokens', 0) + usage.get('prompt_tokens', 0))
         current['completion_tokens'] = int(current.get('completion_tokens', 0) + usage.get('completion_tokens', 0))
         current['total_tokens'] = int(current.get('total_tokens', 0) + usage.get('total_tokens', 0))
+        current['cached_input_tokens'] = int(current.get('cached_input_tokens', 0) + usage.get('cached_input_tokens', 0))
         state['usage'] = current

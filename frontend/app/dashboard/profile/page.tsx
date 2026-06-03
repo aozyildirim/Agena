@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, removeToken, loadPrefs, savePrefs } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type MeRes = { user_id: number; email: string; full_name: string; organization_id: number };
 type ProfileSettings = {
@@ -171,23 +172,22 @@ export default function ProfilePage() {
           padding: '14px 18px',
           marginLeft: -18, marginRight: -18, marginTop: -18,
           background: 'var(--surface, var(--panel-alt))',
-          borderBottom: '1px solid var(--panel-border-2)',
+          borderBottom: '1px solid var(--panel-border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 12, flexWrap: 'wrap',
-          backdropFilter: 'blur(10px)',
         }}
       >
         <div style={{ minWidth: 0 }}>
           <div className='section-label'>{t('profile.section')}</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', marginTop: 4, marginBottom: 2 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', marginTop: 4, marginBottom: 2 }}>
             {t('profile.title')}
           </h1>
           <div style={{ fontSize: 12, color: 'var(--ink-30)' }}>{t('profile.subtitle')}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {dirty && (
-            <span style={{ fontSize: 11, color: '#fde68a', fontWeight: 600 }}>
-              ● {t('profile.unsavedChanges' as Parameters<typeof t>[0]) || 'Unsaved changes'}
+            <span style={{ fontSize: 11, color: '#c98a2b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className='ent-dot' style={{ background: '#c98a2b' }} /> {t('profile.unsavedChanges' as Parameters<typeof t>[0]) || 'Unsaved changes'}
             </span>
           )}
           <button
@@ -195,44 +195,45 @@ export default function ProfilePage() {
             onClick={() => void save()}
             disabled={saving || !dirty}
             style={{
-              padding: '10px 18px', borderRadius: 10, border: 'none',
+              padding: '10px 18px', borderRadius: 8, border: 'none',
               background: saving
-                ? 'rgba(124,58,237,0.4)'
-                : (!dirty ? 'rgba(148,163,184,0.18)' : 'linear-gradient(135deg, #7c3aed, #a78bfa)'),
+                ? 'var(--acc-soft)'
+                : (!dirty ? 'rgba(148,163,184,0.18)' : 'var(--acc)'),
               color: !dirty && !saving ? 'var(--ink-50)' : '#fff',
               fontWeight: 700, fontSize: 13,
               cursor: saving || !dirty ? 'not-allowed' : 'pointer',
               minWidth: 130, transition: 'all 0.2s',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            {saving ? `⏳ ${t('profile.saving')}` : `💾 ${t('profile.save')}`}
+            <NavIcon name='settings' size={16} /> {saving ? t('profile.saving') : t('profile.save')}
           </button>
         </div>
       </div>
 
       {/* ── User card ── */}
       {user && (
-        <div style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'flex', alignItems: 'center', gap: 16, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(13,148,136,0.4), transparent)' }} />
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #0d9488, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#fff', flexShrink: 0 }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'flex', alignItems: 'center', gap: 16, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'var(--panel-border)' }} />
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--acc)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
             {(user.full_name?.[0] || user.email[0]).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 3 }}>{user.full_name || '—'}</div>
             <div style={{ fontSize: 13, color: 'var(--ink-35)' }}>{user.email}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)', color: '#5eead4' }}>{t('profile.proPlan')}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'var(--acc-soft)', border: '1px solid var(--panel-border-3)', color: 'var(--acc)' }}>{t('profile.proPlan')}</span>
               <span style={{ fontSize: 11, color: 'var(--ink-25)', padding: '3px 10px' }}>{t('profile.org')} #{user.organization_id}</span>
             </div>
           </div>
-          <button onClick={logout} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(248,113,113,0.2)', background: 'rgba(248,113,113,0.06)', color: '#f87171', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={logout} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.25)', background: 'rgba(207,91,87,0.08)', color: '#cf5b57', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
             {t('profile.logout')}
           </button>
         </div>
       )}
 
-      <div style={{ borderRadius: 14, border: '1px dashed var(--panel-border-2)', background: 'var(--panel)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontSize: 18 }}>🗂</div>
+      <div style={{ borderRadius: 10, border: '1px dashed var(--panel-border)', background: 'var(--panel)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'inline-flex', color: 'var(--ink-50)' }}><NavIcon name='layers' size={18} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-78)' }}>{t('profile.activeSprintMoved')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 2 }}>{t('profile.activeSprintMovedDesc')}</div>
@@ -249,7 +250,7 @@ export default function ProfilePage() {
         }}
       >
         {/* LEFT: workspace preferences */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 14 }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 14 }}>
           <div>
             <div style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 14 }}>{t('profile.workspacePreferences')}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 2 }}>{t('profile.workspacePreferencesDesc')}</div>
@@ -308,10 +309,10 @@ export default function ProfilePage() {
               ].map((p) => (
                 <button key={p.label} onClick={() => patch('branch_prefix', p.label)}
                   style={{
-                    padding: '6px 10px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
-                    border: profileSettings.branch_prefix === p.label ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-3)',
-                    background: profileSettings.branch_prefix === p.label ? 'rgba(94,234,212,0.12)' : 'var(--panel)',
-                    color: profileSettings.branch_prefix === p.label ? '#5eead4' : 'var(--ink-50)',
+                    padding: '6px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                    border: profileSettings.branch_prefix === p.label ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                    background: profileSettings.branch_prefix === p.label ? 'var(--acc-soft)' : 'var(--panel)',
+                    color: profileSettings.branch_prefix === p.label ? 'var(--acc)' : 'var(--ink-50)',
                     fontFamily: 'monospace', fontWeight: 600,
                   }}>
                   {p.label}
@@ -322,7 +323,7 @@ export default function ProfilePage() {
               value={profileSettings.branch_prefix}
               onChange={(e) => patch('branch_prefix', e.target.value)}
               placeholder={t('profile.branchPatternPlaceholder')}
-              style={{ width: '100%', padding: '9px 11px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 12, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 12, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
             />
             <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 6, fontFamily: 'monospace' }}>
               {t('profile.preview')}: {branchPreviewSrc
@@ -353,10 +354,10 @@ export default function ProfilePage() {
               ].map((p) => (
                 <button key={p.label} onClick={() => patch('pr_title_template', p.label)}
                   style={{
-                    padding: '6px 10px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
-                    border: profileSettings.pr_title_template === p.label ? '1px solid rgba(94,234,212,0.5)' : '1px solid var(--panel-border-3)',
-                    background: profileSettings.pr_title_template === p.label ? 'rgba(94,234,212,0.12)' : 'var(--panel)',
-                    color: profileSettings.pr_title_template === p.label ? '#5eead4' : 'var(--ink-50)',
+                    padding: '6px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                    border: profileSettings.pr_title_template === p.label ? '1px solid var(--acc)' : '1px solid var(--panel-border-3)',
+                    background: profileSettings.pr_title_template === p.label ? 'var(--acc-soft)' : 'var(--panel)',
+                    color: profileSettings.pr_title_template === p.label ? 'var(--acc)' : 'var(--ink-50)',
                     fontFamily: 'monospace', fontWeight: 600,
                   }}>
                   {p.label}
@@ -367,7 +368,7 @@ export default function ProfilePage() {
               value={profileSettings.pr_title_template}
               onChange={(e) => patch('pr_title_template', e.target.value)}
               placeholder='[AI] {ab} {title}'
-              style={{ width: '100%', padding: '9px 11px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 12, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 12, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
             />
             <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 6, fontFamily: 'monospace' }}>
               {t('profile.preview')}: {(profileSettings.pr_title_template || '[AI] {ab} {title}')
@@ -396,7 +397,7 @@ export default function ProfilePage() {
         </div>
 
         {/* RIGHT: notification matrix */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 12 }}>
+        <div style={{ borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)', padding: 18, display: 'grid', gap: 12 }}>
           <div>
             <div style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 14 }}>{t('profile.eventNotificationMatrix')}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-35)', marginTop: 2 }}>
@@ -433,13 +434,13 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Integrations footer ── */}
-      <div style={{ borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-72)' }}>{t('profile.integrations')}</div>
           <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2 }}>{t('profile.integrationsDesc')}</div>
         </div>
-        <a href='/dashboard/integrations' style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-50)', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-          {t('profile.settings')}
+        <a href='/dashboard/integrations' style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-50)', fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <NavIcon name='settings' size={14} /> {t('profile.settings')}
         </a>
       </div>
 
@@ -449,19 +450,17 @@ export default function ProfilePage() {
           style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 100,
             minWidth: 240, maxWidth: 380,
-            padding: '12px 16px', borderRadius: 12,
-            background: toast.kind === 'ok' ? 'rgba(34,197,94,0.18)' : 'rgba(248,113,113,0.18)',
-            border: `1px solid ${toast.kind === 'ok' ? 'rgba(34,197,94,0.5)' : 'rgba(248,113,113,0.5)'}`,
-            color: toast.kind === 'ok' ? '#86efac' : '#fca5a5',
+            padding: '12px 16px', borderRadius: 10,
+            background: toast.kind === 'ok' ? 'rgba(63,157,106,0.14)' : 'rgba(207,91,87,0.14)',
+            border: `1px solid ${toast.kind === 'ok' ? 'rgba(63,157,106,0.45)' : 'rgba(207,91,87,0.45)'}`,
+            color: toast.kind === 'ok' ? '#3f9d6a' : '#cf5b57',
             fontSize: 13, fontWeight: 600,
             display: 'flex', gap: 10, alignItems: 'center',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
-            backdropFilter: 'blur(10px)',
             animation: 'profileToastIn 0.2s ease-out',
           }}
           onClick={() => setToast(null)}
         >
-          <span style={{ fontSize: 18 }}>{toast.kind === 'ok' ? '✓' : '⚠'}</span>
+          <span style={{ display: 'inline-flex' }}><NavIcon name={toast.kind === 'ok' ? 'user-check' : 'alert'} size={18} /></span>
           <span>{toast.msg}</span>
         </div>
       )}
@@ -480,10 +479,10 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
     <button
       type='button'
       onClick={() => onChange(!checked)}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--panel-border-2)', borderRadius: 10, padding: '9px 10px', background: checked ? 'rgba(13,148,136,0.12)' : 'var(--panel)', cursor: 'pointer' }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--panel-border-2)', borderRadius: 8, padding: '9px 10px', background: checked ? 'var(--acc-soft)' : 'var(--panel)', cursor: 'pointer' }}
     >
       <span style={{ fontSize: 12, color: 'var(--ink-78)', textAlign: 'left' }}>{label}</span>
-      <span style={{ width: 34, height: 18, borderRadius: 999, background: checked ? 'rgba(13,148,136,0.9)' : 'var(--ink-25)', padding: 2, display: 'inline-flex', alignItems: 'center', justifyContent: checked ? 'flex-end' : 'flex-start', transition: 'all 0.2s' }}>
+      <span style={{ width: 34, height: 18, borderRadius: 999, background: checked ? 'var(--acc)' : 'var(--ink-25)', padding: 2, display: 'inline-flex', alignItems: 'center', justifyContent: checked ? 'flex-end' : 'flex-start', transition: 'all 0.2s' }}>
         <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff' }} />
       </span>
     </button>
@@ -507,7 +506,7 @@ function ProfileSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
-          width: '100%', padding: '10px 12px', borderRadius: 10,
+          width: '100%', padding: '10px 12px', borderRadius: 8,
           border: '1px solid var(--panel-border-3)',
           background: 'var(--glass)', color: 'var(--ink-90)',
           fontSize: 13, outline: 'none', boxSizing: 'border-box',
@@ -538,7 +537,7 @@ function ProfileInput({ label, value, onChange, placeholder }: { label: string; 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink-90)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
       />
     </div>
   );
@@ -547,7 +546,7 @@ function ProfileInput({ label, value, onChange, placeholder }: { label: string; 
 function MiniToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button type='button' onClick={() => onChange(!checked)}
-      style={{ width: 34, height: 18, borderRadius: 999, background: checked ? 'rgba(13,148,136,0.9)' : 'var(--ink-25)', padding: 2, border: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: checked ? 'flex-end' : 'flex-start', cursor: 'pointer' }}>
+      style={{ width: 34, height: 18, borderRadius: 999, background: checked ? 'var(--acc)' : 'var(--ink-25)', padding: 2, border: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: checked ? 'flex-end' : 'flex-start', cursor: 'pointer' }}>
       <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff' }} />
     </button>
   );

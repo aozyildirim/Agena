@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_core.settings import get_settings
 from agena_models.models.agent_log import AgentLog
@@ -28,7 +28,11 @@ def _can_create_pr() -> bool:
     return True
 
 
-@router.post('/run', response_model=AgentRunResponse)
+@router.post(
+    '/run',
+    response_model=AgentRunResponse,
+    dependencies=[Depends(require_workspace_perm('code:write'))],
+)
 async def run_agents(
     request: AgentRunRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),

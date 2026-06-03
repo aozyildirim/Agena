@@ -105,7 +105,19 @@ class ClaudeCLIService:
         log_callback: LogCallback | None = None,
         task_id: str = '',
         base_ref: str | None = None,
+        candidate_files: list[str] | None = None,
     ) -> str:
+        candidate_section = ''
+        if candidate_files:
+            bullets = '\n'.join(f'- {p}' for p in candidate_files[:10])
+            candidate_section = (
+                '\nCANDIDATE FILES (semantic match on this task — start by Reading these, '
+                'do NOT grep the whole repo first):\n'
+                f'{bullets}\n'
+                'If none of these turn out to be relevant after a quick Read, then you may '
+                'fall back to a narrow Grep — but stay within the 5-read HARD LIMIT below.\n'
+            )
+
         prompt = (
             'Implement the following task in the CURRENT repository.\n\n'
             'WORKFLOW:\n'
@@ -133,6 +145,7 @@ class ClaudeCLIService:
             '- If an IMPLEMENTATION PLAN is provided, follow it exactly — edit every file listed.\n\n'
             f'Task title: {task_title}\n'
             f'Task description:\n{task_description}\n'
+            f'{candidate_section}'
         )
 
         # Create worktree so each task works on a clean copy. For

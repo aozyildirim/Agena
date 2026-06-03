@@ -6,7 +6,7 @@ import { apiFetch, loadPrefs, savePrefs } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import RemoteRepoSelector, { type RemoteRepoSelection } from '@/components/RemoteRepoSelector';
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const cardStyle: React.CSSProperties = {
   background: 'var(--glass)',
@@ -90,12 +90,118 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-/* ────── Step 1: Welcome ────── */
+/* ────── Step 1: Workspace ────── */
+type Workspace = { id: number; name: string; slug: string; invite_code: string; is_default: boolean };
+
+function StepWorkspace({ onNext }: { onNext: () => void }) {
+  const { t } = useLocale();
+  const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose');
+  const [defaultWs, setDefaultWs] = useState<Workspace | null>(null);
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch<Workspace[]>('/workspaces')
+      .then((rows) => {
+        const def = rows.find((r) => r.is_default) || rows[0] || null;
+        setDefaultWs(def);
+      })
+      .catch(() => { /* ignore */ });
+  }, []);
+
+  async function handleCreate() {
+    setBusy(true); setError('');
+    try {
+      await apiFetch('/workspaces', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), description: desc.trim() || undefined }),
+      });
+      onNext();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('onboarding.workspace.errCreate'));
+    } finally { setBusy(false); }
+  }
+
+  async function handleJoin() {
+    setBusy(true); setError('');
+    try {
+      await apiFetch('/workspaces/join', {
+        method: 'POST',
+        body: JSON.stringify({ invite_code: code.trim().toUpperCase() }),
+      });
+      onNext();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('onboarding.workspace.errJoin'));
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div style={cardStyle}>
+      <StepIndicator current={1} total={TOTAL_STEPS} />
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>🗄</div>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>
+          {t('onboarding.workspace.title')}
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6, marginTop: 10, maxWidth: 460, margin: '10px auto 0' }}>
+          {t('onboarding.workspace.subtitle')}
+        </p>
+      </div>
+
+      {error ? <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>{error}</div> : null}
+
+      {mode === 'choose' ? (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {defaultWs ? (
+            <button onClick={onNext} style={{ padding: 16, borderRadius: 12, border: '1px solid rgba(13,148,136,0.30)', background: 'rgba(13,148,136,0.06)', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>✓ {t('onboarding.workspace.useDefault')}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{defaultWs.name} · <code style={{ fontFamily: 'monospace' }}>{defaultWs.invite_code}</code></div>
+            </button>
+          ) : null}
+          <button onClick={() => setMode('create')} style={{ padding: 16, borderRadius: 12, border: '1px solid var(--panel-border)', background: 'transparent', cursor: 'pointer', textAlign: 'left', color: 'var(--ink)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>+ {t('onboarding.workspace.createNew')}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('onboarding.workspace.createHelp')}</div>
+          </button>
+          <button onClick={() => setMode('join')} style={{ padding: 16, borderRadius: 12, border: '1px solid var(--panel-border)', background: 'transparent', cursor: 'pointer', textAlign: 'left', color: 'var(--ink)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>⇣ {t('onboarding.workspace.joinExisting')}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('onboarding.workspace.joinHelp')}</div>
+          </button>
+        </div>
+      ) : mode === 'create' ? (
+        <div style={{ display: 'grid', gap: 12 }}>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('onboarding.workspace.namePlaceholder')} style={inputStyle} />
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t('onboarding.workspace.descPlaceholder')} style={inputStyle} />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+            <button onClick={() => setMode('choose')} style={btnSecondary}>← {t('common.back')}</button>
+            <button onClick={handleCreate} disabled={busy || !name.trim()} style={btnPrimary}>
+              {busy ? t('common.loading') : t('onboarding.workspace.createBtn')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder='ABC123' style={{ ...inputStyle, fontFamily: 'monospace', letterSpacing: 2, textAlign: 'center', fontSize: 16 }} />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+            <button onClick={() => setMode('choose')} style={btnSecondary}>← {t('common.back')}</button>
+            <button onClick={handleJoin} disabled={busy || !code.trim()} style={btnPrimary}>
+              {busy ? t('common.loading') : t('onboarding.workspace.joinBtn')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────── Step 2: Welcome ────── */
 function StepWelcome({ onNext }: { onNext: () => void }) {
   const { t } = useLocale();
   return (
     <div style={cardStyle}>
-      <StepIndicator current={1} total={TOTAL_STEPS} />
+      <StepIndicator current={2} total={TOTAL_STEPS} />
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🚀</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', margin: 0 }}>
@@ -193,7 +299,7 @@ function StepIntegration({ onNext, onSkip }: { onNext: (provider: 'azure' | 'jir
 
   return (
     <div style={cardStyle}>
-      <StepIndicator current={2} total={TOTAL_STEPS} />
+      <StepIndicator current={3} total={TOTAL_STEPS} />
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🔌</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
@@ -416,7 +522,7 @@ function StepSprint({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
 
   return (
     <div style={cardStyle}>
-      <StepIndicator current={3} total={TOTAL_STEPS} />
+      <StepIndicator current={4} total={TOTAL_STEPS} />
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🏃</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
@@ -524,7 +630,7 @@ function StepRepo({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }
 
   return (
     <div style={cardStyle}>
-      <StepIndicator current={4} total={TOTAL_STEPS} />
+      <StepIndicator current={5} total={TOTAL_STEPS} />
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
@@ -587,7 +693,7 @@ function StepAgent({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
 
   return (
     <div style={cardStyle}>
-      <StepIndicator current={5} total={TOTAL_STEPS} />
+      <StepIndicator current={6} total={TOTAL_STEPS} />
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🤖</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>
@@ -655,7 +761,7 @@ function StepDone({ onFinish }: { onFinish: () => void }) {
 
   return (
     <div style={cardStyle}>
-      <StepIndicator current={6} total={TOTAL_STEPS} />
+      <StepIndicator current={7} total={TOTAL_STEPS} />
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ fontSize: 56, marginBottom: 16, animation: 'pulse 1.5s ease-in-out infinite' }}>
           🎉
@@ -745,23 +851,24 @@ export default function OnboardingPage() {
       justifyContent: 'center',
       padding: '40px 20px',
     }}>
-      {step === 1 && <StepWelcome onNext={() => setStep(2)} />}
-      {step === 2 && (
+      {step === 1 && <StepWorkspace onNext={() => setStep(2)} />}
+      {step === 2 && <StepWelcome onNext={() => setStep(3)} />}
+      {step === 3 && (
         <StepIntegration
           onNext={(provider) => {
             setConnectedProvider(provider);
-            setStep(provider === 'azure' ? 3 : 4);
+            setStep(provider === 'azure' ? 4 : 5);
           }}
           onSkip={() => {
             setConnectedProvider(null);
-            setStep(4);
+            setStep(5);
           }}
         />
       )}
-      {step === 3 && <StepSprint onNext={() => setStep(4)} onSkip={() => setStep(4)} />}
-      {step === 4 && <StepRepo onNext={() => setStep(5)} onSkip={() => setStep(5)} />}
-      {step === 5 && <StepAgent onNext={() => setStep(6)} onSkip={() => setStep(6)} />}
-      {step === 6 && <StepDone onFinish={completeOnboarding} />}
+      {step === 4 && <StepSprint onNext={() => setStep(5)} onSkip={() => setStep(5)} />}
+      {step === 5 && <StepRepo onNext={() => setStep(6)} onSkip={() => setStep(6)} />}
+      {step === 6 && <StepAgent onNext={() => setStep(7)} onSkip={() => setStep(7)} />}
+      {step === 7 && <StepDone onFinish={completeOnboarding} />}
     </div>
   );
 }

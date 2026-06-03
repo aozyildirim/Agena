@@ -244,5 +244,17 @@ async def pr_merged_webhook(
             logger.warning('Failed to auto-resolve Sentry issue for task #%s: %s', task.id, exc)
             result['sentry_error'] = str(exc)
 
-    return result
+    # Mirror the merge to the upstream tracker (Jira / Azure) so the
+    # ticket lands in its terminal state without any manual click.
+    # Separate try/except so a sync failure can't mask the Sentry
+    # resolve result that was already returned above.
+    if task.source in ('jira', 'azure') and task.external_id:
+        try:
+            from agena_services.services.workflow_sync_service import WorkflowSyncService
+            await WorkflowSyncService(db).on_pr_merged(task)
+            result['workflow_synced'] = True
+        except Exception as exc:
+            logger.warning('Workflow sync (pr_merged) failed for task #%s: %s', task.id, exc)
+            result['workflow_sync_error'] = str(exc)
 
+    return result

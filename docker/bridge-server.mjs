@@ -5,7 +5,7 @@
 import { createServer } from 'http';
 import { execFile, execSync, spawn } from 'child_process';
 import { promisify } from 'util';
-import { writeFileSync, readFileSync, unlinkSync, mkdirSync, createReadStream, existsSync } from 'fs';
+import { writeFileSync, readFileSync, unlinkSync, mkdirSync, createReadStream, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { homedir } from 'os';
@@ -107,6 +107,84 @@ const server = createServer(async (req, res) => {
       codex_auth: codexAuth,
       claude_auth: claudeAuth,
     }));
+    return;
+  }
+
+  // Suggest local repo paths matching a repo name. Scans common dev
+  // parent directories (~/sites, ~/code, ~/projects, ~/dev, ~/work,
+  // ~/Documents/code) one level deep, picks dirs whose name matches
+  // the query (or contains it as substring). Used by the Mappings
+  // page so the user doesn't have to type the full path by hand.
+  if (req.method === 'GET' && url.pathname === '/find-repo-paths') {
+    const repoName = (url.searchParams.get('repo_name') || '').trim().toLowerCase();
+    if (!repoName) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'repo_name required' }));
+      return;
+    }
+    const ROOTS = [
+      `${HOME}/sites`,
+      `${HOME}/code`,
+      `${HOME}/Code`,
+      `${HOME}/projects`,
+      `${HOME}/Projects`,
+      `${HOME}/dev`,
+      `${HOME}/Dev`,
+      `${HOME}/work`,
+      `${HOME}/Work`,
+      `${HOME}/Documents/code`,
+      `${HOME}/Documents/projects`,
+      `${HOME}/repos`,
+    ];
+    const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', '.next', 'dist', 'build', 'target', '.venv', 'venv', '__pycache__', '.cache', 'tmp', 'temp', '.idea', '.vscode', 'coverage', 'public', 'static', 'assets']);
+    const MAX_DEPTH = 3;       // root → grandchild → great-grandchild
+    const MAX_MATCHES = 50;    // hard cap so a misconfigured root can't hang the bridge
+    const MAX_DIRS_VISITED = 8000;  // total dir reads across all roots
+    let dirsVisited = 0;
+    const matches = [];
+    const scoreOf = (name) => {
+      const lower = name.toLowerCase();
+      if (lower === repoName) return 100;
+      if (lower.startsWith(repoName)) return 70;
+      if (lower.includes(repoName)) return 40;
+      return 0;
+    };
+    // Walk a directory tree, scoring each subdir against repoName.
+    // Each level adds a -2 score penalty so closer matches win ties.
+    const walk = (dir, depth) => {
+      if (depth > MAX_DEPTH) return;
+      if (matches.length >= MAX_MATCHES) return;
+      if (dirsVisited >= MAX_DIRS_VISITED) return;
+      let entries = [];
+      try { entries = readdirSync(dir); } catch { return; }
+      dirsVisited += 1;
+      for (const name of entries) {
+        if (matches.length >= MAX_MATCHES) break;
+        if (name.startsWith('.') || SKIP_DIRS.has(name)) continue;
+        const fullPath = join(dir, name);
+        try {
+          if (!statSync(fullPath).isDirectory()) continue;
+        } catch { continue; }
+        const score = scoreOf(name);
+        if (score > 0) {
+          const isGit = existsSync(join(fullPath, '.git'));
+          matches.push({
+            path: fullPath,
+            name,
+            score: score + (isGit ? 5 : 0) - (depth - 1) * 2,
+            is_git: isGit,
+          });
+        }
+        if (depth < MAX_DEPTH) walk(fullPath, depth + 1);
+      }
+    };
+    for (const root of ROOTS) {
+      if (!existsSync(root)) continue;
+      walk(root, 1);
+    }
+    matches.sort((a, b) => b.score - a.score);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ matches: matches.slice(0, 8) }));
     return;
   }
 

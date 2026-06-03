@@ -620,6 +620,7 @@ async def scan_repo_profile(
             cost_usd = CostTracker().estimate_cost_usd(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
+                cached_input_tokens=int(usage_meta.get('cached_input_tokens', 0)),
                 model=model or 'gpt-4o-mini',
             )
             parsed = _extract_json_object(output) or {}

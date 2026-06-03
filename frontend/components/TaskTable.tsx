@@ -46,6 +46,8 @@ export type TaskItem = {
   pr_risk_level?: string | null;
   pr_risk_reason?: string | null;
   total_tokens?: number | null;
+  cached_tokens?: number | null;
+  cache_savings_usd?: number | null;
   repo_mapping_id?: number | null;
   repo_mapping_name?: string | null;
   sprint_name?: string | null;

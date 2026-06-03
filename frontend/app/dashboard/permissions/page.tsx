@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { useRole, canAccess, type Role, type Permission } from '@/lib/rbac';
+import Forbidden from '@/components/Forbidden';
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -13,10 +14,10 @@ type InviteItem = { id: number; email: string; status: string; inviter_name: str
 /* ── Constants ──────────────────────────────────────────────────── */
 
 const ROLES: { value: Role; color: string }[] = [
-  { value: 'owner',  color: '#f59e0b' },
-  { value: 'admin',  color: '#a78bfa' },
-  { value: 'member', color: '#38bdf8' },
-  { value: 'viewer', color: '#6b7280' },
+  { value: 'owner',  color: '#c98a2b' },
+  { value: 'admin',  color: '#5b9bd5' },
+  { value: 'member', color: '#3f9d6a' },
+  { value: 'viewer', color: '#94a3b8' },
 ];
 
 const PERMISSIONS: { key: Permission; labelKey: string }[] = [
@@ -46,12 +47,12 @@ const NAV_ITEMS: { labelKey: string; permission?: Permission }[] = [
 ];
 
 const GRADIENTS = [
-  ['#0d9488','#22c55e'], ['#7c3aed','#a78bfa'], ['#0ea5e9','#38bdf8'],
-  ['#f59e0b','#fb923c'], ['#ec4899','#f472b6'], ['#14b8a6','#06b6d4'],
+  ['#3f9d6a','#3f9d6a'], ['#5b9bd5','#5b9bd5'], ['#5b9bd5','#5b9bd5'],
+  ['#c98a2b','#c98a2b'], ['#94a3b8','#94a3b8'], ['#64748b','#64748b'],
 ];
 const grad = (name: string) => {
   const g = GRADIENTS[name.charCodeAt(0) % GRADIENTS.length];
-  return `linear-gradient(135deg, ${g[0]}, ${g[1]})`;
+  return g[0];
 };
 const initials = (name: string) =>
   name.split(' ').map((n) => n[0] ?? '').join('').toUpperCase().slice(0, 2);
@@ -167,11 +168,16 @@ export default function PermissionsPage() {
     setChangingId(null);
   };
 
+  // Page-level guard — only org owners and admins can manage roles/team.
+  if (myRole !== 'owner' && myRole !== 'admin') {
+    return <Forbidden />;
+  }
+
   return (
     <div style={{ display: 'grid', gap: 32, maxWidth: 960 }}>
       {/* Page header */}
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', margin: 0 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>
           {t('permissions.title')}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--ink-35)', marginTop: 6 }}>
@@ -187,10 +193,10 @@ export default function PermissionsPage() {
 
         {/* Desktop table */}
         <div className="perm-matrix-desktop" style={{
-          borderRadius: 14, border: '1px solid var(--panel-border)', overflow: 'hidden',
+          borderRadius: 10, border: '1px solid var(--panel-border)', overflow: 'hidden',
           background: 'var(--panel)',
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className="ent-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '1px solid var(--panel-border)', color: 'var(--ink-35)', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -219,9 +225,9 @@ export default function PermissionsPage() {
                     return (
                       <td key={r.value} style={{ textAlign: 'center', padding: '10px 16px', borderBottom: '1px solid var(--panel-border)' }}>
                         {allowed ? (
-                          <span style={{ color: '#22c55e', fontSize: 16, fontWeight: 700 }}>&#10003;</span>
+                          <span style={{ color: '#3f9d6a', fontSize: 16, fontWeight: 700 }}>&#10003;</span>
                         ) : (
-                          <span style={{ color: '#ef4444', fontSize: 14, fontWeight: 700 }}>&#10005;</span>
+                          <span style={{ color: '#cf5b57', fontSize: 14, fontWeight: 700 }}>&#10005;</span>
                         )}
                       </td>
                     );
@@ -237,7 +243,7 @@ export default function PermissionsPage() {
           <div style={{ display: 'grid', gap: 10 }}>
             {PERMISSIONS.map((perm) => (
               <div key={perm.key} style={{
-                borderRadius: 14, border: '1px solid var(--panel-border)',
+                borderRadius: 10, border: '1px solid var(--panel-border)',
                 background: 'var(--panel)', padding: '14px 16px',
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 10 }}>
@@ -274,7 +280,7 @@ export default function PermissionsPage() {
         </p>
 
         {toast && (
-          <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
+          <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(63,157,106,0.12)', border: '1px solid rgba(63,157,106,0.3)', color: '#3f9d6a', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
             {toast}
           </div>
         )}
@@ -298,7 +304,7 @@ export default function PermissionsPage() {
               return (
                 <div key={member.id} style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px',
-                  borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)',
+                  borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)',
                   opacity: isChanging ? 0.6 : 1, transition: 'opacity 0.2s',
                 }}>
                   {/* Avatar */}
@@ -318,8 +324,8 @@ export default function PermissionsPage() {
                       {isMe && (
                         <span style={{
                           fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
-                          background: 'rgba(13,148,136,0.15)', color: '#0d9488',
-                          border: '1px solid rgba(13,148,136,0.3)',
+                          background: 'var(--acc-soft)', color: 'var(--acc)',
+                          border: '1px solid var(--panel-border)',
                         }}>
                           {t('permissions.you')}
                         </span>
@@ -337,7 +343,7 @@ export default function PermissionsPage() {
                       onChange={(e) => void handleRoleChange(member.id, e.target.value)}
                       disabled={isChanging}
                       style={{
-                        padding: '6px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                        padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                         border: `1px solid ${roleInfo.color}40`,
                         background: `${roleInfo.color}15`, color: roleInfo.color,
                         cursor: 'pointer', outline: 'none', appearance: 'auto',
@@ -352,7 +358,7 @@ export default function PermissionsPage() {
                     </select>
                   ) : (
                     <span style={{
-                      padding: '5px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                      padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                       background: `${roleInfo.color}15`, color: roleInfo.color,
                       border: `1px solid ${roleInfo.color}40`, flexShrink: 0,
                     }}>
@@ -377,7 +383,7 @@ export default function PermissionsPage() {
           </p>
 
           {inviteToast && (
-            <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
+            <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(63,157,106,0.12)', border: '1px solid rgba(63,157,106,0.3)', color: '#3f9d6a', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
               {inviteToast}
             </div>
           )}
@@ -391,8 +397,8 @@ export default function PermissionsPage() {
               placeholder={t('invite.emailPlaceholder')}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleInvite(); }}
               style={{
-                flex: 1, minWidth: 200, padding: '10px 14px', borderRadius: 10,
-                border: '1px solid var(--panel-border-3)', background: 'var(--glass)',
+                flex: 1, minWidth: 200, padding: '10px 14px', borderRadius: 8,
+                border: '1px solid var(--panel-border-3)', background: 'var(--surface)',
                 color: 'var(--ink-90)', fontSize: 13, outline: 'none',
               }}
             />
@@ -400,8 +406,8 @@ export default function PermissionsPage() {
               onClick={() => void handleInvite()}
               disabled={inviting || !inviteEmail.trim()}
               style={{
-                padding: '10px 20px', borderRadius: 10, border: 'none',
-                background: inviting ? 'rgba(139,92,246,0.4)' : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                padding: '10px 20px', borderRadius: 8, border: 'none',
+                background: inviting ? 'var(--acc-soft)' : 'var(--acc)',
                 color: '#fff', fontWeight: 700, fontSize: 13,
                 cursor: inviting ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
               }}
@@ -419,11 +425,11 @@ export default function PermissionsPage() {
             <div style={{ display: 'grid', gap: 8 }}>
               {invites.map((inv) => {
                 const isPending = inv.status === 'pending';
-                const statusColor = isPending ? '#f59e0b' : inv.status === 'accepted' ? '#22c55e' : '#6b7280';
+                const statusColor = isPending ? '#c98a2b' : inv.status === 'accepted' ? '#3f9d6a' : '#94a3b8';
                 return (
                   <div key={inv.id} style={{
                     display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
-                    borderRadius: 14, border: '1px solid var(--panel-border)', background: 'var(--panel)',
+                    borderRadius: 10, border: '1px solid var(--panel-border)', background: 'var(--panel)',
                     flexWrap: 'wrap',
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -450,8 +456,8 @@ export default function PermissionsPage() {
                           onClick={() => void handleResendInvite(inv.id)}
                           disabled={resendingId === inv.id}
                           style={{
-                            padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(13,148,136,0.4)',
-                            background: 'rgba(13,148,136,0.1)', color: '#0d9488',
+                            padding: '5px 12px', borderRadius: 6, border: '1px solid var(--panel-border)',
+                            background: 'var(--acc-soft)', color: 'var(--acc)',
                             fontSize: 11, fontWeight: 700, cursor: 'pointer',
                             opacity: resendingId === inv.id ? 0.5 : 1,
                           }}
@@ -462,8 +468,8 @@ export default function PermissionsPage() {
                           onClick={() => void handleCancelInvite(inv.id)}
                           disabled={cancellingId === inv.id}
                           style={{
-                            padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.4)',
-                            background: 'rgba(248,113,113,0.1)', color: '#f87171',
+                            padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(207,91,87,0.4)',
+                            background: 'rgba(207,91,87,0.1)', color: '#cf5b57',
                             fontSize: 11, fontWeight: 700, cursor: 'pointer',
                             opacity: cancellingId === inv.id ? 0.5 : 1,
                           }}
@@ -491,10 +497,10 @@ export default function PermissionsPage() {
 
         {/* Desktop table */}
         <div className="perm-menu-desktop" style={{
-          borderRadius: 14, border: '1px solid var(--panel-border)', overflow: 'hidden',
+          borderRadius: 10, border: '1px solid var(--panel-border)', overflow: 'hidden',
           background: 'var(--panel)',
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className="ent-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '1px solid var(--panel-border)', color: 'var(--ink-35)', fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -523,9 +529,9 @@ export default function PermissionsPage() {
                     return (
                       <td key={r.value} style={{ textAlign: 'center', padding: '10px 16px', borderBottom: '1px solid var(--panel-border)' }}>
                         {visible ? (
-                          <span style={{ color: '#22c55e', fontSize: 16, fontWeight: 700 }}>&#10003;</span>
+                          <span style={{ color: '#3f9d6a', fontSize: 16, fontWeight: 700 }}>&#10003;</span>
                         ) : (
-                          <span style={{ color: '#ef4444', fontSize: 14, fontWeight: 700 }}>&#10005;</span>
+                          <span style={{ color: '#cf5b57', fontSize: 14, fontWeight: 700 }}>&#10005;</span>
                         )}
                       </td>
                     );
@@ -541,7 +547,7 @@ export default function PermissionsPage() {
           <div style={{ display: 'grid', gap: 10 }}>
             {NAV_ITEMS.map((item) => (
               <div key={item.labelKey} style={{
-                borderRadius: 14, border: '1px solid var(--panel-border)',
+                borderRadius: 10, border: '1px solid var(--panel-border)',
                 background: 'var(--panel)', padding: '14px 16px',
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', marginBottom: 10 }}>

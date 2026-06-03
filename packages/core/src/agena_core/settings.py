@@ -101,6 +101,17 @@ class Settings(BaseSettings):
     # Telegram & Teams bot credentials are stored per-org in IntegrationConfig (DB).
     # No env vars needed — each org manages their own bot via Dashboard → Integrations.
 
+    # Global kill switches for the worker's auto-scan loops. Setting any of
+    # these to ``false`` disables the worker poll *regardless* of per-org
+    # DB flags. Use as an emergency brake when an org's settings or a code
+    # bug burns LLM credits faster than expected. Default true so existing
+    # deployments don't suddenly turn off automation.
+    auto_triage_enabled: bool = Field(default=True, alias='AUTO_TRIAGE_ENABLED')
+    auto_review_backlog_enabled: bool = Field(default=True, alias='AUTO_REVIEW_BACKLOG_ENABLED')
+    auto_correlation_enabled: bool = Field(default=True, alias='AUTO_CORRELATION_ENABLED')
+    auto_sentry_import_enabled: bool = Field(default=True, alias='AUTO_SENTRY_IMPORT_ENABLED')
+    auto_newrelic_import_enabled: bool = Field(default=True, alias='AUTO_NEWRELIC_IMPORT_ENABLED')
+
     cors_allowed_origins: str = Field(
         default='https://agena.dev,https://*.agena.dev,http://localhost:3010,http://localhost:3011,http://localhost:3012',
         alias='CORS_ALLOWED_ORIGINS',

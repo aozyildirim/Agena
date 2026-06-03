@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, loadPrefs, type AzureMember } from '@/lib/api';
 import { useLocale, type Lang } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type SprintOption = {
   id: string;
@@ -150,14 +151,14 @@ function getInitials(name: string): string {
 
 function getAvatarColor(name: string): string {
   const colors = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
-    'linear-gradient(135deg, #fccb90 0%, #d57eeb 100%)',
-    'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
+    '#5b9bd5',
+    '#3f9d6a',
+    '#c98a2b',
+    '#cf5b57',
+    '#6b7f99',
+    '#8a7fb0',
+    '#5b9bd5',
+    '#3f9d6a',
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -166,23 +167,23 @@ function getAvatarColor(name: string): string {
 
 function getTaskBorderColor(state: string | null | undefined): string {
   const s = String(state || '').trim().toLowerCase();
-  if (doneTokens.some((t) => s.includes(t))) return '#22c55e';
-  if (blockedTokens.some((t) => s.includes(t))) return '#ef4444';
-  return '#eab308';
+  if (doneTokens.some((t) => s.includes(t))) return '#3f9d6a';
+  if (blockedTokens.some((t) => s.includes(t))) return '#cf5b57';
+  return '#c98a2b';
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 75) return '#22c55e';
-  if (score >= 50) return '#eab308';
-  if (score >= 25) return '#f97316';
-  return '#ef4444';
+  if (score >= 75) return '#3f9d6a';
+  if (score >= 50) return '#c98a2b';
+  if (score >= 25) return '#c98a2b';
+  return '#cf5b57';
 }
 
 function getScoreGradient(score: number): string {
-  if (score >= 75) return 'linear-gradient(135deg, #22c55e, #4ade80)';
-  if (score >= 50) return 'linear-gradient(135deg, #eab308, #facc15)';
-  if (score >= 25) return 'linear-gradient(135deg, #f97316, #fb923c)';
-  return 'linear-gradient(135deg, #ef4444, #f87171)';
+  if (score >= 75) return '#3f9d6a';
+  if (score >= 50) return '#c98a2b';
+  if (score >= 25) return '#c98a2b';
+  return '#cf5b57';
 }
 
 export default function SprintPerformancePage() {
@@ -627,10 +628,10 @@ export default function SprintPerformancePage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div className='section-label' style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: loading ? '#facc15' : avgCompletion >= 50 ? '#22c55e' : '#ef4444', boxShadow: loading ? '0 0 8px rgba(250,204,21,0.5)' : avgCompletion >= 50 ? '0 0 8px rgba(34,197,94,0.5)' : '0 0 8px rgba(239,68,68,0.5)', animation: loading ? 'pulse 1.5s ease-in-out infinite' : 'none' }} />
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: loading ? '#c98a2b' : avgCompletion >= 50 ? '#3f9d6a' : '#cf5b57', animation: loading ? 'pulse 1.5s ease-in-out infinite' : 'none' }} />
             {t('sprintPerf.section')}
           </div>
-          <h1 style={{ margin: '8px 0 4px', fontSize: 28, fontWeight: 800, color: 'var(--ink-90)', letterSpacing: '-0.02em' }}>{t('sprintPerf.title')}</h1>
+          <h1 style={{ margin: '8px 0 4px', fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', letterSpacing: '-0.02em' }}>{t('sprintPerf.title')}</h1>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-45)', maxWidth: 500 }}>{t('sprintPerf.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -638,10 +639,10 @@ export default function SprintPerformancePage() {
             <button
               onClick={() => void loadData()}
               style={{
-                padding: '10px 16px', borderRadius: 12,
-                border: '1px solid var(--panel-border-3)',
+                padding: '10px 16px', borderRadius: 8,
+                border: '1px solid var(--border)',
                 background: 'var(--panel-alt)', color: 'var(--ink-75)',
-                cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                cursor: 'pointer', fontWeight: 600, fontSize: 12,
                 display: 'flex', alignItems: 'center', gap: 6,
                 transition: 'all 0.2s ease',
               }}
@@ -659,10 +660,10 @@ export default function SprintPerformancePage() {
             <Link
               href='/dashboard/sprints'
               style={{
-                padding: '10px 16px', borderRadius: 12,
-                border: '1px solid rgba(94,234,212,0.35)',
-                background: 'linear-gradient(135deg, rgba(94,234,212,0.15) 0%, rgba(56,189,248,0.10) 100%)',
-                color: '#5eead4', textDecoration: 'none', fontWeight: 700, fontSize: 12,
+                padding: '10px 16px', borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--acc-soft)',
+                color: 'var(--acc)', textDecoration: 'none', fontWeight: 600, fontSize: 12,
                 display: 'flex', alignItems: 'center', gap: 6,
                 transition: 'all 0.2s ease',
               }}
@@ -681,10 +682,10 @@ export default function SprintPerformancePage() {
 
       {error && (
         <div style={{
-          padding: '12px 16px', borderRadius: 14,
-          border: '1px solid rgba(248,113,113,0.35)',
-          background: 'linear-gradient(135deg, rgba(248,113,113,0.12) 0%, rgba(239,68,68,0.06) 100%)',
-          color: '#f87171', fontSize: 13,
+          padding: '12px 16px', borderRadius: 10,
+          border: '1px solid var(--border)',
+          background: 'rgba(207,91,87,0.10)',
+          color: '#cf5b57', fontSize: 13,
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -696,8 +697,8 @@ export default function SprintPerformancePage() {
 
       {/* ── Source & Filters ── */}
       <div style={{
-        padding: 16, borderRadius: 16,
-        border: '1px solid var(--panel-border-2)',
+        padding: 16, borderRadius: 10,
+        border: '1px solid var(--border)',
         background: 'var(--surface)',
         display: 'grid', gap: 14,
       }}>
@@ -709,11 +710,10 @@ export default function SprintPerformancePage() {
                 <button
                   onClick={() => { setProvider('azure'); setSelectedProject(''); setSelectedTeam(''); setSelectedSprint(''); }}
                   style={{
-                    padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontWeight: 700, fontSize: 12,
-                    border: provider === 'azure' ? '1px solid rgba(56,189,248,0.5)' : '1px solid var(--panel-border-3)',
-                    background: provider === 'azure' ? 'linear-gradient(135deg, rgba(56,189,248,0.18) 0%, rgba(59,130,246,0.12) 100%)' : 'var(--panel-alt)',
-                    color: provider === 'azure' ? '#7dd3fc' : 'var(--ink-58)',
-                    boxShadow: provider === 'azure' ? '0 0 12px rgba(56,189,248,0.15)' : 'none',
+                    padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                    border: provider === 'azure' ? '1px solid var(--acc)' : '1px solid var(--border)',
+                    background: provider === 'azure' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                    color: provider === 'azure' ? 'var(--acc)' : 'var(--ink-58)',
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -726,11 +726,10 @@ export default function SprintPerformancePage() {
                 <button
                   onClick={() => { setProvider('jira'); setSelectedProject(''); setSelectedTeam(''); setSelectedSprint(''); }}
                   style={{
-                    padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontWeight: 700, fontSize: 12,
-                    border: provider === 'jira' ? '1px solid rgba(129,140,248,0.5)' : '1px solid var(--panel-border-3)',
-                    background: provider === 'jira' ? 'linear-gradient(135deg, rgba(129,140,248,0.18) 0%, rgba(99,102,241,0.12) 100%)' : 'var(--panel-alt)',
-                    color: provider === 'jira' ? '#a5b4fc' : 'var(--ink-58)',
-                    boxShadow: provider === 'jira' ? '0 0 12px rgba(129,140,248,0.15)' : 'none',
+                    padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                    border: provider === 'jira' ? '1px solid var(--acc)' : '1px solid var(--border)',
+                    background: provider === 'jira' ? 'var(--acc-soft)' : 'var(--panel-alt)',
+                    color: provider === 'jira' ? 'var(--acc)' : 'var(--ink-58)',
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -783,7 +782,7 @@ export default function SprintPerformancePage() {
 
       {missingConfig ? (
         <div style={{
-          padding: 24, borderRadius: 16,
+          padding: 24, borderRadius: 10,
           border: '1px dashed var(--panel-border-3)',
           background: 'var(--panel-alt)', color: 'var(--ink-58)', fontSize: 14,
           textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
@@ -798,8 +797,8 @@ export default function SprintPerformancePage() {
           {/* ── Sprint Health Overview ── */}
           <div className="dash-grid-responsive" style={{
             display: 'grid', gridTemplateColumns: '200px 1fr', gap: 20,
-            padding: 20, borderRadius: 16,
-            border: '1px solid var(--panel-border-2)',
+            padding: 20, borderRadius: 10,
+            border: '1px solid var(--border)',
             background: 'var(--surface)',
           }}>
             {/* Circular Gauge */}
@@ -814,7 +813,7 @@ export default function SprintPerformancePage() {
                     strokeLinecap="round"
                     strokeDasharray={`${(avgCompletion / 100) * 327} 327`}
                     transform="rotate(-90 60 60)"
-                    style={{ transition: 'stroke-dasharray 0.8s ease, stroke 0.5s ease', filter: `drop-shadow(0 0 6px ${getScoreColor(avgCompletion)}40)` }}
+                    style={{ transition: 'stroke-dasharray 0.8s ease, stroke 0.5s ease' }}
                   />
                 </svg>
                 <div style={{
@@ -838,32 +837,32 @@ export default function SprintPerformancePage() {
             {/* Metric Cards Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, alignContent: 'center' }}>
               <GlowCard
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7dd3fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" /></svg>}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" /></svg>}
                 label={t('sprintPerf.activeSprint')}
                 value={activeSprintName || '\u2014'}
-                accent="#38bdf8"
+                accent="#5b9bd5"
               />
               <GlowCard
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b9bd5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}
                 label={t('sprintPerf.timeline')}
                 value={timelineProgress === null ? '\u2014' : `${Math.round(timelineProgress)}%`}
                 sub={daysLeft === null ? t('sprintPerf.noDateRange') : (daysLeft === 1 ? t('sprintPerf.daysLeftSingle', { days: daysLeft }) : t('sprintPerf.daysLeft', { days: daysLeft }))}
-                accent="#a78bfa"
+                accent="#5b9bd5"
                 progress={timelineProgress ?? undefined}
               />
               <GlowCard
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f9d6a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>}
                 label={t('sprintPerf.completedItems')}
                 value={`${totalDone}/${totalItems}`}
                 sub={totalItems > 0 ? `${Math.round((totalDone / totalItems) * 100)}% ${t('sprintPerf.completed')}` : undefined}
-                accent="#34d399"
+                accent="#3f9d6a"
               />
               <GlowCard
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c98a2b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
                 label={t('sprintPerf.blockedLabel')}
                 value={String(totalBlocked)}
                 sub={`${totalPending} ${t('sprintPerf.pending')}`}
-                accent={totalBlocked > 0 ? '#f87171' : '#fb923c'}
+                accent={totalBlocked > 0 ? '#cf5b57' : '#c98a2b'}
               />
             </div>
           </div>
@@ -871,8 +870,8 @@ export default function SprintPerformancePage() {
           {/* ── Timeline Bar ── */}
           {timelineProgress !== null && (
             <div style={{
-              padding: '14px 18px', borderRadius: 14,
-              border: '1px solid var(--panel-border-2)',
+              padding: '14px 18px', borderRadius: 10,
+              border: '1px solid var(--border)',
               background: 'var(--surface)',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -885,24 +884,22 @@ export default function SprintPerformancePage() {
               <div style={{ position: 'relative', width: '100%', height: 12, borderRadius: 999, background: 'var(--panel-border-2)', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.max(0, Math.min(100, timelineProgress))}%`, height: '100%',
-                  background: 'linear-gradient(90deg, #5eead4 0%, #38bdf8 50%, #818cf8 100%)',
+                  background: '#5b9bd5',
                   borderRadius: 999,
                   transition: 'width 0.8s ease',
-                  boxShadow: '0 0 10px rgba(94,234,212,0.3)',
                 }} />
                 {/* Work completion overlay */}
                 {totalItems > 0 && (
                   <div style={{
                     position: 'absolute', top: 0, left: `${Math.round((totalDone / totalItems) * 100)}%`,
-                    width: 2, height: '100%', background: '#22c55e',
-                    boxShadow: '0 0 6px rgba(34,197,94,0.6)',
+                    width: 2, height: '100%', background: '#3f9d6a',
                   }} />
                 )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
                 <span style={{ fontSize: 10, color: 'var(--ink-38)' }}>{t('sprintPerf.start')}</span>
                 {totalItems > 0 && (
-                  <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 600 }}>
+                  <span style={{ fontSize: 10, color: '#3f9d6a', fontWeight: 600 }}>
                     {Math.round((totalDone / totalItems) * 100)}% {t('sprintPerf.workDone')}
                   </span>
                 )}
@@ -914,15 +911,15 @@ export default function SprintPerformancePage() {
           {/* ── Sprint Pulse — computed from the sprint's own items, no DORA ── */}
           {totalItems > 0 && (
             <div style={{
-              padding: 20, borderRadius: 16,
-              border: '1px solid var(--panel-border-2)',
+              padding: 20, borderRadius: 10,
+              border: '1px solid var(--border)',
               background: 'var(--surface)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>{t('sprintPerf.pulseTitle')}</h2>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>{t('sprintPerf.pulseTitle')}</h2>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                  background: 'rgba(94,234,212,0.12)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.25)',
+                  fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+                  background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--border)',
                 }}>
                   {activeSprintName || t('sprintPerf.activeSprint')}
                 </span>
@@ -934,14 +931,14 @@ export default function SprintPerformancePage() {
                 const paceDelta = timelineProgress === null ? null : Math.round(completionPct - timelineProgress);
                 const perDay = (daysLeft !== null && daysLeft > 0) ? (remaining / daysLeft).toFixed(1) : null;
                 const topBlockedOwner = blockedByAssignee[0] || null;
-                const paceAccent = paceDelta === null ? '#94a3b8' : paceDelta >= 0 ? '#22c55e' : paceDelta >= -10 ? '#fbbf24' : '#f87171';
+                const paceAccent = paceDelta === null ? 'var(--muted)' : paceDelta >= 0 ? '#3f9d6a' : paceDelta >= -10 ? '#c98a2b' : '#cf5b57';
                 return (
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
                     <PulseCard
                       label={t('sprintPerf.pulseCompletion')}
                       value={`${completionPct}%`}
                       sub={t('sprintPerf.pulseCompletionSub', { done: totalDone, total: totalItems })}
-                      accent={completionPct >= 75 ? '#22c55e' : completionPct >= 40 ? '#5eead4' : '#fbbf24'}
+                      accent={completionPct >= 75 ? '#3f9d6a' : completionPct >= 40 ? '#5b9bd5' : '#c98a2b'}
                     />
                     <PulseCard
                       label={t('sprintPerf.pulseBlockedShare')}
@@ -949,7 +946,7 @@ export default function SprintPerformancePage() {
                       sub={topBlockedOwner
                         ? t('sprintPerf.pulseBlockedSub', { assignee: topBlockedOwner.assignee, count: topBlockedOwner.items.length })
                         : t('sprintPerf.pulseBlockedSubNone')}
-                      accent={totalBlocked === 0 ? '#22c55e' : totalBlocked <= 2 ? '#fb923c' : '#f87171'}
+                      accent={totalBlocked === 0 ? '#3f9d6a' : totalBlocked <= 2 ? '#c98a2b' : '#cf5b57'}
                     />
                     <PulseCard
                       label={t('sprintPerf.pulsePace')}
@@ -967,7 +964,7 @@ export default function SprintPerformancePage() {
                       sub={daysLeft === null
                         ? t('sprintPerf.pulseRequiredUnknown')
                         : t('sprintPerf.pulseRequiredSub', { remaining, days: daysLeft })}
-                      accent={perDay === null ? '#94a3b8' : Number(perDay) <= 1 ? '#22c55e' : Number(perDay) <= 3 ? '#fbbf24' : '#f87171'}
+                      accent={perDay === null ? 'var(--muted)' : Number(perDay) <= 1 ? '#3f9d6a' : Number(perDay) <= 3 ? '#c98a2b' : '#cf5b57'}
                     />
                   </div>
                 );
@@ -977,16 +974,16 @@ export default function SprintPerformancePage() {
 
           {/* ── Team Member Cards ── */}
           <div style={{
-            padding: 20, borderRadius: 16,
-            border: '1px solid var(--panel-border-2)',
+            padding: 20, borderRadius: 10,
+            border: '1px solid var(--border)',
             background: 'var(--surface)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>{t('sprintPerf.teamProgress')}</h2>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>{t('sprintPerf.teamProgress')}</h2>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                  background: 'rgba(94,234,212,0.12)', color: '#5eead4', border: '1px solid rgba(94,234,212,0.25)',
+                  fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+                  background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--border)',
                 }}>
                   {memberStats.length} {t('sprintPerf.members')}
                 </span>
@@ -1008,11 +1005,11 @@ export default function SprintPerformancePage() {
                 <div
                   key={member.key}
                   style={{
-                    borderRadius: 14,
-                    border: `1px solid ${isExpanded ? 'rgba(94,234,212,0.45)' : member.critical ? 'rgba(248,113,113,0.35)' : 'var(--panel-border-2)'}`,
+                    borderRadius: 10,
+                    border: `1px solid ${isExpanded ? 'var(--acc)' : member.critical ? 'rgba(207,91,87,0.35)' : 'var(--border)'}`,
                     background: member.critical
-                      ? 'linear-gradient(135deg, rgba(248,113,113,0.08) 0%, rgba(239,68,68,0.03) 100%)'
-                      : isExpanded ? 'linear-gradient(135deg, rgba(94,234,212,0.06) 0%, var(--panel-alt) 100%)' : 'var(--panel-alt)',
+                      ? 'rgba(207,91,87,0.06)'
+                      : isExpanded ? 'var(--acc-soft)' : 'var(--panel-alt)',
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -1026,12 +1023,11 @@ export default function SprintPerformancePage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                     {/* Avatar */}
                     <div style={{
-                      width: 36, height: 36, borderRadius: 10,
+                      width: 36, height: 36, borderRadius: 8,
                       background: getAvatarColor(member.name),
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em',
+                      fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em',
                       flexShrink: 0,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     }}>
                       {getInitials(member.name)}
                     </div>
@@ -1055,11 +1051,11 @@ export default function SprintPerformancePage() {
                             {member.score}
                           </span>
                           <span style={{
-                            padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                            padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
                             textTransform: 'uppercase', letterSpacing: 0.5,
-                            border: `1px solid ${member.critical ? 'rgba(248,113,113,0.45)' : 'rgba(34,197,94,0.35)'}`,
-                            background: member.critical ? 'rgba(248,113,113,0.18)' : 'rgba(34,197,94,0.12)',
-                            color: member.critical ? '#f87171' : '#22c55e',
+                            border: `1px solid ${member.critical ? 'rgba(207,91,87,0.45)' : 'rgba(63,157,106,0.35)'}`,
+                            background: member.critical ? 'rgba(207,91,87,0.14)' : 'rgba(63,157,106,0.12)',
+                            color: member.critical ? '#cf5b57' : '#3f9d6a',
                           }}>
                             {member.critical ? t('sprintPerf.critical') : t('sprintPerf.healthy')}
                           </span>
@@ -1091,7 +1087,7 @@ export default function SprintPerformancePage() {
                           left: `${member.total > 0 ? (member.done / member.total) * 100 : 0}%`,
                           width: `${member.total > 0 ? (member.blocked / member.total) * 100 : 0}%`,
                           height: '100%',
-                          background: 'repeating-linear-gradient(135deg, #ef444480 0px, #ef444480 3px, #ef444440 3px, #ef444440 6px)',
+                          background: 'repeating-linear-gradient(135deg, #cf5b5780 0px, #cf5b5780 3px, #cf5b5740 3px, #cf5b5740 6px)',
                           transition: 'width 0.6s ease',
                         }} />
                       )}
@@ -1100,9 +1096,9 @@ export default function SprintPerformancePage() {
 
                   {/* Stats pills */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <StatPill color="#22c55e" label={t('sprintPerf.completed')} value={member.done} />
-                    <StatPill color="#eab308" label={t('sprintPerf.pending')} value={member.pending} />
-                    {member.blocked > 0 && <StatPill color="#ef4444" label="blocked" value={member.blocked} />}
+                    <StatPill color="#3f9d6a" label={t('sprintPerf.completed')} value={member.done} />
+                    <StatPill color="#c98a2b" label={t('sprintPerf.pending')} value={member.pending} />
+                    {member.blocked > 0 && <StatPill color="#cf5b57" label="blocked" value={member.blocked} />}
                     <StatPill color="var(--ink-45)" label={t('sprintPerf.total')} value={member.total} />
                   </div>
                   </button>
@@ -1123,7 +1119,6 @@ export default function SprintPerformancePage() {
                             <span style={{
                               width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
                               background: borderColor,
-                              boxShadow: `0 0 6px ${borderColor}60`,
                             }} />
                             <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--ink-85)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {item.web_url ? (
@@ -1157,29 +1152,29 @@ export default function SprintPerformancePage() {
           {/* ── Blocked By Assignee ── */}
           {blockedByAssignee.length > 0 && (
             <div style={{
-              padding: 20, borderRadius: 16,
-              border: '1px solid rgba(248,113,113,0.25)',
-              background: 'linear-gradient(135deg, rgba(248,113,113,0.04) 0%, var(--surface) 100%)',
+              padding: 20, borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <div style={{
-                  width: 32, height: 32, borderRadius: 10,
-                  background: 'rgba(248,113,113,0.15)',
+                  width: 32, height: 32, borderRadius: 8,
+                  background: 'rgba(207,91,87,0.12)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cf5b57" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                   </svg>
                 </div>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>{t('sprintPerf.blockedByAssignee')}</h2>
+                  <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>{t('sprintPerf.blockedByAssignee')}</h2>
                   <p style={{ margin: 0, fontSize: 11, color: 'var(--ink-45)' }}>{t('sprintPerf.blockedByAssigneeSub')}</p>
                 </div>
                 <span style={{
-                  marginLeft: 'auto', fontSize: 11, fontWeight: 700,
-                  padding: '3px 10px', borderRadius: 999,
-                  background: 'rgba(248,113,113,0.15)', color: '#f87171',
-                  border: '1px solid rgba(248,113,113,0.3)',
+                  marginLeft: 'auto', fontSize: 11, fontWeight: 600,
+                  padding: '3px 10px', borderRadius: 6,
+                  background: 'rgba(207,91,87,0.12)', color: '#cf5b57',
+                  border: '1px solid rgba(207,91,87,0.3)',
                 }}>
                   {blockedItems.length} blocked
                 </span>
@@ -1190,27 +1185,27 @@ export default function SprintPerformancePage() {
                   <div
                     key={group.assignee}
                     style={{
-                      borderRadius: 12, padding: 14,
-                      border: '1px solid rgba(248,113,113,0.2)',
-                      background: 'rgba(248,113,113,0.04)',
+                      borderRadius: 8, padding: 14,
+                      border: '1px solid var(--border)',
+                      background: 'rgba(207,91,87,0.04)',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
-                          width: 28, height: 28, borderRadius: 8,
+                          width: 28, height: 28, borderRadius: 6,
                           background: getAvatarColor(group.assignee),
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 800, color: '#fff',
+                          fontSize: 11, fontWeight: 700, color: '#fff',
                         }}>
                           {getInitials(group.assignee)}
                         </div>
                         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)' }}>{group.assignee}</span>
                       </div>
                       <span style={{
-                        fontSize: 11, fontWeight: 700, color: '#f87171',
-                        padding: '2px 8px', borderRadius: 999,
-                        background: 'rgba(248,113,113,0.15)',
+                        fontSize: 11, fontWeight: 600, color: '#cf5b57',
+                        padding: '2px 8px', borderRadius: 6,
+                        background: 'rgba(207,91,87,0.12)',
                       }}>
                         {group.items.length} blocked
                       </span>
@@ -1218,9 +1213,9 @@ export default function SprintPerformancePage() {
                     <div style={{ display: 'grid', gap: 8 }}>
                       {group.items.map((item) => (
                         <div key={`${group.assignee}-${item.id}`} style={{
-                          padding: '8px 10px', borderRadius: 8,
-                          background: 'rgba(248,113,113,0.06)',
-                          border: '1px solid rgba(248,113,113,0.12)',
+                          padding: '8px 10px', borderRadius: 6,
+                          background: 'rgba(207,91,87,0.05)',
+                          border: '1px solid var(--border)',
                         }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-80)' }}>
                             <span style={{ color: 'var(--ink-45)', marginRight: 4 }}>#{item.id}</span>
@@ -1240,22 +1235,22 @@ export default function SprintPerformancePage() {
 
           {/* ── Blocked Items Detail ── */}
           <div style={{
-            padding: 20, borderRadius: 16,
-            border: '1px solid var(--panel-border-2)',
+            padding: 20, borderRadius: 10,
+            border: '1px solid var(--border)',
             background: 'var(--surface)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
               <div style={{
-                width: 32, height: 32, borderRadius: 10,
-                background: 'rgba(251,146,60,0.15)',
+                width: 32, height: 32, borderRadius: 8,
+                background: 'rgba(201,138,43,0.12)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c98a2b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
               </div>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>{t('sprintPerf.blockedTitle')}</h2>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>{t('sprintPerf.blockedTitle')}</h2>
               <span style={{ flex: 1 }} />
               {blockedItems.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -1335,30 +1330,30 @@ export default function SprintPerformancePage() {
               <div style={{ display: 'grid', gap: 8 }}>
                 {blockedItems.map((item) => (
                   <div key={item.id} style={{
-                    borderRadius: 12, padding: 14,
-                    border: '1px solid rgba(248,113,113,0.25)',
-                    background: 'linear-gradient(135deg, rgba(248,113,113,0.06) 0%, transparent 100%)',
+                    borderRadius: 8, padding: 14,
+                    border: '1px solid var(--border)',
+                    background: 'rgba(207,91,87,0.05)',
                     transition: 'all 0.2s ease',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', flex: 1, minWidth: 0 }}>
                         {item.webUrl ? (
                           <a href={item.webUrl} target='_blank' rel='noreferrer' style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dashed var(--ink-30)' }}>
-                            <span style={{ color: '#f87171', marginRight: 4 }}>#{item.id}</span>
+                            <span style={{ color: '#cf5b57', marginRight: 4 }}>#{item.id}</span>
                             {item.title}
                           </a>
                         ) : (
                           <>
-                            <span style={{ color: '#f87171', marginRight: 4 }}>#{item.id}</span>
+                            <span style={{ color: '#cf5b57', marginRight: 4 }}>#{item.id}</span>
                             {item.title}
                           </>
                         )}
                       </div>
                       <span style={{
-                        fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8,
-                        padding: '3px 8px', borderRadius: 999,
-                        background: 'rgba(248,113,113,0.15)',
-                        color: '#f87171', whiteSpace: 'nowrap',
+                        fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8,
+                        padding: '3px 8px', borderRadius: 6,
+                        background: 'rgba(207,91,87,0.12)',
+                        color: '#cf5b57', whiteSpace: 'nowrap',
                       }}>
                         {item.state}
                       </span>
@@ -1368,7 +1363,7 @@ export default function SprintPerformancePage() {
                         width: 18, height: 18, borderRadius: 6,
                         background: getAvatarColor(item.assignee),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 8, fontWeight: 800, color: '#fff',
+                        fontSize: 8, fontWeight: 700, color: '#fff',
                       }}>
                         {getInitials(item.assignee)}
                       </div>
@@ -1378,14 +1373,15 @@ export default function SprintPerformancePage() {
                           <span
                             title={nudgeHistory[item.id].generated_by || ''}
                             style={{
-                              fontSize: 10, fontWeight: 700, padding: '2px 7px',
-                              borderRadius: 999, letterSpacing: 0.4,
-                              background: 'rgba(94,234,212,0.1)',
-                              border: '1px solid rgba(94,234,212,0.28)',
-                              color: '#5eead4', whiteSpace: 'nowrap',
+                              fontSize: 10, fontWeight: 600, padding: '2px 7px',
+                              borderRadius: 6, letterSpacing: 0.4,
+                              background: 'var(--acc-soft)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--acc)', whiteSpace: 'nowrap',
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
                             }}
                           >
-                            ✓ {t('sprintPerf.pingHistoryBadge', {
+                            <NavIcon name="user-check" size={12} /> {t('sprintPerf.pingHistoryBadge', {
                               hours: nudgeHistory[item.id].created_at
                                 ? String(Math.max(0, Math.round((Date.now() - new Date(nudgeHistory[item.id].created_at as string).getTime()) / 3600000)))
                                 : '?',
@@ -1426,10 +1422,10 @@ export default function SprintPerformancePage() {
                             }}
                             style={{
                               width: 18, height: 18, padding: 0,
-                              borderRadius: 999, lineHeight: 1,
-                              border: '1px solid rgba(248,113,113,0.3)',
-                              background: 'rgba(248,113,113,0.08)',
-                              color: '#f87171',
+                              borderRadius: '50%', lineHeight: 1,
+                              border: '1px solid rgba(207,91,87,0.3)',
+                              background: 'rgba(207,91,87,0.08)',
+                              color: '#cf5b57',
                               cursor: 'pointer',
                               fontSize: 11, fontWeight: 700,
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -1454,9 +1450,9 @@ export default function SprintPerformancePage() {
                     </div>
                     {pingError[item.id] && pingState[item.id] === 'error' && (
                       <div style={{
-                        marginTop: 6, fontSize: 11, color: '#f87171',
+                        marginTop: 6, fontSize: 11, color: '#cf5b57',
                         padding: '4px 8px', borderRadius: 6,
-                        background: 'rgba(248,113,113,0.08)',
+                        background: 'rgba(207,91,87,0.08)',
                       }}>
                         {pingError[item.id]}
                       </div>
@@ -1464,9 +1460,9 @@ export default function SprintPerformancePage() {
                     {pingDetail[item.id] && (pingState[item.id] === 'sent' || pingState[item.id] === 'too_soon' || pingState[item.id] === 'already_nudged') && (
                       <div style={{
                         marginTop: 6, fontSize: 11,
-                        color: pingState[item.id] === 'sent' ? '#22c55e' : '#fbbf24',
+                        color: pingState[item.id] === 'sent' ? '#3f9d6a' : '#c98a2b',
                         padding: '4px 8px', borderRadius: 6,
-                        background: pingState[item.id] === 'sent' ? 'rgba(34,197,94,0.08)' : 'rgba(251,191,36,0.08)',
+                        background: pingState[item.id] === 'sent' ? 'rgba(63,157,106,0.08)' : 'rgba(201,138,43,0.08)',
                       }}>
                         {pingDetail[item.id]}
                       </div>
@@ -1474,9 +1470,9 @@ export default function SprintPerformancePage() {
                     {item.reason && (
                       <div style={{
                         marginTop: 8, fontSize: 12, color: 'var(--ink-65)', lineHeight: 1.5,
-                        padding: '8px 10px', borderRadius: 8,
-                        background: 'rgba(248,113,113,0.04)',
-                        borderLeft: '3px solid rgba(248,113,113,0.3)',
+                        padding: '8px 10px', borderRadius: 6,
+                        background: 'rgba(207,91,87,0.04)',
+                        borderLeft: '3px solid rgba(207,91,87,0.3)',
                       }}>
                         {item.reason}
                       </div>
@@ -1503,26 +1499,22 @@ function GlowCard({ icon, label, value, sub, accent, progress }: {
 }) {
   return (
     <div style={{
-      padding: 14, borderRadius: 14,
-      border: `1px solid ${accent}20`,
-      background: `linear-gradient(135deg, ${accent}08 0%, transparent 100%)`,
+      padding: 14, borderRadius: 10,
+      border: '1px solid var(--border)',
+      background: 'var(--panel-alt)',
       position: 'relative', overflow: 'hidden',
     }}>
-      <div style={{
-        position: 'absolute', top: -20, right: -20, width: 60, height: 60,
-        borderRadius: '50%', background: `${accent}06`,
-      }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         {icon}
-        <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--ink-45)', fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--ink-45)', fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink-90)', lineHeight: 1.2 }}>{value}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.2 }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--ink-50)', marginTop: 3 }}>{sub}</div>}
       {typeof progress === 'number' && (
         <div style={{ marginTop: 8, width: '100%', height: 4, borderRadius: 999, background: 'var(--panel-border-2)', overflow: 'hidden' }}>
           <div style={{
             width: `${Math.max(0, Math.min(100, progress))}%`, height: '100%',
-            background: `linear-gradient(90deg, ${accent}, ${accent}80)`,
+            background: accent,
             borderRadius: 999, transition: 'width 0.6s ease',
           }} />
         </div>
@@ -1568,16 +1560,15 @@ function TooltipWrap({ text, children, full = false }: { text: string; children:
             left: 0,
             maxWidth: 320,
             zIndex: 1200,
-            background: 'rgba(2,6,23,0.96)',
-            color: '#e2e8f0',
-            border: '1px solid rgba(94,234,212,0.35)',
-            borderRadius: 10,
+            background: 'var(--panel)',
+            color: 'var(--ink-90)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
             padding: '7px 10px',
             fontSize: 11,
             lineHeight: 1.3,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
             pointerEvents: 'none',
-            backdropFilter: 'blur(8px)',
           }}
         >
           {text}
@@ -1637,11 +1628,15 @@ function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelE
     : state === 'too_soon' ? labelTooSoon
     : state === 'already_nudged' ? labelAlready
     : labelIdle;
-  const color = state === 'sent' ? '#22c55e'
-    : state === 'error' ? '#f87171'
-    : state === 'too_soon' || state === 'already_nudged' ? '#fbbf24'
-    : '#5eead4';
-  const prefix = state === 'sent' ? '✓ ' : state === 'too_soon' || state === 'already_nudged' ? '⏳ ' : '';
+  const color = state === 'sent' ? '#3f9d6a'
+    : state === 'error' ? '#cf5b57'
+    : state === 'too_soon' || state === 'already_nudged' ? '#c98a2b'
+    : '#5b9bd5';
+  const prefixIcon = state === 'sent'
+    ? <NavIcon name="user-check" size={12} />
+    : state === 'too_soon' || state === 'already_nudged'
+      ? <NavIcon name="clock" size={12} />
+      : null;
   return (
     <button
       type="button"
@@ -1649,19 +1644,20 @@ function PingButton({ state, onClick, labelIdle, labelLoading, labelSent, labelE
       disabled={state === 'loading' || state === 'sent' || state === 'already_nudged'}
       style={{
         fontSize: 11,
-        fontWeight: 700,
+        fontWeight: 600,
         letterSpacing: 0.4,
         padding: '4px 10px',
-        borderRadius: 999,
+        borderRadius: 6,
         border: `1px solid ${color}44`,
         background: `${color}14`,
         color,
         cursor: state === 'loading' || state === 'sent' ? 'default' : 'pointer',
         opacity: state === 'loading' ? 0.7 : 1,
         transition: 'all 0.15s ease',
+        display: 'inline-flex', alignItems: 'center', gap: 4,
       }}
     >
-      {prefix}{label}
+      {prefixIcon}{label}
     </button>
   );
 }

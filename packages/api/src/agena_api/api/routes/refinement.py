@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_models.models.refinement_record import RefinementRecord
 from agena_models.schemas.refinement import (
@@ -23,7 +23,15 @@ from agena_services.services.refinement_job_service import (
 )
 from agena_services.services.refinement_service import RefinementService
 
-router = APIRouter(prefix='/refinement', tags=['refinement'])
+# Page-view permission gates the whole module — members without
+# `pages:refinement` can neither see the menu item (frontend) nor pull
+# refinement data through these endpoints. Org owners bypass. The per-action
+# endpoints below additionally require refinement:run / refinement:approve.
+router = APIRouter(
+    prefix='/refinement',
+    tags=['refinement'],
+    dependencies=[Depends(require_workspace_perm('pages:refinement'))],
+)
 
 # Keep strong refs to in-flight backfill tasks so asyncio doesn't GC them
 # out from under us. Per-org since only one backfill runs at a time.
@@ -111,7 +119,11 @@ async def list_refinement_items(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post('/analyze', response_model=RefinementAnalyzeResponse)
+@router.post(
+    '/analyze',
+    response_model=RefinementAnalyzeResponse,
+    dependencies=[Depends(require_workspace_perm('refinement:run'))],
+)
 async def analyze_refinement(
     payload: RefinementAnalyzeRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -170,7 +182,11 @@ def _serialize_job(job) -> RefinementJobStatusResponse:
     )
 
 
-@router.post('/analyze/start', response_model=RefinementJobStartResponse)
+@router.post(
+    '/analyze/start',
+    response_model=RefinementJobStartResponse,
+    dependencies=[Depends(require_workspace_perm('refinement:run'))],
+)
 async def start_analyze_job(
     payload: RefinementAnalyzeRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -443,7 +459,11 @@ async def assign_recommended_author(
     raise HTTPException(status_code=400, detail='source must be azure or jira')
 
 
-@router.post('/writeback', response_model=RefinementWritebackResponse)
+@router.post(
+    '/writeback',
+    response_model=RefinementWritebackResponse,
+    dependencies=[Depends(require_workspace_perm('refinement:approve'))],
+)
 async def writeback_refinement(
     payload: RefinementWritebackRequest,
     tenant: CurrentTenant = Depends(get_current_tenant),
@@ -461,6 +481,68 @@ class RefinementDeleteCommentRequest(BaseModel):
     work_item_id: str
     signature: str = 'AGENA AI'
     project: str | None = None  # required for Azure
+
+
+@router.delete('/records/{record_id}', dependencies=[Depends(require_workspace_perm('refinement:run'))])
+async def delete_refinement_record(
+    record_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Delete a single refinement record (analysis/writeback row) from history.
+    Does NOT touch the Azure/Jira comment — use /delete-comment for that.
+    Org-scoped; lets the team re-run a fresh refinement on the item."""
+    row = (await db.execute(
+        select(RefinementRecord).where(
+            RefinementRecord.id == record_id,
+            RefinementRecord.organization_id == tenant.organization_id,
+        )
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='Refinement record not found')
+    await db.delete(row)
+    await db.commit()
+    return {'deleted': 1}
+
+
+class RefinementClearEstimateRequest(BaseModel):
+    provider: str  # 'azure' (Jira not supported yet)
+    work_item_id: str
+    project: str | None = None  # required for Azure
+
+
+@router.post('/clear-estimate', dependencies=[Depends(require_workspace_perm('refinement:run'))])
+async def clear_refinement_estimate(
+    payload: RefinementClearEstimateRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Wipe the estimate fields (StoryPoints / Effort / Size) a previous
+    writeback stamped on an Azure work item. Lets the user fully undo a
+    refinement — the value often lands in Effort, which may not be on the
+    Task form, so it can't be cleared from the Azure UI."""
+    src = (payload.provider or '').strip().lower()
+    wid = (payload.work_item_id or '').strip()
+    if not wid:
+        raise HTTPException(status_code=400, detail='work_item_id is required')
+    if src != 'azure':
+        raise HTTPException(status_code=400, detail='clear-estimate currently supports Azure only')
+
+    from agena_services.services.integration_config_service import IntegrationConfigService
+    from agena_services.integrations.azure_client import AzureDevOpsClient
+    cfg_service = IntegrationConfigService(db)
+    config = await cfg_service.get_config(tenant.organization_id, 'azure')
+    if config is None or not config.secret:
+        raise HTTPException(status_code=400, detail='Azure integration not configured')
+    project = (payload.project or config.project or '').strip()
+    if not project:
+        raise HTTPException(status_code=400, detail='project is required for Azure')
+    cfg = {'org_url': config.base_url or '', 'pat': config.secret, 'project': project}
+    try:
+        cleared = await AzureDevOpsClient().clear_estimate(cfg=cfg, work_item_id=wid)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {'cleared': cleared}
 
 
 @router.post('/delete-comment')

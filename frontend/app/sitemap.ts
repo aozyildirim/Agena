@@ -40,6 +40,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/cross-source-insights', modified: '2026-05-02', freq: 'monthly' as const, priority: 0.9 },
     { path: '/stale-ticket-triage', modified: '2026-05-02', freq: 'monthly' as const, priority: 0.9 },
     { path: '/review-backlog-killer', modified: '2026-05-02', freq: 'monthly' as const, priority: 0.9 },
+    { path: '/workspaces', modified: '2026-05-06', freq: 'monthly' as const, priority: 0.95 },
   ];
 
   // All blog slugs

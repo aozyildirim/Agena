@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
 import { ChipSelect, SwitchToggle, SettingsField, SettingsCard } from '@/components/SettingsControls';
+import NavIcon from '@/components/NavIcon';
 
 type Nudge = {
   id: number;
@@ -43,9 +44,9 @@ type Settings = {
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  info: '#6366f1',
-  warning: '#f59e0b',
-  critical: '#ef4444',
+  info: '#5b9bd5',
+  warning: '#c98a2b',
+  critical: '#cf5b57',
 };
 
 const PROVIDER_ICON: Record<string, string> = {
@@ -228,11 +229,11 @@ export default function ReviewBacklogPage() {
     <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gap: 16 }}>
       <header style={{ display: 'grid', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#f59e0b', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
             {t('backlog.eyebrow')}
           </div>
-          <h1 style={{ fontSize: 'clamp(20px, 5vw, 28px)', fontWeight: 800, margin: 0, color: 'var(--ink-90)', lineHeight: 1.2 }}>
-            ⏱ {t('backlog.title')}
+          <h1 style={{ fontSize: 'clamp(20px, 5vw, 22px)', fontWeight: 700, margin: 0, color: 'var(--ink-90)', lineHeight: 1.2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <NavIcon name="clock" size={20} /> {t('backlog.title')}
           </h1>
           <p style={{ fontSize: 'clamp(12px, 3.4vw, 14px)', color: 'var(--ink-58)', marginTop: 6, lineHeight: 1.55, maxWidth: 720 }}>
             {t('backlog.longSubtitle')}
@@ -247,23 +248,23 @@ export default function ReviewBacklogPage() {
           style={{
             border: '1px solid var(--panel-border)',
             background: 'var(--panel)',
-            borderRadius: 12,
+            borderRadius: 10,
             padding: '10px 14px',
             fontSize: 12,
             color: 'var(--ink-78)',
           }}
         >
-          <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink-90)' }}>
-            💡 {t('backlog.help.title' as TranslationKey)}
+          <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink-90)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <NavIcon name="alert" size={14} /> {t('backlog.help.title' as TranslationKey)}
           </summary>
           <div style={{ marginTop: 8, lineHeight: 1.55, display: 'grid', gap: 4 }}>
             <div>{t('backlog.help.body' as TranslationKey)}</div>
             <div style={{ marginTop: 6 }}>
               {t('backlog.help.scope' as TranslationKey)}{' '}
-              <a href='/dashboard/mappings' style={{ color: '#5eead4', textDecoration: 'underline' }}>
+              <a href='/dashboard/mappings' style={{ color: 'var(--acc)', textDecoration: 'underline' }}>
                 /dashboard/mappings ↗
               </a>{' · '}
-              <a href='/dashboard/dora' style={{ color: '#5eead4', textDecoration: 'underline' }}>
+              <a href='/dashboard/dora' style={{ color: 'var(--acc)', textDecoration: 'underline' }}>
                 /dashboard/dora ↗
               </a>
             </div>
@@ -271,8 +272,8 @@ export default function ReviewBacklogPage() {
             <div>{t('backlog.help.nudge' as TranslationKey)}</div>
             <div>{t('backlog.help.cooldown' as TranslationKey)}</div>
             <div>{t('backlog.help.deletion' as TranslationKey)}</div>
-            <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
-              ⚙️ {t('backlog.help.worker' as TranslationKey)}
+            <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'var(--panel-alt)', border: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <NavIcon name="settings" size={14} /> {t('backlog.help.worker' as TranslationKey)}
             </div>
           </div>
         </details>
@@ -282,13 +283,13 @@ export default function ReviewBacklogPage() {
             mapped repos with zero PRs aren't shown because they'd
             mislead the user. Click to scope the queue to one repo. */}
         {reposInScope.length > 0 && (
-          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 10, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--panel)', border: '1px solid var(--panel-border)', borderRadius: 8, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
             <button
               onClick={() => setRepoFilter('all')}
               style={{
-                padding: '6px 10px', borderRadius: 7, border: 'none',
-                background: repoFilter === 'all' ? 'rgba(245,158,11,0.18)' : 'transparent',
-                color: repoFilter === 'all' ? '#f59e0b' : 'var(--ink-58)',
+                padding: '6px 10px', borderRadius: 6, border: 'none',
+                background: repoFilter === 'all' ? 'var(--acc-soft)' : 'transparent',
+                color: repoFilter === 'all' ? 'var(--acc)' : 'var(--ink-58)',
                 fontSize: 11, fontWeight: 700, cursor: 'pointer',
               }}
             >
@@ -301,13 +302,14 @@ export default function ReviewBacklogPage() {
                   key={r.repo_mapping_id}
                   onClick={() => setRepoFilter(r.repo_mapping_id)}
                   style={{
-                    padding: '6px 10px', borderRadius: 7, border: 'none',
-                    background: isActive ? 'rgba(245,158,11,0.18)' : 'transparent',
-                    color: isActive ? '#f59e0b' : 'var(--ink-58)',
+                    padding: '6px 10px', borderRadius: 6, border: 'none',
+                    background: isActive ? 'var(--acc-soft)' : 'transparent',
+                    color: isActive ? 'var(--acc)' : 'var(--ink-58)',
                     fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
                   }}
                 >
-                  📦 {r.label} <span style={{ opacity: 0.6, marginLeft: 4 }}>({r.count})</span>
+                  <NavIcon name="box" size={13} /> {r.label} <span style={{ opacity: 0.6, marginLeft: 4 }}>({r.count})</span>
                 </button>
               );
             })}
@@ -317,11 +319,11 @@ export default function ReviewBacklogPage() {
         {/* Stat strip — corporate at-a-glance summary */}
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
-            <StatTile label={t('backlog.stat.total')} value={stats.total} accent='#6366f1' />
-            <StatTile label={t('backlog.stat.critical')} value={stats.critical} accent='#ef4444' />
-            <StatTile label={t('backlog.stat.warning')} value={stats.warning} accent='#f59e0b' />
-            <StatTile label={t('backlog.stat.avgAge')} value={`${stats.avgAge}h`} accent='#06b6d4' />
-            <StatTile label={t('backlog.stat.escalated')} value={stats.escalated} accent='#a855f7' />
+            <StatTile label={t('backlog.stat.total')} value={stats.total} accent='#5b9bd5' />
+            <StatTile label={t('backlog.stat.critical')} value={stats.critical} accent='#cf5b57' />
+            <StatTile label={t('backlog.stat.warning')} value={stats.warning} accent='#c98a2b' />
+            <StatTile label={t('backlog.stat.avgAge')} value={`${stats.avgAge}h`} accent='#5b9bd5' />
+            <StatTile label={t('backlog.stat.escalated')} value={stats.escalated} accent='#5b9bd5' />
           </div>
         )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -329,8 +331,8 @@ export default function ReviewBacklogPage() {
             onClick={scanNow}
             disabled={scanning}
             style={{
-              padding: '8px 14px', borderRadius: 10,
-              background: scanning ? 'var(--panel)' : 'linear-gradient(135deg, #f59e0b, #ef4444)',
+              padding: '8px 14px', borderRadius: 8,
+              background: scanning ? 'var(--panel)' : 'var(--acc)',
               color: scanning ? 'var(--ink-58)' : '#fff',
               border: scanning ? '1px solid var(--panel-border)' : 'none',
               fontSize: 12, fontWeight: 700, cursor: scanning ? 'wait' : 'pointer',
@@ -342,9 +344,9 @@ export default function ReviewBacklogPage() {
             <span style={{
               fontSize: 11, color: 'var(--ink-58)', padding: '6px 10px',
               background: 'var(--panel)', border: '1px solid var(--panel-border)',
-              borderRadius: 8,
+              borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
-              ⏱ {t('backlog.cadenceHint' as TranslationKey, {
+              <NavIcon name="clock" size={13} /> {t('backlog.cadenceHint' as TranslationKey, {
                 hours: String(settings.backlog_nudge_interval_hours),
               })}
             </span>
@@ -352,14 +354,15 @@ export default function ReviewBacklogPage() {
           <button
             onClick={() => setShowSettings((v) => !v)}
             style={{
-              padding: '8px 12px', borderRadius: 10,
-              background: showSettings ? 'rgba(99,102,241,0.12)' : 'var(--panel)',
-              color: showSettings ? '#818cf8' : 'var(--ink-78)',
+              padding: '8px 12px', borderRadius: 8,
+              background: showSettings ? 'var(--acc-soft)' : 'var(--panel)',
+              color: showSettings ? 'var(--acc)' : 'var(--ink-78)',
               border: '1px solid var(--panel-border)',
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}
           >
-            ⚙ {t('backlog.settings')}
+            <NavIcon name="settings" size={14} /> {t('backlog.settings')}
           </button>
         </div>
       </header>
@@ -378,7 +381,7 @@ export default function ReviewBacklogPage() {
             <SwitchToggle
               value={settings.backlog_enabled}
               onChange={(v) => void saveSettings({ backlog_enabled: v })}
-              accent='#f59e0b'
+              accent='#5b9bd5'
             />
           </SettingsField>
           <SettingsField
@@ -388,14 +391,14 @@ export default function ReviewBacklogPage() {
             <SwitchToggle
               value={!!settings.backlog_auto_nudge}
               onChange={(v) => void saveSettings({ backlog_auto_nudge: v } as Partial<Settings>)}
-              accent='#10b981'
+              accent='#3f9d6a'
             />
           </SettingsField>
           <SettingsField label={t('backlog.set.warnHours')} hint={t('backlog.set.warnHint')}>
             <ChipSelect<number>
               value={settings.backlog_warn_hours}
               onChange={(v) => void saveSettings({ backlog_warn_hours: v })}
-              accent='#f59e0b'
+              accent='#c98a2b'
               options={[
                 { value: 6, label: t('duration.6h') },
                 { value: 12, label: t('duration.12h') },
@@ -413,7 +416,9 @@ export default function ReviewBacklogPage() {
             <ChipSelect<number>
               value={settings.backlog_critical_hours}
               onChange={(v) => void saveSettings({ backlog_critical_hours: v })}
-              accent='#ef4444'
+              accent='#cf5b57'
+              minValue={settings.backlog_warn_hours + 1}
+              minHint={t('backlog.set.critMinHint')}
               options={[
                 { value: 24, label: t('duration.1d') },
                 { value: 48, label: t('duration.2d') },
@@ -430,7 +435,7 @@ export default function ReviewBacklogPage() {
             <ChipSelect<number>
               value={settings.backlog_nudge_interval_hours}
               onChange={(v) => void saveSettings({ backlog_nudge_interval_hours: v })}
-              accent='#6366f1'
+              accent='#5b9bd5'
               options={[
                 { value: 1, label: t('duration.1h') },
                 { value: 3, label: t('duration.3h') },
@@ -477,9 +482,9 @@ export default function ReviewBacklogPage() {
                         onClick={() => toggle(c.value)}
                         style={{
                           padding: '6px 10px', borderRadius: 8,
-                          border: '1px solid ' + (on ? 'rgba(99,102,241,0.55)' : 'var(--panel-border)'),
-                          background: on ? 'rgba(99,102,241,0.16)' : 'var(--panel)',
-                          color: on ? '#818cf8' : 'var(--ink-78)',
+                          border: '1px solid ' + (on ? 'var(--acc)' : 'var(--panel-border)'),
+                          background: on ? 'var(--acc-soft)' : 'var(--panel)',
+                          color: on ? 'var(--acc)' : 'var(--ink-78)',
                           fontSize: 12, fontWeight: 700, cursor: 'pointer',
                         }}
                       >
@@ -506,7 +511,7 @@ export default function ReviewBacklogPage() {
             <ChipSelect<string>
               value={settings.nudge_comment_language || 'en'}
               onChange={(v) => void saveSettings({ nudge_comment_language: v })}
-              accent='#06b6d4'
+              accent='#5b9bd5'
               options={[
                 { value: 'en', label: 'English' },
                 { value: 'tr', label: 'Türkçe' },
@@ -532,7 +537,7 @@ export default function ReviewBacklogPage() {
       )}
 
       {error && (
-        <div style={{ padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: 13 }}>
+        <div style={{ padding: 12, borderRadius: 8, background: 'rgba(207,91,87,0.10)', border: '1px solid rgba(207,91,87,0.30)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -540,8 +545,8 @@ export default function ReviewBacklogPage() {
       {open === null ? (
         <div style={{ padding: 24, color: 'var(--ink-58)', fontSize: 14 }}>{t('backlog.loading')}</div>
       ) : open.length === 0 ? (
-        <div style={{ padding: 32, borderRadius: 14, background: 'var(--panel)', border: '1px solid var(--panel-border)', textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>🎉</div>
+        <div style={{ padding: 32, borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--panel-border)', textAlign: 'center' }}>
+          <div style={{ marginBottom: 8, color: '#3f9d6a', display: 'flex', justifyContent: 'center' }}><NavIcon name="shield" size={36} /></div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)', marginBottom: 4 }}>{t('backlog.empty.title')}</div>
           <div style={{ fontSize: 13, color: 'var(--ink-58)', maxWidth: 480, margin: '0 auto', lineHeight: 1.55 }}>
             {t('backlog.empty.body')}
@@ -551,12 +556,12 @@ export default function ReviewBacklogPage() {
         <div style={{ display: 'grid', gap: 10 }}>
           {open.map((n) => {
             const sev = n.severity || 'info';
-            const color = SEVERITY_COLOR[sev] || '#6366f1';
+            const color = SEVERITY_COLOR[sev] || '#5b9bd5';
             return (
               <article
                 key={n.id}
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 10,
                   background: 'var(--panel)',
                   border: '1px solid var(--panel-border)',
                   borderLeft: `4px solid ${color}`,
@@ -576,29 +581,30 @@ export default function ReviewBacklogPage() {
                   {n.pr_is_draft && (
                     <span style={{
                       fontSize: 11, padding: '2px 8px', borderRadius: 999,
-                      background: 'rgba(148,163,184,0.20)', color: '#94a3b8',
+                      background: 'var(--panel-alt)', color: 'var(--muted)',
                       fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
-                      border: '1px dashed rgba(148,163,184,0.55)',
+                      border: '1px dashed var(--panel-border)',
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
                     }}>
-                      📝 {t('backlog.prStatus.draft' as TranslationKey)}
+                      <NavIcon name="pencil" size={12} /> {t('backlog.prStatus.draft' as TranslationKey)}
                     </span>
                   )}
                   {n.pr_status && (() => {
                     const s = n.pr_status.toLowerCase();
                     const palette: Record<string, { bg: string; fg: string }> = {
-                      active:    { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      open:      { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      opened:    { bg: 'rgba(34,197,94,0.15)',   fg: '#22c55e' },
-                      pending:   { bg: 'rgba(245,158,11,0.15)',  fg: '#f59e0b' },
-                      in_review: { bg: 'rgba(168,85,247,0.15)',  fg: '#a855f7' },
-                      review_required: { bg: 'rgba(168,85,247,0.15)', fg: '#a855f7' },
-                      abandoned: { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' },
-                      declined:  { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' },
-                      closed:    { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' },
-                      completed: { bg: 'rgba(96,165,250,0.18)',  fg: '#60a5fa' },
-                      merged:    { bg: 'rgba(96,165,250,0.18)',  fg: '#60a5fa' },
+                      active:    { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      open:      { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      opened:    { bg: 'rgba(63,157,106,0.15)',  fg: '#3f9d6a' },
+                      pending:   { bg: 'rgba(201,138,43,0.15)',  fg: '#c98a2b' },
+                      in_review: { bg: 'var(--acc-soft)',        fg: 'var(--acc)' },
+                      review_required: { bg: 'var(--acc-soft)',  fg: 'var(--acc)' },
+                      abandoned: { bg: 'var(--panel-alt)',       fg: 'var(--muted)' },
+                      declined:  { bg: 'var(--panel-alt)',       fg: 'var(--muted)' },
+                      closed:    { bg: 'var(--panel-alt)',       fg: 'var(--muted)' },
+                      completed: { bg: 'var(--acc-soft)',        fg: 'var(--acc)' },
+                      merged:    { bg: 'var(--acc-soft)',        fg: 'var(--acc)' },
                     };
-                    const c = palette[s] || { bg: 'rgba(148,163,184,0.18)', fg: '#94a3b8' };
+                    const c = palette[s] || { bg: 'var(--panel-alt)', fg: 'var(--muted)' };
                     const localized = t(`backlog.prStatus.${s}` as TranslationKey) || n.pr_status;
                     return (
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: c.bg, color: c.fg, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
@@ -607,13 +613,13 @@ export default function ReviewBacklogPage() {
                     );
                   })()}
                   {n.nudge_count > 0 && (
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(99,102,241,0.12)', color: '#818cf8', fontWeight: 700 }}>
-                      🔔 {n.nudge_count}
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'var(--acc-soft)', color: 'var(--acc)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <NavIcon name="bell" size={12} /> {n.nudge_count}
                     </span>
                   )}
                   {n.escalated_at && (
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: 700 }}>
-                      ⚠ {t('backlog.escalated')}
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'rgba(207,91,87,0.15)', color: '#cf5b57', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <NavIcon name="alert" size={12} /> {t('backlog.escalated')}
                     </span>
                   )}
                 </header>
@@ -632,8 +638,8 @@ export default function ReviewBacklogPage() {
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ink-58)' }}>
-                  {n.pr_author && <>👤 {n.pr_author}</>}
-                  {n.repo_display_name && <> · 📦 {n.repo_display_name}</>}
+                  {n.pr_author && <><NavIcon name="user-check" size={12} /> {n.pr_author}</>}
+                  {n.repo_display_name && <> · <NavIcon name="box" size={12} /> {n.repo_display_name}</>}
                   {n.last_nudged_at && <> · {t('backlog.lastNudged')}: {new Date(n.last_nudged_at).toLocaleString()} ({n.last_nudge_channel})</>}
                 </div>
                 {(() => {
@@ -643,8 +649,8 @@ export default function ReviewBacklogPage() {
                   const interval = settings?.backlog_nudge_interval_hours ?? 6;
                   if (!n.last_nudged_at) {
                     return (
-                      <div style={{ fontSize: 11, color: '#5eead4', fontWeight: 600 }}>
-                        ⏰ {t('backlog.nextNudgeReady' as TranslationKey)}
+                      <div style={{ fontSize: 11, color: 'var(--acc)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <NavIcon name="clock" size={12} /> {t('backlog.nextNudgeReady' as TranslationKey)}
                       </div>
                     );
                   }
@@ -656,13 +662,15 @@ export default function ReviewBacklogPage() {
                     <div
                       style={{
                         fontSize: 11,
-                        color: ready ? '#5eead4' : 'var(--ink-50)',
+                        color: ready ? 'var(--acc)' : 'var(--ink-50)',
                         fontWeight: ready ? 700 : 500,
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
                       }}
                     >
+                      <NavIcon name="clock" size={12} />{' '}
                       {ready
-                        ? `⏰ ${t('backlog.nextNudgeReady' as TranslationKey)}`
-                        : `⏰ ${t('backlog.nextNudgeIn' as TranslationKey, { hours: String(Math.ceil(remainingHours)) })}`}
+                        ? t('backlog.nextNudgeReady' as TranslationKey)
+                        : t('backlog.nextNudgeIn' as TranslationKey, { hours: String(Math.ceil(remainingHours)) })}
                     </div>
                   );
                 })()}
@@ -687,18 +695,19 @@ export default function ReviewBacklogPage() {
                         disabled={disabled}
                         title={inCooldown ? t('backlog.nudgeRateLimited' as TranslationKey) : ''}
                         style={{
-                          padding: '5px 11px', borderRadius: 8,
+                          padding: '5px 11px', borderRadius: 6,
                           background: disabled ? 'var(--panel)' : `${color}22`,
                           color: disabled ? 'var(--ink-35)' : color,
                           border: `1px solid ${disabled ? 'var(--panel-border)' : `${color}55`}`,
                           fontSize: 11, fontWeight: 700,
                           cursor: inFlight ? 'wait' : (inCooldown ? 'not-allowed' : 'pointer'),
                           opacity: disabled ? 0.55 : 1,
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}
                       >
                         {inFlight
                           ? t('backlog.nudging' as TranslationKey)
-                          : `🔔 ${t('backlog.nudgeNow')}`}
+                          : <><NavIcon name="bell" size={12} /> {t('backlog.nudgeNow')}</>}
                       </button>
                     </footer>
                   );
@@ -761,16 +770,16 @@ function ExemptRepoPicker({
           {selectedIds.map((id) => (
             <span key={id} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '4px 8px', borderRadius: 8,
-              background: 'rgba(245,158,11,0.16)', border: '1px solid rgba(245,158,11,0.45)',
-              color: '#f59e0b', fontSize: 12, fontWeight: 700,
+              padding: '4px 8px', borderRadius: 6,
+              background: 'var(--acc-soft)', border: '1px solid var(--acc)',
+              color: 'var(--acc)', fontSize: 12, fontWeight: 700,
             }}>
-              ✓ {idToLabel[id] || `#${id}`}
+              {idToLabel[id] || `#${id}`}
               <button
                 type='button'
                 onClick={() => remove(id)}
-                style={{ background: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1, opacity: 0.75 }}
-              >×</button>
+                style={{ background: 'transparent', border: 'none', color: 'var(--acc)', cursor: 'pointer', padding: 0, lineHeight: 1, opacity: 0.75, display: 'inline-flex' }}
+              ><NavIcon name="close" size={12} /></button>
             </span>
           ))}
         </div>
@@ -802,7 +811,7 @@ function ExemptRepoPicker({
           <div style={{
             position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
             background: 'var(--surface)', border: '1px solid var(--panel-border)',
-            borderRadius: 8, boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+            borderRadius: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
             maxHeight: 240, overflowY: 'auto', zIndex: 10,
           }}>
             {filtered.slice(0, 20).map((m) => {
@@ -837,7 +846,7 @@ function ExemptRepoPicker({
 function StatTile({ label, value, accent }: { label: string; value: number | string; accent: string }) {
   return (
     <div style={{
-      padding: '12px 14px', borderRadius: 12,
+      padding: '12px 14px', borderRadius: 10,
       background: 'var(--panel)', border: '1px solid var(--panel-border)',
       borderLeft: `3px solid ${accent}`,
       display: 'grid', gap: 4,

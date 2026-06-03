@@ -79,6 +79,7 @@ export default function RefinementRunsPage() {
   const [activeSprint, setActiveSprint] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [toast, setToast] = useState('');
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; confirmLabel: string; onConfirm: () => void } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,11 +143,6 @@ export default function RefinementRunsPage() {
 
   const deleteComment = useCallback(async (rec: RefinementHistoryItem) => {
     const sigGuess = 'AGENA AI';
-    if (!window.confirm(
-      t('refinement.runs.deleteConfirm' as Parameters<typeof t>[0])
-        .replace('{signature}', sigGuess)
-        .replace('{itemId}', rec.external_item_id)
-    )) return;
     setDeleting(rec.id);
     try {
       const resp = await apiFetch<{ deleted: number }>('/refinement/delete-comment', {
@@ -169,6 +165,53 @@ export default function RefinementRunsPage() {
       setDeleting(null);
     }
   }, [lang]);
+
+  // Delete the refinement RECORD from history (so the item can be re-refined).
+  // This does NOT remove the Azure/Jira comment — that's deleteComment above.
+  const deleteRecord = useCallback(async (rec: RefinementHistoryItem) => {
+    setDeleting(rec.id);
+    try {
+      await apiFetch(`/refinement/records/${rec.id}`, { method: 'DELETE' });
+      setItems((prev) => prev.filter((r) => r.id !== rec.id));
+      setTotal((tt) => Math.max(0, tt - 1));
+      // Tombstone: tell the Refinement page to drop this item's cached
+      // suggestion badge (its localStorage snapshot is independent of the
+      // server record we just deleted).
+      try {
+        if (typeof window !== 'undefined' && rec.external_item_id) {
+          const TK = 'refinement:deleted-items';
+          const prev: string[] = JSON.parse(localStorage.getItem(TK) || '[]');
+          const next = Array.from(new Set([...prev, String(rec.external_item_id)])).slice(-200);
+          localStorage.setItem(TK, JSON.stringify(next));
+        }
+      } catch { /* non-fatal */ }
+      setToast('✓ ' + t('refinement.runs.recordDeletedToast' as Parameters<typeof t>[0]));
+      setTimeout(() => setToast(''), 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeleting(null);
+    }
+  }, [lang]);
+
+  // Open the in-app confirm modal (no native window.confirm).
+  const askDelete = useCallback((kind: 'comment' | 'record', rec: RefinementHistoryItem) => {
+    if (kind === 'comment') {
+      setConfirmState({
+        title: t('refinement.deleteCommentTitle' as Parameters<typeof t>[0]),
+        message: t('refinement.runs.deleteConfirm' as Parameters<typeof t>[0]).replace('{signature}', 'AGENA AI').replace('{itemId}', rec.external_item_id),
+        confirmLabel: t('refinement.deleteCommentTitle' as Parameters<typeof t>[0]),
+        onConfirm: () => { setConfirmState(null); void deleteComment(rec); },
+      });
+    } else {
+      setConfirmState({
+        title: t('refinement.runs.deleteRecord' as Parameters<typeof t>[0]),
+        message: t('refinement.runs.deleteRecordConfirm' as Parameters<typeof t>[0]).replace('{itemId}', rec.external_item_id),
+        confirmLabel: t('refinement.runs.deleteRecord' as Parameters<typeof t>[0]),
+        onConfirm: () => { setConfirmState(null); void deleteRecord(rec); },
+      });
+    }
+  }, [deleteComment, deleteRecord, t]);
 
   return (
     <div>
@@ -301,7 +344,8 @@ export default function RefinementRunsPage() {
                 <RecordRow
                   key={rec.id}
                   record={rec}
-                  onDelete={() => deleteComment(rec)}
+                  onDelete={() => askDelete('comment', rec)}
+                  onDeleteRecord={() => askDelete('record', rec)}
                   deleting={deleting === rec.id}
                 />
               ))}
@@ -309,15 +353,46 @@ export default function RefinementRunsPage() {
           )}
         </main>
       </div>
+
+      {/* In-app confirm modal (replaces native window.confirm) */}
+      {confirmState && (
+        <div
+          onClick={() => setConfirmState(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 'min(460px, calc(100vw - 32px))', background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, boxShadow: '0 24px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}
+          >
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--panel-border)', fontSize: 15, fontWeight: 700, color: 'var(--ink-90)' }}>
+              {confirmState.title}
+            </div>
+            <div style={{ padding: '16px 18px', fontSize: 13, color: 'var(--ink-72)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+              {confirmState.message}
+            </div>
+            <div style={{ padding: '12px 18px', borderTop: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type='button' onClick={() => setConfirmState(null)}
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-65)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {t('integrations.common.cancel' as Parameters<typeof t>[0]) || 'Cancel'}
+              </button>
+              <button type='button' onClick={confirmState.onConfirm}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#cf5b57', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                {confirmState.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function RecordRow({
-  record, onDelete, deleting,
+  record, onDelete, onDeleteRecord, deleting,
 }: {
   record: RefinementHistoryItem;
   onDelete: () => void;
+  onDeleteRecord: () => void;
   deleting: boolean;
 }) {
   const { t } = useLocale();
@@ -398,22 +473,35 @@ function RecordRow({
           {record.comment && (
             <Section label={t('refinement.runs.section.comment' as Parameters<typeof t>[0])} text={record.comment} mono />
           )}
-          {isWb && record.status === 'completed' && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            {isWb && record.status === 'completed' && (
               <button
                 type='button'
                 onClick={onDelete}
                 disabled={deleting}
                 style={{
                   padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  border: '1px solid rgba(239,68,68,0.4)', cursor: deleting ? 'wait' : 'pointer',
-                  background: 'rgba(239,68,68,0.08)', color: '#fca5a5',
+                  border: '1px solid rgba(207,91,87,0.4)', cursor: deleting ? 'wait' : 'pointer',
+                  background: 'rgba(207,91,87,0.08)', color: '#cf5b57',
                 }}
               >
                 {deleting ? '...' : `🗑 ${t('refinement.deleteCommentTitle' as Parameters<typeof t>[0])}`}
               </button>
-            </div>
-          )}
+            )}
+            <button
+              type='button'
+              onClick={onDeleteRecord}
+              disabled={deleting}
+              title={t('refinement.runs.deleteRecordTitle' as Parameters<typeof t>[0])}
+              style={{
+                padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                border: '1px solid var(--panel-border-3)', cursor: deleting ? 'wait' : 'pointer',
+                background: 'transparent', color: 'var(--ink-58)',
+              }}
+            >
+              {deleting ? '...' : `🗑 ${t('refinement.runs.deleteRecord' as Parameters<typeof t>[0])}`}
+            </button>
+          </div>
         </div>
       )}
     </div>

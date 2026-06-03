@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
+import NavIcon from '@/components/NavIcon';
 
 type Runtime = {
   id: number;
@@ -30,9 +31,9 @@ function fmtAge(sec: number | null): string {
 }
 
 const STATUS_COLOUR: Record<string, string> = {
-  active: '#22c55e',
-  offline: '#94a3b8',
-  disabled: '#f87171',
+  active: '#3f9d6a',
+  offline: 'var(--muted)',
+  disabled: '#cf5b57',
 };
 
 export default function RuntimesPage() {
@@ -113,19 +114,20 @@ export default function RuntimesPage() {
         <button
           onClick={() => setCreateOpen(true)}
           style={{
-            fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 10,
-            border: '1px solid rgba(13,148,136,0.6)',
-            background: 'linear-gradient(135deg, #0d9488, #5eead4)',
-            color: '#0a1815', cursor: 'pointer',
+            fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 8,
+            border: '1px solid var(--acc)',
+            background: 'var(--acc)',
+            color: '#fff', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
           }}
         >
-          + {tr('runtimes.newRuntime')}
+          <NavIcon name="plus" size={16} /> {tr('runtimes.newRuntime')}
         </button>
         <button
           onClick={() => void load()}
           disabled={loading}
           style={{
-            fontSize: 12, padding: '8px 12px', borderRadius: 10,
+            fontSize: 12, padding: '8px 12px', borderRadius: 8,
             border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
             color: 'var(--ink-78)', cursor: loading ? 'wait' : 'pointer',
           }}
@@ -135,17 +137,17 @@ export default function RuntimesPage() {
       </div>
 
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.06)', color: '#fca5a5', fontSize: 13 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'rgba(207,91,87,0.06)', color: '#cf5b57', fontSize: 13 }}>
           {error}
         </div>
       )}
 
       {!loading && rows.length === 0 && (
         <div style={{
-          padding: 24, borderRadius: 14, border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
+          padding: 24, borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'var(--panel)',
           textAlign: 'center', color: 'var(--ink-45)',
         }}>
-          <div style={{ fontSize: 28, marginBottom: 6 }}>💻</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6, color: 'var(--ink-50)' }}><NavIcon name="terminal" size={28} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{tr('runtimes.empty.title')}</div>
           <div style={{ fontSize: 12, lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
             {tr('runtimes.empty.hint')}
@@ -155,12 +157,12 @@ export default function RuntimesPage() {
 
       <div style={{ display: 'grid', gap: 10 }}>
         {rows.map((r) => {
-          const colour = STATUS_COLOUR[r.status] || '#94a3b8';
+          const colour = STATUS_COLOUR[r.status] || 'var(--muted)';
           return (
             <div key={r.id} style={{
               border: '1px solid var(--panel-border-2)',
               borderLeft: `3px solid ${colour}`,
-              borderRadius: 12, background: 'var(--panel)',
+              borderRadius: 10, background: 'var(--panel)',
               padding: '14px 18px',
               display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
             }}>
@@ -168,15 +170,15 @@ export default function RuntimesPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: colour, flexShrink: 0 }} />
                   <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>{r.name}</span>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: colour, textTransform: 'uppercase', letterSpacing: 0.6, padding: '2px 8px', borderRadius: 6, background: `${colour}1e` }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: colour, textTransform: 'uppercase', letterSpacing: 0.6, padding: '2px 8px', borderRadius: 6, border: `1px solid ${colour}`, background: 'var(--panel-alt)' }}>
                     {r.status}
                   </span>
                   <span style={{ fontSize: 10, color: 'var(--ink-50)', padding: '2px 8px', borderRadius: 6, background: 'var(--panel-alt)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
                     {r.kind}
                   </span>
                   {r.has_auth_token && (
-                    <span style={{ fontSize: 10, color: '#a78bfa', padding: '2px 8px', borderRadius: 6, background: 'rgba(167,139,250,0.1)' }}>
-                      🔑 {tr('runtimes.enrolled')}
+                    <span style={{ fontSize: 10, color: '#5b9bd5', padding: '2px 8px', borderRadius: 6, background: 'var(--acc-soft)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <NavIcon name="plug" size={12} /> {tr('runtimes.enrolled')}
                     </span>
                   )}
                 </div>
@@ -195,7 +197,7 @@ export default function RuntimesPage() {
                       <span key={cli} style={{
                         fontSize: 11, fontWeight: 700,
                         padding: '3px 10px', borderRadius: 999,
-                        background: 'rgba(94,234,212,0.12)', color: '#5eead4',
+                        background: 'var(--acc-soft)', color: 'var(--acc)',
                       }}>
                         {cli}
                       </span>
@@ -210,7 +212,7 @@ export default function RuntimesPage() {
               </div>
               <button
                 onClick={() => void deleteRow(r.id)}
-                style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.35)', background: 'transparent', color: '#fca5a5', cursor: 'pointer' }}
+                style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(207,91,87,0.35)', background: 'transparent', color: '#cf5b57', cursor: 'pointer' }}
               >
                 {tr('runtimes.delete')}
               </button>
@@ -221,12 +223,12 @@ export default function RuntimesPage() {
 
       {createOpen && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1000 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1000 }}
           onClick={() => setCreateOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(460px, 100%)', background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 14, padding: 22, display: 'grid', gap: 12 }}
+            style={{ width: 'min(460px, 100%)', background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 10, padding: 22, display: 'grid', gap: 12 }}
           >
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink-90)' }}>{tr('runtimes.newRuntime')}</div>
             <input
@@ -254,14 +256,14 @@ export default function RuntimesPage() {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <button
                 onClick={() => setCreateOpen(false)}
-                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-65)', cursor: 'pointer' }}
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-65)', cursor: 'pointer' }}
               >
                 {tr('runtimes.cancel')}
               </button>
               <button
                 onClick={() => void saveNew()}
                 disabled={saving || !newRuntime.name.trim()}
-                style={{ padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 800, border: '1px solid rgba(13,148,136,0.6)', background: 'linear-gradient(135deg, #0d9488, #5eead4)', color: '#0a1815', cursor: saving ? 'wait' : 'pointer', opacity: saving || !newRuntime.name.trim() ? 0.5 : 1 }}
+                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 800, border: '1px solid var(--acc)', background: 'var(--acc)', color: '#fff', cursor: saving ? 'wait' : 'pointer', opacity: saving || !newRuntime.name.trim() ? 0.5 : 1 }}
               >
                 {saving ? tr('runtimes.saving') : tr('runtimes.save')}
               </button>

@@ -218,6 +218,16 @@ class OrchestrationService:
             'task_id': task_id, 'status': 'running', 'title': task.title,
         })
 
+        # Best-effort: nudge the upstream tracker (Jira / Azure) into
+        # its "In Progress" state so the human assignee can see that
+        # the AI took the ticket. Failures are logged but never block
+        # the run — workflow sync is convenience, not correctness.
+        try:
+            from agena_services.services.workflow_sync_service import WorkflowSyncService
+            await WorkflowSyncService(self.db_session).on_task_start(task)
+        except Exception as _ws_exc:
+            logger.info('Workflow sync (start) skipped for task %s: %s', task.id, _ws_exc)
+
         repo_mapping = await self._resolve_repo_mapping(task, assignment_id=assignment_id)
         routing = self._extract_task_routing(task, repo_mapping)
 
@@ -379,6 +389,7 @@ class OrchestrationService:
                 description=(effective_description or '')[:3000],
                 touched_files=None,
                 limit=3,
+                local_repo_path=routing.local_repo_path,
             )
             if _skill_hits:
                 # Only strong + related tiers earn a slot in the prompt.
@@ -429,6 +440,14 @@ class OrchestrationService:
                     async def _codex_log(msg: str) -> None:
                         await task_service.add_log(task.id, organization_id, 'agent', msg)
 
+                    candidate_files = await self._narrow_candidates(
+                        task=task,
+                        task_service=task_service,
+                        organization_id=organization_id,
+                        repo_path=routing.local_repo_path,
+                        effective_description=effective_description,
+                    )
+
                     final_code = await self.codex_cli_service.generate_file_markdown(
                         repo_path=routing.local_repo_path,
                         task_title=task.title,
@@ -438,6 +457,7 @@ class OrchestrationService:
                         api_base_url=None,
                         log_callback=_codex_log,
                         task_id=str(task.id),
+                        candidate_files=candidate_files,
                     )
                     parsed_blocks = self._parse_reviewed_output_to_files(final_code, local_repo_path=routing.local_repo_path)
                     if not parsed_blocks:
@@ -458,6 +478,7 @@ class OrchestrationService:
                                 api_base_url=None,
                                 log_callback=_codex_log,
                                 task_id=str(task.id),
+                                candidate_files=candidate_files,
                             )
                 except Exception as codex_exc:
                     await task_service.add_log(
@@ -497,6 +518,14 @@ class OrchestrationService:
                 async def _cli_log(msg: str) -> None:
                     await task_service.add_log(task.id, organization_id, 'agent', msg)
 
+                candidate_files = await self._narrow_candidates(
+                    task=task,
+                    task_service=task_service,
+                    organization_id=organization_id,
+                    repo_path=routing.local_repo_path,
+                    effective_description=effective_description,
+                )
+
                 try:
                     # Revision flow: branch the worktree off the
                     # existing feature branch so the PR auto-updates
@@ -512,6 +541,7 @@ class OrchestrationService:
                         log_callback=_cli_log,
                         task_id=str(task.id),
                         base_ref=_cli_base_ref,
+                        candidate_files=candidate_files,
                     )
                     parsed_blocks = self._parse_reviewed_output_to_files(final_code, local_repo_path=routing.local_repo_path)
                     if not parsed_blocks:
@@ -530,6 +560,7 @@ class OrchestrationService:
                                 model=routing.preferred_agent_model,
                                 log_callback=_cli_log,
                                 task_id=str(task.id),
+                                candidate_files=candidate_files,
                             )
                 except Exception as claude_exc:
                     await task_service.add_log(
@@ -547,16 +578,24 @@ class OrchestrationService:
                 # didn't surface usage (e.g. older bridge build).
                 _real_usage = getattr(self.claude_cli_service, 'last_usage', None)
                 if _real_usage:
+                    # cache_read is re-read context billed at ~10% of the
+                    # input rate. Surface it separately as cached_input_tokens
+                    # so the cost estimate (fresh = prompt - cached) credits
+                    # the cache discount instead of charging list price on the
+                    # whole prompt. cache_creation stays folded into the
+                    # prompt (closest the price table has to its write rate).
+                    _cache_read = int(_real_usage.get('cache_read_input_tokens') or 0)
                     _prompt_tokens = int(
                         (_real_usage.get('input_tokens') or 0)
                         + (_real_usage.get('cache_creation_input_tokens') or 0)
-                        + (_real_usage.get('cache_read_input_tokens') or 0)
+                        + _cache_read
                     )
                     _completion_tokens = int(_real_usage.get('output_tokens') or 0)
                     usage_payload = {
                         'prompt_tokens': _prompt_tokens,
                         'completion_tokens': _completion_tokens,
                         'total_tokens': _prompt_tokens + _completion_tokens,
+                        'cached_input_tokens': _cache_read,
                     }
                 else:
                     prompt_estimate = self._estimate_tokens(f'{task.title}\n{task.description or ""}')
@@ -573,6 +612,10 @@ class OrchestrationService:
                     'final_code': final_code,
                     'usage': usage_payload,
                     'model_usage': [f"claude-cli:{routing.preferred_agent_model or 'default'}"],
+                    # Claude's own cache-aware cost from the result event —
+                    # the authoritative number (knows the exact cache split +
+                    # creation pricing). Preferred over our estimate below.
+                    'cli_cost_usd': getattr(self.claude_cli_service, 'last_cost_usd', None),
                 }
                 await task_service.add_log(task.id, organization_id, 'agent', 'Using claude_cli preferred agent')
             elif mode == 'mcp_agent':
@@ -581,7 +624,42 @@ class OrchestrationService:
                 if not _is_local and not _is_remote:
                     raise ValueError('MCP Agent mode requires a repository (local path or remote repo mapping).')
 
-                _repo_label = routing.local_repo_path or routing.remote_repo or 'unknown'
+                # Worktree isolation — MCP agent edits files in place, so
+                # without a worktree two concurrent runs against the same
+                # checkout would clobber each other (and the user's own
+                # working tree). Mirrors what claude_cli does. Local-only;
+                # remote MCP runs operate over an HTTP file API and have
+                # nothing on disk to isolate.
+                _mcp_workspace_path = routing.local_repo_path
+                _mcp_worktree_path: str | None = None
+                if _is_local:
+                    _mcp_base_ref: str | None = None
+                    if revision_id and revision_assignment and revision_assignment.branch_name:
+                        _mcp_base_ref = revision_assignment.branch_name
+                    try:
+                        _mcp_worktree_path = ClaudeCLIService._create_worktree(
+                            routing.local_repo_path,
+                            str(task.id),
+                            base_ref=_mcp_base_ref,
+                        )
+                    except Exception as _wt_exc:
+                        # Best-effort: fall back to direct repo if worktree
+                        # creation fails. Logged so the user can debug
+                        # (most common cause: repo isn't a git repo, or
+                        # disk space).
+                        await task_service.add_log(
+                            task.id, organization_id, 'agent',
+                            f'MCP worktree create failed, falling back to repo root: {str(_wt_exc)[:200]}',
+                        )
+                        _mcp_worktree_path = None
+                    if _mcp_worktree_path:
+                        _mcp_workspace_path = _mcp_worktree_path
+                        await task_service.add_log(
+                            task.id, organization_id, 'agent',
+                            f'MCP worktree created: {_mcp_worktree_path}',
+                        )
+
+                _repo_label = _mcp_workspace_path or routing.remote_repo or 'unknown'
                 await task_service.add_log(
                     task.id, organization_id, 'agent',
                     f"MCP Agent started (model={routing.preferred_agent_model or 'default'}, "
@@ -623,7 +701,7 @@ class OrchestrationService:
                 # Load CLAUDE.md / agents.md for initial orientation
                 _mcp_agents_md: str | None = None
                 if _is_local:
-                    _mcp_repo_root = Path(routing.local_repo_path).expanduser().resolve()
+                    _mcp_repo_root = Path(_mcp_workspace_path).expanduser().resolve()
                     for _guide_name in ('CLAUDE.md', 'agents.md', 'AGENTS.md'):
                         _mcp_agents_path = _mcp_repo_root / _guide_name
                         if _mcp_agents_path.is_file():
@@ -778,17 +856,18 @@ class OrchestrationService:
                 flow_state: dict[str, Any] = {
                     'task': payload_with_context,
                     'mode': mode,
-                    'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
+                    'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0},
                     'model_usage': [],
                 }
                 def _get_usage(fs: dict) -> dict:
-                    return dict(fs.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}))
+                    return dict(fs.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0, 'cached_input_tokens': 0}))
 
                 def _usage_delta(before: dict, after: dict) -> dict:
                     return {
                         'prompt_tokens': after.get('prompt_tokens', 0) - before.get('prompt_tokens', 0),
                         'completion_tokens': after.get('completion_tokens', 0) - before.get('completion_tokens', 0),
                         'total_tokens': after.get('total_tokens', 0) - before.get('total_tokens', 0),
+                        'cached_input_tokens': after.get('cached_input_tokens', 0) - before.get('cached_input_tokens', 0),
                     }
 
                 async def _step_event(step_name: str, delta: dict, step_model: str, step_start: datetime, step_dur: float):
@@ -796,6 +875,7 @@ class OrchestrationService:
                         prompt_tokens=int(delta.get('prompt_tokens', 0)),
                         completion_tokens=int(delta.get('completion_tokens', 0)),
                         model=step_model or routing.preferred_agent_model or 'gpt-4o-mini',
+                        cached_input_tokens=int(delta.get('cached_input_tokens', 0)),
                     )
                     await usage_event_service.create_event(
                         organization_id=organization_id,
@@ -1225,11 +1305,19 @@ class OrchestrationService:
                 )
             usage = state.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0})
             model_for_cost = (state.get('model_usage') or ['gpt-4o-mini'])[-1]
-            estimated_cost = self.cost_tracker.estimate_cost_usd(
-                prompt_tokens=int(usage.get('prompt_tokens', 0)),
-                completion_tokens=int(usage.get('completion_tokens', 0)),
-                model=model_for_cost,
-            )
+            _cache_hit = int(usage.get('cached_input_tokens', 0) or 0) > 0
+            _cli_cost = state.get('cli_cost_usd')
+            if isinstance(_cli_cost, (int, float)) and _cli_cost > 0:
+                # Claude CLI already priced the run with cache + creation
+                # discounts — trust it over a list-price re-derivation.
+                estimated_cost = round(float(_cli_cost), 6)
+            else:
+                estimated_cost = self.cost_tracker.estimate_cost_usd(
+                    prompt_tokens=int(usage.get('prompt_tokens', 0)),
+                    completion_tokens=int(usage.get('completion_tokens', 0)),
+                    cached_input_tokens=int(usage.get('cached_input_tokens', 0)),
+                    model=model_for_cost,
+                )
             guardrail_error = self._validate_cost_guardrails(
                 max_tokens=task.max_tokens,
                 max_cost_usd=task.max_cost_usd,
@@ -1245,8 +1333,18 @@ class OrchestrationService:
                 or (state.get('reviewed_code') or '').strip()
                 or (state.get('generated_code') or '').strip()
             )
-            pr_url = None
-            branch_name = None
+            if revision_id:
+                # A revision lands an extra commit on the EXISTING branch /
+                # PR, so seed pr_url + branch_name from the prior values.
+                # Without this, a revision that produces no file changes
+                # (has_changes == False) or runs on a legacy task with no
+                # assignment row leaves pr_url=None and the writeback below
+                # (task.pr_url = pr_url) silently wipes the live PR link.
+                pr_url = (revision_assignment.pr_url if revision_assignment else None) or task.pr_url
+                branch_name = (revision_assignment.branch_name if revision_assignment else None) or task.branch_name
+            else:
+                pr_url = None
+                branch_name = None
 
             # MCP agent mode: build PR payload directly from file_changes
             # instead of parsing final_code string (which may not have **File:** blocks)
@@ -1375,6 +1473,7 @@ class OrchestrationService:
                     files=pr_payload.files,
                     remote_url=_remote_url,
                     remote_pat=_remote_pat,
+                    is_revision=bool(revision_id),
                 )
                 if not has_changes:
                     await task_service.add_log(task.id, organization_id, 'local_exec', 'No file changes detected, skipping PR')
@@ -1383,7 +1482,9 @@ class OrchestrationService:
                 # PR auto-updates. Skip the create-PR call so we don't
                 # try to open a duplicate.
                 if revision_id and has_changes:
-                    pr_url = revision_assignment.pr_url if revision_assignment else None
+                    # pr_url + branch_name were already seeded from the
+                    # existing PR above — don't reassign (the legacy
+                    # no-assignment path would re-blank it to None).
                     await task_service.add_log(
                         task.id, organization_id, 'pr',
                         f'Revision commit pushed to {branch_name} — PR auto-updated: {pr_url or "(unknown)"}'
@@ -1613,6 +1714,18 @@ class OrchestrationService:
             task.pr_url = pr_url
             task.branch_name = branch_name
 
+            # PR landed → mirror to upstream tracker (Jira / Azure).
+            # Guarded on a non-empty pr_url because completion without
+            # a remote PR (unmapped repo, push fail, dry-run) must
+            # NOT advance the ticket to "In Review" — that would lie
+            # to the human assignee about a PR that doesn't exist.
+            if (pr_url or '').strip():
+                try:
+                    from agena_services.services.workflow_sync_service import WorkflowSyncService
+                    await WorkflowSyncService(self.db_session).on_pr_opened(task)
+                except Exception as _ws_exc:
+                    logger.info('Workflow sync (pr_opened) skipped for task %s: %s', task.id, _ws_exc)
+
             # Mirror the completion onto the matching TaskRepoAssignment row
             # (multi-repo path creates one row per mapping at import time).
             # Without this the per-repo "x/N PRs" badge on the detail page
@@ -1736,6 +1849,7 @@ class OrchestrationService:
                 completion_tokens=int(usage.get('completion_tokens', 0)),
                 total_tokens=int(usage.get('total_tokens', 0)),
                 cost_usd=float(estimated_cost),
+                cache_hit=_cache_hit,
                 started_at=run_started_at,
                 ended_at=run_finished_at,
                 duration_ms=int(duration_sec * 1000),
@@ -1746,6 +1860,7 @@ class OrchestrationService:
                     'create_pr': create_pr,
                     'pr_url': pr_url,
                     'branch_name': branch_name,
+                    'cached_input_tokens': int(usage.get('cached_input_tokens', 0)),
                     'model_usage': state.get('model_usage', []),
                     'spec_goal': str(state.get('spec', {}).get('goal', ''))[:200],
                     'generated_code_len': len(state.get('generated_code', '')),
@@ -1821,6 +1936,7 @@ class OrchestrationService:
             estimated_cost = self.cost_tracker.estimate_cost_usd(
                 prompt_tokens=int(usage.get('prompt_tokens', 0)),
                 completion_tokens=int(usage.get('completion_tokens', 0)),
+                cached_input_tokens=int(usage.get('cached_input_tokens', 0)),
                 model=model_name or provider_name or 'gpt-4o-mini',
             )
             await usage_event_service.create_event(
@@ -1835,6 +1951,7 @@ class OrchestrationService:
                 completion_tokens=int(usage.get('completion_tokens', 0)),
                 total_tokens=int(usage.get('total_tokens', 0)),
                 cost_usd=float(estimated_cost),
+                cache_hit=int(usage.get('cached_input_tokens', 0) or 0) > 0,
                 started_at=run_started_at,
                 ended_at=run_finished_at,
                 duration_ms=int(duration_sec * 1000),
@@ -2129,6 +2246,65 @@ class OrchestrationService:
         if 'api key invalid' in low or 'unauthorized' in low:
             return 'CLI authentication failed: unauthorized'
         return None
+
+    async def _narrow_candidates(
+        self,
+        *,
+        task: Any,
+        task_service: Any,
+        organization_id: int,
+        repo_path: str,
+        effective_description: str,
+    ) -> list[str]:
+        """Embed-based candidate file shortlist for CLI subagents.
+
+        Failure is non-fatal — the CLI just falls back to its own
+        exploration (the previous behavior).
+        """
+        candidate_files: list[str] = []
+        try:
+            from agena_agents.memory.repo_index import RepoFileIndexer
+            indexer = RepoFileIndexer()
+            if not indexer.enabled:
+                return []
+
+            async def _index_log(msg: str) -> None:
+                await task_service.add_log(task.id, organization_id, 'agent', msg)
+
+            await indexer.ensure_indexed(
+                repo_path=repo_path,
+                organization_id=organization_id,
+                log_fn=_index_log,
+            )
+            # Use raw task.description (without the orchestration metadata
+            # appended into effective_description). The indexer strips HTML
+            # internally; we only cap length so a 50KB description doesn't
+            # drown the title's signal.
+            raw_desc = (getattr(task, 'description', '') or '')[:2000]
+            candidate_files = await indexer.query_candidates(
+                task_text=f'{task.title}\n\n{raw_desc}',
+                repo_path=repo_path,
+                organization_id=organization_id,
+                top_k=8,
+            )
+            if candidate_files:
+                preview = ', '.join(candidate_files[:5])
+                suffix = '…' if len(candidate_files) > 5 else ''
+                await task_service.add_log(
+                    task.id, organization_id, 'agent',
+                    f'Candidate files: {preview}{suffix}',
+                )
+            else:
+                await task_service.add_log(
+                    task.id, organization_id, 'agent',
+                    'No semantic candidates returned; CLI will self-explore.',
+                )
+        except Exception as idx_exc:
+            await task_service.add_log(
+                task.id, organization_id, 'agent',
+                f'Repo index unavailable, CLI will self-explore: {str(idx_exc)[:200]}',
+            )
+        return candidate_files
 
     def _with_strict_file_block_format(self, description: str) -> str:
         return (
@@ -3294,6 +3470,36 @@ class OrchestrationService:
                 'application/x-yaml', 'application/javascript',
             }
 
+        def _extract_office_text(path: str, filename: str, ct: str) -> str:
+            """Pull plain text out of .docx / .pdf attachments. Returns ''
+            if the file isn't a supported office format or the extraction
+            blew up — caller falls back to just listing the path."""
+            lower_name = (filename or '').lower()
+            lower_ct = (ct or '').lower()
+            try:
+                if lower_name.endswith('.docx') or 'wordprocessingml' in lower_ct:
+                    from docx import Document  # python-docx
+                    doc = Document(path)
+                    parts: list[str] = [p.text for p in doc.paragraphs if p.text]
+                    for table in doc.tables:
+                        for row in table.rows:
+                            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+                            if cells:
+                                parts.append(' | '.join(cells))
+                    return '\n'.join(parts).strip()
+                if lower_name.endswith('.pdf') or lower_ct == 'application/pdf':
+                    import pdfplumber
+                    parts: list[str] = []
+                    with pdfplumber.open(path) as pdf:
+                        for page in pdf.pages[:50]:  # cap at 50 pages
+                            txt = page.extract_text() or ''
+                            if txt.strip():
+                                parts.append(txt.strip())
+                    return '\n\n'.join(parts).strip()
+            except Exception as exc:
+                logger.info('Office text extract failed for %s: %s', filename, exc)
+            return ''
+
         # Count images upfront so the imperative header tells the agent
         # exactly how many screenshots are waiting on disk. Without an
         # explicit "you must Read these" cue agents tend to skim the path
@@ -3329,6 +3535,18 @@ class OrchestrationService:
                         lines.append(f'  {ln}')
                     lines.append('  ```')
                     continue
+            # docx / pdf: extract plain text in-process so the agent
+            # doesn't have to figure out how to crack a zipped XML file.
+            office_text = _extract_office_text(att.storage_path or '', att.filename or '', att.content_type or '')
+            if office_text:
+                truncated = office_text[:max_inline]
+                suffix = '' if len(office_text) <= max_inline else f'\n... (truncated, {len(office_text) - max_inline} chars omitted)'
+                lines.append(header)
+                lines.append('  ```')
+                for ln in (truncated + suffix).splitlines():
+                    lines.append(f'  {ln}')
+                lines.append('  ```')
+                continue
             if (att.content_type or '').lower().startswith('image/'):
                 lines.append(header + '  [SCREENSHOT — Read this file before writing any code]')
             else:

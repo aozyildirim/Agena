@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission
+from agena_api.api.dependencies import CurrentTenant, get_current_tenant, require_permission, require_workspace_perm
 from agena_core.database import get_db_session
 from agena_models.models.repo_mapping import RepoMapping
 
@@ -65,7 +65,12 @@ async def list_repo_mappings(
     return rows
 
 
-@router.post('', response_model=RepoMappingResponse, status_code=201)
+@router.post(
+    '',
+    response_model=RepoMappingResponse,
+    status_code=201,
+    dependencies=[Depends(require_workspace_perm('repo:manage'))],
+)
 async def create_repo_mapping(
     body: RepoMappingCreate,
     tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
@@ -122,7 +127,11 @@ async def create_repo_mapping(
     return mapping
 
 
-@router.put('/{mapping_id}', response_model=RepoMappingResponse)
+@router.put(
+    '/{mapping_id}',
+    response_model=RepoMappingResponse,
+    dependencies=[Depends(require_workspace_perm('repo:manage'))],
+)
 async def update_repo_mapping(
     mapping_id: int,
     body: RepoMappingUpdate,
@@ -157,7 +166,11 @@ async def update_repo_mapping(
     return mapping
 
 
-@router.delete('/{mapping_id}', status_code=204)
+@router.delete(
+    '/{mapping_id}',
+    status_code=204,
+    dependencies=[Depends(require_workspace_perm('repo:manage'))],
+)
 async def delete_repo_mapping(
     mapping_id: int,
     tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
@@ -168,3 +181,104 @@ async def delete_repo_mapping(
         raise HTTPException(404, 'Repo mapping not found')
     await db.delete(mapping)
     await db.commit()
+
+
+class RepoIndexStatus(BaseModel):
+    indexed: bool
+    points_count: int
+    head_sha: str | None
+    local_repo_path: str | None
+    current_head_sha: str | None
+    is_fresh: bool
+
+
+@router.get('/index-status', response_model=RepoIndexStatus)
+async def get_repo_index_status(
+    path: str,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+) -> RepoIndexStatus:
+    """Inspect the repo_files index for a given on-disk repo path. The
+    indexer keys points by `(organization_id, repo_root)`, so the same
+    path string the orchestrator passes in is the lookup key here.
+    """
+    if not path:
+        return RepoIndexStatus(
+            indexed=False, points_count=0, head_sha=None,
+            local_repo_path=None, current_head_sha=None, is_fresh=False,
+        )
+
+    from agena_agents.memory.repo_index import RepoFileIndexer
+    indexer = RepoFileIndexer()
+    if not indexer.enabled:
+        return RepoIndexStatus(
+            indexed=False, points_count=0, head_sha=None,
+            local_repo_path=path, current_head_sha=None, is_fresh=False,
+        )
+
+    import time
+    current_sha = indexer._anchor_sha(path)
+    stored_sha: str | None = None
+    points_count = 0
+    is_fresh = False
+    try:
+        await indexer.ensure_collection()
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+        root_norm = indexer._normalize_path(path)
+        # Count only file points (exclude the bookkeeping meta point).
+        flt = Filter(
+            must=[
+                FieldCondition(key='organization_id', match=MatchValue(value=int(tenant.organization_id))),
+                FieldCondition(key='repo_root', match=MatchValue(value=root_norm)),
+            ],
+            must_not=[FieldCondition(key='kind', match=MatchValue(value='meta'))],
+        )
+        count_resp = await indexer.client.count(
+            collection_name='repo_files', count_filter=flt, exact=True,
+        )
+        points_count = int(getattr(count_resp, 'count', 0) or 0)
+        meta = await indexer._load_meta(root_norm=root_norm, organization_id=tenant.organization_id)
+        if meta:
+            stored_sha = meta.get('head_sha') or None
+            is_fresh = indexer._is_fresh(meta=meta, anchor=current_sha, now=int(time.time()))
+    except Exception:
+        pass
+
+    return RepoIndexStatus(
+        indexed=points_count > 0,
+        points_count=points_count,
+        head_sha=stored_sha,
+        local_repo_path=path,
+        current_head_sha=current_sha or None,
+        is_fresh=is_fresh,
+    )
+
+
+@router.post('/reindex', status_code=202)
+async def reindex_repo_mapping(
+    path: str,
+    tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
+):
+    """Fire-and-forget reindex: drops the existing points for this repo
+    and rebuilds from the current on-disk source. Returns 202; poll
+    `/repo-mappings/index-status` to watch progress.
+    """
+    import asyncio
+    if not path:
+        raise HTTPException(400, 'path query param is required')
+
+    from agena_agents.memory.repo_index import RepoFileIndexer
+    indexer = RepoFileIndexer()
+    if not indexer.enabled:
+        raise HTTPException(503, 'Qdrant is disabled; cannot reindex')
+
+    org_id = tenant.organization_id
+
+    async def _bg():
+        try:
+            await indexer._delete_for_repo(repo_path=path, organization_id=org_id)
+            await indexer.ensure_indexed(repo_path=path, organization_id=org_id)
+        except Exception:
+            pass
+
+    asyncio.create_task(_bg())
+    return {'status': 'reindex_started', 'path': path}

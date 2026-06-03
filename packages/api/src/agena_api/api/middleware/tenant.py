@@ -31,6 +31,7 @@ _SKIP_PREFIXES = (
     '/openapi.json',
     '/redoc',
     '/auth/',
+    '/invites/',
 )
 
 # Known non-tenant host prefixes (bare domain, system subdomains, localhost, IP addresses).

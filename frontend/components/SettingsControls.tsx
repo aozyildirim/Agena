@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 /**
  * Shared "settings UI" primitives — kept in one component file because
@@ -18,6 +18,8 @@ export function ChipSelect<T extends string | number>({
   allowCustom = false,
   customLabel = 'Custom',
   customPlaceholder,
+  minValue,
+  minHint,
 }: {
   value: T;
   onChange: (v: T) => void;
@@ -26,24 +28,50 @@ export function ChipSelect<T extends string | number>({
   allowCustom?: boolean;
   customLabel?: string;
   customPlaceholder?: string;
+  /** Numeric options below this are disabled (e.g. critical must exceed warn). */
+  minValue?: number;
+  minHint?: string;
 }) {
   const isPreset = options.some((o) => o.value === value);
-  const [custom, setCustom] = useState(!isPreset);
+  // `custom` must stay in sync with the live value: a value that matches no
+  // preset (e.g. the backend bumped critical_hours to warn+1) has to show the
+  // Custom chip as selected, otherwise nothing looks selected at all. So we
+  // only track an explicit user toggle and OR it with "value isn't a preset".
+  const [customToggled, setCustomToggled] = useState(false);
+  const custom = customToggled || !isPreset;
+  const setCustom = setCustomToggled;
+  // Buffer the custom number input locally so the user can type freely.
+  // Committing on every keystroke saved + re-validated server-side (which
+  // can snap the value back, e.g. critical bumped to warn+1), making the
+  // field feel un-editable. We only commit on blur / Enter, and re-sync the
+  // draft whenever the upstream value changes.
+  const [draft, setDraft] = useState<string>(typeof value === 'number' ? String(value) : String(value ?? ''));
+  useEffect(() => {
+    setDraft(typeof value === 'number' ? String(value) : String(value ?? ''));
+  }, [value]);
+  const commitDraft = () => {
+    const n = parseInt(draft, 10);
+    if (!Number.isNaN(n)) onChange(n as T);
+  };
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
       {options.map((opt) => {
         const active = !custom && value === opt.value;
+        const disabled = typeof opt.value === 'number' && minValue !== undefined && opt.value < minValue;
         return (
           <button
             key={String(opt.value)}
-            onClick={() => { setCustom(false); onChange(opt.value); }}
+            onClick={() => { if (disabled) return; setCustom(false); onChange(opt.value); }}
             type='button'
+            disabled={disabled}
+            title={disabled ? minHint : undefined}
             style={{
               padding: '6px 12px', borderRadius: 999,
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontSize: 12, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
               border: `1px solid ${active ? accent : 'var(--panel-border)'}`,
               background: active ? `${accent}1c` : 'var(--surface)',
-              color: active ? accent : 'var(--ink-78)',
+              color: disabled ? 'var(--ink-25)' : (active ? accent : 'var(--ink-78)'),
+              opacity: disabled ? 0.5 : 1,
               transition: 'background 0.15s, color 0.15s, border-color 0.15s',
               whiteSpace: 'nowrap',
             }}
@@ -70,11 +98,14 @@ export function ChipSelect<T extends string | number>({
           {custom && (
             <input
               type='number'
-              value={typeof value === 'number' ? value : ''}
-              onChange={(e) => onChange(parseInt(e.target.value, 10) as T)}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitDraft}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitDraft(); } }}
               placeholder={customPlaceholder}
+              autoFocus
               style={{
-                width: 80, padding: '6px 10px', borderRadius: 8,
+                width: 90, padding: '6px 10px', borderRadius: 8,
                 border: '1px solid var(--panel-border)', background: 'var(--surface)',
                 color: 'var(--ink)', fontSize: 13,
               }}

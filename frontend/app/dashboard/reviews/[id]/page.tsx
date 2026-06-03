@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import type { TranslationKey } from '@/lib/i18n';
 import RichDescription from '@/components/RichDescription';
+import NavIcon from '@/components/NavIcon';
 
 interface Review {
   id: number;
@@ -149,7 +150,7 @@ export default function ReviewDetailPage() {
   }, [review?.output]);
 
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ display: 'grid', gap: 16, maxWidth: 1100, margin: '0 auto', minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <Link href='/dashboard/reviews' style={{ fontSize: 12, color: 'var(--ink-50)', textDecoration: 'none' }}>
           ← {t('reviews.backToList' as TranslationKey) || 'All reviews'}
@@ -157,7 +158,7 @@ export default function ReviewDetailPage() {
         {review?.task_id && (
           <>
             <span style={{ color: 'var(--ink-25)' }}>·</span>
-            <Link href={`/tasks/${review.task_id}`} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+            <Link href={`/tasks/${review.task_id}`} style={{ fontSize: 12, color: 'var(--acc)', textDecoration: 'none' }}>
               {t('reviews.openTask' as TranslationKey) || 'Open task'} #{review.task_id} →
             </Link>
           </>
@@ -165,16 +166,16 @@ export default function ReviewDetailPage() {
       </div>
 
       {loading && <div style={{ color: 'var(--ink-50)', fontSize: 13 }}>{t('reviews.loading' as TranslationKey) || 'Loading…'}</div>}
-      {error && <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171', fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid #cf5b57', color: '#cf5b57', fontSize: 13, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{error}</div>}
 
       {review && (
         <>
           {/* Header card */}
           <div style={{
-            padding: 22, borderRadius: 16,
+            padding: 22, borderRadius: 10,
             border: `1px solid ${sevColor}55`,
-            background: `linear-gradient(135deg, ${sevColor}0c, transparent)`,
-            display: 'grid', gap: 14,
+            background: 'var(--panel-alt)',
+            display: 'grid', gap: 14, minWidth: 0,
           }}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{
@@ -184,7 +185,7 @@ export default function ReviewDetailPage() {
               }}>
                 {sev || '—'}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-50)', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-50)', fontFamily: 'monospace', minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                 #{review.id} · {review.reviewer_agent_role}
               </div>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -193,39 +194,40 @@ export default function ReviewDetailPage() {
                   onClick={() => setConfirmingDelete(true)}
                   disabled={deleting}
                   style={{
-                    padding: '7px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                    border: '1px solid rgba(239,68,68,0.4)',
-                    background: 'rgba(239,68,68,0.08)',
-                    color: '#f87171',
+                    padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: '1px solid #cf5b57',
+                    background: 'var(--panel)',
+                    color: '#cf5b57',
                     cursor: deleting ? 'wait' : 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
                   }}
                 >
-                  🗑 {t('reviews.delete' as TranslationKey) || 'Delete'}
+                  <NavIcon name="close" size={14} /> {t('reviews.delete' as TranslationKey) || 'Delete'}
                 </button>
               </div>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink-90)', margin: 0, lineHeight: 1.3 }}>
+            <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)', margin: 0, lineHeight: 1.3, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
               {review.task_title || `Task #${review.task_id}`}
             </h1>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 12 }}>
               <Stat label={t('reviews.findings' as TranslationKey) || 'Findings'} value={review.findings_count != null ? String(review.findings_count) : '—'} accent={sevColor} />
-              <Stat label={t('reviews.score' as TranslationKey) || 'Score'} value={review.score != null ? `${review.score}` : '—'} accent='var(--accent)' />
-              <Stat label={t('reviews.status' as TranslationKey) || 'Status'} value={review.status} accent={review.status === 'running' ? '#fde68a' : review.status === 'failed' ? '#f87171' : 'var(--ink-78)'} />
+              <Stat label={t('reviews.score' as TranslationKey) || 'Score'} value={review.score != null ? `${review.score}` : '—'} accent='var(--acc)' />
+              <Stat label={t('reviews.status' as TranslationKey) || 'Status'} value={review.status} accent={review.status === 'running' ? '#c98a2b' : review.status === 'failed' ? '#cf5b57' : 'var(--ink-78)'} />
               <Stat label={t('reviews.model' as TranslationKey) || 'Model'} value={`${review.reviewer_provider || '—'} / ${review.reviewer_model || '—'}`} />
               <Stat label={t('reviews.duration' as TranslationKey) || 'Duration'} value={fmtDuration(review.created_at, review.completed_at)} />
               <Stat label={t('reviews.requestedAt' as TranslationKey) || 'Requested'} value={fmtDate(review.created_at)} />
             </div>
             {summary && (
               <div style={{
-                padding: '14px 16px', borderRadius: 12,
-                background: 'var(--panel-alt)',
+                padding: '14px 16px', borderRadius: 10,
+                background: 'var(--surface)',
                 border: '1px solid var(--panel-border-2)',
-                fontSize: 13, lineHeight: 1.6, color: 'var(--ink-78)',
+                fontSize: 13, lineHeight: 1.6, color: 'var(--ink-78)', minWidth: 0,
               }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--ink-35)', marginBottom: 6 }}>
                   {t('reviews.summary' as TranslationKey) || 'Summary'}
                 </div>
-                <div>{summary}</div>
+                <div style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{summary}</div>
               </div>
             )}
           </div>
@@ -242,10 +244,10 @@ export default function ReviewDetailPage() {
                 const fColor = severityColor(fSev);
                 return (
                   <div key={i} style={{
-                    padding: 18, borderRadius: 14,
+                    padding: 18, borderRadius: 10,
                     border: `1px solid ${fColor}55`,
                     background: 'var(--panel)',
-                    display: 'grid', gap: 10,
+                    display: 'grid', gap: 10, minWidth: 0,
                   }}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                       {fSev && (
@@ -257,7 +259,7 @@ export default function ReviewDetailPage() {
                           {fSev}
                         </span>
                       )}
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {f.title}
                       </div>
                     </div>
@@ -272,10 +274,10 @@ export default function ReviewDetailPage() {
             </div>
           ) : review.output ? (
             <div style={{
-              padding: 18, borderRadius: 14,
+              padding: 18, borderRadius: 10,
               border: '1px solid var(--panel-border-2)',
               background: 'var(--panel)',
-              display: 'grid', gap: 10,
+              display: 'grid', gap: 10, minWidth: 0,
             }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--ink-35)' }}>
                 {t('reviews.output' as TranslationKey) || 'Reviewer output'}
@@ -290,10 +292,11 @@ export default function ReviewDetailPage() {
 
           {review.error_message && (
             <div style={{
-              padding: 14, borderRadius: 12,
-              border: '1px solid rgba(248,113,113,0.3)',
-              background: 'rgba(248,113,113,0.06)',
-              color: '#fca5a5', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap',
+              padding: 14, borderRadius: 10,
+              border: '1px solid #cf5b57',
+              background: 'var(--panel-alt)',
+              color: '#cf5b57', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word', overflowWrap: 'anywhere', overflowX: 'auto', maxWidth: '100%',
             }}>
               {review.error_message}
             </div>
@@ -301,14 +304,14 @@ export default function ReviewDetailPage() {
 
           {review.input_snapshot && (
             <details style={{
-              padding: 14, borderRadius: 12,
+              padding: 14, borderRadius: 10,
               border: '1px solid var(--panel-border-2)',
-              background: 'var(--panel)',
+              background: 'var(--panel)', minWidth: 0,
             }}>
               <summary style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--ink-35)', cursor: 'pointer' }}>
                 {t('reviews.inputSnapshot' as TranslationKey) || 'Input snapshot'}
               </summary>
-              <pre style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-72)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+              <pre style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-72)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', overflowX: 'auto', maxWidth: '100%', fontFamily: 'monospace' }}>
                 {review.input_snapshot}
               </pre>
             </details>
@@ -323,11 +326,11 @@ export default function ReviewDetailPage() {
         // somewhere down the page instead of dead-center on the
         // viewport.
         <div onClick={() => !deleting && setConfirmingDelete(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }}>
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(420px, calc(100vw - 24px))', borderRadius: 18, background: 'var(--surface)', border: '1px solid rgba(239,68,68,0.3)', padding: 24, display: 'grid', gap: 14, boxShadow: '0 24px 80px rgba(0,0,0,0.45)' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto' }}>🗑</div>
-            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 800, color: 'var(--ink-90)' }}>
+            style={{ width: 'min(420px, calc(100vw - 24px))', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--panel-border-2)', padding: 24, display: 'grid', gap: 14, boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 999, background: 'var(--panel-alt)', border: '1px solid #cf5b57', color: '#cf5b57', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}><NavIcon name="alert" size={26} /></div>
+            <div style={{ textAlign: 'center', fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>
               {t('reviews.deleteConfirm' as TranslationKey) || 'Delete this review?'}
             </div>
             <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-50)', lineHeight: 1.5 }}>
@@ -335,12 +338,12 @@ export default function ReviewDetailPage() {
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 4 }}>
               <button onClick={() => setConfirmingDelete(false)} disabled={deleting}
-                style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', fontWeight: 600, fontSize: 13, cursor: deleting ? 'wait' : 'pointer' }}>
+                style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'transparent', color: 'var(--ink-50)', fontWeight: 600, fontSize: 13, cursor: deleting ? 'wait' : 'pointer' }}>
                 {t('tasks.cancel' as TranslationKey) || 'Cancel'}
               </button>
               <button onClick={() => void handleDelete()} disabled={deleting}
-                style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 13, cursor: deleting ? 'wait' : 'pointer' }}>
-                {deleting ? '⏳' : '🗑'} {t('reviews.delete' as TranslationKey) || 'Delete'}
+                style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: '#cf5b57', color: '#fff', fontWeight: 700, fontSize: 13, cursor: deleting ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <NavIcon name={deleting ? 'clock' : 'close'} size={14} /> {t('reviews.delete' as TranslationKey) || 'Delete'}
               </button>
             </div>
           </div>
@@ -353,9 +356,9 @@ export default function ReviewDetailPage() {
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div style={{ display: 'grid', gap: 2 }}>
+    <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-35)' }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: accent || 'var(--ink-90)' }}>{value}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: accent || 'var(--ink-90)', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{value}</div>
     </div>
   );
 }
