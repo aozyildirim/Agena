@@ -141,6 +141,31 @@ class GitHubService:
             })
         return out
 
+    async def list_pr_review_comments(self, pr_url: str, organization_id: int | None = None) -> list[dict[str, str]]:
+        """Reviewer feedback (inline + conversation) for the revision agent.
+        Resolves the org-level GitHub token first, then falls back to the
+        env-global one — same pattern as ``push_files_and_create_pr``."""
+        ref = self.parse_pr_ref(pr_url)
+        if ref is None:
+            raise ValueError('GitHub PR URL could not be parsed')
+        owner, repo, pr_number = ref
+
+        from agena_core.settings import get_settings
+        token = (get_settings().github_token or '').strip()
+        if not token and organization_id:
+            from agena_services.services.integration_config_service import IntegrationConfigService
+            from agena_core.database import SessionLocal
+            async with SessionLocal() as db:
+                gh_cfg = await IntegrationConfigService(db).get_config(organization_id, 'github')
+                if gh_cfg and gh_cfg.secret:
+                    token = gh_cfg.secret
+        if not token:
+            raise ValueError('No GitHub token available')
+
+        return await self.client.list_pr_review_comments(
+            token=token, owner=owner, repo=repo, pr_number=str(pr_number),
+        )
+
     async def post_pr_comment(self, pr_url: str, comment: str) -> str | None:
         ref = self.parse_pr_ref(pr_url)
         if ref is None:

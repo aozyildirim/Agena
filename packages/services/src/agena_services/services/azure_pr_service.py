@@ -118,6 +118,12 @@ class AzurePRService:
                 content = str(c.get('content') or '').strip()
                 if not content:
                     continue
+                # Skip Azure's auto-generated thread messages ("branch
+                # updated", "policy status has been updated", etc.) — these
+                # carry commentType 'system' and are noise for the agent.
+                # Only real reviewer feedback is commentType 'text'.
+                if str(c.get('commentType') or '').lower() == 'system':
+                    continue
                 author = (c.get('author') or {}).get('displayName') or (c.get('author') or {}).get('uniqueName') or ''
                 out.append({
                     'id': str(c.get('id') or ''),

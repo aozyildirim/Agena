@@ -229,6 +229,51 @@ class GitHubClient:
             logger.warning('GitHub issue comment failed: %s', exc)
             return None
 
+    async def list_pr_review_comments(self, *, token: str, owner: str, repo: str, pr_number: str) -> list[dict[str, Any]]:
+        """All reviewer feedback on a PR: inline (line-level) review comments
+        plus top-level conversation comments. Feeds the revision agent so it
+        can act on "fix the comments" — mirrors Azure's thread fetch."""
+        out: list[dict[str, Any]] = []
+        async with httpx.AsyncClient(timeout=20) as client:
+            # Inline review comments — the line-level feedback. We prefix each
+            # with `path:line` so the agent knows exactly where it applies.
+            r = await client.get(
+                f'https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/comments?per_page=100',
+                headers=self._th(token),
+            )
+            if r.status_code < 400:
+                for c in (r.json() or []):
+                    body = str(c.get('body') or '').strip()
+                    if not body:
+                        continue
+                    loc = ''
+                    if c.get('path'):
+                        line = c.get('line') or c.get('original_line') or ''
+                        loc = f"{c.get('path')}:{line}" if line else str(c.get('path'))
+                    out.append({
+                        'id': str(c.get('id') or ''),
+                        'author': str((c.get('user') or {}).get('login') or 'reviewer'),
+                        'content': f'[{loc}] {body}' if loc else body,
+                    })
+            else:
+                logger.warning('GitHub list review comments %s: %s', r.status_code, r.text[:200])
+            # Top-level conversation comments (the PR "Conversation" tab).
+            r2 = await client.get(
+                f'https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments?per_page=100',
+                headers=self._th(token),
+            )
+            if r2.status_code < 400:
+                for c in (r2.json() or []):
+                    body = str(c.get('body') or '').strip()
+                    if not body:
+                        continue
+                    out.append({
+                        'id': str(c.get('id') or ''),
+                        'author': str((c.get('user') or {}).get('login') or 'reviewer'),
+                        'content': body,
+                    })
+        return out
+
     async def _request_json(self, client: httpx.AsyncClient, method: str, path: str) -> dict[str, Any]:
         response = await client.request(method, f'{self.base_url}{path}', headers=self._headers())
         response.raise_for_status()
