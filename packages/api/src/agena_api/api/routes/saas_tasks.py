@@ -61,6 +61,14 @@ async def _get_repo_mapping_name(db: AsyncSession, mapping_id: int | None) -> st
     return row.repo_name if row else None
 
 
+async def _get_runtime_name(db: AsyncSession, runtime_id: int | None) -> str | None:
+    if not runtime_id:
+        return None
+    from agena_models.models.runtime import Runtime
+    row = await db.get(Runtime, runtime_id)
+    return row.name if row else None
+
+
 async def _persist_external_attachments(
     db: AsyncSession,
     organization_id: int,
@@ -258,6 +266,8 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         sprint_path=getattr(task, 'sprint_path', None),
         repo_mapping_id=getattr(task, 'repo_mapping_id', None),
         repo_mapping_name=await _get_repo_mapping_name(service.db, getattr(task, 'repo_mapping_id', None)),
+        runtime_id=getattr(task, 'runtime_id', None),
+        runtime_name=await _get_runtime_name(service.db, getattr(task, 'runtime_id', None)),
         repo_assignments=repo_assignments,
         tags=_parse_tags(getattr(task, 'tags_json', None)),
     )
@@ -1015,6 +1025,7 @@ async def assign_task(
                 agent_model=payload.agent_model,
                 agent_provider=payload.agent_provider,
                 force_queue=getattr(payload, 'force_queue', False),
+                runtime_id=payload.runtime_id,
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -1041,6 +1052,7 @@ async def assign_task(
             agent_model=payload.agent_model,
             agent_provider=payload.agent_provider,
             force_queue=getattr(payload, 'force_queue', False),
+            runtime_id=payload.runtime_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

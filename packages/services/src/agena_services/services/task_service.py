@@ -1553,7 +1553,7 @@ class TaskService:
         out.sort(key=lambda x: (x['position'], x['created_at']))
         return out
 
-    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_role: str | None = None, agent_model: str | None = None, agent_provider: str | None = None, force_queue: bool = False) -> str:
+    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_role: str | None = None, agent_model: str | None = None, agent_provider: str | None = None, force_queue: bool = False, runtime_id: int | None = None) -> str:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -1636,6 +1636,17 @@ class TaskService:
                 {'Preferred Agent Provider': effective_provider},
             )
 
+        # Resolve the compute runtime this task is routed to. An explicit
+        # runtime_id wins; otherwise auto-pick the best active runtime for the
+        # provider (may be None). Recorded for visibility — execution still
+        # runs on the central worker for now (Phase 1).
+        from agena_services.services.runtime_service import RuntimeService
+        resolved_runtime_id = runtime_id
+        if resolved_runtime_id is None:
+            picked = await RuntimeService(self.db).pick_runtime(organization_id, effective_provider)
+            resolved_runtime_id = picked.id if picked else None
+        task.runtime_id = resolved_runtime_id
+
         was_queued = task.status == 'queued'
         was_terminal = task.status in {'failed', 'completed', 'cancelled'}
         if was_queued:
@@ -1658,6 +1669,7 @@ class TaskService:
                     'agent_role': agent_role,
                     'agent_model': effective_model,
                     'agent_provider': effective_provider,
+                    'runtime_id': resolved_runtime_id,
                 }
             )
         except Exception as exc:
