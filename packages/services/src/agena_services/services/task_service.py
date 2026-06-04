@@ -1947,6 +1947,15 @@ class TaskService:
         dependent_task_ids = await self.get_dependents(organization_id, task.id)
         pr_risk = self._compute_pr_risk(logs)
 
+        # For 'answered' tasks (agent replied with analysis instead of file
+        # changes), surface the headline conclusion so the list can show it
+        # on hover / in a notice modal. Reuse the already-fetched logs.
+        answer_summary: str | None = None
+        if (getattr(task, 'substatus', None) or '') == 'answered':
+            answer_log = next((l for l in reversed(logs) if l.stage == 'answer'), None)
+            if answer_log and answer_log.message:
+                answer_summary = self._extract_answer_conclusion(answer_log.message)
+
         return {
             'duration_sec': duration_sec,
             'run_duration_sec': run_duration_sec,
@@ -1965,7 +1974,28 @@ class TaskService:
             'total_tokens': total_tokens,
             'cached_tokens': cached_tokens or None,
             'cache_savings_usd': cache_savings_usd or None,
+            'answer_summary': answer_summary,
         }
+
+    def _extract_answer_conclusion(self, text: str) -> str:
+        """Pull the headline conclusion (Sonuç/Result/…) out of a verbose agent
+        answer; fall back to the first meaningful line. Mirrors the frontend."""
+        import re as _re
+        s = text or ''
+        # CLI output often glues headings onto the previous sentence
+        # ("lock file.## Sonuç:"); split them so the marker is line-anchored.
+        s = _re.sub(r'([^\n])(#{1,6}\s)', r'\1\n\n\2', s)
+        m = _re.search(
+            r'(?:^|\n)\s*#{0,6}\s*(?:Sonuç|Result|Conclusion|Özet|Summary|Karar)\s*[::]\s*(.+)',
+            s, _re.IGNORECASE,
+        )
+        if m and m.group(1).strip():
+            return _re.sub(r'[*_`#]+', '', m.group(1)).strip()[:400]
+        for line in s.splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                return _re.sub(r'[*_`#]+', '', line).strip()[:400]
+        return s.strip()[:400]
 
     async def get_dependencies(self, organization_id: int, task_id: int) -> list[int]:
         if self.db is None:

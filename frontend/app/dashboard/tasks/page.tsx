@@ -30,8 +30,14 @@ const STATUS_FILTERS = ['all', 'new', 'queued', 'running', 'completed', 'failed'
 const SOURCE_FILTERS = ['all', 'internal', 'azure', 'jira', 'newrelic', 'sentry'];
 
 function statusColor(s: string) {
-  const m: Record<string, string> = { new: '#94a3b8', queued: '#c98a2b', running: '#5b9bd5', completed: '#3f9d6a', failed: '#cf5b57' };
+  const m: Record<string, string> = { new: '#94a3b8', queued: '#c98a2b', running: '#5b9bd5', completed: '#3f9d6a', answered: '#a78bfa', failed: '#cf5b57' };
   return m[s] ?? '#6b7280';
+}
+
+/** A task that completed with an answer (no code changes) carries
+ * substatus 'answered' — surface it as its own status pill in the list. */
+function effectiveStatus(task: { status: string; substatus?: string | null }): string {
+  return task.status === 'completed' && task.substatus === 'answered' ? 'answered' : task.status;
 }
 
 function fmtDuration(sec?: number | null): string {
@@ -276,6 +282,7 @@ export default function DashboardTasksPage() {
   const [aiPopupTaskId, setAiPopupTaskId] = useState<number | null>(null);
   const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
   const [mcpPopupTaskId, setMcpPopupTaskId] = useState<number | null>(null);
+  const [answerNotice, setAnswerNotice] = useState<{ title: string; text: string } | null>(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<TaskItem | null>(null);
   const [shareTask, setShareTask] = useState<TaskItem | null>(null);
   const [editTask, setEditTask] = useState<TaskItem | null>(null);
@@ -1774,7 +1781,7 @@ export default function DashboardTasksPage() {
             }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: 'var(--ink-78)', fontSize: 14, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                  <span onClick={() => router.push(`/tasks/${task.id}`)} title={t('tasks.open')} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--acc)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}>{task.title}</span>
                   {(task.dependency_blockers && task.dependency_blockers.length > 0) && (
                     <span title={`${t('tasks.deps.blockedBy' as TranslationKey)}: ${task.dependency_blockers.map((id: number) => '#' + id).join(', ')}`}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.3)', color: '#c98a2b', flexShrink: 0, whiteSpace: 'nowrap' }}>
@@ -1833,16 +1840,22 @@ export default function DashboardTasksPage() {
                 background: 'var(--glass)', color: 'var(--ink-50)',
                 textTransform: 'capitalize', width: 'fit-content',
               }}>{sourceLabel(task.source, t)}</span>
-              <span style={{
+              {(() => { const _eff = effectiveStatus(task); const _ans = task.answer_summary || t('tasks.status.answeredTooltip' as TranslationKey); return (
+              <span
+                title={_eff === 'answered' ? _ans : undefined}
+                onClick={_eff === 'answered' ? (e) => { e.stopPropagation(); e.preventDefault(); setAnswerNotice({ title: task.title, text: _ans }); } : undefined}
+                style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                background: `${statusColor(task.status)}18`,
-                border: `1px solid ${statusColor(task.status)}40`,
-                color: statusColor(task.status), width: 'fit-content', textTransform: 'capitalize',
+                background: `${statusColor(_eff)}18`,
+                border: `1px solid ${statusColor(_eff)}40`,
+                color: statusColor(_eff), width: 'fit-content', textTransform: 'capitalize',
+                cursor: _eff === 'answered' ? 'pointer' : 'default',
               }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(task.status), animation: task.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
-                {statusLabel(task.status, t)}
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(_eff), animation: task.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
+                {statusLabel(_eff, t)}
               </span>
+              ); })()}
               <div>
                 <span style={{ fontSize: 12, color: 'var(--ink-65)', fontWeight: 600 }}>{fmtDuration(task.run_duration_sec ?? task.duration_sec)}</span>
               </div>
@@ -2063,7 +2076,7 @@ export default function DashboardTasksPage() {
                       )}
                     </div>
                     {/* Row 2: title — clamped to 13px so long titles don't blow out the layout on small phones */}
-                    <div style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13, lineHeight: 1.35, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
+                    <div onClick={() => router.push(`/tasks/${task.id}`)} style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13, lineHeight: 1.35, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word', cursor: 'pointer' }}>
                       {task.title}
                     </div>
                     {/* Row 3: badges */}
@@ -2331,6 +2344,27 @@ export default function DashboardTasksPage() {
             </div>
           );
         })(),
+        document.body,
+      )}
+
+      {/* Answer notice modal — opened from the "answered" status pill */}
+      {answerNotice && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}
+          onClick={() => setAnswerNotice(null)}>
+          <div style={{ width: 'min(560px, calc(100vw - 24px))', borderRadius: 12, border: '1px solid rgba(167,139,250,0.4)', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '85vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ height: 3, background: '#a78bfa' }} />
+            <div style={{ padding: '18px 22px', display: 'grid', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#a78bfa' }}>💬 {t('taskDetail.answerTitle' as TranslationKey)}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 999, padding: '2px 8px' }}>{statusLabel('answered', t)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-50)', fontWeight: 600 }}>{answerNotice.title}</div>
+              <div style={{ borderLeft: '3px solid #a78bfa', background: 'rgba(167,139,250,0.10)', borderRadius: 8, padding: '12px 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--ink-90)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{answerNotice.text}</div>
+              <button onClick={() => setAnswerNotice(null)} className='button button-outline' style={{ justifyContent: 'center', fontSize: 13 }}>{t('tasks.cancelAction')}</button>
+            </div>
+          </div>
+        </div>,
         document.body,
       )}
 
@@ -2756,7 +2790,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
       <button
         onClick={() => onAssignAI(taskId, { role: 'mcp_agent', model: chosen.model, provider: chosen.provider }, !hasRepo ? repoSel?.meta : undefined, mappingIds, createPr)}
         disabled={!canRun}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 8, border: 'none', background: canRun ? 'var(--acc)' : 'var(--panel)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: canRun ? '#fff' : 'var(--ink-35)', fontSize: 13, fontWeight: 700 }}>
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 8, border: 'none', background: 'var(--acc)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: '#fff', fontSize: 13, fontWeight: 700 }}>
         {t('tasks.runMcpAgent' as TranslationKey)} — {chosen.label}
         <span style={{ fontSize: 16 }}>→</span>
       </button>
@@ -3088,27 +3122,32 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} className='button button-outline' style={{ flex: 1, fontSize: 12, justifyContent: 'center' }}>{t('tasks.cancel')}</button>
-            <button
-              disabled={!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)}
-              onClick={() => {
-                if (!selected) return;
-                const repoMeta = !hasRepo ? repoSel?.meta : undefined;
-                if (selected.type === 'flow' && selected.flow) {
-                  onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr);
-                } else if (selected.agent) {
-                  onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr);
-                }
-              }}
-              style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
-                background: selected ? 'var(--acc)' : 'var(--panel)',
-                border: selected ? 'none' : '1px solid var(--panel-border)',
-                color: selected ? '#fff' : 'var(--ink-30)',
-                opacity: (!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)) ? 0.5 : 1 }}>
-              {t('tasks.runTaskAction')}
-            </button>
-          </div>
+          {(() => {
+            const runDisabled = !selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0);
+            return (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={onClose} className='button button-outline' style={{ flex: 1, fontSize: 12, justifyContent: 'center' }}>{t('tasks.cancel')}</button>
+              <button
+                disabled={runDisabled}
+                onClick={() => {
+                  if (!selected) return;
+                  const repoMeta = !hasRepo ? repoSel?.meta : undefined;
+                  if (selected.type === 'flow' && selected.flow) {
+                    onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr);
+                  } else if (selected.agent) {
+                    onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr);
+                  }
+                }}
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: runDisabled ? 'not-allowed' : 'pointer',
+                  background: 'var(--acc)',
+                  border: 'none',
+                  color: '#fff',
+                  opacity: runDisabled ? 0.5 : 1 }}>
+                {t('tasks.runTaskAction')}
+              </button>
+            </div>
+            );
+          })()}
         </div>
       </div>
     </div>,

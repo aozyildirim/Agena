@@ -72,6 +72,7 @@ class TaskResponse(BaseModel):
     total_tokens: int | None = None
     cached_tokens: int | None = None
     cache_savings_usd: float | None = None
+    answer_summary: str | None = None
     sprint_name: str | None = None
     sprint_path: str | None = None
     repo_mapping_id: int | None = None

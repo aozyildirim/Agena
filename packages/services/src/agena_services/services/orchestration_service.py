@@ -153,6 +153,18 @@ from agena_services.services.task_service import TaskService
 from agena_services.services.usage_service import UsageService
 
 
+class AgentAnswerOnlyError(Exception):
+    """Raised when the agent produced a textual answer / analysis instead of
+    structured file changes. This is NOT a failure — some tasks are questions
+    ("is this safe?", "how would I…") rather than code edits. The orchestrator
+    catches this and records the answer as a successful 'answered' outcome
+    instead of failing the task. Carries the raw answer text."""
+
+    def __init__(self, answer: str) -> None:
+        super().__init__('Agent produced an answer instead of file changes')
+        self.answer = answer or ''
+
+
 @dataclass
 class TaskRouting:
     effective_source: str
@@ -246,9 +258,15 @@ class OrchestrationService:
             )).scalar_one_or_none()
 
         # Construct azure_repo_url from integration config when repo mapping is Azure
-        # but no explicit Azure Repo URL exists in task metadata
+        # but no usable Azure Repo URL exists in task metadata. Task metadata may
+        # carry a bare repo name (e.g. ``Azure Repo: webservice``) instead of a full
+        # URL — that value is unusable as a git remote and would make the push run
+        # ``git push -u webservice ...`` against a non-existent remote, so treat any
+        # value without a scheme as "missing" and reconstruct the full _git URL.
+        _existing_repo_url = (routing.azure_repo_url or '').strip()
+        _repo_url_is_full = '://' in _existing_repo_url
         if (routing.effective_source == 'azure'
-                and not routing.azure_repo_url
+                and not _repo_url_is_full
                 and repo_mapping
                 and repo_mapping.provider == 'azure'):
             try:
@@ -1363,12 +1381,18 @@ class OrchestrationService:
                 template=_pr_tpl,
             )[:120]
             if mode == 'mcp_agent' and not mcp_file_changes and not _used_cli_provider and not final_code:
-                # MCP agent ran but produced no file changes — log and continue
+                # MCP agent ran but produced no file changes. If it produced an
+                # analysis/answer summary, surface that as an 'answered' outcome
+                # (don't blow up); only fall back to an empty PR payload when
+                # there's genuinely nothing to show.
+                _mcp_summary = (state.get('completion_summary') or '').strip()
+                if _mcp_summary:
+                    raise AgentAnswerOnlyError(_mcp_summary)
                 await task_service.add_log(task.id, organization_id, 'agent',
                     'MCP Agent completed analysis but produced no file changes.')
                 pr_payload = CreatePRRequest(
                     title=_formatted_pr_title,
-                    body=state.get('completion_summary', '') or 'No changes produced',
+                    body='No changes produced',
                     branch_name=f"agena/task-{task.id}",
                     base_branch='main',
                     commit_message=_formatted_pr_title,
@@ -1904,6 +1928,118 @@ class OrchestrationService:
                 usage=UsageStats(**usage),
                 pr_url=pr_url,
             )
+        except AgentAnswerOnlyError as ans:
+            # The agent answered a question / produced analysis rather than
+            # file edits. Record it as a successful 'answered' outcome — the
+            # answer text is saved as a task log and the task completes
+            # without a PR. Normal code tasks emit file blocks and never
+            # reach here, so this leaves their flow untouched.
+            answer_text = (ans.answer or '').strip()
+            task.status = 'completed'
+            task.substatus = 'answered'
+            task.failure_reason = None
+            # Mirror onto any matching repo assignment so multi-repo
+            # aggregation treats this repo as done, not failed.
+            try:
+                from agena_models.models.task_repo_assignment import TaskRepoAssignment
+                if repo_mapping is not None:
+                    rows = (await self.db_session.execute(
+                        select(TaskRepoAssignment).where(
+                            TaskRepoAssignment.task_id == task.id,
+                            TaskRepoAssignment.organization_id == organization_id,
+                            TaskRepoAssignment.repo_mapping_id == repo_mapping.id,
+                        )
+                    )).scalars().all()
+                    for row in rows:
+                        row.status = 'completed'
+                        row.failure_reason = None
+            except Exception:
+                pass
+            await self.db_session.commit()
+
+            publish_fire_and_forget(organization_id, 'task_status', {
+                'task_id': task.id, 'status': 'completed', 'title': task.title,
+                'substatus': 'answered',
+            })
+
+            usage = state.get('usage', {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0})
+            run_finished_at = datetime.utcnow()
+            duration_sec = round(time.perf_counter() - run_started_clock, 2)
+            provider_name, model_name = self._extract_provider_model(state)
+            estimated_cost = self.cost_tracker.estimate_cost_usd(
+                prompt_tokens=int(usage.get('prompt_tokens', 0)),
+                completion_tokens=int(usage.get('completion_tokens', 0)),
+                cached_input_tokens=int(usage.get('cached_input_tokens', 0)),
+                model=model_name or provider_name or 'gpt-4o-mini',
+            )
+            # Persist a RunRecord so the task list surfaces token/cost for the
+            # answered run (the list reads RunRecord.usage_total_tokens).
+            try:
+                _ans_run = RunRecord(
+                    task_id=task.id,
+                    organization_id=organization_id,
+                    source=payload['source'],
+                    spec=state.get('spec', {}),
+                    generated_code=state.get('generated_code', ''),
+                    reviewed_code=answer_text,
+                    usage_prompt_tokens=int(usage.get('prompt_tokens', 0)),
+                    usage_completion_tokens=int(usage.get('completion_tokens', 0)),
+                    usage_total_tokens=int(usage.get('total_tokens', 0)),
+                    estimated_cost_usd=estimated_cost,
+                    pr_url=None,
+                    kind='revision' if revision_id else 'initial',
+                )
+                self.db_session.add(_ans_run)
+                await self.db_session.commit()
+            except Exception:
+                logger.warning('Failed to persist RunRecord for answered task %s', task.id, exc_info=True)
+            await usage_event_service.create_event(
+                organization_id=organization_id,
+                user_id=task.created_by_user_id,
+                task_id=task.id,
+                operation_type='task_orchestration_run',
+                provider=provider_name,
+                model=model_name,
+                status='completed',
+                prompt_tokens=int(usage.get('prompt_tokens', 0)),
+                completion_tokens=int(usage.get('completion_tokens', 0)),
+                total_tokens=int(usage.get('total_tokens', 0)),
+                cost_usd=float(estimated_cost),
+                cache_hit=int(usage.get('cached_input_tokens', 0) or 0) > 0,
+                started_at=run_started_at,
+                ended_at=run_finished_at,
+                duration_ms=int(duration_sec * 1000),
+                local_repo_path=routing.local_repo_path,
+                details_json={
+                    'source': routing.effective_source,
+                    'external_source': routing.external_source,
+                    'create_pr': create_pr,
+                    'outcome': 'answered',
+                },
+            )
+            await task_service.add_log(
+                task.id,
+                organization_id,
+                'run_metrics',
+                self._build_run_metrics_message(
+                    started_at=run_started_at,
+                    finished_at=run_finished_at,
+                    duration_sec=duration_sec,
+                    usage=usage,
+                ),
+            )
+            await task_service.add_log(
+                task.id, organization_id, 'answer',
+                answer_text or '(empty answer)',
+            )
+            return AgentRunResult(
+                task_id=str(task.id),
+                spec=state.get('spec', {}),
+                generated_code=state.get('generated_code', ''),
+                reviewed_code=answer_text,
+                usage=UsageStats(**usage),
+                pr_url=None,
+            )
         except Exception as exc:
             task.status = 'failed'
             task.failure_reason = str(exc)
@@ -2218,11 +2354,11 @@ class OrchestrationService:
                         )
                     break
         if not parsed_files:
-            logger.error(f'No file blocks parsed. Output length: {len(reviewed_code)} chars. First 2000 chars:\n{reviewed_code[:2000]}')
-            raise RuntimeError(
-                'Model output did not contain structured file blocks (**File: path** + fenced code). '
-                'Task cannot be applied safely to repository files.'
-            )
+            logger.info(f'No file blocks parsed — treating output as an answer/analysis. Output length: {len(reviewed_code)} chars.')
+            # Not a failure: the model produced a textual answer rather than
+            # file edits (question-type task). Surface it as an "answered"
+            # outcome instead of throwing the run away.
+            raise AgentAnswerOnlyError(reviewed_code)
 
         # Pull the user's saved PR title template from profile_settings
         # so they can override the default `[AI] {ab} {title}` shape
