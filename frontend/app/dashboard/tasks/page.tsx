@@ -944,7 +944,7 @@ export default function DashboardTasksPage() {
     });
   }
 
-  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
+  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) {
     setAiPopupTaskId(null);
     await _assignWithConflictRetry(id, {
       create_pr: createPr ?? defaultCreatePr,
@@ -954,10 +954,11 @@ export default function DashboardTasksPage() {
       agent_provider: agent.provider,
       extra_description: extraDesc || undefined,
       repo_mapping_ids: repoMappingIds || undefined,
+      runtime_id: runtimeId ?? undefined,
     });
   }
 
-  async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
+  async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) {
     setFlowPopupTaskId(null);
     await _assignWithConflictRetry(id, {
       create_pr: createPr ?? defaultCreatePr,
@@ -965,6 +966,7 @@ export default function DashboardTasksPage() {
       flow_id: flowId,
       extra_description: extraDesc || undefined,
       repo_mapping_ids: repoMappingIds || undefined,
+      runtime_id: runtimeId ?? undefined,
     });
   }
 
@@ -2218,13 +2220,13 @@ export default function DashboardTasksPage() {
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
-          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignAI(id, agent, extra, repoMappingIds, pr);
+            void doAssignAI(id, agent, extra, repoMappingIds, pr, rt);
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr, rt);
           }}
           onClose={() => setAiPopupTaskId(null)}
           t={t}
@@ -2239,13 +2241,13 @@ export default function DashboardTasksPage() {
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
-          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignAI(id, agent, extra, repoMappingIds, pr);
+            void doAssignAI(id, agent, extra, repoMappingIds, pr, rt);
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr, rt);
           }}
           onClose={() => setFlowPopupTaskId(null)}
           t={t}
@@ -2260,16 +2262,16 @@ export default function DashboardTasksPage() {
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
-          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr, rt) => {
             if (agent.provider === 'claude_cli' || agent.provider === 'codex_cli') {
               void doAssignMCP(id, repoMeta, repoMappingIds, agent.model, agent.provider, pr);
             } else {
-              void doAssignAI(id, agent, repoMeta ? `Remote Repo: ${repoMeta}` : undefined, repoMappingIds, pr);
+              void doAssignAI(id, agent, repoMeta ? `Remote Repo: ${repoMeta}` : undefined, repoMappingIds, pr, rt);
             }
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr, rt);
           }}
           onClose={() => setMcpPopupTaskId(null)}
           t={t}
@@ -2748,7 +2750,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
   repoSel: { meta: string } | null;
   mappingIds: number[] | undefined;
   createPr?: boolean;
-  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean) => void;
+  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -2906,8 +2908,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   agents: { role: string; model: string; provider: string; enabled: boolean }[];
   flows: { id: string; name: string }[];
   defaultCreatePr: boolean;
-  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean) => void;
-  onAssignFlow: (id: number, flowId: string, flowName: string, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean) => void;
+  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) => void;
+  onAssignFlow: (id: number, flowId: string, flowName: string, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) => void;
   onClose: () => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
@@ -2917,6 +2919,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   const [mappingsLoaded, setMappingsLoaded] = useState(false);
   const [createPr, setCreatePr] = useState(initialCreatePr);
   const [selected, setSelected] = useState<{ type: 'agent' | 'cli' | 'flow'; agent?: { role: string; model: string; provider: string }; flow?: { id: string; name: string } } | null>(null);
+  const [runtimes, setRuntimes] = useState<{ id: number; name: string; kind: string; status: string; available_clis: string[] }[]>([]);
+  const [selectedRuntime, setSelectedRuntime] = useState<number | null>(null); // null = Auto/default
   const task = tasks.find((tk) => tk.id === taskId);
   const taskDescRaw = ((task as unknown as { description?: string })?.description || '');
   const taskDesc = taskDescRaw.toLowerCase();
@@ -2935,6 +2939,12 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
       setSelected({ type: 'agent', agent: { role: match.role, model: match.model, provider: match.provider } });
     }
   }, [taskDescRaw, agents, mode, selected]);
+
+  useEffect(() => {
+    apiFetch<{ id: number; name: string; kind: string; status: string; available_clis: string[] }[]>('/runtimes')
+      .then((data) => setRuntimes(Array.isArray(data) ? data : []))
+      .catch(() => setRuntimes([]));
+  }, []);
 
   useEffect(() => {
     apiFetch<BackendRepoMapping[]>('/repo-mappings')
@@ -3050,6 +3060,33 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
             </div>
           </label>
 
+          {/* Runtime selector — which compute environment runs this task.
+              "Auto" (null) lets the backend pick / use the default worker. */}
+          {runtimes.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.runtime.label' as TranslationKey)}</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[{ id: null as number | null, name: t('tasks.runtime.auto' as TranslationKey), status: 'active' }, ...runtimes].map((rt) => {
+                  const isSel = selectedRuntime === rt.id;
+                  const offline = rt.id !== null && rt.status !== 'active';
+                  return (
+                    <button key={String(rt.id)} type='button' disabled={offline}
+                      onClick={() => setSelectedRuntime(rt.id)}
+                      title={offline ? t('tasks.runtime.offline' as TranslationKey) : undefined}
+                      style={{ padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: offline ? 'not-allowed' : 'pointer',
+                        border: isSel ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)',
+                        background: isSel ? 'var(--acc-soft)' : 'var(--panel)',
+                        color: isSel ? 'var(--acc)' : offline ? 'var(--ink-30)' : 'var(--ink-65)',
+                        opacity: offline ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      {rt.id !== null && <span style={{ width: 6, height: 6, borderRadius: '50%', background: rt.status === 'active' ? '#3f9d6a' : '#94a3b8' }} />}
+                      {rt.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Agent / Flow selection */}
           {/* Agent / CLI / Flow selection — select first, then run */}
           <div style={{ display: 'grid', gap: 6 }}>
@@ -3133,9 +3170,9 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
                   if (!selected) return;
                   const repoMeta = !hasRepo ? repoSel?.meta : undefined;
                   if (selected.type === 'flow' && selected.flow) {
-                    onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr);
+                    onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr, selectedRuntime);
                   } else if (selected.agent) {
-                    onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr);
+                    onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr, selectedRuntime);
                   }
                 }}
                 style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: runDisabled ? 'not-allowed' : 'pointer',

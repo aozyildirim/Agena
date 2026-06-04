@@ -73,6 +73,8 @@ class TaskResponse(BaseModel):
     cached_tokens: int | None = None
     cache_savings_usd: float | None = None
     answer_summary: str | None = None
+    runtime_id: int | None = None
+    runtime_name: str | None = None
     sprint_name: str | None = None
     sprint_path: str | None = None
     repo_mapping_id: int | None = None
@@ -162,6 +164,7 @@ class AssignTaskRequest(BaseModel):
     repo_mapping_ids: list[int] | None = None  # multi-repo: assign to multiple repos
     flow_id: str | None = None  # if set, run this flow instead of default pipeline
     force_queue: bool = False  # skip repo conflict check, queue anyway
+    runtime_id: int | None = None  # route to a specific compute runtime; null = auto/default
 
 
 class TaskLogItem(BaseModel):
