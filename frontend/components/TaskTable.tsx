@@ -54,6 +54,7 @@ export type TaskItem = {
   repo_assignments?: RepoAssignment[];
   is_unhandled?: boolean | null;
   substatus?: string | null;
+  answer_summary?: string | null;
   fixability_score?: number | null;
   first_seen_at?: string | null;
   last_seen_at?: string | null;
