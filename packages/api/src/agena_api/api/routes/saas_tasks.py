@@ -268,6 +268,7 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         repo_mapping_name=await _get_repo_mapping_name(service.db, getattr(task, 'repo_mapping_id', None)),
         runtime_id=getattr(task, 'runtime_id', None),
         runtime_name=await _get_runtime_name(service.db, getattr(task, 'runtime_id', None)),
+        revision_count=insights.get('revision_count', 0),
         repo_assignments=repo_assignments,
         tags=_parse_tags(getattr(task, 'tags_json', None)),
     )

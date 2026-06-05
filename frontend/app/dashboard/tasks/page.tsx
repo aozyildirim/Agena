@@ -1784,6 +1784,11 @@ export default function DashboardTasksPage() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: 'var(--ink-78)', fontSize: 14, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span onClick={() => router.push(`/tasks/${task.id}`)} title={t('tasks.open')} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--acc)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}>{task.title}</span>
+                  {(task.revision_count ?? 0) > 0 && (
+                    <span title={t('tasks.revisedBadge' as TranslationKey)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.35)', color: '#a855f7', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      ↻ {t('tasks.revisedBadge' as TranslationKey)}{(task.revision_count ?? 0) > 1 ? ` ×${task.revision_count}` : ''}
+                    </span>
+                  )}
                   {(task.dependency_blockers && task.dependency_blockers.length > 0) && (
                     <span title={`${t('tasks.deps.blockedBy' as TranslationKey)}: ${task.dependency_blockers.map((id: number) => '#' + id).join(', ')}`}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.3)', color: '#c98a2b', flexShrink: 0, whiteSpace: 'nowrap' }}>

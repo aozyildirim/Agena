@@ -75,6 +75,7 @@ class TaskResponse(BaseModel):
     answer_summary: str | None = None
     runtime_id: int | None = None
     runtime_name: str | None = None
+    revision_count: int = 0
     sprint_name: str | None = None
     sprint_path: str | None = None
     repo_mapping_id: int | None = None

@@ -1968,6 +1968,16 @@ class TaskService:
             if answer_log and answer_log.message:
                 answer_summary = self._extract_answer_conclusion(answer_log.message)
 
+        # How many follow-up revisions this task has had — surfaced as a
+        # "revised" badge in the task list.
+        from agena_models.models.task_revision import TaskRevision
+        revision_count = int((await self.db.execute(
+            select(func.count(TaskRevision.id)).where(
+                TaskRevision.task_id == task.id,
+                TaskRevision.organization_id == organization_id,
+            )
+        )).scalar() or 0)
+
         return {
             'duration_sec': duration_sec,
             'run_duration_sec': run_duration_sec,
@@ -1987,6 +1997,7 @@ class TaskService:
             'cached_tokens': cached_tokens or None,
             'cache_savings_usd': cache_savings_usd or None,
             'answer_summary': answer_summary,
+            'revision_count': revision_count,
         }
 
     def _extract_answer_conclusion(self, text: str) -> str:

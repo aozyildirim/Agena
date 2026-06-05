@@ -1359,6 +1359,7 @@
   "tasks.status.running": "运行中",
   "tasks.status.completed": "已完成",
   "tasks.status.answered": "已回答",
+  "tasks.revisedBadge": "已修订",
   "tasks.runtime.label": "运行环境",
   "tasks.runtime.auto": "自动",
   "tasks.runtime.offline": "离线",
