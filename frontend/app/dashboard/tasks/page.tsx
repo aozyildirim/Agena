@@ -34,6 +34,20 @@ function statusColor(s: string) {
   return m[s] ?? '#6b7280';
 }
 
+/** Color for an Azure/Jira work-item state shown in the sprint picker.
+ * Matches loosely (substring) so custom workflows (UAT, Block, Doing…) land
+ * on a sensible color regardless of exact wording / language. */
+function sprintStateColor(state?: string | null): string {
+  const s = (state || '').toLowerCase();
+  if (!s) return '#94a3b8';
+  if (/(done|closed|resolved|complete|kapat|tamamlan|bitti)/.test(s)) return '#3f9d6a';
+  if (/(block|engel)/.test(s)) return '#cf5b57';
+  if (/(uat|test|review|incele|onay|verif)/.test(s)) return '#a855f7';
+  if (/(active|progress|doing|committed|develop|geliştir|devam|başla)/.test(s)) return '#5b9bd5';
+  if (/(new|to ?do|backlog|yeni|açık|open|approved)/.test(s)) return '#c98a2b';
+  return '#94a3b8';
+}
+
 /** A task that completed with an answer (no code changes) carries
  * substatus 'answered' — surface it as its own status pill in the list. */
 function effectiveStatus(task: { status: string; substatus?: string | null }): string {
@@ -318,7 +332,7 @@ export default function DashboardTasksPage() {
   // Create-modal "fetch from sprint" picker. Empty = blank task; otherwise
   // the user is browsing Azure/Jira items and a click prefills the form.
   const [pickerSource, setPickerSource] = useState<'empty' | 'azure' | 'jira'>('empty');
-  type SprintItem = { id: string; title: string; description?: string };
+  type SprintItem = { id: string; title: string; description?: string; state?: string | null; work_item_type?: string | null };
   const [pickerItems, setPickerItems] = useState<SprintItem[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState('');
@@ -1258,7 +1272,7 @@ export default function DashboardTasksPage() {
                 ) : pickerError ? (
                   <div style={{ fontSize: 11, color: '#cf5b57', padding: '8px 4px' }}>{pickerError}</div>
                 ) : (
-                  <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4 }}>
+                  <div style={{ maxHeight: 220, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 4 }}>
                     {pickerItems
                       .filter((it) => !pickerSearch || it.title.toLowerCase().includes(pickerSearch.toLowerCase()) || String(it.id).includes(pickerSearch))
                       .slice(0, 200)
@@ -1285,7 +1299,7 @@ export default function DashboardTasksPage() {
                               border: '1px solid ' + (isTaken ? 'var(--panel-border-2)' : 'var(--panel-border-3)'),
                               background: isTaken ? 'transparent' : 'var(--panel-alt)',
                               fontSize: 12, cursor: isTaken ? 'help' : 'pointer',
-                              display: 'flex', alignItems: 'center', gap: 8,
+                              display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
                               opacity: isTaken ? 0.55 : 1,
                             }}
                           >
@@ -1293,6 +1307,9 @@ export default function DashboardTasksPage() {
                               <span style={{ color: 'var(--ink-35)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
                               <span style={{ fontWeight: 600, color: isTaken ? 'var(--ink-50)' : 'var(--ink-90)', textDecoration: isTaken ? 'line-through' : 'none' }}>{it.title}</span>
                             </span>
+                            {it.state && (
+                              <span title={it.work_item_type || undefined} style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6, textTransform: 'uppercase', letterSpacing: 0.3, whiteSpace: 'nowrap', color: sprintStateColor(it.state), background: `${sprintStateColor(it.state)}18`, border: `1px solid ${sprintStateColor(it.state)}40` }}>{it.state}</span>
+                            )}
                             {isTaken && (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(201,138,43,0.14)', color: '#c98a2b', whiteSpace: 'nowrap', border: '1px solid rgba(201,138,43,0.35)' }}>
                                 <NavIcon name="alert" size={11} /> {t('tasks.picker.alreadyImportedBadge' as TranslationKey)} · #{existingId}
