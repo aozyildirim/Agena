@@ -87,6 +87,7 @@ export default function NewRelicPage() {
   const [modalStoryPoints, setModalStoryPoints] = useState<number>(2);
   const [modalSprintPath, setModalSprintPath] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmImportAll, setConfirmImportAll] = useState(false);
   const [sprintOptions, setSprintOptions] = useState<Array<{ path: string; name: string; is_current?: boolean }>>([]);
 
   const [runningGuid, setRunningGuid] = useState<string | null>(null);
@@ -591,11 +592,27 @@ export default function NewRelicPage() {
             {t('integrations.newrelic.entityMappings')}
           </h3>
           {mappings.length > 0 && (
-            <button onClick={() => void importErrors()} disabled={runningGuid === '__all__'} style={{ ...btnPrimary, opacity: runningGuid === '__all__' ? 0.6 : 1 }}>
+            <button onClick={() => setConfirmImportAll(true)} disabled={runningGuid === '__all__'} style={{ ...btnPrimary, opacity: runningGuid === '__all__' ? 0.6 : 1 }}>
               {runningGuid === '__all__' ? '…' : t('integrations.common.importAll')}
             </button>
           )}
         </div>
+
+        {confirmImportAll && typeof document !== 'undefined' && createPortal(
+          <div onClick={() => setConfirmImportAll(false)} style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', padding: 16 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--panel-border)', borderRadius: 12, padding: 20, width: 'min(460px, calc(100vw - 24px))', boxShadow: '0 20px 48px rgba(0,0,0,0.22)' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink-90)', marginBottom: 8 }}>{t('integrations.newrelic.importAllConfirmTitle')}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-58)', lineHeight: 1.55, marginBottom: 16 }}>
+                {t('integrations.newrelic.importAllConfirmBody').replace('{n}', String(totalMappings))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={() => setConfirmImportAll(false)} style={btnSmall}>{t('integrations.common.cancel')}</button>
+                <button onClick={() => { setConfirmImportAll(false); void importErrors(); }} style={btnPrimary}>{t('integrations.newrelic.importAllConfirmCta')}</button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
         {mappings.length === 0 ? (
           <div style={{ padding: '28px 18px', textAlign: 'center', borderRadius: 8, background: 'var(--panel-alt)', border: '1px dashed var(--panel-border)' }}>
             <div style={{ marginBottom: 6, color: 'var(--ink-35)', display: 'flex', justifyContent: 'center' }}><NavIcon name="signal" size={28} /></div>
