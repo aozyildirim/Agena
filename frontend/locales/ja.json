@@ -1359,6 +1359,7 @@
   "tasks.status.running": "実行中",
   "tasks.status.completed": "完了",
   "tasks.status.answered": "回答済み",
+  "tasks.revisedBadge": "改訂済み",
   "tasks.runtime.label": "ランタイム",
   "tasks.runtime.auto": "自動",
   "tasks.runtime.offline": "オフライン",

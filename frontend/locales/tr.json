@@ -1359,6 +1359,7 @@
   "tasks.status.running": "Çalışıyor",
   "tasks.status.completed": "Tamamlandı",
   "tasks.status.answered": "Cevaplandı",
+  "tasks.revisedBadge": "Revize",
   "tasks.runtime.label": "Runtime",
   "tasks.runtime.auto": "Otomatik",
   "tasks.runtime.offline": "Çevrimdışı",

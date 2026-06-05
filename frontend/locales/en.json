@@ -1359,6 +1359,7 @@
   "tasks.status.running": "Running",
   "tasks.status.completed": "Completed",
   "tasks.status.answered": "Answered",
+  "tasks.revisedBadge": "Revised",
   "tasks.runtime.label": "Runtime",
   "tasks.runtime.auto": "Auto",
   "tasks.runtime.offline": "Offline",
