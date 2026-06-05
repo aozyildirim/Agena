@@ -384,6 +384,43 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── PRODUCT TOUR (gif left, copy right) ── */}
+        <section style={{ padding: '8px 0 30px' }}>
+          <div style={{
+            display: 'flex', gap: 30, alignItems: 'center', flexWrap: 'wrap',
+            padding: 22, borderRadius: 18,
+            border: '1px solid var(--panel-border)',
+            background: 'linear-gradient(135deg, rgba(13,148,136,0.07), rgba(139,92,246,0.06))',
+          }}>
+            <div style={{ flex: '1 1 440px', minWidth: 300 }}>
+              <img
+                src='/readmeimg/demo-tour.gif'
+                alt={t('landing.tourTitle')}
+                loading='lazy'
+                style={{ width: '100%', borderRadius: 12, border: '1px solid var(--panel-border-2)', display: 'block', boxShadow: '0 18px 50px rgba(0,0,0,0.35)' }}
+              />
+            </div>
+            <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+              <div className='section-label'>{t('landing.tourLabel')}</div>
+              <h2 style={{ fontSize: 25, fontWeight: 800, color: 'var(--ink-90)', margin: '8px 0 12px', lineHeight: 1.2 }}>
+                {t('landing.tourTitle')}
+              </h2>
+              <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--ink-55)', margin: 0 }}>
+                {t('landing.tourDesc')}
+              </p>
+              <a
+                href='/readmeimg/demo-tour.mp4'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='button button-outline'
+                style={{ marginTop: 18, fontSize: 14, padding: '11px 22px', display: 'inline-flex' }}
+              >
+                ▶ {t('landing.tourCta')}
+              </a>
+            </div>
+          </div>
+        </section>
+
         {/* ── CLI INSTALL BANNER ── */}
         <section style={{ padding: '20px 0 28px' }}>
           <div style={{
