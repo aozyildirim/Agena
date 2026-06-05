@@ -938,10 +938,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
         {/* Notification dropdown */}
         {notifOpen && (
           <div data-notif-dropdown style={{
-            position: 'absolute', top: 56, right: 80, width: 360,
+            position: 'absolute', top: 56, right: 80, width: 360, maxWidth: 'calc(100vw - 24px)',
             border: '1px solid var(--border)', background: 'var(--surface)',
             borderRadius: 12, padding: 10, display: 'grid', gap: 8,
-            maxHeight: 400, overflow: 'auto', zIndex: 100,
+            maxHeight: 400, overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box', zIndex: 100,
             boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -995,10 +995,10 @@ function DashboardInner({ children }: { children: ReactNode }) {
                   });
                   void markNotificationRead(n.id).finally(() => void refreshNotifications(12));
                 }}
-                style={{ textDecoration: 'none', border: `1px solid ${notifColor(n)}44`, borderLeft: `3px solid ${notifColor(n)}`, borderRadius: 10, padding: '7px 8px', display: 'grid', gap: 3, background: n.is_read ? 'var(--panel)' : `${notifColor(n)}18` }}>
-                <div style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 700 }}>{n.title}</div>
-                <div style={{ fontSize: 10, color: notifColor(n), textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{n.event_type.replace(/_/g, ' ')}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.3 }}>{n.message}</div>
+                style={{ textDecoration: 'none', border: `1px solid ${notifColor(n)}44`, borderLeft: `3px solid ${notifColor(n)}`, borderRadius: 10, padding: '7px 8px', display: 'grid', gap: 3, minWidth: 0, background: n.is_read ? 'var(--panel)' : `${notifColor(n)}18` }}>
+                <div style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 700, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{n.title}</div>
+                <div style={{ fontSize: 10, color: notifColor(n), textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700, overflowWrap: 'anywhere' }}>{n.event_type.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.3, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{n.message}</div>
                 <div style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleString()}</div>
               </Link>
             ))}
