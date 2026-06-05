@@ -28,7 +28,7 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 <p align="center">
   <sub><b>Zero to fully-loaded in under a minute</b> — sign up, complete onboarding, switch on every integration, then explore Boss Mode, the agent roster, and visual flows.</sub>
   <br/>
-  <sub>▶ <a href="frontend/public/readmeimg/demo-tour.mp4">Watch the narrated product tour</a> — every module in ~60s, with voiceover · <a href="frontend/public/readmeimg/demo.mp4">first-run MP4</a></sub>
+  <sub>▶ <a href="frontend/public/readmeimg/demo-tour.mp4">Watch the narrated product tour</a> — every module in ~3 min, with voiceover + captions · <a href="frontend/public/readmeimg/demo.mp4">first-run MP4</a></sub>
 </p>
 
 ---
