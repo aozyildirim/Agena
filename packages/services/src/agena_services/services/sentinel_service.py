@@ -25,6 +25,11 @@ from agena_services.integrations.newrelic_client import NewRelicClient
 logger = logging.getLogger(__name__)
 
 NR_METRICS = ('throughput', 'latency_p95', 'error_rate', 'db_time', 'apdex')
+# PHP non-fatal levels logged as TransactionError but not shown as error groups
+_PHP_NON_ERRORS = {
+    'E_WARNING', 'E_NOTICE', 'E_DEPRECATED', 'E_STRICT', 'E_USER_WARNING',
+    'E_USER_NOTICE', 'E_USER_DEPRECATED', 'E_CORE_WARNING', 'E_COMPILE_WARNING',
+}
 _UNIT = {'throughput': 'rpm', 'latency_p95': 'ms', 'error_rate': '%', 'db_time': 'ms', 'apdex': ''}
 
 
@@ -634,7 +639,11 @@ class SentinelService:
                 link = await self._nr_link(org_id, 'newrelic', m.entity_guid or '')
                 for g in groups:
                     occ = int(g.get('occurrences') or 0)
-                    if occ < 10:
+                    ec = (g.get('error_class') or '')
+                    # PHP warnings/notices are logged as TransactionError but the
+                    # errors-inbox doesn't surface them as groups — skip so the
+                    # alert matches what the New Relic link actually shows.
+                    if occ < 10 or ec in _PHP_NON_ERRORS:
                         continue
                     fp = _fp(org_id, 0, m.entity_guid or m.entity_name or '',
                              (g.get('error_class') or '') + '|' + (g.get('error_message') or '')[:40], 'error_group')
