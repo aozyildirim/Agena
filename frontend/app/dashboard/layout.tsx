@@ -56,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/agents', key: 'nav.agents', icon: 'agents', module: 'core', wsPerm: 'agents:manage' },
       { href: '/dashboard/insights', key: 'nav.insights', icon: 'insights', module: 'insights', wsPerm: 'pages:insights' },
+      { href: '/dashboard/alerts', key: 'nav.alerts', icon: 'shield', module: 'sentinel', wsPerm: 'analytics:read' },
       { href: '/dashboard/flows', key: 'nav.flows', icon: 'flows', module: 'flows', wsPerm: 'flows:manage' },
       { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: 'pencil', module: 'prompt_studio', wsPerm: 'prompts:edit' },
       { href: '/dashboard/templates', key: 'nav.templates', icon: 'box', module: 'flows', wsPerm: 'pages:templates' },

@@ -111,6 +111,7 @@ class Settings(BaseSettings):
     auto_correlation_enabled: bool = Field(default=True, alias='AUTO_CORRELATION_ENABLED')
     auto_sentry_import_enabled: bool = Field(default=True, alias='AUTO_SENTRY_IMPORT_ENABLED')
     auto_newrelic_import_enabled: bool = Field(default=True, alias='AUTO_NEWRELIC_IMPORT_ENABLED')
+    auto_sentinel_enabled: bool = Field(default=True, alias='AUTO_SENTINEL_ENABLED')
 
     cors_allowed_origins: str = Field(
         default='https://agena.dev,https://*.agena.dev,http://localhost:3010,http://localhost:3011,http://localhost:3012',

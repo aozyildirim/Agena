@@ -174,6 +174,87 @@ class NewRelicClient:
             })
         return result
 
+    # -- metrics (throughput / latency / db / apdex) ------------------------
+
+    async def fetch_metric(
+        self,
+        cfg: dict[str, str],
+        *,
+        account_id: int,
+        app_name: str,
+        metric_kind: str,
+        since: str = '5 minutes ago',
+    ) -> dict[str, Any] | None:
+        """Return a single normalized metric sample for an APM app:
+        {value, unit, sample_count}. metric_kind ∈ throughput | latency_p95 |
+        error_rate | db_time | apdex. Returns None if the query yields nothing."""
+        app = app_name.replace("'", "")
+        where = f"WHERE appName = '{app}'"
+        if metric_kind == 'throughput':
+            nrql = f"SELECT rate(count(*), 1 minute) AS v, count(*) AS n FROM Transaction {where} SINCE {since}"
+            unit, scale = 'rpm', 1.0
+        elif metric_kind == 'latency_p95':
+            nrql = f"SELECT percentile(duration, 95) AS v, count(*) AS n FROM Transaction {where} SINCE {since}"
+            unit, scale = 'ms', 1000.0  # NR duration is in seconds
+        elif metric_kind == 'error_rate':
+            nrql = f"SELECT percentage(count(*), WHERE error IS true) AS v, count(*) AS n FROM Transaction {where} SINCE {since}"
+            unit, scale = 'pct', 1.0
+        elif metric_kind == 'db_time':
+            nrql = f"SELECT average(databaseDuration) AS v, count(*) AS n FROM Transaction {where} SINCE {since}"
+            unit, scale = 'ms', 1000.0
+        elif metric_kind == 'apdex':
+            nrql = f"SELECT apdex(duration, t: 0.5) AS v, count(*) AS n FROM Transaction {where} SINCE {since}"
+            unit, scale = 'score', 1.0
+        else:
+            return None
+        rows = await self._run_nrql(cfg, account_id, nrql)
+        if not rows:
+            return None
+        row = rows[0]
+        # Only read the aliased value cell. Do NOT fall back to scanning the
+        # whole row — that would pick up the sample-count 'n' when the metric is
+        # genuinely null (e.g. db_time on an app with no DB calls).
+        value = _first_num(row.get('v'))
+        if value is None:
+            # null metric: treat "no DB time / no errors" as 0, skip the rest.
+            if metric_kind in ('db_time', 'error_rate'):
+                value = 0.0
+            else:
+                return None
+        return {
+            'value': round(float(value) * scale, 3),
+            'unit': unit,
+            'sample_count': int(_first_num(row.get('n')) or 0),
+        }
+
+    async def fetch_slow_transactions(
+        self,
+        cfg: dict[str, str],
+        *,
+        account_id: int,
+        app_name: str,
+        since: str = '30 minutes ago',
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Top-N slowest transactions by p95 duration (the 'most time' view)."""
+        app = app_name.replace("'", "")
+        nrql = (
+            f"SELECT percentile(duration, 95) AS p95, count(*) AS cnt "
+            f"FROM Transaction WHERE appName = '{app}' FACET name "
+            f"SINCE {since} LIMIT {limit}"
+        )
+        rows = await self._run_nrql(cfg, account_id, nrql)
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            facet = row.get('name') or (row.get('facet', [''])[0] if row.get('facet') else '')
+            p95 = _first_num(row.get('p95'))
+            out.append({
+                'transaction': facet or 'unknown',
+                'p95_ms': round(float(p95) * 1000.0, 1) if p95 is not None else None,
+                'count': int(_first_num(row.get('cnt')) or 0),
+            })
+        return out
+
     async def fetch_error_group_links(
         self,
         cfg: dict[str, str],
@@ -448,6 +529,33 @@ class NewRelicClient:
 def _fingerprint(entity_name: str, error_class: str, error_message: str) -> str:
     raw = f'{entity_name}|{error_class}|{error_message}'
     return hashlib.sha256(raw.encode()).hexdigest()[:24]
+
+
+def _first_num(v: Any) -> float | None:
+    """Pull the first numeric value out of an NRQL result cell. NRQL returns
+    aggregates like percentile/apdex as nested dicts ({"95": 0.12} or
+    {"score": 0.97, ...}); this digs the first number out regardless of shape."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, dict):
+        # prefer a 'score'/'value' key when present (apdex), else first numeric
+        for k in ('value', 'score', '95'):
+            if k in v:
+                n = _first_num(v[k])
+                if n is not None:
+                    return n
+        for val in v.values():
+            n = _first_num(val)
+            if n is not None:
+                return n
+    if isinstance(v, list):
+        for item in v:
+            n = _first_num(item)
+            if n is not None:
+                return n
+    return None
 
 
 def _format_nr_timestamp(raw: Any) -> str:
