@@ -164,6 +164,14 @@ class SentinelService:
         label = f'{rm.owner}/{rm.repo_name}' if rm.owner else rm.repo_name
         return rmid, label
 
+    async def _repo_label(self, rmid: int | None) -> str | None:
+        if not rmid:
+            return None
+        rm = (await self.db.execute(select(RepoMapping).where(RepoMapping.id == rmid))).scalar_one_or_none()
+        if not rm:
+            return None
+        return f'{rm.owner}/{rm.repo_name}' if rm.owner else rm.repo_name
+
     async def _nr_link(self, org_id: int, source: str, entity_ref: str) -> str | None:
         """Deep link into the New Relic errors inbox for the entity. Real NR
         entity GUIDs are long base64; short demo refs get no link."""
@@ -575,6 +583,104 @@ class SentinelService:
         if added:
             await self.db.commit()
         return added
+
+    async def evaluate_source_errors(self, org_id: int) -> list[Alert]:
+        """Raise/auto-resolve alerts straight from New Relic error groups and
+        Sentry issues — lifecycle tied to the source: present & significant →
+        open; gone from the source's list → auto-resolved."""
+        from agena_models.models.integration_config import IntegrationConfig as IC
+        from agena_models.models.sentry_project_mapping import SentryProjectMapping
+        now = datetime.utcnow()
+        present: set[str] = set()
+        raised: list[Alert] = []
+
+        def _sev(n: int) -> str:
+            return 'critical' if n >= 100 else ('high' if n >= 30 else 'medium')
+
+        async def _ensure(fp, source, entity_ref, entity_name, title, occ, link, rmid):
+            present.add(fp)
+            repo = await self._repo_label(rmid)
+            detail = {'trigger': 'source', 'current': occ, 'unit': ' errors',
+                      'nr_link': link if source == 'newrelic' else None,
+                      'sentry_link': link if source == 'sentry' else None,
+                      'repo': repo, 'repo_mapping_id': rmid}
+            existing = (await self.db.execute(select(Alert).where(
+                Alert.fingerprint == fp, Alert.status != 'resolved'))).scalar_one_or_none()
+            if existing:
+                existing.detail = detail
+                existing.severity = _sev(occ)
+                existing.updated_at = now
+                return
+            a = Alert(organization_id=org_id, source=source, metric_kind='error_group',
+                      entity_ref=entity_ref, entity_name=entity_name, scope='overall',
+                      severity=_sev(occ), title=title[:512], detail=detail,
+                      status='open', fingerprint=fp)
+            self.db.add(a)
+            raised.append(a)
+
+        # New Relic error groups
+        nr = await self._nr_cfg(org_id)
+        if nr:
+            cfg, acct = nr
+            for m in list((await self.db.execute(select(NewRelicEntityMapping).where(
+                NewRelicEntityMapping.organization_id == org_id,
+                NewRelicEntityMapping.is_active.is_(True)))).scalars().all()):
+                try:
+                    groups = await self.nr.fetch_errors(
+                        cfg, account_id=m.account_id or acct,
+                        app_name=m.entity_name or '', since='1 hour ago')
+                except Exception:
+                    continue
+                link = await self._nr_link(org_id, 'newrelic', m.entity_guid or '')
+                for g in groups:
+                    occ = int(g.get('occurrences') or 0)
+                    if occ < 10:
+                        continue
+                    fp = _fp(org_id, 0, m.entity_guid or m.entity_name or '',
+                             (g.get('error_class') or '') + '|' + (g.get('error_message') or '')[:40], 'error_group')
+                    title = f"{g.get('error_class', 'Error')}: {(g.get('error_message') or '')[:60]} ({occ}× on {m.entity_name})"
+                    await _ensure(fp, 'newrelic', m.entity_guid or m.entity_name, m.entity_name, title, occ, link, m.repo_mapping_id)
+
+        # Sentry issues
+        sic = (await self.db.execute(select(IC).where(
+            IC.organization_id == org_id, IC.provider == 'sentry'))).scalar_one_or_none()
+        if sic and sic.secret:
+            org_slug = str((sic.extra_config or {}).get('organization_slug') or '').strip()
+            scfg = {'base_url': sic.base_url or 'https://sentry.io/api/0', 'api_token': sic.secret}
+            if org_slug:
+                for sm in list((await self.db.execute(select(SentryProjectMapping).where(
+                    SentryProjectMapping.organization_id == org_id,
+                    SentryProjectMapping.is_active.is_(True)))).scalars().all()):
+                    try:
+                        issues = await self.nr_sentry_issues(scfg, org_slug, sm.project_slug)
+                    except Exception:
+                        continue
+                    for it in issues:
+                        cnt = int(str(it.get('count') or '0').replace(',', '') or 0)
+                        if cnt < 10:
+                            continue
+                        fp = _fp(org_id, 0, sm.project_slug, str(it.get('id') or it.get('shortId') or ''), 'error_group')
+                        title = f"{(it.get('title') or 'Sentry issue')[:70]} ({cnt}× in {sm.project_name})"
+                        await _ensure(fp, 'sentry', sm.project_slug, sm.project_name, title,
+                                      cnt, it.get('permalink'), sm.repo_mapping_id)
+
+        # auto-resolve source-error alerts the source no longer reports
+        open_src = list((await self.db.execute(select(Alert).where(
+            Alert.organization_id == org_id, Alert.metric_kind == 'error_group',
+            Alert.status == 'open'))).scalars().all())
+        for a in open_src:
+            if a.fingerprint not in present:
+                a.status = 'resolved'
+                a.resolved_at = now
+                a.updated_at = now
+        await self.db.commit()
+        for a in raised:
+            await self.notify_opened(a)
+        return raised
+
+    async def nr_sentry_issues(self, scfg, org_slug, project_slug):
+        from agena_services.integrations.sentry_client import SentryClient
+        return await SentryClient().list_issues(scfg, organization_slug=org_slug, project_slug=project_slug)
 
     async def evaluate_recent_deploys(self, org_id: int) -> list[Alert]:
         """Evaluate deploys whose after-window has just matured (~30 min old)."""

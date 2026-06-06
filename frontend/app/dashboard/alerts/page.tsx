@@ -94,6 +94,7 @@ export default function SentinelPage() {
                       {typeof d.pct_change === 'number' && <span style={{ color: SEV[a.severity] }}>{d.pct_change > 0 ? '+' : ''}{d.pct_change}%</span>}
                       {d.repo && <span style={{ color: '#5eead4', fontWeight: 600 }}>→ {d.repo}</span>}
                       {d.nr_link && <a href={d.nr_link} target='_blank' rel='noopener noreferrer' style={{ color: '#a78bfa', fontWeight: 600, textDecoration: 'none' }}>New Relic ↗</a>}
+                      {d.sentry_link && <a href={d.sentry_link} target='_blank' rel='noopener noreferrer' style={{ color: '#a78bfa', fontWeight: 600, textDecoration: 'none' }}>Sentry ↗</a>}
                       <span>· {a.status}</span>
                     </div>
                     {a.suggested_fix && !a.task_id && (
