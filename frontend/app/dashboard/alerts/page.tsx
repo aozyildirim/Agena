@@ -7,7 +7,8 @@ import { useLocale } from '@/lib/i18n';
 type Alert = {
   id: number; source: string; metric_kind: string; entity_name?: string; entity_ref: string;
   scope: string; severity: string; title: string; status: string; task_id?: number | null;
-  detail?: Record<string, any>; suggested_fix?: Record<string, any> | null; opened_at?: string | null;
+  detail?: Record<string, any>; suggested_fix?: Record<string, any> | null;
+  opened_at?: string | null; updated_at?: string | null;
 };
 type Rule = {
   id: number; name: string; metric_kind: string; comparison: string; threshold: number;
@@ -19,6 +20,15 @@ const SEV: Record<string, string> = { critical: '#ef4444', high: '#f59e0b', medi
 const METRICS = ['latency_p95', 'error_rate', 'throughput', 'db_time', 'apdex'];
 const COMPARISONS = ['pct_up', 'pct_down', 'abs_above', 'abs_below', 'anomaly'];
 const fmt = (n: unknown, u = '') => (typeof n === 'number' ? `${n}${u}` : '—');
+const ago = (iso?: string | null) => {
+  if (!iso) return '';
+  const t = new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime();
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return `${Math.floor(s)}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+};
 
 export default function SentinelPage() {
   const { t, lang } = useLocale();
@@ -29,6 +39,8 @@ export default function SentinelPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [confirmDel, setConfirmDel] = useState<Rule | null>(null);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggle = (id: number) => setExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [form, setForm] = useState({ name: '', metric_kind: 'latency_p95', comparison: 'pct_up', threshold: 30, min_abs: '' as string, consecutive: 2, severity: 'high', baseline_mode: 'both', repo_mapping_id: '' as string });
 
   const load = useCallback(async () => {
@@ -96,11 +108,17 @@ export default function SentinelPage() {
                       {d.nr_link && <a href={d.nr_link} target='_blank' rel='noopener noreferrer' style={{ color: '#a78bfa', fontWeight: 600, textDecoration: 'none' }}>New Relic ↗</a>}
                       {d.sentry_link && <a href={d.sentry_link} target='_blank' rel='noopener noreferrer' style={{ color: '#a78bfa', fontWeight: 600, textDecoration: 'none' }}>Sentry ↗</a>}
                       <span>· {a.status}</span>
+                      <span title={a.updated_at || a.opened_at || ''} style={{ color: 'var(--ink-35)' }}>🕒 {ago(a.updated_at || a.opened_at)}</span>
                     </div>
                     {a.suggested_fix && !a.task_id && (
-                      <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--ink-65)', background: 'rgba(94,234,212,0.06)', border: '1px solid rgba(94,234,212,0.2)', borderRadius: 8, padding: '10px 12px', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>
-                        <b style={{ color: '#5eead4' }}>💡 {t('sentinel.fixProposed')}{a.suggested_fix.provider ? ` · ${a.suggested_fix.provider}` : ''}</b>
-                        {'\n'}{a.suggested_fix.ai || a.suggested_fix.summary}
+                      <div style={{ marginTop: 8, fontSize: 12.5, background: 'rgba(94,234,212,0.06)', border: '1px solid rgba(94,234,212,0.2)', borderRadius: 8, padding: '10px 12px' }}>
+                        <div onClick={() => toggle(a.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <b style={{ color: '#5eead4' }}>💡 {t('sentinel.fixProposed')}{a.suggested_fix.provider ? ` · ${a.suggested_fix.provider}` : ''}</b>
+                          <span style={{ marginLeft: 'auto', color: 'var(--ink-40)', fontSize: 11 }}>{expanded.has(a.id) ? '▲' : '▼'}</span>
+                        </div>
+                        {expanded.has(a.id)
+                          ? <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55, color: 'var(--ink-65)', marginTop: 8 }}>{a.suggested_fix.ai || a.suggested_fix.summary}</div>
+                          : <div style={{ color: 'var(--ink-50)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.suggested_fix.summary}</div>}
                       </div>
                     )}
                   </div>

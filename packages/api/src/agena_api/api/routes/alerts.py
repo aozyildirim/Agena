@@ -30,6 +30,7 @@ def _alert_dict(a: Alert) -> dict[str, Any]:
         'suggested_fix': a.suggested_fix, 'deploy_id': a.deploy_id,
         'opened_at': a.opened_at.isoformat() if a.opened_at else None,
         'resolved_at': a.resolved_at.isoformat() if a.resolved_at else None,
+        'updated_at': a.updated_at.isoformat() if a.updated_at else None,
     }
 
 
