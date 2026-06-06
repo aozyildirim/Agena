@@ -165,7 +165,7 @@ def _rule_dict(r: AlertRule) -> dict[str, Any]:
 _DEFAULT_RULES = [
     ('Error-rate spike', 'error_rate', 'pct_up', 100.0, 'critical', 1.0, 1),     # >1% AND doubled
     ('p95 latency regression', 'latency_p95', 'pct_up', 30.0, 'high', 200.0, 2),  # >200ms AND +30%, 2x
-    ('Throughput drop', 'throughput', 'pct_down', 40.0, 'high', None, 2),         # -40% sustained
+    ('Throughput drop', 'throughput', 'pct_down', 40.0, 'high', None, 3),         # -40% sustained
     ('DB time regression', 'db_time', 'pct_up', 50.0, 'medium', 50.0, 2),         # >50ms AND +50%, 2x
 ]
 

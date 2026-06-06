@@ -209,7 +209,10 @@ class SentinelService:
                 MetricSnapshot.window_end >= now - timedelta(hours=2),
             ).distinct())).all()
             for entity_ref, entity_name in ents:
-                series = await self._series(org_id, entity_ref, rule.metric_kind)
+                # seasonal: compare to the same hour-of-day historically (kills
+                # daily traffic-cycle noise on throughput/latency); falls back to
+                # the flat window until enough same-hour history exists.
+                series = await self._series(org_id, entity_ref, rule.metric_kind, same_hour=True)
                 n_recent = max(1, rule.consecutive or 1)
                 if len(series) < rule.min_samples + n_recent:   # baseline + N recent
                     continue
@@ -240,23 +243,26 @@ class SentinelService:
                     detail['repo'] = repo_label
                     detail['repo_mapping_id'] = repo_mapping_id
                     detail['nr_link'] = await self._nr_link(org_id, rule.source, entity_ref)
-                    if existing:
-                        existing.detail = detail
-                        existing.updated_at = now
-                        continue
-                    # cooldown: skip if this fingerprint fired within cooldown window
-                    recent = (await self.db.execute(select(Alert).where(
-                        Alert.fingerprint == fp,
-                    ).order_by(Alert.opened_at.desc()).limit(1))).scalar_one_or_none()
-                    if recent and recent.opened_at and \
-                            (now - recent.opened_at).total_seconds() < rule.cooldown_min * 60:
-                        continue
                     verb = {'pct_up': 'up', 'pct_down': 'down', 'abs_above': 'above',
                             'abs_below': 'below', 'anomaly': 'anomalous'}.get(rule.comparison, 'changed')
                     chg = f' ({pct:+.0f}%)' if pct is not None else ''
                     title = (f'{rule.metric_kind.replace("_", " ")} {verb} on '
                              f'{entity_name or entity_ref}: {round(current, 1)}{unit} '
-                             f'vs baseline {round(base, 1)}{unit}{chg}')
+                             f'vs baseline {round(base, 1)}{unit}{chg}')[:512]
+                    if existing:
+                        # keep title + detail in sync with the latest sample
+                        existing.title = title
+                        existing.detail = detail
+                        existing.severity = rule.severity
+                        existing.updated_at = now
+                        continue
+                    # cooldown: skip if this fingerprint fired within cooldown window
+                    last_alert = (await self.db.execute(select(Alert).where(
+                        Alert.fingerprint == fp,
+                    ).order_by(Alert.opened_at.desc()).limit(1))).scalar_one_or_none()
+                    if last_alert and last_alert.opened_at and \
+                            (now - last_alert.opened_at).total_seconds() < rule.cooldown_min * 60:
+                        continue
                     alert = Alert(
                         organization_id=org_id, rule_id=rule.id, source=rule.source,
                         metric_kind=rule.metric_kind, entity_ref=entity_ref,
