@@ -29,6 +29,7 @@ const LS_SIDEBAR_COLLAPSED = 'agena_sidebar_collapsed';
 type NavGroup = { labelKey: string; items: NavItem[]; defaultOpen?: boolean; module?: string };
 
 const NAV_GROUPS: NavGroup[] = [
+  // 1) Workspace — the daily surface.
   {
     labelKey: 'nav.group.workspace',
     defaultOpen: true,
@@ -39,39 +40,42 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/reviews', key: 'nav.reviews', icon: 'search', permission: 'tasks:read' as const, module: 'reviews', wsPerm: 'pages:reviews' },
     ],
   },
+  // 2) Pipeline — the natural flow of work: refine → plan (sprints) → ship → review.
   {
-    labelKey: 'nav.group.backlog',
-    defaultOpen: false,
+    labelKey: 'nav.group.pipeline',
+    defaultOpen: true,
     module: 'core',
     items: [
       { href: '/dashboard/refinement', key: 'nav.refinement', icon: 'refinement', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'pages:refinement' },
       { href: '/dashboard/triage', key: 'nav.triage', icon: 'triage', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },
+      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
+      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
+      { href: '/dashboard/pr-reviewer', key: 'nav.prReviewer', icon: 'search', permission: 'tasks:read' as const, module: 'pr_reviewer', wsPerm: 'pages:pr_reviewer' },
       { href: '/dashboard/review-backlog', key: 'nav.reviewBacklog', icon: 'clock', permission: 'tasks:read' as const, module: 'review_backlog', wsPerm: 'pages:review-backlog' },
     ],
   },
+  // 3) Automation & AI — configure and automate the agents.
   {
     labelKey: 'nav.group.ai',
-    defaultOpen: true,
+    defaultOpen: false,
     module: 'core',
     items: [
       { href: '/dashboard/agents', key: 'nav.agents', icon: 'agents', module: 'core', wsPerm: 'agents:manage' },
-      { href: '/dashboard/insights', key: 'nav.insights', icon: 'insights', module: 'insights', wsPerm: 'pages:insights' },
-      { href: '/dashboard/alerts', key: 'nav.alerts', icon: 'shield', module: 'sentinel', wsPerm: 'analytics:read' },
       { href: '/dashboard/flows', key: 'nav.flows', icon: 'flows', module: 'flows', wsPerm: 'flows:manage' },
-      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: 'pencil', module: 'prompt_studio', wsPerm: 'prompts:edit' },
       { href: '/dashboard/templates', key: 'nav.templates', icon: 'box', module: 'flows', wsPerm: 'pages:templates' },
+      { href: '/dashboard/prompt-studio', key: 'nav.promptStudio', icon: 'pencil', module: 'prompt_studio', wsPerm: 'prompts:edit' },
       { href: '/dashboard/skills', key: 'nav.skills', icon: 'book', permission: 'tasks:read' as const, module: 'skills', wsPerm: 'pages:skills' },
       { href: '/dashboard/runtimes', key: 'nav.runtimes', icon: 'terminal', permission: 'tasks:read' as const, module: 'runtimes', wsPerm: 'pages:runtimes' },
     ],
   },
+  // 4) Monitoring & Analytics — production health + delivery metrics, all in one place.
   {
-    labelKey: 'nav.group.delivery',
+    labelKey: 'nav.group.monitoring',
     defaultOpen: false,
+    module: 'core',
     items: [
-      { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
-      { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
-      { href: '/dashboard/pr-reviewer', key: 'nav.prReviewer', icon: 'search', permission: 'tasks:read' as const, module: 'pr_reviewer', wsPerm: 'pages:pr_reviewer' },
-      { href: '/dashboard/team', key: 'nav.team', icon: 'users', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
+      { href: '/dashboard/insights', key: 'nav.insights', icon: 'insights', module: 'insights', wsPerm: 'pages:insights' },
+      { href: '/dashboard/alerts', key: 'nav.alerts', icon: 'shield', module: 'sentinel', wsPerm: 'analytics:read' },
       { href: '/dashboard/dora', key: 'nav.dora', icon: 'chart', module: 'dora', wsPerm: 'analytics:read', children: [
         { href: '/dashboard/dora', key: 'nav.doraOverview', icon: 'chart' },
         { href: '/dashboard/dora/project', key: 'nav.doraProject', icon: 'clipboard' },
@@ -82,8 +86,9 @@ const NAV_GROUPS: NavGroup[] = [
       ]},
     ],
   },
+  // 5) Integrations — every external connection + its rules + repo mappings, together.
   {
-    labelKey: 'nav.group.settings',
+    labelKey: 'nav.group.integrations',
     defaultOpen: false,
     module: 'core',
     items: [
@@ -96,6 +101,15 @@ const NAV_GROUPS: NavGroup[] = [
         { href: '/dashboard/integrations/appdynamics', key: 'nav.appdynamics', icon: 'chart', permission: 'integrations:manage' as const, module: 'appdynamics' },
       ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: 'map', module: 'core', wsPerm: 'repo:manage' },
+    ],
+  },
+  // 6) Admin — org, access and module management.
+  {
+    labelKey: 'nav.group.admin',
+    defaultOpen: false,
+    module: 'core',
+    items: [
+      { href: '/dashboard/team', key: 'nav.team', icon: 'users', permission: 'team:manage' as const, module: 'sprints', wsPerm: 'members:add' },
       { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: 'layers', module: 'core', wsPerm: 'workspace:manage' },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
       { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
