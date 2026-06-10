@@ -136,9 +136,38 @@ function stageColor(stage: string): string {
     pr: '#f59e0b',
     run_metrics: '#22c55e',
     completed: '#22c55e',
+    answer: '#a78bfa',
     failed: '#f87171',
   };
   return map[stage] ?? '#94a3b8';
+}
+
+/** Latest 'answer' stage log message — present when the agent responded with
+ * an analysis/answer instead of file changes (task completed as 'answered'). */
+function parseAnswer(logs: TaskLog[]): string | null {
+  const item = [...logs].reverse().find((l) => l.stage === 'answer');
+  const msg = (item?.message || '').trim();
+  return msg ? msg : null;
+}
+
+/** CLI streaming output often glues markdown headings onto the previous
+ * sentence (e.g. "lock file.## Sonuç:") so they render as a raw '##' instead
+ * of a heading. Insert a blank line before any heading not already at line
+ * start so renderMarkdown formats it (and conclusion extraction can find it). */
+function normalizeAnswerMd(s: string): string {
+  if (!s) return '';
+  return s.replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2');
+}
+
+/** Pull the headline conclusion out of a verbose agent answer so it can be
+ * surfaced at the top — looks for a "Sonuç/Result/Conclusion/Özet" marker. */
+function extractConclusion(answer: string): string | null {
+  if (!answer) return null;
+  const m = answer.match(/(?:^|\n)\s*#{0,6}\s*(?:Sonuç|Result|Conclusion|Özet|Summary|Karar)\s*[::]\s*(.+)/i);
+  if (m && m[1].trim()) {
+    return m[1].trim().replace(/[*_`#]+/g, '').trim().slice(0, 280);
+  }
+  return null;
 }
 
 function isRagLog(log: { stage: string; message: string }): boolean {
@@ -742,6 +771,9 @@ export default function TaskDetailPage() {
   const latestLog = activeRunLogs.length > 0 ? activeRunLogs[activeRunLogs.length - 1] : null;
   const metrics = useMemo(() => parseRunMetrics(activeRunLogs), [activeRunLogs]);
   const codeFiles = useMemo(() => parseCodePreview(activeRunLogs), [activeRunLogs]);
+  const answer = useMemo(() => parseAnswer(activeRunLogs), [activeRunLogs]);
+  const answerMd = useMemo(() => normalizeAnswerMd(answer || ''), [answer]);
+  const answerConclusion = useMemo(() => extractConclusion(answerMd), [answerMd]);
   const memoryImpact = useMemo(() => parseMemoryImpact(activeRunLogs), [activeRunLogs]);
   const latestFailure = useMemo(() => {
     const failedLog = [...activeRunLogs].reverse().find((l) => l.stage === 'failed');
@@ -816,6 +848,14 @@ export default function TaskDetailPage() {
       };
     }
     if (task.status === 'completed') {
+      if (answer) {
+        return {
+          title: t('taskDetail.answered'),
+          detail: t('taskDetail.answeredHint'),
+          color: '#a78bfa',
+          pulse: false,
+        };
+      }
       return {
         title: t('taskDetail.completed'),
         detail: t('taskDetail.executionDone'),
@@ -840,7 +880,7 @@ export default function TaskDetailPage() {
       };
     }
     return fallback;
-  }, [task, latestLog, latestFailure, isLatestRun, activeRunIndex, activeRunLogs]);
+  }, [task, latestLog, latestFailure, isLatestRun, activeRunIndex, activeRunLogs, answer]);
 
   function handleRunClick() {
     // Check if task already has repo config in description
@@ -1104,8 +1144,9 @@ export default function TaskDetailPage() {
             const isActive = idx === activeRunIndex;
             const hasCompleted = runLogs.some((l) => l.stage === 'completed');
             const hasFailed = runLogs.some((l) => l.stage === 'failed');
+            const hasAnswer = runLogs.some((l) => l.stage === 'answer');
             const isRunning = idx === logRuns.length - 1 && task?.status === 'running';
-            const statusColor = hasCompleted ? '#22c55e' : hasFailed ? '#f87171' : isRunning ? '#38bdf8' : '#94a3b8';
+            const statusColor = hasAnswer ? '#a78bfa' : hasCompleted ? '#22c55e' : hasFailed ? '#f87171' : isRunning ? '#38bdf8' : '#94a3b8';
             const runRecord = runs[idx];
             const runTime = runLogs[0]?.created_at
               ? new Date(runLogs[0].created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1825,6 +1866,23 @@ export default function TaskDetailPage() {
             })}
           </div>
 
+          {answer && (
+            <section style={{ borderRadius: 16, border: '1px solid rgba(167,139,250,0.4)', background: 'rgba(167,139,250,0.05)', padding: 14, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: answerConclusion ? 10 : 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#a78bfa' }}>💬 {t('taskDetail.answerTitle')}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 999, padding: '2px 8px' }}>{t('taskDetail.answered')}</span>
+              </div>
+              {answerConclusion && (
+                <div style={{ borderLeft: '3px solid #a78bfa', background: 'rgba(167,139,250,0.12)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: '#a78bfa', marginBottom: 3 }}>{t('taskDetail.answerResult')}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.5 }}>{answerConclusion}</div>
+                </div>
+              )}
+              <div style={{ fontSize: 13, color: 'var(--ink-45)', marginBottom: 8 }}>{t('taskDetail.answerHint')}</div>
+              <div className='rich-md' style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ink-85)', maxHeight: 420, overflowY: 'auto', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderMarkdown(answerMd) }} />
+            </section>
+          )}
+
           {rightTab === 'activity' && (
             <section style={{
               borderRadius: 16,
@@ -2186,7 +2244,7 @@ export default function TaskDetailPage() {
           <section style={{ borderRadius: 16, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', padding: 12 }}>
             <h3 style={{ marginTop: 0, marginBottom: 10, color: 'var(--ink-90)', fontSize: 15 }}>{t('taskDetail.codeDiffPreview')}</h3>
             {codeFiles.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>{t('taskDetail.noGeneratedCode')}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>{answer ? t('taskDetail.answerAboveHint') : t('taskDetail.noGeneratedCode')}</div>
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
@@ -2320,10 +2378,30 @@ export default function TaskDetailPage() {
           revision_count: a.revision_count,
         }))}
         onClose={() => setRevisionModalOpen(false)}
-        onSubmitted={() => {
-          // Pull fresh state so the new revision shows up in the
-          // history strip and the Revize button reflects new
-          // 'revising' assignment statuses.
+        onSubmitted={(newRevs, instruction) => {
+          // Optimistically drop the new revision(s) into the history
+          // strip RIGHT NOW so the user sees them the instant they hit
+          // save — no page refresh, no waiting on the 8s poll. loadData()
+          // below reconciles with the server (real created_at, status
+          // transitions) a moment later.
+          if (newRevs && newRevs.length) {
+            const nowIso = new Date().toISOString();
+            setRevisions((prev) => {
+              const byId = new Map(prev.map((r) => [r.id, r]));
+              for (const r of newRevs) {
+                byId.set(r.id, {
+                  id: r.id,
+                  assignment_id: r.assignment_id,
+                  instruction,
+                  status: r.status || 'queued',
+                  created_at: byId.get(r.id)?.created_at || nowIso,
+                });
+              }
+              return Array.from(byId.values()).sort((a, b) => b.id - a.id);
+            });
+          }
+          // Pull fresh state so the Revize button reflects new
+          // 'revising' assignment statuses and we get authoritative data.
           void loadData();
         }}
       />

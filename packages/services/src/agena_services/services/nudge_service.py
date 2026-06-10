@@ -406,13 +406,22 @@ class NudgeService:
         prefix = f'@{name}' if name else ''
         if prefix and raw.startswith(prefix):
             body = raw[len(prefix):].lstrip()
+            descriptor = ((identity or {}).get('descriptor') or '').strip()
             upn = ((identity or {}).get('unique_name') or '').strip()
-            if upn and '@' in upn:
-                # Plain `@upn` text — ADO's comment renderer walks the
-                # body and converts any `@email` token into a real mention
-                # with notification. We accept the trade-off that the
-                # visible label is the email rather than the display name,
-                # because reliable notification > prettier text.
+            if descriptor and '.' in descriptor:
+                # Proper ADO mention: a real, clickable @mention that fires a
+                # notification AND keeps the readable display name visible.
+                # version:2.0 needs the Graph subject descriptor (aad.xxx) —
+                # which System.AssignedTo gives us — NOT the TFS identity GUID
+                # (that was the old malformed form that rendered dead).
+                mention_html = (
+                    f'<a href="#" data-vss-mention="version:2.0,{html_mod.escape(descriptor)}">'
+                    f'@{html_mod.escape(name)}</a> '
+                )
+            elif upn and '@' in upn:
+                # Fallback: plain `@upn` text — ADO's renderer auto-links an
+                # `@email` token into a mention. Label is the email, but a
+                # reliable notification beats prettier text.
                 mention_html = f'@{html_mod.escape(upn)} '
             else:
                 mention_html = f'@{html_mod.escape(name)} '
@@ -461,12 +470,24 @@ class NudgeService:
                 assignee_name = str(meta.get('assignee') or '').strip()
                 identity = None
                 if assignee_name:
+                    # Primary: the work item's own System.AssignedTo already
+                    # carries the assignee UPN/email — the reliable mention
+                    # source. The display-name /_apis/identities lookup is a
+                    # flaky fallback (returns None for AAD users), which is
+                    # exactly why mentions were posting as dead plain text.
                     try:
-                        identity = await self.azure_client.resolve_identity(
-                            cfg=self._build_cfg(src, config), display_name=assignee_name,
+                        identity = await self.azure_client.fetch_work_item_assignee(
+                            cfg=self._build_cfg(src, config), work_item_id=item_id,
                         )
                     except Exception as exc:
-                        logger.info('azure identity resolve failed for %s: %s', assignee_name, exc)
+                        logger.info('azure assignee fetch failed for item %s: %s', item_id, exc)
+                    if not (identity and identity.get('unique_name')):
+                        try:
+                            identity = await self.azure_client.resolve_identity(
+                                cfg=self._build_cfg(src, config), display_name=assignee_name,
+                            )
+                        except Exception as exc:
+                            logger.info('azure identity resolve failed for %s: %s', assignee_name, exc)
                 html_body = self._compose_azure_html(
                     comment_text,
                     assignee_name=assignee_name,

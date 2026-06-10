@@ -47,7 +47,10 @@ export function renderLandingOg(cfg: LandingOgConfig) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 26, fontWeight: 800,
           }}>
-            {cfg.emoji || 'A'}
+            {/* Brand letter, not cfg.emoji: next/og fetches emoji glyphs from an
+                external CDN at render time, which fails in hermetic / no-egress
+                builds (corporate proxy). Keeps the OG build network-independent. */}
+            A
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1 }}>AGENA</span>

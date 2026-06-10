@@ -30,8 +30,28 @@ const STATUS_FILTERS = ['all', 'new', 'queued', 'running', 'completed', 'failed'
 const SOURCE_FILTERS = ['all', 'internal', 'azure', 'jira', 'newrelic', 'sentry'];
 
 function statusColor(s: string) {
-  const m: Record<string, string> = { new: '#94a3b8', queued: '#c98a2b', running: '#5b9bd5', completed: '#3f9d6a', failed: '#cf5b57' };
+  const m: Record<string, string> = { new: '#94a3b8', queued: '#c98a2b', running: '#5b9bd5', completed: '#3f9d6a', answered: '#a78bfa', failed: '#cf5b57' };
   return m[s] ?? '#6b7280';
+}
+
+/** Color for an Azure/Jira work-item state shown in the sprint picker.
+ * Matches loosely (substring) so custom workflows (UAT, Block, Doing…) land
+ * on a sensible color regardless of exact wording / language. */
+function sprintStateColor(state?: string | null): string {
+  const s = (state || '').toLowerCase();
+  if (!s) return '#94a3b8';
+  if (/(done|closed|resolved|complete|kapat|tamamlan|bitti)/.test(s)) return '#3f9d6a';
+  if (/(block|engel)/.test(s)) return '#cf5b57';
+  if (/(uat|test|review|incele|onay|verif)/.test(s)) return '#a855f7';
+  if (/(active|progress|doing|committed|develop|geliştir|devam|başla)/.test(s)) return '#5b9bd5';
+  if (/(new|to ?do|backlog|yeni|açık|open|approved)/.test(s)) return '#c98a2b';
+  return '#94a3b8';
+}
+
+/** A task that completed with an answer (no code changes) carries
+ * substatus 'answered' — surface it as its own status pill in the list. */
+function effectiveStatus(task: { status: string; substatus?: string | null }): string {
+  return task.status === 'completed' && task.substatus === 'answered' ? 'answered' : task.status;
 }
 
 function fmtDuration(sec?: number | null): string {
@@ -276,6 +296,7 @@ export default function DashboardTasksPage() {
   const [aiPopupTaskId, setAiPopupTaskId] = useState<number | null>(null);
   const [flowPopupTaskId, setFlowPopupTaskId] = useState<number | null>(null);
   const [mcpPopupTaskId, setMcpPopupTaskId] = useState<number | null>(null);
+  const [answerNotice, setAnswerNotice] = useState<{ title: string; text: string } | null>(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<TaskItem | null>(null);
   const [shareTask, setShareTask] = useState<TaskItem | null>(null);
   const [editTask, setEditTask] = useState<TaskItem | null>(null);
@@ -311,7 +332,7 @@ export default function DashboardTasksPage() {
   // Create-modal "fetch from sprint" picker. Empty = blank task; otherwise
   // the user is browsing Azure/Jira items and a click prefills the form.
   const [pickerSource, setPickerSource] = useState<'empty' | 'azure' | 'jira'>('empty');
-  type SprintItem = { id: string; title: string; description?: string };
+  type SprintItem = { id: string; title: string; description?: string; state?: string | null; work_item_type?: string | null };
   const [pickerItems, setPickerItems] = useState<SprintItem[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState('');
@@ -937,7 +958,7 @@ export default function DashboardTasksPage() {
     });
   }
 
-  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
+  async function doAssignAI(id: number, agent: { role: string; model: string; provider: string }, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) {
     setAiPopupTaskId(null);
     await _assignWithConflictRetry(id, {
       create_pr: createPr ?? defaultCreatePr,
@@ -947,10 +968,11 @@ export default function DashboardTasksPage() {
       agent_provider: agent.provider,
       extra_description: extraDesc || undefined,
       repo_mapping_ids: repoMappingIds || undefined,
+      runtime_id: runtimeId ?? undefined,
     });
   }
 
-  async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean) {
+  async function doAssignFlow(id: number, flowId: string, flowName: string, extraDesc?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) {
     setFlowPopupTaskId(null);
     await _assignWithConflictRetry(id, {
       create_pr: createPr ?? defaultCreatePr,
@@ -958,6 +980,7 @@ export default function DashboardTasksPage() {
       flow_id: flowId,
       extra_description: extraDesc || undefined,
       repo_mapping_ids: repoMappingIds || undefined,
+      runtime_id: runtimeId ?? undefined,
     });
   }
 
@@ -1249,7 +1272,7 @@ export default function DashboardTasksPage() {
                 ) : pickerError ? (
                   <div style={{ fontSize: 11, color: '#cf5b57', padding: '8px 4px' }}>{pickerError}</div>
                 ) : (
-                  <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4 }}>
+                  <div style={{ maxHeight: 220, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 4 }}>
                     {pickerItems
                       .filter((it) => !pickerSearch || it.title.toLowerCase().includes(pickerSearch.toLowerCase()) || String(it.id).includes(pickerSearch))
                       .slice(0, 200)
@@ -1276,7 +1299,7 @@ export default function DashboardTasksPage() {
                               border: '1px solid ' + (isTaken ? 'var(--panel-border-2)' : 'var(--panel-border-3)'),
                               background: isTaken ? 'transparent' : 'var(--panel-alt)',
                               fontSize: 12, cursor: isTaken ? 'help' : 'pointer',
-                              display: 'flex', alignItems: 'center', gap: 8,
+                              display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
                               opacity: isTaken ? 0.55 : 1,
                             }}
                           >
@@ -1284,6 +1307,9 @@ export default function DashboardTasksPage() {
                               <span style={{ color: 'var(--ink-35)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>#{it.id}</span>{' '}
                               <span style={{ fontWeight: 600, color: isTaken ? 'var(--ink-50)' : 'var(--ink-90)', textDecoration: isTaken ? 'line-through' : 'none' }}>{it.title}</span>
                             </span>
+                            {it.state && (
+                              <span title={it.work_item_type || undefined} style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6, textTransform: 'uppercase', letterSpacing: 0.3, whiteSpace: 'nowrap', color: sprintStateColor(it.state), background: `${sprintStateColor(it.state)}18`, border: `1px solid ${sprintStateColor(it.state)}40` }}>{it.state}</span>
+                            )}
                             {isTaken && (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(201,138,43,0.14)', color: '#c98a2b', whiteSpace: 'nowrap', border: '1px solid rgba(201,138,43,0.35)' }}>
                                 <NavIcon name="alert" size={11} /> {t('tasks.picker.alreadyImportedBadge' as TranslationKey)} · #{existingId}
@@ -1774,7 +1800,12 @@ export default function DashboardTasksPage() {
             }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: 'var(--ink-78)', fontSize: 14, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                  <span onClick={() => router.push(`/tasks/${task.id}`)} title={t('tasks.open')} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--acc)'; }} onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}>{task.title}</span>
+                  {(task.revision_count ?? 0) > 0 && (
+                    <span title={t('tasks.revisedBadge' as TranslationKey)} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.35)', color: '#a855f7', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      ↻ {t('tasks.revisedBadge' as TranslationKey)}{(task.revision_count ?? 0) > 1 ? ` ×${task.revision_count}` : ''}
+                    </span>
+                  )}
                   {(task.dependency_blockers && task.dependency_blockers.length > 0) && (
                     <span title={`${t('tasks.deps.blockedBy' as TranslationKey)}: ${task.dependency_blockers.map((id: number) => '#' + id).join(', ')}`}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: 'rgba(201,138,43,0.12)', border: '1px solid rgba(201,138,43,0.3)', color: '#c98a2b', flexShrink: 0, whiteSpace: 'nowrap' }}>
@@ -1833,16 +1864,22 @@ export default function DashboardTasksPage() {
                 background: 'var(--glass)', color: 'var(--ink-50)',
                 textTransform: 'capitalize', width: 'fit-content',
               }}>{sourceLabel(task.source, t)}</span>
-              <span style={{
+              {(() => { const _eff = effectiveStatus(task); const _ans = task.answer_summary || t('tasks.status.answeredTooltip' as TranslationKey); return (
+              <span
+                title={_eff === 'answered' ? _ans : undefined}
+                onClick={_eff === 'answered' ? (e) => { e.stopPropagation(); e.preventDefault(); setAnswerNotice({ title: task.title, text: _ans }); } : undefined}
+                style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                background: `${statusColor(task.status)}18`,
-                border: `1px solid ${statusColor(task.status)}40`,
-                color: statusColor(task.status), width: 'fit-content', textTransform: 'capitalize',
+                background: `${statusColor(_eff)}18`,
+                border: `1px solid ${statusColor(_eff)}40`,
+                color: statusColor(_eff), width: 'fit-content', textTransform: 'capitalize',
+                cursor: _eff === 'answered' ? 'pointer' : 'default',
               }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(task.status), animation: task.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
-                {statusLabel(task.status, t)}
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(_eff), animation: task.status === 'running' ? 'pulse-brand 1.5s infinite' : 'none' }} />
+                {statusLabel(_eff, t)}
               </span>
+              ); })()}
               <div>
                 <span style={{ fontSize: 12, color: 'var(--ink-65)', fontWeight: 600 }}>{fmtDuration(task.run_duration_sec ?? task.duration_sec)}</span>
               </div>
@@ -2063,7 +2100,7 @@ export default function DashboardTasksPage() {
                       )}
                     </div>
                     {/* Row 2: title — clamped to 13px so long titles don't blow out the layout on small phones */}
-                    <div style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13, lineHeight: 1.35, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
+                    <div onClick={() => router.push(`/tasks/${task.id}`)} style={{ fontWeight: 600, color: 'var(--ink-90)', fontSize: 13, lineHeight: 1.35, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word', cursor: 'pointer' }}>
                       {task.title}
                     </div>
                     {/* Row 3: badges */}
@@ -2205,13 +2242,13 @@ export default function DashboardTasksPage() {
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
-          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignAI(id, agent, extra, repoMappingIds, pr);
+            void doAssignAI(id, agent, extra, repoMappingIds, pr, rt);
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr, rt);
           }}
           onClose={() => setAiPopupTaskId(null)}
           t={t}
@@ -2226,13 +2263,13 @@ export default function DashboardTasksPage() {
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
-          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignAI(id, agent, extra, repoMappingIds, pr);
+            void doAssignAI(id, agent, extra, repoMappingIds, pr, rt);
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr, rt);
           }}
           onClose={() => setFlowPopupTaskId(null)}
           t={t}
@@ -2247,16 +2284,16 @@ export default function DashboardTasksPage() {
           agents={agentConfigs}
           flows={savedFlows}
           defaultCreatePr={defaultCreatePr}
-          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr) => {
+          onAssignAI={(id, agent, repoMeta, repoMappingIds, pr, rt) => {
             if (agent.provider === 'claude_cli' || agent.provider === 'codex_cli') {
               void doAssignMCP(id, repoMeta, repoMappingIds, agent.model, agent.provider, pr);
             } else {
-              void doAssignAI(id, agent, repoMeta ? `Remote Repo: ${repoMeta}` : undefined, repoMappingIds, pr);
+              void doAssignAI(id, agent, repoMeta ? `Remote Repo: ${repoMeta}` : undefined, repoMappingIds, pr, rt);
             }
           }}
-          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr) => {
+          onAssignFlow={(id, flowId, flowName, repoMeta, repoMappingIds, pr, rt) => {
             const extra = repoMeta ? `Remote Repo: ${repoMeta}` : undefined;
-            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr);
+            void doAssignFlow(id, flowId, flowName, extra, repoMappingIds, pr, rt);
           }}
           onClose={() => setMcpPopupTaskId(null)}
           t={t}
@@ -2331,6 +2368,27 @@ export default function DashboardTasksPage() {
             </div>
           );
         })(),
+        document.body,
+      )}
+
+      {/* Answer notice modal — opened from the "answered" status pill */}
+      {answerNotice && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 16 }}
+          onClick={() => setAnswerNotice(null)}>
+          <div style={{ width: 'min(560px, calc(100vw - 24px))', borderRadius: 12, border: '1px solid rgba(167,139,250,0.4)', background: 'var(--surface)', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '85vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ height: 3, background: '#a78bfa' }} />
+            <div style={{ padding: '18px 22px', display: 'grid', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#a78bfa' }}>💬 {t('taskDetail.answerTitle' as TranslationKey)}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 999, padding: '2px 8px' }}>{statusLabel('answered', t)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-50)', fontWeight: 600 }}>{answerNotice.title}</div>
+              <div style={{ borderLeft: '3px solid #a78bfa', background: 'rgba(167,139,250,0.10)', borderRadius: 8, padding: '12px 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--ink-90)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{answerNotice.text}</div>
+              <button onClick={() => setAnswerNotice(null)} className='button button-outline' style={{ justifyContent: 'center', fontSize: 13 }}>{t('tasks.cancelAction')}</button>
+            </div>
+          </div>
+        </div>,
         document.body,
       )}
 
@@ -2714,7 +2772,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
   repoSel: { meta: string } | null;
   mappingIds: number[] | undefined;
   createPr?: boolean;
-  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean) => void;
+  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -2756,7 +2814,7 @@ function McpModelSelect({ taskId, agents, hasRepo, repoSel, mappingIds, createPr
       <button
         onClick={() => onAssignAI(taskId, { role: 'mcp_agent', model: chosen.model, provider: chosen.provider }, !hasRepo ? repoSel?.meta : undefined, mappingIds, createPr)}
         disabled={!canRun}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 8, border: 'none', background: canRun ? 'var(--acc)' : 'var(--panel)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: canRun ? '#fff' : 'var(--ink-35)', fontSize: 13, fontWeight: 700 }}>
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 8, border: 'none', background: 'var(--acc)', cursor: canRun ? 'pointer' : 'not-allowed', width: '100%', opacity: canRun ? 1 : 0.5, color: '#fff', fontSize: 13, fontWeight: 700 }}>
         {t('tasks.runMcpAgent' as TranslationKey)} — {chosen.label}
         <span style={{ fontSize: 16 }}>→</span>
       </button>
@@ -2872,8 +2930,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   agents: { role: string; model: string; provider: string; enabled: boolean }[];
   flows: { id: string; name: string }[];
   defaultCreatePr: boolean;
-  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean) => void;
-  onAssignFlow: (id: number, flowId: string, flowName: string, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean) => void;
+  onAssignAI: (id: number, agent: { role: string; model: string; provider: string }, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) => void;
+  onAssignFlow: (id: number, flowId: string, flowName: string, repoMeta?: string, repoMappingIds?: number[], createPr?: boolean, runtimeId?: number | null) => void;
   onClose: () => void;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
@@ -2883,6 +2941,8 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
   const [mappingsLoaded, setMappingsLoaded] = useState(false);
   const [createPr, setCreatePr] = useState(initialCreatePr);
   const [selected, setSelected] = useState<{ type: 'agent' | 'cli' | 'flow'; agent?: { role: string; model: string; provider: string }; flow?: { id: string; name: string } } | null>(null);
+  const [runtimes, setRuntimes] = useState<{ id: number; name: string; kind: string; status: string; available_clis: string[] }[]>([]);
+  const [selectedRuntime, setSelectedRuntime] = useState<number | null>(null); // null = Auto/default
   const task = tasks.find((tk) => tk.id === taskId);
   const taskDescRaw = ((task as unknown as { description?: string })?.description || '');
   const taskDesc = taskDescRaw.toLowerCase();
@@ -2901,6 +2961,12 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
       setSelected({ type: 'agent', agent: { role: match.role, model: match.model, provider: match.provider } });
     }
   }, [taskDescRaw, agents, mode, selected]);
+
+  useEffect(() => {
+    apiFetch<{ id: number; name: string; kind: string; status: string; available_clis: string[] }[]>('/runtimes')
+      .then((data) => setRuntimes(Array.isArray(data) ? data : []))
+      .catch(() => setRuntimes([]));
+  }, []);
 
   useEffect(() => {
     apiFetch<BackendRepoMapping[]>('/repo-mappings')
@@ -3016,6 +3082,33 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
             </div>
           </label>
 
+          {/* Runtime selector — which compute environment runs this task.
+              "Auto" (null) lets the backend pick / use the default worker. */}
+          {runtimes.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-35)', marginBottom: 6 }}>{t('tasks.runtime.label' as TranslationKey)}</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[{ id: null as number | null, name: t('tasks.runtime.auto' as TranslationKey), status: 'active' }, ...runtimes].map((rt) => {
+                  const isSel = selectedRuntime === rt.id;
+                  const offline = rt.id !== null && rt.status !== 'active';
+                  return (
+                    <button key={String(rt.id)} type='button' disabled={offline}
+                      onClick={() => setSelectedRuntime(rt.id)}
+                      title={offline ? t('tasks.runtime.offline' as TranslationKey) : undefined}
+                      style={{ padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: offline ? 'not-allowed' : 'pointer',
+                        border: isSel ? '1px solid var(--acc)' : '1px solid var(--panel-border-2)',
+                        background: isSel ? 'var(--acc-soft)' : 'var(--panel)',
+                        color: isSel ? 'var(--acc)' : offline ? 'var(--ink-30)' : 'var(--ink-65)',
+                        opacity: offline ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      {rt.id !== null && <span style={{ width: 6, height: 6, borderRadius: '50%', background: rt.status === 'active' ? '#3f9d6a' : '#94a3b8' }} />}
+                      {rt.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Agent / Flow selection */}
           {/* Agent / CLI / Flow selection — select first, then run */}
           <div style={{ display: 'grid', gap: 6 }}>
@@ -3088,27 +3181,32 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} className='button button-outline' style={{ flex: 1, fontSize: 12, justifyContent: 'center' }}>{t('tasks.cancel')}</button>
-            <button
-              disabled={!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)}
-              onClick={() => {
-                if (!selected) return;
-                const repoMeta = !hasRepo ? repoSel?.meta : undefined;
-                if (selected.type === 'flow' && selected.flow) {
-                  onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr);
-                } else if (selected.agent) {
-                  onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr);
-                }
-              }}
-              style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
-                background: selected ? 'var(--acc)' : 'var(--panel)',
-                border: selected ? 'none' : '1px solid var(--panel-border)',
-                color: selected ? '#fff' : 'var(--ink-30)',
-                opacity: (!selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0)) ? 0.5 : 1 }}>
-              {t('tasks.runTaskAction')}
-            </button>
-          </div>
+          {(() => {
+            const runDisabled = !selected || (!hasRepo && !repoSel && selectedMappingIds.length === 0);
+            return (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={onClose} className='button button-outline' style={{ flex: 1, fontSize: 12, justifyContent: 'center' }}>{t('tasks.cancel')}</button>
+              <button
+                disabled={runDisabled}
+                onClick={() => {
+                  if (!selected) return;
+                  const repoMeta = !hasRepo ? repoSel?.meta : undefined;
+                  if (selected.type === 'flow' && selected.flow) {
+                    onAssignFlow(taskId, selected.flow.id, selected.flow.name, repoMeta, mappingIds, createPr, selectedRuntime);
+                  } else if (selected.agent) {
+                    onAssignAI(taskId, selected.agent, repoMeta, mappingIds, createPr, selectedRuntime);
+                  }
+                }}
+                style={{ flex: 1, padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: runDisabled ? 'not-allowed' : 'pointer',
+                  background: 'var(--acc)',
+                  border: 'none',
+                  color: '#fff',
+                  opacity: runDisabled ? 0.5 : 1 }}>
+                {t('tasks.runTaskAction')}
+              </button>
+            </div>
+            );
+          })()}
         </div>
       </div>
     </div>,

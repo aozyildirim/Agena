@@ -30,6 +30,10 @@ class TaskRecord(Base):
     pr_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     repo_mapping_id: Mapped[int | None] = mapped_column(ForeignKey('repo_mappings.id', ondelete='SET NULL'), nullable=True, index=True)
+    # Runtime (compute environment) this task is routed to. Null = default
+    # (central local worker). Recorded at assign time; execution routing by
+    # runtime is a later phase — for now it's stored + surfaced in the UI.
+    runtime_id: Mapped[int | None] = mapped_column(ForeignKey('runtimes.id', ondelete='SET NULL'), nullable=True, index=True)
     last_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
     priority: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     fixability_score: Mapped[float | None] = mapped_column(Float, nullable=True)

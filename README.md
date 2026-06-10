@@ -12,6 +12,25 @@
 
 AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform. It coordinates LLM-powered agents to analyze tasks, generate code, review changes, and create pull requests — fully autonomously. Built as a **monorepo with 6 pip-installable packages**.
 
+### Why AGENA?
+
+- 🔑 **No API keys, no per-token billing** — AGENA runs on your existing **Claude Code / Codex CLI** subscription locally via a host bridge. Your plan does the work; nothing is metered per token.
+- 🔁 **The full loop, autonomously** — production error (Sentry / New Relic) → task → AI fix → **pull request** → merge → issue auto-resolved.
+- 🧩 **Where your work already lives** — Sentry, New Relic, Jira, Azure DevOps, GitHub. Pulls real sprint items and ships real PRs.
+- 🔒 **Self-hostable & multi-tenant** — your code and repos stay on your own infrastructure (bring-your-own runtime).
+
+## Demo
+
+<p align="center">
+  <img src="frontend/public/readmeimg/demo.gif" alt="AGENA — sign up, onboard, enable every integration, and explore the platform" width="860" />
+</p>
+
+<p align="center">
+  <sub><b>Zero to fully-loaded in under a minute</b> — sign up, complete onboarding, switch on every integration, then explore Boss Mode, the agent roster, and visual flows.</sub>
+  <br/>
+  <sub>▶ <a href="frontend/public/readmeimg/demo-tour.mp4">Watch the narrated product tour</a> — every module in ~5 min, with voiceover + captions · <a href="frontend/public/readmeimg/demo.mp4">first-run MP4</a></sub>
+</p>
+
 ---
 
 <table align="center">
@@ -37,6 +56,8 @@ AGENA is a production-ready, multi-tenant **agentic AI** orchestration platform.
 
 ## Table of Contents
 
+- [Why AGENA?](#why-agena)
+- [Demo](#demo)
 - [Key Features](#key-features)
 - [Architecture](#architecture)
 - [Monorepo Package Structure](#monorepo-package-structure)

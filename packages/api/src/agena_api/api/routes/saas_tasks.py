@@ -61,6 +61,14 @@ async def _get_repo_mapping_name(db: AsyncSession, mapping_id: int | None) -> st
     return row.repo_name if row else None
 
 
+async def _get_runtime_name(db: AsyncSession, runtime_id: int | None) -> str | None:
+    if not runtime_id:
+        return None
+    from agena_models.models.runtime import Runtime
+    row = await db.get(Runtime, runtime_id)
+    return row.name if row else None
+
+
 async def _persist_external_attachments(
     db: AsyncSession,
     organization_id: int,
@@ -253,10 +261,14 @@ async def _to_task_response(service: TaskService, organization_id: int, task) ->
         total_tokens=insights['total_tokens'],
         cached_tokens=insights.get('cached_tokens'),
         cache_savings_usd=insights.get('cache_savings_usd'),
+        answer_summary=insights.get('answer_summary'),
         sprint_name=getattr(task, 'sprint_name', None),
         sprint_path=getattr(task, 'sprint_path', None),
         repo_mapping_id=getattr(task, 'repo_mapping_id', None),
         repo_mapping_name=await _get_repo_mapping_name(service.db, getattr(task, 'repo_mapping_id', None)),
+        runtime_id=getattr(task, 'runtime_id', None),
+        runtime_name=await _get_runtime_name(service.db, getattr(task, 'runtime_id', None)),
+        revision_count=insights.get('revision_count', 0),
         repo_assignments=repo_assignments,
         tags=_parse_tags(getattr(task, 'tags_json', None)),
     )
@@ -331,6 +343,21 @@ async def create_task(
                 ))
             await db.commit()
             await db.refresh(task)
+
+    # Apply IntegrationRules (auto-tag / priority / repo / agent role) for
+    # single-item imports. Bulk sprint imports already run the rule engine,
+    # but this generic create path didn't — so a work item that matched a
+    # rule in Preview came in with none of the promised actions applied.
+    # Runs after repo_mapping_ids above so a user's explicit repo pick wins
+    # over a rule's repo mapping. Best-effort, never blocks the import.
+    if (
+        request.source in ('azure', 'jira')
+        and request.external_id
+        and not getattr(task, '_was_existing', False)
+    ):
+        await service.apply_rules_for_external_task(
+            task, provider=request.source, external_id=request.external_id,
+        )
 
     # Pull attachments from the source work item — AttachedFile docs +
     # inline <img> screenshots from the description — so the task
@@ -999,6 +1026,7 @@ async def assign_task(
                 agent_model=payload.agent_model,
                 agent_provider=payload.agent_provider,
                 force_queue=getattr(payload, 'force_queue', False),
+                runtime_id=payload.runtime_id,
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -1025,6 +1053,7 @@ async def assign_task(
             agent_model=payload.agent_model,
             agent_provider=payload.agent_provider,
             force_queue=getattr(payload, 'force_queue', False),
+            runtime_id=payload.runtime_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

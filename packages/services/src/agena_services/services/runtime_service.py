@@ -55,6 +55,43 @@ class RuntimeService:
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
+    # Provider slug (claude_cli / codex_cli) → the CLI slug a runtime reports
+    # in ``available_clis``.
+    _PROVIDER_CLI = {'claude_cli': 'claude', 'codex_cli': 'codex', 'gemini_cli': 'gemini'}
+
+    async def pick_runtime(self, organization_id: int, provider: str | None) -> Runtime | None:
+        """Auto-select the best *active* runtime for a provider, or None.
+
+        Prefers a runtime that reports the matching CLI in ``available_clis``;
+        falls back to any active runtime (empty ``available_clis`` = unknown,
+        treated as eligible). Local runtimes win ties. Used at assign time to
+        record a default routing target — execution still runs centrally for
+        now, so returning None simply keeps today's behaviour.
+        """
+        need_cli = self._PROVIDER_CLI.get((provider or '').strip().lower())
+        active = [r for r in await self.list(organization_id) if self.derive_status(r) == 'active']
+        if not active:
+            return None
+
+        def eligible(r: Runtime) -> bool:
+            clis = r.available_clis or []
+            return (not need_cli) or (not clis) or (need_cli in clis)
+
+        candidates = [r for r in active if eligible(r)]
+        if not candidates:
+            return None
+        # Prefer a runtime that explicitly advertises the CLI, then local kind,
+        # then the most recently seen.
+        candidates.sort(
+            key=lambda r: (
+                1 if (need_cli and need_cli in (r.available_clis or [])) else 0,
+                1 if (r.kind or '') == 'local' else 0,
+                r.last_heartbeat_at or r.created_at,
+            ),
+            reverse=True,
+        )
+        return candidates[0]
+
     async def create(
         self,
         organization_id: int,

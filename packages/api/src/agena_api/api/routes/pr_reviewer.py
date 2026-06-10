@@ -38,6 +38,7 @@ class ReviewRequest(BaseModel):
     repo_mapping_id: int
     pr_id: str
     source_branch: str
+    target_branch: str = ''  # base branch — needed to diff Azure PRs locally
     pr_url: str | None = None
     title: str | None = None
     provider: str | None = None
@@ -120,6 +121,7 @@ async def review(
                     repo_mapping_id=payload.repo_mapping_id,
                     pr_id=payload.pr_id,
                     source_branch=payload.source_branch,
+                    target_branch=payload.target_branch,
                     pr_url=payload.pr_url,
                     title=payload.title,
                     provider_override=payload.provider,

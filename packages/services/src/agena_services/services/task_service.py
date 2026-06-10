@@ -198,6 +198,60 @@ class TaskService:
             except Exception:
                 pass
 
+    async def apply_rules_for_external_task(
+        self,
+        task: 'TaskRecord',
+        *,
+        provider: str,
+        external_id: str,
+    ) -> None:
+        """Fetch a freshly-imported task's live source fields and run the
+        IntegrationRule engine against it. Single-item imports go through the
+        generic create_task path, which only knows title/source/external_id —
+        NOT the reporter / type / project / labels the rules match on. Without
+        this, the action Preview promised (tags, priority, repo, agent role)
+        never lands on single-item imports (only bulk sprint imports applied
+        it). Best-effort — never blocks the import."""
+        if self.db is None:
+            return
+        provider = (provider or '').strip().lower()
+        if provider not in ('jira', 'azure'):
+            return
+        ext = str(external_id or '').strip()
+        if not ext:
+            return
+        try:
+            config = await IntegrationConfigService(self.db).get_config(task.organization_id, provider)
+            if config is None:
+                return
+            if provider == 'azure':
+                cfg = {'org_url': config.base_url, 'pat': config.secret, 'project': config.project or ''}
+                fields = await self.azure_client.fetch_work_item_match_fields(ext, cfg)
+            else:
+                cfg = {'base_url': config.base_url, 'email': config.username or '', 'api_token': config.secret}
+                fields = await self.jira_client.fetch_issue_match_fields(cfg=cfg, issue_key=ext)
+            if not fields:
+                return
+            item_type = fields.get('work_item_type') or fields.get('issue_type') or ''
+            item_labels = fields.get('tags') or fields.get('labels') or []
+            payload = {
+                'reporter_email': fields.get('reporter_email'),
+                'reporter_name': fields.get('reporter_name'),
+                'created_by_email': fields.get('reporter_email'),
+                'created_by_name': fields.get('reporter_name'),
+                'created_by': fields.get('reporter_name'),
+                'work_item_type': item_type,
+                'issue_type': item_type,
+                'project': fields.get('project'),
+                'project_key': fields.get('project'),
+                'tags': item_labels,
+                'labels': item_labels,
+            }
+            await self._apply_integration_rules(task, provider=provider, payload=payload)
+        except Exception as exc:  # pragma: no cover — defensive
+            import logging
+            logging.getLogger(__name__).warning('apply_rules_for_external_task failed: %s', exc)
+
     async def preview_integration_rules(
         self,
         organization_id: int,
@@ -1499,7 +1553,7 @@ class TaskService:
         out.sort(key=lambda x: (x['position'], x['created_at']))
         return out
 
-    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_role: str | None = None, agent_model: str | None = None, agent_provider: str | None = None, force_queue: bool = False) -> str:
+    async def assign_task_to_ai(self, organization_id: int, task_id: int, create_pr: bool = True, mode: str = 'flow', agent_role: str | None = None, agent_model: str | None = None, agent_provider: str | None = None, force_queue: bool = False, runtime_id: int | None = None) -> str:
         if self.db is None:
             raise ValueError('DB session required')
 
@@ -1582,6 +1636,17 @@ class TaskService:
                 {'Preferred Agent Provider': effective_provider},
             )
 
+        # Resolve the compute runtime this task is routed to. An explicit
+        # runtime_id wins; otherwise auto-pick the best active runtime for the
+        # provider (may be None). Recorded for visibility — execution still
+        # runs on the central worker for now (Phase 1).
+        from agena_services.services.runtime_service import RuntimeService
+        resolved_runtime_id = runtime_id
+        if resolved_runtime_id is None:
+            picked = await RuntimeService(self.db).pick_runtime(organization_id, effective_provider)
+            resolved_runtime_id = picked.id if picked else None
+        task.runtime_id = resolved_runtime_id
+
         was_queued = task.status == 'queued'
         was_terminal = task.status in {'failed', 'completed', 'cancelled'}
         if was_queued:
@@ -1604,6 +1669,7 @@ class TaskService:
                     'agent_role': agent_role,
                     'agent_model': effective_model,
                     'agent_provider': effective_provider,
+                    'runtime_id': resolved_runtime_id,
                 }
             )
         except Exception as exc:
@@ -1893,6 +1959,25 @@ class TaskService:
         dependent_task_ids = await self.get_dependents(organization_id, task.id)
         pr_risk = self._compute_pr_risk(logs)
 
+        # For 'answered' tasks (agent replied with analysis instead of file
+        # changes), surface the headline conclusion so the list can show it
+        # on hover / in a notice modal. Reuse the already-fetched logs.
+        answer_summary: str | None = None
+        if (getattr(task, 'substatus', None) or '') == 'answered':
+            answer_log = next((l for l in reversed(logs) if l.stage == 'answer'), None)
+            if answer_log and answer_log.message:
+                answer_summary = self._extract_answer_conclusion(answer_log.message)
+
+        # How many follow-up revisions this task has had — surfaced as a
+        # "revised" badge in the task list.
+        from agena_models.models.task_revision import TaskRevision
+        revision_count = int((await self.db.execute(
+            select(func.count(TaskRevision.id)).where(
+                TaskRevision.task_id == task.id,
+                TaskRevision.organization_id == organization_id,
+            )
+        )).scalar() or 0)
+
         return {
             'duration_sec': duration_sec,
             'run_duration_sec': run_duration_sec,
@@ -1911,7 +1996,29 @@ class TaskService:
             'total_tokens': total_tokens,
             'cached_tokens': cached_tokens or None,
             'cache_savings_usd': cache_savings_usd or None,
+            'answer_summary': answer_summary,
+            'revision_count': revision_count,
         }
+
+    def _extract_answer_conclusion(self, text: str) -> str:
+        """Pull the headline conclusion (Sonuç/Result/…) out of a verbose agent
+        answer; fall back to the first meaningful line. Mirrors the frontend."""
+        import re as _re
+        s = text or ''
+        # CLI output often glues headings onto the previous sentence
+        # ("lock file.## Sonuç:"); split them so the marker is line-anchored.
+        s = _re.sub(r'([^\n])(#{1,6}\s)', r'\1\n\n\2', s)
+        m = _re.search(
+            r'(?:^|\n)\s*#{0,6}\s*(?:Sonuç|Result|Conclusion|Özet|Summary|Karar)\s*[::]\s*(.+)',
+            s, _re.IGNORECASE,
+        )
+        if m and m.group(1).strip():
+            return _re.sub(r'[*_`#]+', '', m.group(1)).strip()[:400]
+        for line in s.splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                return _re.sub(r'[*_`#]+', '', line).strip()[:400]
+        return s.strip()[:400]
 
     async def get_dependencies(self, organization_id: int, task_id: int) -> list[int]:
         if self.db is None:

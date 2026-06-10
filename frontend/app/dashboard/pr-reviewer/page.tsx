@@ -88,6 +88,7 @@ export default function PrReviewerPage() {
         method: 'POST',
         body: JSON.stringify({
           repo_mapping_id: Number(repoId), pr_id: pr.id, source_branch: pr.source_branch,
+          target_branch: pr.target_branch,
           pr_url: pr.url, title: pr.title,
           provider: provider || undefined,
           language: language && language !== 'auto' ? language : undefined,

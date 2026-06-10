@@ -67,6 +67,31 @@ async def _fail_stale_running_tasks() -> None:
         logger.warning('Marked %s stale running task(s) as failed', len(stale_tasks))
 
 
+async def _poll_metric_snapshots() -> None:
+    """Sentinel: snapshot New Relic metrics (throughput, latency, error-rate,
+    DB time, apdex) for every org with active APM mappings into metric_snapshots."""
+    from agena_services.services.sentinel_service import SentinelService
+
+    async with SessionLocal() as session:
+        org_ids = await SentinelService.orgs_with_monitoring(session)
+        if not org_ids:
+            return
+        svc = SentinelService(session)
+        for org_id in org_ids:
+            try:
+                written = await svc.snapshot_org(org_id, since='5 minutes ago')
+                raised = await svc.evaluate_org(org_id)            # rolling-baseline detection
+                src_raised = await svc.evaluate_source_errors(org_id)  # NR/Sentry error groups
+                await svc.ingest_nr_deployments(org_id)            # pull real NR deploy markers
+                deploy_raised = await svc.evaluate_recent_deploys(org_id)  # deploy before/after
+                raised = list(raised) + list(src_raised)
+                if written or raised or deploy_raised:
+                    logger.info('Sentinel org=%s snapshots=%s rolling=%s deploy=%s',
+                                org_id, written, len(raised), len(deploy_raised))
+            except Exception:
+                logger.exception('Sentinel snapshot/evaluate failed for org %s', org_id)
+
+
 async def _poll_newrelic_auto_imports() -> None:
     """Check for NR entity mappings with auto_import=True that are due for polling."""
     from agena_models.models.newrelic_entity_mapping import NewRelicEntityMapping
@@ -584,6 +609,7 @@ async def process_queue() -> None:
     last_nr_poll = 0.0
     last_sentry_poll = 0.0
     last_correlation_poll = 0.0
+    last_sentinel_poll = 0.0
     last_triage_poll = 0.0
     last_backlog_poll = 0.0
 
@@ -624,6 +650,11 @@ async def process_queue() -> None:
             if settings.auto_correlation_enabled:
                 _bg(_poll_correlations, 'Correlation')
             last_correlation_poll = now
+
+        if now - last_sentinel_poll >= 300:  # 5 minutes
+            if settings.auto_sentinel_enabled:
+                _bg(_poll_metric_snapshots, 'Sentinel snapshot')
+            last_sentinel_poll = now
 
         if now - last_backlog_poll >= 1800:  # 30 minutes
             if settings.auto_review_backlog_enabled:
