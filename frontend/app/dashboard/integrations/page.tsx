@@ -944,9 +944,9 @@ export default function IntegrationsPage() {
             />
           </FieldGroup>
           <FieldGroup label={t('integrations.aiTagLabel') || 'AI tag on completed work items'}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-50)', marginBottom: 6, cursor: 'pointer' }}>
-              <input type='checkbox' checked={azureAiTagEnabled} onChange={(e) => setAzureAiTagEnabled(e.target.checked)} />
-              {t('integrations.aiTagEnabled') || 'Tag source work items handled by AI'}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--ink-50)', marginBottom: 6, cursor: 'pointer' }}>
+              <input type='checkbox' checked={azureAiTagEnabled} onChange={(e) => setAzureAiTagEnabled(e.target.checked)} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span style={{ flex: 1, minWidth: 0, lineHeight: 1.4 }}>{t('integrations.aiTagEnabled') || 'Tag source work items handled by AI'}</span>
             </label>
             <input
               value={azureAiTagName}
@@ -1022,9 +1022,9 @@ export default function IntegrationsPage() {
             />
           </FieldGroup>
           <FieldGroup label={t('integrations.aiTagLabelJira') || 'AI label on completed issues'}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-50)', marginBottom: 6, cursor: 'pointer' }}>
-              <input type='checkbox' checked={jiraAiTagEnabled} onChange={(e) => setJiraAiTagEnabled(e.target.checked)} />
-              {t('integrations.aiTagEnabledJira') || 'Label source issues handled by AI'}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--ink-50)', marginBottom: 6, cursor: 'pointer' }}>
+              <input type='checkbox' checked={jiraAiTagEnabled} onChange={(e) => setJiraAiTagEnabled(e.target.checked)} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span style={{ flex: 1, minWidth: 0, lineHeight: 1.4 }}>{t('integrations.aiTagEnabledJira') || 'Label source issues handled by AI'}</span>
             </label>
             <input
               value={jiraAiTagName}
@@ -1064,9 +1064,9 @@ export default function IntegrationsPage() {
             />
           </FieldGroup>
           <FieldGroup label={t('integrations.aiTagLabelJira') || 'AI label on completed issues'}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-50)', marginBottom: 6, cursor: 'pointer' }}>
-              <input type='checkbox' checked={youtrackAiTagEnabled} onChange={(e) => setYoutrackAiTagEnabled(e.target.checked)} />
-              {t('integrations.aiTagEnabledJira') || 'Label source issues handled by AI'}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--ink-50)', marginBottom: 6, cursor: 'pointer' }}>
+              <input type='checkbox' checked={youtrackAiTagEnabled} onChange={(e) => setYoutrackAiTagEnabled(e.target.checked)} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span style={{ flex: 1, minWidth: 0, lineHeight: 1.4 }}>{t('integrations.aiTagEnabledJira') || 'Label source issues handled by AI'}</span>
             </label>
             <input
               value={youtrackAiTagName}
