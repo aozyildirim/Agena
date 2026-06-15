@@ -1835,12 +1835,37 @@ class TaskService:
         task = await self.get_task(organization_id, task_id)
         if task is None:
             raise ValueError('Task not found')
+        # Always clear any non-terminal repo assignments — even when the task
+        # itself is already terminal. Cancelling removes the task from the
+        # queue and kills the CLI stream, but the task_repo_assignments rows
+        # stay in whatever state they were in (running/queued/pending/revising).
+        # Left as 'running', they trip the 409 guard in the edit-assignments /
+        # remove-assignment endpoints ("Cannot remove assignment N: still
+        # running"), so the user can never edit the task again. We run this
+        # before the early-return so re-cancelling an already-cancelled task
+        # also unsticks orphaned assignment rows.
+        from agena_models.models.task_repo_assignment import TaskRepoAssignment
+        assignments = (await self.db.execute(
+            select(TaskRepoAssignment).where(
+                TaskRepoAssignment.task_id == task.id,
+                TaskRepoAssignment.organization_id == organization_id,
+            )
+        )).scalars().all()
+        cleared = 0
+        for assignment in assignments:
+            if (assignment.status or '').lower() not in {'completed', 'failed', 'merged', 'cancelled'}:
+                assignment.status = 'cancelled'
+                cleared += 1
+
         if task.status in {'completed', 'failed', 'cancelled'}:
+            if cleared:
+                await self.db.commit()
             return task
 
         removed = await self.queue_service.remove_task(organization_id=organization_id, task_id=task.id)
         task.status = 'cancelled'
         task.failure_reason = 'Cancelled by user'
+
         await self.db.commit()
         await self.add_log(
             task.id,

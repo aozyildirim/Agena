@@ -388,10 +388,23 @@ async def _run_single_task(payload: dict) -> None:
             if not assignment or assignment.task_id != task_id:
                 logger.warning('Assignment %s not found for task %s', assignment_id, task_id)
                 return
+            # If the user cancelled the parent task, never start (or restart)
+            # any of its assignments — even a revision payload. Without this,
+            # a job already sitting in the queue when the user hits "stop"
+            # gets picked up after the cancel, flipped back to 'running', and
+            # the CLI stream fires again, so cancellation appears to do
+            # nothing. The cancel path's kill-stream can't help here because
+            # the stream is spawned *after* the kill arrives.
+            if task.status == 'cancelled':
+                logger.info('Skipping assignment id=%s: parent task %s is cancelled', assignment_id, task_id)
+                return
             # Revision payloads target a completed assignment on
             # purpose — that's the whole point of "revise the existing
             # PR with one more commit". Only skip terminal assignments
-            # for normal (non-revision) runs.
+            # for normal (non-revision) runs. 'cancelled' is always terminal.
+            if assignment.status == 'cancelled':
+                logger.info('Skipping cancelled assignment id=%s', assignment_id)
+                return
             if not revision_id and assignment.status in {'completed', 'failed'}:
                 logger.info('Skipping terminal assignment id=%s', assignment_id)
                 return
