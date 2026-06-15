@@ -64,6 +64,12 @@ class PrReviewItem(BaseModel):
     error_message: str | None = None
     created_at: str
     completed_at: str | None = None
+    # Counts of findings grouped by severity (critical/high/medium/low) and by
+    # issue type / category (bug/security/error-handling/tests/performance),
+    # parsed from the stored details snapshot so the list can render breakdown
+    # chips without a per-row detail fetch.
+    severity_breakdown: dict[str, int] = {}
+    category_breakdown: dict[str, int] = {}
 
 
 @router.get('/open', response_model=list[OpenPrItem])
@@ -142,9 +148,33 @@ async def history(
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[PrReviewItem]:
+    import json as _json
     rows = await pr_review_service.list_history(db, tenant.organization_id)
-    return [
-        PrReviewItem(
+
+    def _breakdowns(details_raw: str | None) -> tuple[dict[str, int], dict[str, int]]:
+        sev: dict[str, int] = {}
+        cat: dict[str, int] = {}
+        if not details_raw:
+            return sev, cat
+        try:
+            findings = (_json.loads(details_raw) or {}).get('findings') or []
+        except Exception:
+            return sev, cat
+        for f in findings:
+            if not isinstance(f, dict):
+                continue
+            s = str(f.get('severity') or '').strip().lower()
+            c = str(f.get('category') or '').strip().lower()
+            if s:
+                sev[s] = sev.get(s, 0) + 1
+            if c:
+                cat[c] = cat.get(c, 0) + 1
+        return sev, cat
+
+    items = []
+    for r in rows:
+        sev, cat = _breakdowns(r.details)
+        items.append(PrReviewItem(
             id=r.id, provider=r.provider, repo=r.repo, pr_number=r.pr_number,
             pr_url=r.pr_url, title=r.title, status=r.status, severity=r.severity,
             score=r.score, findings_count=r.findings_count, threads_posted=r.threads_posted,
@@ -152,9 +182,9 @@ async def history(
             reviewer_model=r.reviewer_model, error_message=r.error_message,
             created_at=r.created_at.isoformat() if r.created_at else '',
             completed_at=r.completed_at.isoformat() if r.completed_at else None,
-        )
-        for r in rows
-    ]
+            severity_breakdown=sev, category_breakdown=cat,
+        ))
+    return items
 
 
 # Declared AFTER the static routes so it doesn't shadow /open, /review, /history.
