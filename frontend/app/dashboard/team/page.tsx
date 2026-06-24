@@ -10,10 +10,38 @@ type WorkItem = {
   id: string;
   title: string;
   state: string;
+  work_item_type?: string;
   description?: string;
   acceptance_criteria?: string;
   repro_steps?: string;
 };
+
+type MemberType = 'product' | 'developer';
+type MemberTypeInfo = { type: MemberType; source: 'auto' | 'manual' };
+
+// Auto-classification heuristic: a member's bucket is inferred from the
+// types of work items assigned to them. Product folks own stories/features;
+// developers carry bugs/tasks. Cross-provider (Azure / Jira / YouTrack)
+// type names are normalized to lowercase before matching.
+const PRODUCT_TYPES = new Set([
+  'user story', 'story', 'product backlog item', 'feature', 'epic', 'requirement', 'initiative',
+]);
+const DEV_TYPES = new Set([
+  'bug', 'task', 'issue', 'sub-task', 'subtask', 'technical task', 'tech task', 'change request',
+]);
+
+function classifyByWorkItems(items: WorkItem[]): MemberType | null {
+  let product = 0;
+  let dev = 0;
+  for (const it of items) {
+    const t = (it.work_item_type || '').trim().toLowerCase();
+    if (!t) continue;
+    if (PRODUCT_TYPES.has(t)) product += 1;
+    else if (DEV_TYPES.has(t)) dev += 1;
+  }
+  if (product === 0 && dev === 0) return null;
+  return product > dev ? 'product' : 'developer';
+}
 
 const STATE_COLORS: Record<string, string> = {
   'Backlog': '#94a3b8', 'To Do': '#c98a2b', 'In Progress': '#5b9bd5',
@@ -81,6 +109,17 @@ export default function TeamPage() {
   const [loadingItems, setLoadingItems] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [confirmRemove, setConfirmRemove] = useState<AzureMember | null>(null);
+
+  // Product/Developer classification, keyed by lowercased email (uniqueName).
+  // Persisted org-wide via /team/member-types. Auto-derived from assigned
+  // work-item types unless a user has manually overridden a member.
+  const [memberTypes, setMemberTypes] = useState<Record<string, MemberTypeInfo>>({});
+  const [typesLoaded, setTypesLoaded] = useState(false);
+  const classifyReqRef = React.useRef(0);
+  // Mirror of memberTypes for the async classify loop, so it can skip
+  // already-tagged members without re-running every time state changes.
+  const memberTypesRef = React.useRef<Record<string, MemberTypeInfo>>({});
+  useEffect(() => { memberTypesRef.current = memberTypes; }, [memberTypes]);
 
   // Import state
   const [azureBaseUrl, setAzureBaseUrl] = useState('');
@@ -341,6 +380,90 @@ export default function TeamPage() {
     void run();
   }, [provider, project, team, sprintPath, showPicker, t]);
 
+  // Load persisted product/developer classifications (org-wide).
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        type Row = { email: string; member_type: MemberType; source: 'auto' | 'manual' };
+        const rows = await apiFetch<Row[]>('/team/member-types');
+        if (cancelled || !Array.isArray(rows)) return;
+        const map: Record<string, MemberTypeInfo> = {};
+        for (const r of rows) {
+          const key = (r.email || '').trim().toLowerCase();
+          if (key) map[key] = { type: r.member_type, source: r.source };
+        }
+        setMemberTypes(map);
+      } catch { /* silent — page works without classification */ }
+      finally { if (!cancelled) setTypesLoaded(true); }
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist a classification and update local state. A manual override is
+  // authoritative; an auto pass never clobbers an existing manual choice.
+  const setMemberType = useCallback(
+    async (member: AzureMember, type: MemberType, source: 'auto' | 'manual') => {
+      const key = (member.uniqueName || '').trim().toLowerCase();
+      if (!key) return;
+      setMemberTypes((prev) => {
+        if (source === 'auto' && prev[key]?.source === 'manual') return prev;
+        return { ...prev, [key]: { type, source } };
+      });
+      try {
+        await apiFetch('/team/member-types', {
+          method: 'PUT',
+          body: JSON.stringify({
+            email: key,
+            member_type: type,
+            source,
+            display_name: member.displayName,
+            provider,
+          }),
+        });
+      } catch { /* non-fatal — local state already reflects the change */ }
+    },
+    [provider],
+  );
+
+  // Auto-classify: for every team member that has no manual classification,
+  // fetch their sprint work items and infer product/developer from the
+  // assigned item types. Runs whenever the team or sprint changes.
+  useEffect(() => {
+    if (!typesLoaded || !sprintPath || myTeam.length === 0) return;
+    if (provider === 'azure' && !project) return;
+    const reqId = ++classifyReqRef.current;
+    const run = async () => {
+      for (const member of myTeam) {
+        const key = (member.uniqueName || '').trim().toLowerCase();
+        // Skip anyone already pinned by a human or already auto-tagged.
+        if (!key || memberTypesRef.current[key]) continue;
+        try {
+          const items = provider !== 'azure'
+            ? await apiFetch<WorkItem[]>(
+                '/tasks/' + provider + '/member/workitems' +
+                '?board_id=' + encodeURIComponent(team) +
+                '&sprint_id=' + encodeURIComponent(sprintPath) +
+                '&assigned_to=' + encodeURIComponent(member.uniqueName),
+              )
+            : await apiFetch<WorkItem[]>(
+                '/tasks/azure/member/workitems' +
+                '?project=' + encodeURIComponent(project) +
+                '&team=' + encodeURIComponent(team) +
+                '&sprint_path=' + encodeURIComponent(sprintPath) +
+                '&assigned_to=' + encodeURIComponent(member.uniqueName),
+              );
+          if (reqId !== classifyReqRef.current) return;
+          setWorkItems((prev) => prev[member.id] === undefined ? { ...prev, [member.id]: items } : prev);
+          const guess = classifyByWorkItems(items);
+          if (guess) void setMemberType(member, guess, 'auto');
+        } catch { /* skip this member, keep going */ }
+      }
+    };
+    void run();
+  }, [provider, project, team, sprintPath, myTeam, typesLoaded, setMemberType]);
+
   // Takıma ekle / çıkar — DB'ye de kaydet
   function toggleMember(m: AzureMember) {
     const exists = myTeam.some((x) => x.id === m.id);
@@ -553,6 +676,168 @@ export default function TeamPage() {
 
   const hasConfig = provider !== 'azure' ? !!(team && sprintPath) : !!(project && team && sprintPath);
 
+  // Split the team into Product / Developer / Unclassified buckets,
+  // preserving the original order within each group.
+  const grouped = useMemo(() => {
+    const out: { product: AzureMember[]; developer: AzureMember[]; unclassified: AzureMember[] } = {
+      product: [], developer: [], unclassified: [],
+    };
+    for (const m of myTeam) {
+      const info = memberTypes[(m.uniqueName || '').trim().toLowerCase()];
+      if (info?.type === 'product') out.product.push(m);
+      else if (info?.type === 'developer') out.developer.push(m);
+      else out.unclassified.push(m);
+    }
+    return out;
+  }, [myTeam, memberTypes]);
+
+  const renderMemberCard = (member: AzureMember) => {
+    const isExpanded = expanded === member.id;
+    const items = workItems[member.id];
+    const isLoadingItems = loadingItems === member.id;
+    const info = memberTypes[(member.uniqueName || '').trim().toLowerCase()];
+    return (
+      <div key={member.id} style={{ borderRadius: 10, border: '1px solid ' + (isExpanded ? 'var(--acc)' : 'var(--panel-border)'), background: isExpanded ? 'var(--acc-soft)' : 'var(--panel)', overflow: 'hidden', transition: 'border-color 0.2s' }}>
+        <button onClick={() => void loadWorkItems(member)}
+          style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: grad(member.displayName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+            {initials(member.displayName)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 14 }}>{member.displayName}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-30)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.uniqueName}</div>
+          </div>
+          {/* Product / Developer segmented toggle */}
+          <span
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--panel-border-3)', flexShrink: 0 }}
+          >
+            {(['product', 'developer'] as MemberType[]).map((typ) => {
+              const active = info?.type === typ;
+              return (
+                <button
+                  key={typ}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); void setMemberType(member, typ, 'manual'); }}
+                  title={active && info?.source === 'auto' ? t('team.type.autoTagged') : undefined}
+                  style={{
+                    fontSize: 11, fontWeight: 700, padding: '4px 10px', border: 'none', cursor: 'pointer',
+                    background: active ? 'var(--acc)' : 'var(--panel-alt)',
+                    color: active ? '#fff' : 'var(--ink-50)',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}
+                >
+                  {t(`team.type.${typ}` as TranslationKey)}
+                  {active && info?.source === 'auto' && <span style={{ fontSize: 9, opacity: 0.85 }}>· {t('team.type.autoShort')}</span>}
+                </button>
+              );
+            })}
+          </span>
+          {sprintPath && items !== undefined && (
+            <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: items.length > 0 ? 'var(--acc-soft)' : 'var(--panel-alt)', border: '1px solid ' + (items.length > 0 ? 'var(--acc)' : 'var(--panel-border-2)'), color: items.length > 0 ? 'var(--acc)' : 'var(--ink-30)' }}>
+              {items.length} {t('team.itemsShort')}
+            </span>
+          )}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleMember(member);
+            }}
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: '4px 9px',
+              borderRadius: 6,
+              border: '1px solid #cf5b57',
+              background: 'transparent',
+              color: '#cf5b57',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            {t('team.remove')}
+          </button>
+          {sprintPath && (
+            <span style={{ fontSize: 16, color: 'var(--ink-25)', transform: isExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform 0.2s', display: 'inline-flex' }}><NavIcon name="chevron-right" size={16} /></span>
+          )}
+        </button>
+
+        {isExpanded && sprintPath && (
+          <div style={{ borderTop: '1px solid var(--panel-alt)', padding: '10px 20px 14px' }}>
+            {isLoadingItems ? (
+              <div style={{ display: 'grid', gap: 6 }}><Skel /><Skel /><Skel opacity={0.4} /></div>
+            ) : !items || items.length === 0 ? (
+              <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--ink-25)', fontSize: 13 }}>{t('team.noItems')}</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {items.map((item) => {
+                  const url = workItemUrl(item);
+                  const isImported = Boolean(importedIds[item.id]);
+                  const isImporting = importingId === item.id;
+                  return (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-2)' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: sc(item.state), flexShrink: 0 }} />
+                      {url ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={t('team.openExternal')}
+                          style={{ flex: 1, fontSize: 13, color: 'var(--ink-78)', textDecoration: 'none', cursor: 'pointer' }}
+                          onMouseEnter={(e) => { (e.currentTarget.style.color = 'var(--acc)'); (e.currentTarget.style.textDecoration = 'underline'); }}
+                          onMouseLeave={(e) => { (e.currentTarget.style.color = 'var(--ink-78)'); (e.currentTarget.style.textDecoration = 'none'); }}
+                        >
+                          {item.title}
+                        </a>
+                      ) : (
+                        <span style={{ flex: 1, fontSize: 13, color: 'var(--ink-78)' }}>{item.title}</span>
+                      )}
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc(item.state) + '18', border: '1px solid ' + sc(item.state) + '35', color: sc(item.state), whiteSpace: 'nowrap' }}>{item.state}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); requestImportSingleItem(item); }}
+                        disabled={isImporting || isImported}
+                        title={isImported ? t('sprints.alreadyImported') : t('team.importItem')}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '3px 9px',
+                          borderRadius: 999,
+                          border: '1px solid ' + (isImported ? '#3f9d6a' : 'var(--acc)'),
+                          background: isImported ? 'transparent' : 'var(--acc-soft)',
+                          color: isImported ? '#3f9d6a' : 'var(--acc)',
+                          cursor: isImporting || isImported ? 'default' : 'pointer',
+                          opacity: isImporting ? 0.6 : 1,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {isImporting ? '…' : isImported ? '✓ ' + t('team.imported') : '+ ' + t('team.import')}
+                      </button>
+                      <span style={{ fontSize: 10, color: 'var(--ink-25)', fontFamily: 'monospace' }}>#{item.id}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderGroup = (label: string, color: string, members: AzureMember[]) => {
+    if (members.length === 0) return null;
+    return (
+      <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px' }}>
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: color, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--ink-50)' }}>{label}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-30)' }}>({members.length})</span>
+        </div>
+        {members.map(renderMemberCard)}
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       {/* Header */}
@@ -721,113 +1006,10 @@ export default function TeamPage() {
 
       {/* Benim takımım — kart listesi */}
       {tab === 'sprint' && myTeam.length > 0 ? (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {myTeam.map((member) => {
-            const isExpanded = expanded === member.id;
-            const items = workItems[member.id];
-            const isLoadingItems = loadingItems === member.id;
-            return (
-              <div key={member.id} style={{ borderRadius: 10, border: '1px solid ' + (isExpanded ? 'var(--acc)' : 'var(--panel-border)'), background: isExpanded ? 'var(--acc-soft)' : 'var(--panel)', overflow: 'hidden', transition: 'border-color 0.2s' }}>
-                <button onClick={() => void loadWorkItems(member)}
-                  style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                  <div style={{ width: 42, height: 42, borderRadius: '50%', background: grad(member.displayName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                    {initials(member.displayName)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--ink-90)', fontSize: 14 }}>{member.displayName}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-30)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.uniqueName}</div>
-                  </div>
-                  {sprintPath && items !== undefined && (
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: items.length > 0 ? 'var(--acc-soft)' : 'var(--panel-alt)', border: '1px solid ' + (items.length > 0 ? 'var(--acc)' : 'var(--panel-border-2)'), color: items.length > 0 ? 'var(--acc)' : 'var(--ink-30)' }}>
-                      {items.length} {t('team.itemsShort')}
-                    </span>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleMember(member);
-                    }}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: '4px 9px',
-                      borderRadius: 6,
-                      border: '1px solid #cf5b57',
-                      background: 'transparent',
-                      color: '#cf5b57',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {t('team.remove')}
-                  </button>
-                  {sprintPath && (
-                    <span style={{ fontSize: 16, color: 'var(--ink-25)', transform: isExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform 0.2s', display: 'inline-flex' }}><NavIcon name="chevron-right" size={16} /></span>
-                  )}
-                </button>
-
-                {isExpanded && sprintPath && (
-                  <div style={{ borderTop: '1px solid var(--panel-alt)', padding: '10px 20px 14px' }}>
-                    {isLoadingItems ? (
-                      <div style={{ display: 'grid', gap: 6 }}><Skel /><Skel /><Skel opacity={0.4} /></div>
-                    ) : !items || items.length === 0 ? (
-                      <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--ink-25)', fontSize: 13 }}>{t('team.noItems')}</div>
-                    ) : (
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {items.map((item) => {
-                          const url = workItemUrl(item);
-                          const isImported = Boolean(importedIds[item.id]);
-                          const isImporting = importingId === item.id;
-                          return (
-                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--panel-alt)', border: '1px solid var(--panel-border-2)' }}>
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: sc(item.state), flexShrink: 0 }} />
-                              {url ? (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={t('team.openExternal')}
-                                  style={{ flex: 1, fontSize: 13, color: 'var(--ink-78)', textDecoration: 'none', cursor: 'pointer' }}
-                                  onMouseEnter={(e) => { (e.currentTarget.style.color = 'var(--acc)'); (e.currentTarget.style.textDecoration = 'underline'); }}
-                                  onMouseLeave={(e) => { (e.currentTarget.style.color = 'var(--ink-78)'); (e.currentTarget.style.textDecoration = 'none'); }}
-                                >
-                                  {item.title}
-                                </a>
-                              ) : (
-                                <span style={{ flex: 1, fontSize: 13, color: 'var(--ink-78)' }}>{item.title}</span>
-                              )}
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc(item.state) + '18', border: '1px solid ' + sc(item.state) + '35', color: sc(item.state), whiteSpace: 'nowrap' }}>{item.state}</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); requestImportSingleItem(item); }}
-                                disabled={isImporting || isImported}
-                                title={isImported ? t('sprints.alreadyImported') : t('team.importItem')}
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  padding: '3px 9px',
-                                  borderRadius: 999,
-                                  border: '1px solid ' + (isImported ? '#3f9d6a' : 'var(--acc)'),
-                                  background: isImported ? 'transparent' : 'var(--acc-soft)',
-                                  color: isImported ? '#3f9d6a' : 'var(--acc)',
-                                  cursor: isImporting || isImported ? 'default' : 'pointer',
-                                  opacity: isImporting ? 0.6 : 1,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {isImporting ? '…' : isImported ? '✓ ' + t('team.imported') : '+ ' + t('team.import')}
-                              </button>
-                              <span style={{ fontSize: 10, color: 'var(--ink-25)', fontFamily: 'monospace' }}>#{item.id}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div style={{ display: 'grid', gap: 16 }}>
+          {renderGroup(t('team.type.product'), '#5b9bd5', grouped.product)}
+          {renderGroup(t('team.type.developer'), '#3f9d6a', grouped.developer)}
+          {renderGroup(t('team.type.unclassified'), '#94a3b8', grouped.unclassified)}
         </div>
       ) : hasConfig && !loadingAll ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
