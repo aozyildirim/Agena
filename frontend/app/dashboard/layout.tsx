@@ -48,10 +48,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/refinement', key: 'nav.refinement', icon: 'refinement', permission: 'tasks:read' as const, module: 'refinement', wsPerm: 'pages:refinement' },
       { href: '/dashboard/triage', key: 'nav.triage', icon: 'triage', permission: 'tasks:read' as const, module: 'triage', wsPerm: 'pages:triage' },
-      { href: '/dashboard/br-management', key: 'nav.brManagement', icon: 'clipboard', permission: 'tasks:read' as const, module: 'br_management', wsPerm: 'pages:br-management', children: [
-        { href: '/dashboard/br-management', key: 'nav.brManagementOverview', icon: 'clipboard' },
-        { href: '/dashboard/br-management/settings', key: 'nav.brManagementSettings', icon: 'settings' },
-      ]},
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
       { href: '/dashboard/sprint-performance', key: 'nav.sprintPerformance', icon: 'trending', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'analytics:read' },
       { href: '/dashboard/pr-reviewer', key: 'nav.prReviewer', icon: 'search', permission: 'tasks:read' as const, module: 'pr_reviewer', wsPerm: 'pages:pr_reviewer' },
