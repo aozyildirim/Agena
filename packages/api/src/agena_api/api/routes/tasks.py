@@ -379,7 +379,7 @@ async def list_member_workitems(
         details_url = (
             f"{config.base_url.rstrip('/')}/_apis/wit/workitems"
             f'?ids={ids}&fields='
-            'System.Id,System.Title,System.State,System.AssignedTo,System.Description,'
+            'System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo,System.Description,'
             'Microsoft.VSTS.Common.AcceptanceCriteria,Microsoft.VSTS.TCM.ReproSteps'
             '&api-version=7.1-preview.3'
         )
@@ -392,6 +392,7 @@ async def list_member_workitems(
             'id': str(f.get('System.Id', '')),
             'title': f.get('System.Title', ''),
             'state': f.get('System.State', ''),
+            'work_item_type': f.get('System.WorkItemType', '') or '',
             'description': f.get('System.Description', '') or '',
             'acceptance_criteria': f.get('Microsoft.VSTS.Common.AcceptanceCriteria', '') or '',
             'repro_steps': f.get('Microsoft.VSTS.TCM.ReproSteps', '') or '',
@@ -980,7 +981,7 @@ async def list_jira_member_workitems(
                 # images (Jira media nodes → <img> tags) make it back
                 # to the team-page importer; without `expand=renderedFields`
                 # we'd only get ADF JSON which strips screenshot URLs.
-                'fields': 'summary,status,assignee,description',
+                'fields': 'summary,status,assignee,description,issuetype',
                 'expand': 'renderedFields',
                 'maxResults': max_results,
                 'startAt': start_at,
@@ -1026,11 +1027,13 @@ async def list_jira_member_workitems(
                         desc_raw = _j.dumps(raw_desc)
                     else:
                         desc_raw = ''
+                issuetype = fields.get('issuetype') if isinstance(fields.get('issuetype'), dict) else {}
                 results.append(
                     {
                         'id': str(issue.get('key') or issue.get('id') or ''),
                         'title': str(fields.get('summary') or ''),
                         'state': str((status or {}).get('name') or ''),
+                        'work_item_type': str((issuetype or {}).get('name') or ''),
                         'description': desc_raw or '',
                     }
                 )
@@ -1387,6 +1390,7 @@ async def list_youtrack_member_workitems(
             'id': str(it.id),
             'title': str(it.title or ''),
             'state': str(it.state or ''),
+            'work_item_type': str(getattr(it, 'issue_type', None) or ''),
             'description': str(it.description or ''),
         })
     return out

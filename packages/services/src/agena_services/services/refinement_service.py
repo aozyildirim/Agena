@@ -1224,8 +1224,11 @@ class RefinementService:
         pool = [item for item in items if not self._has_estimate(item)]
         if selected_ids:
             pool = [item for item in pool if item.id in selected_ids]
-        limit = max(1, min(int(max_items or 1), 20))
-        return pool[:limit]
+        limit = int(max_items or 0)
+        if limit > 0:
+            return pool[:limit]
+        # 0 / None / negative => process all eligible items (no cap)
+        return pool
 
     async def _load_prompt_config_from_db(
         self,

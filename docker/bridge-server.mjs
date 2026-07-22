@@ -670,6 +670,9 @@ async function runCLI(bin, name, data) {
     const sandbox = read_only ? 'read-only' : 'workspace-write';
     args = ['exec', '--skip-git-repo-check', '-C', repo_path, '--full-auto', '--sandbox', sandbox];
     if (model) args.push('-m', model);
+    // Optional reasoning effort (low|medium|high) — callers doing quick
+    // structured extraction (e.g. BR intake turns) send "low" to cut latency.
+    if (data.effort) args.push('-c', `model_reasoning_effort="${data.effort}"`);
     args.push('-o', promptFile + '.out');
     args.push('-');  // read prompt from stdin
   } else {

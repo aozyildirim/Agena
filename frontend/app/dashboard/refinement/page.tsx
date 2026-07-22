@@ -502,9 +502,7 @@ export default function RefinementPage() {
   const [agentProvider, setAgentProvider] = useState<AgentProvider>('openai');
   const [agentModel, setAgentModel] = useState('gpt-5.1-codex-mini');
   const [language, setLanguage] = useState('Turkish');
-  const [maxItems, setMaxItems] = useState(8);
   // Filter for the sprint items list: 'all' | 'unestimated' | 'estimated'.
-  // Independent of maxItems (which only caps how many the analyze run takes).
   const [estimateFilter, setEstimateFilter] = useState<'all' | 'unestimated' | 'estimated'>('all');
   // Optional secondary filter — pick a single work_item_type to narrow to.
   // null = no narrowing, render every type group.
@@ -1281,7 +1279,7 @@ export default function RefinementPage() {
         agent_provider: agentProvider,
         agent_model: agentModel,
         item_ids: ids,
-        max_items: isSingle ? 1 : maxItems,
+        max_items: isSingle ? 1 : 0,
         ...(customSystemPrompt ? { custom_system_prompt: customSystemPrompt } : {}),
         ...codeAwareExtras,
       }
@@ -1294,7 +1292,7 @@ export default function RefinementPage() {
         agent_provider: agentProvider,
         agent_model: agentModel,
         item_ids: ids,
-        max_items: isSingle ? 1 : maxItems,
+        max_items: isSingle ? 1 : 0,
         ...(customSystemPrompt ? { custom_system_prompt: customSystemPrompt } : {}),
         ...codeAwareExtras,
       };
@@ -1312,7 +1310,7 @@ export default function RefinementPage() {
       return;
     }
     await attachToJob(job.job_id, !!isSingle, ids.length);
-  }, [provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, jiraBoard, jiraSprint, selectedJiraSprint, language, agentProvider, agentModel, selectedIds, maxItems, useCustomPrompt, customPromptText, repoMappingId, attachToJob]);
+  }, [provider, azureProject, azureTeam, azureSprint, selectedAzureSprint, jiraBoard, jiraSprint, selectedJiraSprint, language, agentProvider, agentModel, selectedIds, useCustomPrompt, customPromptText, repoMappingId, attachToJob]);
 
   useEffect(() => {
     if (!autoFocusResults || !results?.results.length) return;

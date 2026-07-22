@@ -742,6 +742,68 @@ class AzureDevOpsClient:
             if response.status_code >= 400:
                 raise RuntimeError(f'Azure {response.status_code}: {response.text[:300]}')
 
+    # The three abstract-effort ("story point") fields, one per process template.
+    _ESTIMATE_FIELDS = (
+        'Microsoft.VSTS.Scheduling.StoryPoints',  # Agile
+        'Microsoft.VSTS.Scheduling.Effort',       # Scrum
+        'Microsoft.VSTS.Scheduling.Size',         # CMMI
+    )
+
+    async def _resolve_estimate_fields(
+        self,
+        *,
+        prefix: str,
+        pat: str,
+        item_id: str,
+    ) -> list[str]:
+        """Return the estimate field(s) the work item's TYPE actually supports,
+        so we write the story-point value to exactly one canonical field
+        instead of stamping all three (which makes boards disagree).
+
+        Strategy: read the item's ``System.WorkItemType``, then ask the type's
+        field metadata which of the three estimate fields it exposes. On any
+        failure, fall back to ``StoryPoints`` alone (the most common), never to
+        all three — so we can't reintroduce the "mixed up" values.
+        """
+        fallback = ['Microsoft.VSTS.Scheduling.StoryPoints']
+        headers = self._headers(pat)
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                type_url = (
+                    f'{prefix}/_apis/wit/workitems/{item_id}'
+                    f'?fields=System.WorkItemType&api-version=7.1-preview.3'
+                )
+                type_resp = await client.get(type_url, headers=headers)
+                if type_resp.status_code >= 400:
+                    return fallback
+                work_item_type = str(
+                    ((type_resp.json() or {}).get('fields') or {}).get('System.WorkItemType') or ''
+                ).strip()
+                if not work_item_type:
+                    return fallback
+
+                fields_url = (
+                    f'{prefix}/_apis/wit/workitemtypes/{quote(work_item_type)}/fields'
+                    f'?api-version=7.1-preview.3'
+                )
+                fields_resp = await client.get(fields_url, headers=headers)
+                if fields_resp.status_code >= 400:
+                    return fallback
+                supported = {
+                    str(f.get('referenceName') or '')
+                    for f in ((fields_resp.json() or {}).get('value') or [])
+                }
+                matched = [f for f in self._ESTIMATE_FIELDS if f in supported]
+                if matched:
+                    logger.info(
+                        'Azure estimate field resolved work_item=%s type=%s -> %s',
+                        item_id, work_item_type, matched,
+                    )
+                    return matched
+        except Exception as exc:  # network / parse — degrade gracefully
+            logger.warning('Azure estimate-field resolution failed work_item=%s: %s', item_id, exc)
+        return fallback
+
     async def writeback_refinement(
         self,
         *,
@@ -760,6 +822,8 @@ class AzureDevOpsClient:
         if not item_id:
             raise ValueError('work_item_id is required')
 
+        prefix = f"{org_url.rstrip('/')}/{project}" if project else org_url.rstrip('/')
+
         patch_ops: list[dict[str, Any]] = []
         if int(suggested_story_points or 0) > 0:
             sp_value = int(suggested_story_points)
@@ -768,19 +832,25 @@ class AzureDevOpsClient:
             #   • Agile  → Microsoft.VSTS.Scheduling.StoryPoints
             #   • Scrum  → Microsoft.VSTS.Scheduling.Effort
             #   • CMMI   → Microsoft.VSTS.Scheduling.Size
-            # All three carry the same semantic — abstract effort points —
-            # so we send all three and Azure applies whichever the work
-            # item type recognises (silently drops the rest).
+            #
+            # Historically we wrote all three and let Azure drop the ones
+            # the type didn't recognise. But inherited/custom processes can
+            # expose MORE THAN ONE of these on the same work item type — then
+            # every field gets stamped and different boards (backlog vs. task
+            # board) show different numbers → the values look "mixed up".
+            #
+            # So we resolve which estimate field(s) the work item's TYPE
+            # actually supports and write only those. Falls back to
+            # StoryPoints alone if detection can't narrow it down.
             #
             # Deliberately NOT writing OriginalEstimate or RemainingWork:
             # those are HOURS, not points, and stamping them with a
             # story-point value (e.g. 5h on a "5 SP" task) actively
             # mis-reports time tracking.
-            for field_name in (
-                'Microsoft.VSTS.Scheduling.StoryPoints',
-                'Microsoft.VSTS.Scheduling.Effort',
-                'Microsoft.VSTS.Scheduling.Size',
-            ):
+            target_fields = await self._resolve_estimate_fields(
+                prefix=prefix, pat=pat, item_id=item_id,
+            )
+            for field_name in target_fields:
                 patch_ops.append({
                     'op': 'add',
                     'path': f'/fields/{field_name}',
@@ -805,8 +875,7 @@ class AzureDevOpsClient:
 
         # Project-scoped URL works on all org configurations; the no-project
         # form sometimes 401s on tenants where the PAT was minted with the
-        # "specific project" scope.
-        prefix = f"{org_url.rstrip('/')}/{project}" if project else org_url.rstrip('/')
+        # "specific project" scope. (prefix computed above.)
         url = f"{prefix}/_apis/wit/workitems/{item_id}?api-version=7.1-preview.3"
         headers = self._headers(pat)
         headers['Content-Type'] = 'application/json-patch+json'

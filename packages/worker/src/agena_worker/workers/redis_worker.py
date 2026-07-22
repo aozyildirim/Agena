@@ -196,6 +196,18 @@ async def _poll_sentry_auto_imports() -> None:
                 logger.exception('Sentry auto-import failed for project %s', mapping.project_slug)
 
 
+async def _poll_br_auto_evals() -> None:
+    """Continuous BR evaluation: orgs with auto_eval on get their BR
+    people's open Azure work items scanned — new items are scored the
+    moment they appear, edited items are re-scored. Per-org cadence
+    (auto_eval_interval_minutes) and change detection (content hash)
+    live in the service."""
+    from agena_services.services.br_management_service import auto_scan_all_orgs
+
+    async with SessionLocal() as session:
+        await auto_scan_all_orgs(session)
+
+
 async def _poll_triage() -> None:
     """Daily-ish stale-ticket triage. The poller schedules itself; the
     actual cadence (e.g. Sunday 18:00 UTC) is enforced by the cron-style
@@ -625,6 +637,7 @@ async def process_queue() -> None:
     last_sentinel_poll = 0.0
     last_triage_poll = 0.0
     last_backlog_poll = 0.0
+    last_br_poll = 0.0
 
     # Background-poll wrappers — fire-and-forget so a slow Azure WIQL
     # query inside triage / sentry / NR doesn't block the main loop
@@ -668,6 +681,11 @@ async def process_queue() -> None:
             if settings.auto_sentinel_enabled:
                 _bg(_poll_metric_snapshots, 'Sentinel snapshot')
             last_sentinel_poll = now
+
+        if now - last_br_poll >= 60:  # 1 minute tick; per-org interval in service
+            if settings.auto_br_eval_enabled:
+                _bg(_poll_br_auto_evals, 'BR auto-eval')
+            last_br_poll = now
 
         if now - last_backlog_poll >= 1800:  # 30 minutes
             if settings.auto_review_backlog_enabled:
