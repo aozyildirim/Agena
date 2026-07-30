@@ -1,13 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { apiFetch } from '@/lib/api';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { apiFetch, apiUpload } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import NavIcon from '@/components/NavIcon';
 
-type Question = { id: string; text: string; examples?: string[] };
+type Question = { id: string; text: string; section?: string; examples?: string[] };
 type Msg = { role: 'user' | 'assistant'; text: string; ts?: string; questions?: Question[] };
 type Check = { section: string; status: 'ok' | 'partial' | 'missing'; note?: string };
+type PackSection = { title: string; critical: boolean };
+type Attachment = {
+  id: number; filename: string; content_type: string;
+  size_bytes: number; azure_url?: string | null;
+};
 type Intake = {
   id: number;
   title: string | null;
@@ -25,11 +30,22 @@ type Intake = {
 
 const WORK_ITEM_TYPES = ['Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Task'];
 
+const LS_SPLIT = 'br_intake_split';   // conversation width, % of the workspace
+const MIN_PCT = 28;
+const MAX_PCT = 68;
+
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 8,
   border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)',
   color: 'var(--ink-90)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  fontFamily: 'inherit',
 };
+
+const STATUS = {
+  ok: { color: '#3f9d6a', key: 'br.intake.secOk' },
+  partial: { color: '#d99a2b', key: 'br.intake.secPartial' },
+  missing: { color: '#cf5b57', key: 'br.intake.secMissing' },
+} as const;
 
 function scoreColor(score: number): string {
   if (score >= 70) return '#3f9d6a';
@@ -37,70 +53,38 @@ function scoreColor(score: number): string {
   return '#cf5b57';
 }
 
-/** Enterprise KPI dial: readiness ring with a tick at the submit gate. */
-function ScoreDial({ score, threshold }: { score: number | null; threshold: number }) {
-  const r = 46;
-  const c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, score ?? 0));
-  const color = score != null ? scoreColor(pct) : 'var(--panel-border-3)';
-  const a = ((threshold / 100) * 360 - 90) * (Math.PI / 180);
-  const tick = {
-    x1: 60 + Math.cos(a) * (r + 7), y1: 60 + Math.sin(a) * (r + 7),
-    x2: 60 + Math.cos(a) * (r - 8), y2: 60 + Math.sin(a) * (r - 8),
-  };
-  return (
-    <svg width={130} height={130} viewBox="0 0 120 120" role="img" aria-label={`${score ?? 0}/100`}>
-      <circle cx={60} cy={60} r={r} stroke="var(--panel-alt)" strokeWidth={9} fill="none" />
-      {score != null && (
-        <circle cx={60} cy={60} r={r} stroke={color} strokeWidth={9} fill="none"
-          strokeDasharray={`${(c * pct) / 100} ${c}`} strokeLinecap="round"
-          transform="rotate(-90 60 60)" style={{ transition: 'stroke-dasharray .8s ease, stroke .4s ease' }} />
-      )}
-      <line {...tick} stroke="var(--ink-35)" strokeWidth={2} strokeLinecap="round" opacity={0.7} />
-      <text x={60} y={58} textAnchor="middle" fontSize={30} fontWeight={800}
-        fill={score != null ? color : 'var(--ink-30)'}>{score != null ? score : '—'}</text>
-      <text x={60} y={76} textAnchor="middle" fontSize={10.5} fontWeight={600} fill="var(--ink-35)">/ 100</text>
-    </svg>
-  );
-}
+/** Loose match so an LLM heading like "## 6. Scope — Out-of-Scope" still finds
+ *  its checklist row. Punctuation, numbering and case all get dropped. */
+const norm = (s: string) =>
+  (s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/^\s*\d+\s*/, '').trim();
 
-function StatusPill({ status }: { status: Check['status'] }) {
-  const map = {
-    ok: { color: '#3f9d6a', ch: '✓' },
-    partial: { color: '#d99a2b', ch: '~' },
-    missing: { color: '#cf5b57', ch: '•' },
-  } as const;
-  const m = map[status] || map.missing;
-  return (
-    <span style={{
-      width: 16, height: 16, borderRadius: 8, flexShrink: 0, marginTop: 1,
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      background: m.color, color: '#fff', fontSize: 10, fontWeight: 800,
-    }}>{m.ch}</span>
-  );
-}
-
-function AnalystAvatar() {
-  return (
-    <span style={{
-      width: 28, height: 28, borderRadius: 14, flexShrink: 0,
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--acc)', color: '#fff',
-      boxShadow: '0 3px 10px -3px var(--acc)',
-    }}>
-      <NavIcon name="agents" size={15} />
-    </span>
-  );
+/** Split the composed pack into `## heading → body` blocks, in document order. */
+function parsePack(md: string | null): { heading: string; body: string }[] {
+  if (!md) return [];
+  const blocks: { heading: string; body: string }[] = [];
+  let current: { heading: string; body: string[] } | null = null;
+  for (const line of md.split('\n')) {
+    const m = /^#{1,4}\s+(.*)$/.exec(line.trim());
+    if (m) {
+      if (current) blocks.push({ heading: current.heading, body: current.body.join('\n').trim() });
+      current = { heading: m[1].trim(), body: [] };
+    } else if (current) {
+      current.body.push(line);
+    }
+  }
+  if (current) blocks.push({ heading: current.heading, body: current.body.join('\n').trim() });
+  return blocks;
 }
 
 export default function BRIntakePage() {
   const { t } = useLocale();
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [active, setActive] = useState<Intake | null>(null);
+  const [packSections, setPackSections] = useState<PackSection[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showPack, setShowPack] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
   const [projects, setProjects] = useState<string[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
@@ -112,9 +96,34 @@ export default function BRIntakePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [qAnswers, setQAnswers] = useState<Record<string, string>>({});
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const pendingUserMsg = useRef<string | null>(null);
+
+  // Document vs conversation is a personal preference — drag the divider,
+  // and the split is remembered.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const [chatPct, setChatPct] = useState(46);
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(LS_SPLIT));
+    if (saved >= MIN_PCT && saved <= MAX_PCT) setChatPct(saved);
+  }, []);
+  const applyPct = (pct: number) => setChatPct(Math.max(MIN_PCT, Math.min(MAX_PCT, pct)));
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragging.current || !wrapRef.current) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    applyPct(((r.right - e.clientX) / r.width) * 100);
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    localStorage.setItem(LS_SPLIT, String(Math.round(chatPct)));
+  };
 
   const refreshList = useCallback(async () => {
     try {
@@ -127,6 +136,13 @@ export default function BRIntakePage() {
   useEffect(() => {
     const run = async () => {
       await refreshList();
+      try {
+        const s = await apiFetch<{ decision_pack_sections?: PackSection[]; br_emails?: string[] }>(
+          '/br-management/settings',
+        );
+        setPackSections(s.decision_pack_sections || []);
+        setAssignees(s.br_emails || []);
+      } catch { /* the document falls back to whatever the checklist carries */ }
       setLoading(false);
     };
     void run();
@@ -146,10 +162,6 @@ export default function BRIntakePage() {
       setProjects(list.map((p) => p.name));
       if (list.length === 1) setProject(list[0].name);
     } catch { /* free-text project input still works */ }
-    try {
-      const s = await apiFetch<{ br_emails?: string[] }>('/br-management/settings');
-      setAssignees(s.br_emails || []);
-    } catch { /* free-text assignee input still works */ }
   };
 
   const sendText = async (text: string) => {
@@ -189,10 +201,58 @@ export default function BRIntakePage() {
     await sendText(text);
   };
 
-  const sendAnswers = async (questions: Question[]) => {
-    const parts = questions
+  const loadAttachments = useCallback(async (intakeId: number) => {
+    try {
+      setAttachments(await apiFetch<Attachment[]>(`/br-management/intakes/${intakeId}/attachments`));
+    } catch { setAttachments([]); }
+  }, []);
+
+  useEffect(() => {
+    if (active?.id) void loadAttachments(active.id);
+    else setAttachments([]);
+  }, [active?.id, loadAttachments]);
+
+  /** Files need an intake to hang off, so an empty conversation creates one
+   *  first — attaching a screenshot is a legitimate way to start. */
+  const attachFiles = async (files: File[]) => {
+    if (!files.length || uploading) return;
+    setUploading(true);
+    setError('');
+    try {
+      let row = active;
+      if (!row) {
+        row = await apiFetch<Intake>('/br-management/intakes', { method: 'POST' });
+        setActive(row);
+        void refreshList();
+      }
+      const form = new FormData();
+      files.slice(0, 10).forEach((f) => form.append('files', f, f.name));
+      // apiFetch forces a JSON content-type, which breaks multipart boundaries.
+      setAttachments(await apiUpload<Attachment[]>(
+        `/br-management/intakes/${row.id}/attachments`, form,
+      ));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('br.error'));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = async (id: number) => {
+    if (!active) return;
+    try {
+      await apiFetch(`/br-management/intakes/${active.id}/attachments/${id}`, { method: 'DELETE' });
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+    } catch { /* the list refreshes on the next load */ }
+  };
+
+  /** Answers are written into the document, so they are sent as
+   *  "section → answer" pairs rather than loose chat lines. */
+  const sendAnswers = async () => {
+    const parts = openQuestions
       .filter((q) => (qAnswers[q.id] || '').trim())
-      .map((q) => `${q.text}\n→ ${qAnswers[q.id].trim()}`);
+      .map((q) => `${q.section ? q.section + '\n' : ''}${q.text}\n→ ${qAnswers[q.id].trim()}`);
     if (!parts.length) return;
     await sendText(parts.join('\n\n'));
   };
@@ -232,7 +292,8 @@ export default function BRIntakePage() {
   };
 
   const startNew = () => {
-    setActive(null); setInput(''); setError(''); setShowSubmit(false); setQAnswers({});
+    setActive(null); setInput(''); setError(''); setShowSubmit(false);
+    setQAnswers({}); setShowDrafts(false);
     composerRef.current?.focus();
   };
 
@@ -243,245 +304,522 @@ export default function BRIntakePage() {
     ...(active?.messages || []),
     ...(pendingUserMsg.current ? [{ role: 'user' as const, text: pendingUserMsg.current }] : []),
   ];
-  const starters = [t('br.intake.start1'), t('br.intake.start2'), t('br.intake.start3')];
+
+  // Questions from the newest analyst turn — the only ones still open.
+  const openQuestions: Question[] = useMemo(() => {
+    if (thinking || active?.status !== 'draft') return [];
+    const last = displayMsgs[displayMsgs.length - 1];
+    return last?.role === 'assistant' ? (last.questions || []) : [];
+  }, [displayMsgs, thinking, active?.status]);
+
+  /** The document: one row per Decision Pack section, carrying its status,
+   *  whatever the analyst has written into it, and any open question. */
+  const docRows = useMemo(() => {
+    const checklist = active?.checklist || [];
+    const base: { title: string; status: Check['status']; note?: string }[] =
+      checklist.length
+        ? checklist.map((c) => ({ title: c.section, status: c.status, note: c.note }))
+        : packSections.map((s) => ({ title: s.title, status: 'missing' as const }));
+    const blocks = parsePack(active?.pack_markdown || null);
+    const usedQ = new Set<string>();
+    return base.map((row, i) => {
+      const key = norm(row.title);
+      const block =
+        blocks.find((b) => {
+          const h = norm(b.heading);
+          return h && key && (h.includes(key) || key.includes(h));
+        })
+        // The pack is written in section order, so position is a sound
+        // fallback when the model reworded a heading.
+        || (blocks.length === base.length ? blocks[i] : undefined);
+      const question = openQuestions.find((q) => {
+        if (usedQ.has(q.id)) return false;
+        const qs = norm(q.section || '');
+        if (!qs || !key) return false;
+        if (qs.includes(key) || key.includes(qs)) { usedQ.add(q.id); return true; }
+        return false;
+      });
+      const critical = packSections.find((s) => norm(s.title) === key)?.critical ?? false;
+      let body = (block?.body || '').replace(/^_\(eksik\)_$/im, '').trim();
+      if (row.status === 'missing') body = '';
+      return { ...row, critical, body, question };
+    });
+  }, [active?.checklist, active?.pack_markdown, packSections, openQuestions]);
+
+  const orphanQuestions = useMemo(() => {
+    const placed = new Set(docRows.map((r) => r.question?.id).filter(Boolean));
+    return openQuestions.filter((q) => !placed.has(q.id));
+  }, [docRows, openQuestions]);
+
+  const answeredCount = openQuestions.filter((q) => (qAnswers[q.id] || '').trim()).length;
+  const okCount = docRows.filter((r) => r.status === 'ok').length;
+  const partialCount = docRows.filter((r) => r.status === 'partial').length;
+  const missingCount = docRows.filter((r) => r.status === 'missing').length;
 
   if (loading) {
     return <div style={{ color: 'var(--ink-30)', fontSize: 14, padding: '40px 0' }}>{t('br.loading')}</div>;
   }
 
-  return (
-    <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 14, height: 'calc(100vh - 130px)', minHeight: 520 }}>
-      <div>
-        <div className="section-label">{t('br.sectionLabel')}</div>
-        <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)', marginTop: 8, marginBottom: 2 }}>
-          {t('br.intake.title')}
-        </h1>
-        <p style={{ color: 'var(--ink-35)', fontSize: 13.5, margin: 0 }}>{t('br.intake.subtitle')}</p>
+  const questionBlock = (q: Question) => (
+    <div className="brqbox">
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.55 }}>
+        {q.text}
       </div>
+      {!!q.examples?.length && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {q.examples.map((ex) => (
+            <button key={ex} type="button"
+              onClick={() => setQAnswers((s) => ({ ...s, [q.id]: ex }))}
+              className={qAnswers[q.id] === ex ? 'brchip brchip-on' : 'brchip'}>
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
+      <textarea value={qAnswers[q.id] || ''} rows={2}
+        onChange={(e) => setQAnswers((s) => ({ ...s, [q.id]: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void sendAnswers(); }
+        }}
+        placeholder={t('br.intake.answerPlaceholder')}
+        style={{ ...inputStyle, background: 'var(--panel)', fontSize: 12.5, lineHeight: 1.6, resize: 'vertical' }} />
+    </div>
+  );
 
-      <div style={{ display: 'grid', gridTemplateColumns: '232px minmax(0, 1fr) 304px', gap: 14, minHeight: 0 }}>
+  return (
+    <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 14, height: 'calc(100vh - 130px)', minHeight: 560 }}>
 
-        {/* ── Conversations rail ─────────────────────────────── */}
-        <div className="brkcard" style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0, borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)', padding: 10 }}>
-          <button onClick={startNew} className="brkstart"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-90)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
-            <NavIcon name="plus" size={13} /> {t('br.intake.newChat')}
+      {/* ── Page head: identity + draft switcher ─────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div className="section-label">{t('br.sectionLabel')}</div>
+          <h1 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink-90)', marginTop: 8, marginBottom: 2 }}>
+            {t('br.intake.title')}
+          </h1>
+          <p style={{ color: 'var(--ink-35)', fontSize: 13.5, margin: 0 }}>{t('br.intake.subtitle')}</p>
+        </div>
+        <div style={{ position: 'relative', display: 'flex', gap: 8 }}>
+          <button onClick={() => setShowDrafts((v) => !v)} className="brghost">
+            {t('br.intake.drafts')} · {intakes.length}
           </button>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--ink-30)', textTransform: 'uppercase', letterSpacing: 0.7, padding: '6px 6px 0' }}>
-            {t('br.intake.drafts')}
-          </div>
-          <div style={{ overflowY: 'auto', overflowX: 'hidden', display: 'grid', gap: 4, alignContent: 'start' }}>
-            {intakes.map((it) => {
-              const isActive = active?.id === it.id;
-              return (
-                <div key={it.id} onClick={() => { setActive(it); setError(''); setShowSubmit(false); setQAnswers({}); }}
-                  className={isActive ? 'brki brki-on' : 'brki'}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 22, lineHeight: 1.4 }}>
-                    {it.title || t('br.intake.untitled')}
-                  </div>
+          <button onClick={startNew} className="brghost">
+            <NavIcon name="plus" size={12} /> {t('br.intake.newChat')}
+          </button>
+          {showDrafts && (
+            <div className="brcard" style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 40, width: 300,
+              maxHeight: 340, overflowY: 'auto', padding: 6, borderRadius: 14,
+              border: '1px solid var(--panel-border-3)', background: 'var(--surface)',
+              display: 'grid', gap: 2, alignContent: 'start',
+            }}>
+              {intakes.length === 0 && (
+                <div style={{ padding: 12, fontSize: 12, color: 'var(--ink-30)' }}>{t('br.intake.noDrafts')}</div>
+              )}
+              {intakes.map((it) => (
+                <div key={it.id} className={active?.id === it.id ? 'brdraft brdraft-on' : 'brdraft'}
+                  onClick={() => {
+                    setActive(it); setError(''); setShowSubmit(false);
+                    setQAnswers({}); setShowDrafts(false);
+                  }}>
+                  <div style={{
+                    fontSize: 12.5, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.4,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 20,
+                  }}>{it.title || t('br.intake.untitled')}</div>
                   <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginTop: 3 }}>
                     {it.readiness_score != null && (
-                      <span style={{ fontSize: 10.5, fontWeight: 800, color: scoreColor(it.readiness_score), background: 'var(--panel-alt)', borderRadius: 5, padding: '1px 6px' }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, color: scoreColor(it.readiness_score) }}>
                         {it.readiness_score}
                       </span>
                     )}
-                    <span style={{ fontSize: 10.5, color: it.status === 'submitted' ? '#3f9d6a' : 'var(--ink-35)', fontWeight: 600 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: it.status === 'submitted' ? '#3f9d6a' : 'var(--ink-35)' }}>
                       {it.status === 'submitted' ? t('br.intake.statusSubmitted') : t('br.intake.statusDraft')}
                     </span>
                   </div>
                   {it.status === 'draft' && (
                     <button onClick={(e) => { e.stopPropagation(); void removeDraft(it.id); }}
-                      title={t('br.intake.delete')} className="brki-del"
-                      style={{ position: 'absolute', top: 9, right: 7, border: 'none', background: 'transparent', color: 'var(--ink-30)', cursor: 'pointer', padding: 2, lineHeight: 0 }}>
+                      title={t('br.intake.delete')} className="brdraft-del">
                       <NavIcon name="close" size={11} />
                     </button>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Chat column ───────────────────────────────────── */}
-        <div className="brkcard" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)', overflow: 'hidden' }}>
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            <div style={{ maxWidth: 720, margin: '0 auto', padding: '22px 22px 8px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {displayMsgs.length === 0 && (
-                <div style={{ margin: '48px auto 0', textAlign: 'center', maxWidth: 480, display: 'grid', gap: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}><AnalystAvatar /></div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink-90)' }}>{t('br.intake.emptyTitle')}</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ink-35)' }}>{t('br.intake.emptyHint')}</div>
-                  <div style={{ display: 'grid', gap: 8, marginTop: 10, textAlign: 'left' }}>
-                    {starters.map((s) => (
-                      <button key={s} onClick={() => { setInput(s); composerRef.current?.focus(); }} className="brkstart"
-                        style={{ padding: '12px 15px', borderRadius: 11, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', color: 'var(--ink-78)', fontSize: 12.5, lineHeight: 1.55, cursor: 'pointer', textAlign: 'left' }}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {displayMsgs.map((m, i) => (
-                m.role === 'user' ? (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ maxWidth: '76%', padding: '10px 15px', borderRadius: 16, borderBottomRightRadius: 5, background: 'var(--acc)', color: '#fff', fontSize: 13.5, lineHeight: 1.65, whiteSpace: 'pre-wrap', boxShadow: '0 6px 16px -8px var(--acc)' }}>
-                      {m.text}
-                    </div>
-                  </div>
-                ) : (
-                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <AnalystAvatar />
-                    <div style={{ minWidth: 0, display: 'grid', gap: 4 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-35)' }}>{t('br.intake.analystName')}</div>
-                      <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink-90)', whiteSpace: 'pre-wrap' }}>
-                        {m.text}
-                      </div>
-                    </div>
-                  </div>
-                )
               ))}
+            </div>
+          )}
+        </div>
+      </div>
 
-              {(() => {
-                const last = displayMsgs[displayMsgs.length - 1];
-                if (!last || last.role !== 'assistant' || !last.questions?.length || thinking || active?.status !== 'draft') return null;
-                const qs = last.questions;
-                const anyAnswered = qs.some((q) => (qAnswers[q.id] || '').trim());
-                return (
-                  <div className="brkcard" style={{ marginLeft: 38, display: 'grid', gap: 14, padding: '15px 16px 14px', borderRadius: 14, border: '1px solid var(--panel-border-3)', background: 'var(--panel-alt)', borderTop: '2px solid var(--acc)' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                      {t('br.intake.questionsTitle')}
-                    </div>
-                    {qs.map((q, qi) => (
-                      <div key={q.id} style={{ display: 'grid', gap: 7 }}>
-                        <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                          <span style={{ width: 19, height: 19, borderRadius: 6, flexShrink: 0, marginTop: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--acc)', color: 'var(--acc)', fontSize: 10.5, fontWeight: 800 }}>
-                            {qi + 1}
-                          </span>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.55 }}>{q.text}</span>
-                        </div>
-                        {!!q.examples?.length && (
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 28 }}>
-                            {q.examples.map((ex) => {
-                              const selected = qAnswers[q.id] === ex;
-                              return (
-                                <button key={ex} onClick={() => setQAnswers((s) => ({ ...s, [q.id]: ex }))}
-                                  className={selected ? 'brkchip brkchip-on' : 'brkchip'}>
-                                  {ex}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <input value={qAnswers[q.id] || ''}
-                          onChange={(e) => setQAnswers((s) => ({ ...s, [q.id]: e.target.value }))}
-                          placeholder={t('br.intake.answerPlaceholder')}
-                          style={{ ...inputStyle, background: 'var(--panel)', padding: '8px 11px', fontSize: 12.5, marginLeft: 28, width: 'calc(100% - 28px)' }} />
-                      </div>
-                    ))}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <button onClick={() => void sendAnswers(qs)} disabled={!anyAnswered} className="brkbtn"
-                        style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--acc)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: anyAnswered ? 'pointer' : 'default', opacity: anyAnswered ? 1 : 0.45, display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: anyAnswered ? '0 6px 14px -6px var(--acc)' : 'none' }}>
-                        <NavIcon name="send" size={13} /> {t('br.intake.answersSend')}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
+      <div ref={wrapRef} className="brwrap" style={{
+        display: 'grid', gridTemplateColumns: `minmax(0, 1fr) 12px ${chatPct}%`,
+        gap: 0, minHeight: 0,
+      }}>
 
-              {thinking && (
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <AnalystAvatar />
-                  <span style={{ display: 'inline-flex', gap: 4 }}>
-                    {[0, 1, 2].map((d) => (
-                      <span key={d} style={{ width: 6, height: 6, borderRadius: 3, background: 'var(--ink-35)', display: 'inline-block', animation: `brDot 1.2s ${d * 0.18}s infinite` }} />
-                    ))}
+        {/* ── The document ─────────────────────────────────── */}
+        <div className="brcard" style={{
+          display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, borderRadius: 16,
+          border: '1px solid var(--panel-border)', background: 'var(--panel)', overflow: 'hidden',
+        }}>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <div style={{ maxWidth: 760, margin: '0 auto', padding: '26px 30px 20px' }}>
+
+              <div style={{ marginBottom: 22 }}>
+                <div style={{
+                  fontSize: 10.5, fontWeight: 800, letterSpacing: 1.1, textTransform: 'uppercase',
+                  color: 'var(--ink-30)',
+                }}>{t('br.intake.docLabel')}</div>
+                <h2 style={{
+                  fontSize: 22, fontWeight: 700, color: active?.title ? 'var(--ink-90)' : 'var(--ink-25)',
+                  margin: '6px 0 0', lineHeight: 1.35, letterSpacing: -0.2,
+                }}>{active?.title || t('br.intake.docUntitled')}</h2>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                  {active?.br_type && (
+                    <span className="brchip brchip-on" style={{ cursor: 'default' }}>
+                      {active.br_type === 'epic' ? t('br.type.epic')
+                        : active.br_type === 'improvement' ? t('br.type.improvement')
+                          : t('br.type.not_br')}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 11.5, color: 'var(--ink-35)' }}>
+                    {t('br.intake.docProgress', { ok: okCount, total: docRows.length })}
                   </span>
-                  <span style={{ color: 'var(--ink-35)', fontSize: 12 }}>{t('br.intake.thinking')}</span>
+                </div>
+                <div style={{ height: 1, background: 'var(--panel-border)', marginTop: 16 }} />
+              </div>
+
+              {docRows.length === 0 && (
+                <div style={{ padding: '40px 0', textAlign: 'center', display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-90)' }}>{t('br.intake.emptyTitle')}</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ink-35)', maxWidth: 420, margin: '0 auto' }}>
+                    {t('br.intake.emptyHint')}
+                  </div>
                 </div>
               )}
-              <div ref={chatEndRef} />
-            </div>
-          </div>
 
-          {active?.status === 'submitted' ? (
-            <div style={{ borderTop: '1px solid var(--panel-border)', padding: '14px 22px', display: 'flex', alignItems: 'center', gap: 10, color: '#3f9d6a', fontSize: 13, fontWeight: 600 }}>
-              <NavIcon name="user-check" size={16} /> {t('br.intake.submitted')} #{active.azure_work_item_id}
-              {active.azure_url && (
-                <a href={active.azure_url} target="_blank" rel="noreferrer" style={{ color: 'var(--acc)', fontWeight: 700, marginLeft: 'auto', textDecoration: 'none' }}>
-                  {t('br.intake.openAzure')} ↗
-                </a>
+              <div style={{ display: 'grid', gap: 2 }}>
+                {docRows.map((row, i) => {
+                  const meta = STATUS[row.status] || STATUS.missing;
+                  const open = Boolean(row.question);
+                  return (
+                    <section key={i} className="brsec" style={{
+                      display: 'grid', gridTemplateColumns: '30px 1fr', gap: 12,
+                      padding: '12px 12px 12px 4px', borderRadius: 10,
+                      background: open ? 'var(--panel-alt)' : 'transparent',
+                    }}>
+                      <span style={{
+                        fontSize: 12, fontWeight: 700, color: 'var(--ink-25)', textAlign: 'right',
+                        fontVariantNumeric: 'tabular-nums', paddingTop: 1,
+                      }}>{i + 1}</span>
+                      <div style={{ minWidth: 0, display: 'grid', gap: 7 }}>
+                        <div style={{ display: 'flex', gap: 9, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-90)', lineHeight: 1.45 }}>
+                            {row.title.split('(')[0].trim()}
+                          </span>
+                          {row.critical && (
+                            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--warn)', letterSpacing: 0.4 }}>
+                              {t('br.intake.secCritical')}
+                            </span>
+                          )}
+                          <span style={{
+                            fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+                            color: meta.color, marginInlineStart: 'auto',
+                          }}>{t(meta.key)}</span>
+                        </div>
+                        {row.body && (
+                          <p style={{
+                            margin: 0, fontSize: 12.5, lineHeight: 1.75, color: 'var(--ink-72)',
+                            whiteSpace: 'pre-wrap',
+                          }}>{row.body}</p>
+                        )}
+                        {!row.body && !open && (
+                          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-25)', fontStyle: 'italic' }}>
+                            {row.note || t('br.intake.secEmpty')}
+                          </p>
+                        )}
+                        {row.question && questionBlock(row.question)}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+
+              {orphanQuestions.length > 0 && (
+                <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
+                  <div style={{
+                    fontSize: 10.5, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
+                    color: 'var(--ink-30)',
+                  }}>{t('br.intake.questionsTitle')}</div>
+                  {orphanQuestions.map((q) => <div key={q.id}>{questionBlock(q)}</div>)}
+                </div>
               )}
-            </div>
-          ) : (
-            <div style={{ padding: '10px 22px 16px' }}>
-              <div style={{ maxWidth: 720, margin: '0 auto', display: 'grid', gap: 6 }}>
-                {error && <div style={{ color: '#cf5b57', fontSize: 12 }}>{error}</div>}
-                <div className="brkcomposer">
-                  <textarea ref={composerRef} value={input} rows={1}
-                    onChange={(e) => {
-                      setInput(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px';
-                    }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }}
-                    placeholder={t('br.intake.placeholder')}
-                    disabled={thinking}
-                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink-90)', fontSize: 13.5, lineHeight: 1.6, resize: 'none', padding: '6px 0', maxHeight: 140, fontFamily: 'inherit' }} />
-                  <button onClick={() => void send()} disabled={thinking || !input.trim()} aria-label={t('br.intake.send')} className="brkbtn"
-                    style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, border: 'none', background: input.trim() && !thinking ? 'var(--acc)' : 'var(--panel-border-3)', color: '#fff', cursor: input.trim() && !thinking ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'background .2s', boxShadow: input.trim() && !thinking ? '0 6px 14px -6px var(--acc)' : 'none' }}>
-                    <NavIcon name="send" size={15} />
+
+              {openQuestions.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                  <button onClick={() => void sendAnswers()} disabled={!answeredCount} className="brbtn"
+                    style={{
+                      padding: '10px 20px', borderRadius: 10, border: 'none', fontFamily: 'inherit',
+                      background: answeredCount ? 'var(--acc)' : 'var(--panel-alt)',
+                      color: answeredCount ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 12.5,
+                      cursor: answeredCount ? 'pointer' : 'default',
+                      boxShadow: answeredCount ? '0 6px 14px -6px var(--acc)' : 'none',
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                    }}>
+                    <NavIcon name="send" size={13} />
+                    {answeredCount
+                      ? t('br.intake.answersSendN', { count: answeredCount })
+                      : t('br.intake.answersSend')}
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        <div role="separator" aria-orientation="vertical" tabIndex={0}
+          aria-label={t('br.intake.splitHandle')}
+          aria-valuenow={Math.round(chatPct)} aria-valuemin={MIN_PCT} aria-valuemax={MAX_PCT}
+          className="brsplit"
+          onPointerDown={(e) => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); }}
+          onPointerMove={onDragMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            e.preventDefault();
+            const next = chatPct + (e.key === 'ArrowLeft' ? 2 : -2);
+            applyPct(next);
+            localStorage.setItem(LS_SPLIT, String(Math.round(Math.max(MIN_PCT, Math.min(MAX_PCT, next)))));
+          }}>
+          <span />
+        </div>
+
+        {/* ── The analyst ──────────────────────────────────── */}
+        <div className="brcard" style={{
+          display: 'flex', flexDirection: 'column', minHeight: 0, borderRadius: 16,
+          border: '1px solid var(--panel-border)', background: 'var(--panel)', overflow: 'hidden',
+        }}>
+          {/* Readiness, in the column you are actually looking at while you talk. */}
+          <div style={{ padding: '14px 16px 13px', borderBottom: '1px solid var(--panel-border)', display: 'grid', gap: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                <span style={{
+                  fontSize: 32, fontWeight: 800, lineHeight: 0.95, letterSpacing: -1,
+                  color: score != null ? scoreColor(score) : 'var(--ink-25)',
+                }}>{score != null ? score : '—'}</span>
+                <span style={{ fontSize: 12, color: 'var(--ink-30)', fontWeight: 700 }}>/ 100</span>
+              </span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, color: 'var(--ink-35)', lineHeight: 1.5, paddingBottom: 2 }}>
+                {score == null ? t('br.intake.stateNew')
+                  : canSubmit ? t('br.intake.stateReady')
+                    : t('br.intake.stateGap', { points: Math.max(0, threshold - (score ?? 0)) })}
+              </span>
+              {active?.br_type && (
+                <span className="brchip brchip-on" style={{ cursor: 'default', flexShrink: 0 }}>
+                  {active.br_type === 'epic' ? t('br.type.epic')
+                    : active.br_type === 'improvement' ? t('br.type.improvement')
+                      : t('br.type.not_br')}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <div style={{ position: 'relative', height: 7, borderRadius: 4, background: 'var(--panel-alt)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${Math.max(0, Math.min(100, score ?? 0))}%`,
+                  background: score != null ? scoreColor(score) : 'transparent',
+                  borderRadius: 4, transition: 'width .8s ease, background .4s ease',
+                }} />
+              </div>
+              <div style={{ position: 'relative', height: 13 }}>
+                <span style={{ position: 'absolute', left: `${threshold}%`, top: -7, width: 1, height: 11, background: 'var(--ink-30)' }} />
+                <span style={{
+                  position: 'absolute', left: `${threshold}%`, top: 3, fontSize: 9.5, color: 'var(--ink-30)',
+                  transform: 'translateX(-50%)', whiteSpace: 'nowrap',
+                }}>{t('br.intake.gateHint')} {threshold}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11.5, fontWeight: 600 }}>
+              {([['ok', okCount], ['partial', partialCount], ['missing', missingCount]] as const).map(([k, n]) => (
+                <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: n ? 'var(--ink-65)' : 'var(--ink-25)' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 4, background: n ? STATUS[k].color : 'var(--panel-border-3)' }} />
+                  {n} {t(STATUS[k].key)}
+                </span>
+              ))}
+              {openQuestions.length > 0 && (
+                <span style={{ color: 'var(--acc)', marginInlineStart: 'auto' }}>
+                  {t('br.intake.openQuestions', { count: openQuestions.length })}
+                </span>
+              )}
+            </div>
+
+            {active?.status === 'draft' && (
+              <button onClick={() => void openSubmitPanel()} disabled={!canSubmit} className="brbtn"
+                style={{
+                  width: '100%', padding: '11px 14px', borderRadius: 10, border: 'none', fontFamily: 'inherit',
+                  background: canSubmit ? '#3f9d6a' : 'var(--panel-alt)',
+                  color: canSubmit ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 12.5,
+                  cursor: canSubmit ? 'pointer' : 'default',
+                  boxShadow: canSubmit ? '0 8px 18px -8px #3f9d6a' : 'none', transition: 'background .3s',
+                }}>
+                {t('br.intake.submit')}
+              </button>
+            )}
+            {active?.status === 'submitted' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#3f9d6a', fontSize: 12.5, fontWeight: 700 }}>
+                <NavIcon name="user-check" size={15} /> {t('br.intake.submitted')} #{active.azure_work_item_id}
+                {active.azure_url && (
+                  <a href={active.azure_url} target="_blank" rel="noreferrer"
+                    style={{ color: 'var(--acc)', textDecoration: 'none', marginInlineStart: 'auto' }}>
+                    {t('br.intake.openAzure')} ↗
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div style={{
+            padding: '10px 16px', borderBottom: '1px solid var(--panel-border)',
+            display: 'flex', alignItems: 'center', gap: 9,
+          }}>
+            <span style={{
+              width: 24, height: 24, borderRadius: 12, flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--acc)', color: '#fff',
+            }}><NavIcon name="agents" size={13} /></span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-90)' }}>
+              {t('br.intake.analystName')}
+            </span>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '14px 15px', display: 'grid', gap: 12, alignContent: 'start' }}>
+            {displayMsgs.length === 0 && (
+              <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--ink-35)' }}>
+                {t('br.intake.railEmpty')}
+              </div>
+            )}
+            {displayMsgs.map((m, i) => (
+              m.role === 'user' ? (
+                <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{
+                    maxWidth: '92%', padding: '8px 12px', borderRadius: 13, borderBottomRightRadius: 4,
+                    background: 'var(--acc)', color: '#fff', fontSize: 12.5, lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                  }}>{m.text}</div>
+                </div>
+              ) : (
+                <div key={i} style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--ink-78)', whiteSpace: 'pre-wrap' }}>
+                  {m.text}
+                </div>
+              )
+            ))}
+            {thinking && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ display: 'inline-flex', gap: 4 }}>
+                  {[0, 1, 2].map((d) => (
+                    <span key={d} style={{
+                      width: 5, height: 5, borderRadius: 3, background: 'var(--ink-35)',
+                      display: 'inline-block', animation: `brDot 1.2s ${d * 0.18}s infinite`,
+                    }} />
+                  ))}
+                </span>
+                <span style={{ color: 'var(--ink-35)', fontSize: 11.5 }}>{t('br.intake.thinking')}</span>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {active?.status !== 'submitted' && (
+            <div style={{ padding: '10px 12px 12px', display: 'grid', gap: 6 }}>
+              {error && <div style={{ color: '#cf5b57', fontSize: 11.5, lineHeight: 1.5 }}>{error}</div>}
+              {attachments.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {attachments.map((a) => (
+                    <span key={a.id} className="bratt" title={`${a.filename} · ${Math.max(1, Math.round(a.size_bytes / 1024))} KB`}>
+                      <NavIcon name={a.content_type.startsWith('image/') ? 'box' : 'clipboard'} size={11} />
+                      <span style={{
+                        maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{a.filename}</span>
+                      <button type="button" onClick={() => void removeAttachment(a.id)}
+                        aria-label={t('br.intake.attachRemove')} className="bratt-del">
+                        <NavIcon name="close" size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input ref={fileRef} type="file" multiple hidden
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                onChange={(e) => void attachFiles(Array.from(e.target.files || []))} />
+              <div className="brcomposer"
+                onPaste={(e) => {
+                  // Pasting a screenshot is how most people will attach one.
+                  const files = Array.from(e.clipboardData?.files || []);
+                  if (files.length) { e.preventDefault(); void attachFiles(files); }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  const files = Array.from(e.dataTransfer?.files || []);
+                  if (files.length) { e.preventDefault(); void attachFiles(files); }
+                }}>
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                  aria-label={t('br.intake.attach')} title={t('br.intake.attachHint')}
+                  className="brattbtn">
+                  <NavIcon name={uploading ? 'clock' : 'plus'} size={14} />
+                </button>
+                <textarea ref={composerRef} value={input} rows={1}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px';
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }}
+                  placeholder={t('br.intake.placeholder')}
+                  disabled={thinking}
+                  style={{
+                    flex: 1, border: 'none', outline: 'none', background: 'transparent',
+                    color: 'var(--ink-90)', fontSize: 12.5, lineHeight: 1.6, resize: 'none',
+                    padding: '5px 0', maxHeight: 120, fontFamily: 'inherit',
+                  }} />
+                <button onClick={() => void send()} disabled={thinking || !input.trim()}
+                  aria-label={t('br.intake.send')} className="brbtn"
+                  style={{
+                    width: 32, height: 32, borderRadius: 10, flexShrink: 0, border: 'none',
+                    background: input.trim() && !thinking ? 'var(--acc)' : 'var(--panel-border-3)',
+                    color: '#fff', cursor: input.trim() && !thinking ? 'pointer' : 'default',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background .2s',
+                  }}>
+                  <NavIcon name="send" size={13} />
+                </button>
               </div>
             </div>
           )}
         </div>
+      </div>
 
-        {/* ── Inspector rail ────────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0, overflowY: 'auto' }}>
-
-          <div className="brkcard" style={{ padding: '18px 18px 16px', borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)', display: 'grid', gap: 8, justifyItems: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7, justifySelf: 'start' }}>
-              {t('br.intake.score')}
+      {/* ── Submit panel ───────────────────────────────────── */}
+      {showSubmit && active?.status === 'draft' && (
+        <div onClick={() => setShowSubmit(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(2,6,23,.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} className="brcard" style={{
+            width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto', padding: 20,
+            borderRadius: 16, border: '1px solid var(--panel-border-3)', background: 'var(--surface)',
+            display: 'grid', gap: 12,
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-90)' }}>{t('br.intake.submit')}</div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{t('br.intake.submitTitleField')}</div>
+              <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={250} style={inputStyle} />
             </div>
-            <ScoreDial score={score} threshold={threshold} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {active?.br_type && (
-                <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 999, border: '1px solid var(--panel-border-3)', color: 'var(--ink-65)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                  {active.br_type === 'not_br' ? 'Not BR' : active.br_type}
-                </span>
-              )}
-              <span style={{ fontSize: 11, color: 'var(--ink-35)' }}>{t('br.intake.gateHint')} {threshold}</span>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{t('br.intake.submitPackField')}</div>
+              <textarea value={editPack} onChange={(e) => setEditPack(e.target.value)} rows={10}
+                style={{ ...inputStyle, resize: 'vertical', fontSize: 11.5, lineHeight: 1.6 }} />
+              <div style={{ fontSize: 10.5, color: 'var(--ink-35)', marginTop: 3, lineHeight: 1.5 }}>{t('br.intake.submitPackHint')}</div>
             </div>
-            {active?.status === 'draft' && (
-              <button onClick={() => void openSubmitPanel()} disabled={!canSubmit} className="brkbtn"
-                style={{ width: '100%', marginTop: 4, padding: '12px 14px', borderRadius: 11, border: 'none', background: canSubmit ? '#3f9d6a' : 'var(--panel-alt)', color: canSubmit ? '#fff' : 'var(--ink-30)', fontWeight: 700, fontSize: 13, cursor: canSubmit ? 'pointer' : 'default', transition: 'background .3s', boxShadow: canSubmit ? '0 8px 18px -8px #3f9d6a' : 'none' }}>
-                {t('br.intake.submit')}
-              </button>
-            )}
-            {active?.status === 'submitted' && active.azure_url && (
-              <a href={active.azure_url} target="_blank" rel="noreferrer"
-                style={{ width: '100%', marginTop: 4, padding: '11px 14px', borderRadius: 10, background: 'var(--panel-alt)', color: 'var(--acc)', fontWeight: 700, fontSize: 13, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}>
-                {t('br.intake.openAzure')} ↗
-              </a>
-            )}
-          </div>
-
-          {showSubmit && active?.status === 'draft' && (
-            <div className="brkcard" style={{ padding: 16, borderRadius: 16, border: '1px solid var(--acc)', background: 'var(--panel)', display: 'grid', gap: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink-90)' }}>{t('br.intake.submit')}</div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{t('br.intake.submitTitleField')}</div>
-                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={250} style={inputStyle} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{t('br.intake.submitPackField')}</div>
-                <textarea value={editPack} onChange={(e) => setEditPack(e.target.value)} rows={8}
-                  style={{ ...inputStyle, resize: 'vertical', fontSize: 11.5, lineHeight: 1.55 }} />
-                <div style={{ fontSize: 10.5, color: 'var(--ink-35)', marginTop: 3, lineHeight: 1.5 }}>{t('br.intake.submitPackHint')}</div>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-78)', marginBottom: 4 }}>{t('br.intake.submitProject')}</div>
                 <input value={project} onChange={(e) => setProject(e.target.value)} list="br-intake-projects" style={inputStyle} />
@@ -504,82 +842,85 @@ export default function BRIntakePage() {
                   <input value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="ornek@flo.com.tr" style={inputStyle} />
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button onClick={() => setShowSubmit(false)}
-                  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink-65)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  {t('br.intake.cancel')}
-                </button>
-                <button onClick={() => void submit()} disabled={submitting || !project.trim()}
-                  style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#3f9d6a', color: '#fff', fontSize: 12, fontWeight: 700, cursor: submitting ? 'default' : 'pointer', opacity: submitting || !project.trim() ? 0.6 : 1 }}>
-                  {submitting ? '…' : t('br.intake.submitConfirm')}
-                </button>
-              </div>
             </div>
-          )}
-
-          <div className="brkcard" style={{ padding: 16, borderRadius: 16, border: '1px solid var(--panel-border)', background: 'var(--panel)', display: 'grid', gap: 9, alignContent: 'start' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-35)', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                {t('br.intake.checklist')}
-              </div>
-              {active?.pack_markdown && (
-                <button onClick={() => setShowPack((v) => !v)}
-                  style={{ border: 'none', background: 'transparent', color: 'var(--acc)', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
-                  {showPack ? t('br.intake.checklist') : t('br.intake.pack')}
-                </button>
-              )}
+            {error && <div style={{ color: '#cf5b57', fontSize: 12 }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowSubmit(false)} className="brghost">{t('br.intake.cancel')}</button>
+              <button onClick={() => void submit()} disabled={submitting || !project.trim()} className="brbtn"
+                style={{
+                  padding: '9px 18px', borderRadius: 9, border: 'none', background: '#3f9d6a',
+                  color: '#fff', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+                  cursor: submitting ? 'default' : 'pointer',
+                  opacity: submitting || !project.trim() ? 0.6 : 1,
+                }}>
+                {submitting ? '…' : t('br.intake.submitConfirm')}
+              </button>
             </div>
-            {!active?.checklist?.length && (
-              <div style={{ fontSize: 12, color: 'var(--ink-30)', lineHeight: 1.6 }}>—</div>
-            )}
-            {!showPack && (active?.checklist || []).map((c, i) => (
-              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                <StatusPill status={c.status} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.45 }}>
-                    {c.section.split('(')[0].trim()}
-                  </div>
-                  {c.note && c.status !== 'ok' && (
-                    <div style={{ fontSize: 11, color: 'var(--ink-35)', lineHeight: 1.5 }}>{c.note}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {showPack && active?.pack_markdown && (
-              <pre style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--ink-78)', fontFamily: 'inherit', maxHeight: 420, overflowY: 'auto' }}>
-                {active.pack_markdown}
-              </pre>
-            )}
           </div>
         </div>
-      </div>
+      )}
+
       <style>{`
         @keyframes brDot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
-        .brkcard { box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 16px 40px -28px rgba(15,23,42,.22); }
-        .brki { padding: 9px 10px; border-radius: 9px; cursor: pointer; position: relative;
-                border: 1px solid transparent; transition: background .15s ease; }
-        .brki:hover { background: var(--panel-alt); }
-        .brki-on { background: var(--panel-alt); border-color: var(--panel-border-3);
-                   box-shadow: inset 3px 0 0 var(--acc); }
-        .brki-del { opacity: 0; transition: opacity .15s ease; }
-        .brki:hover .brki-del { opacity: 1; }
-        .brkchip { padding: 5px 12px; border-radius: 999px; font-size: 11.5px; cursor: pointer;
-                   font-weight: 600; line-height: 1.4; border: 1px solid var(--panel-border-3);
+        .brcard { box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 16px 40px -28px rgba(15,23,42,.22); }
+        .brsec { transition: background .2s ease; }
+        .brsec + .brsec { border-top: 1px solid var(--panel-border); }
+        .brqbox { display: grid; gap: 8px; padding: 12px; border-radius: 11px;
+                  background: var(--panel); border: 1px solid var(--panel-border-3);
+                  border-inline-start: 2px solid var(--acc); }
+        .brchip { padding: 5px 11px; border-radius: 999px; font-size: 11px; cursor: pointer;
+                  font-weight: 600; line-height: 1.4; font-family: inherit;
+                  border: 1px solid var(--panel-border-3); background: var(--panel-alt);
+                  color: var(--ink-65); transition: border-color .15s ease, color .15s ease,
+                  background .15s ease, transform .1s ease; }
+        .brchip:hover { border-color: var(--acc); color: var(--acc); }
+        .brchip:active { transform: scale(.96); }
+        .brchip-on, .brchip-on:hover { border-color: transparent; background: var(--acc-soft); color: var(--acc); }
+        .brghost { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px;
+                   border-radius: 9px; font-size: 12px; font-weight: 600; font-family: inherit;
+                   cursor: pointer; border: 1px solid var(--panel-border-3);
                    background: var(--panel); color: var(--ink-65);
-                   transition: border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease; }
-        .brkchip:hover { border-color: var(--acc); color: var(--acc); }
-        .brkchip:active { transform: scale(.96); }
-        .brkchip-on, .brkchip-on:hover { border-color: var(--acc); background: var(--acc); color: #fff; }
-        .brkstart { transition: border-color .15s ease, transform .1s ease; }
-        .brkstart:hover { border-color: var(--acc); }
-        .brkcomposer { display: flex; align-items: flex-end; gap: 8px; padding: 9px 9px 9px 18px;
-                       border-radius: 18px; border: 1px solid var(--panel-border-3); background: var(--panel-alt);
-                       transition: border-color .2s ease, box-shadow .2s ease; }
-        .brkcomposer:focus-within { border-color: var(--acc);
-                                    box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 13%, transparent); }
-        .brkbtn { transition: filter .15s ease, transform .1s ease; }
-        .brkbtn:hover:not(:disabled) { filter: brightness(1.07); }
-        .brkbtn:active:not(:disabled) { transform: translateY(1px); }
+                   transition: border-color .15s ease, color .15s ease; }
+        .brghost:hover { border-color: var(--acc); color: var(--acc); }
+        .brdraft { padding: 9px 10px; border-radius: 9px; cursor: pointer; position: relative;
+                   transition: background .15s ease; }
+        .brdraft:hover { background: var(--panel-alt); }
+        .brdraft-on { background: var(--panel-alt); box-shadow: inset 2px 0 0 var(--acc); }
+        .brdraft-del { position: absolute; top: 8px; right: 6px; border: none; background: transparent;
+                       color: var(--ink-30); cursor: pointer; padding: 2px; line-height: 0;
+                       opacity: 0; transition: opacity .15s ease; }
+        .brdraft:hover .brdraft-del { opacity: 1; }
+        .bratt { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px 4px 9px;
+                 border-radius: 8px; font-size: 11px; font-weight: 600; color: var(--ink-65);
+                 background: var(--panel-alt); border: 1px solid var(--panel-border-3); }
+        .bratt-del { border: none; background: transparent; color: var(--ink-30); cursor: pointer;
+                     padding: 2px; line-height: 0; border-radius: 4px; }
+        .bratt-del:hover { color: #cf5b57; }
+        .brattbtn { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; border: none;
+                    background: transparent; color: var(--ink-35); cursor: pointer;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    transition: background .15s ease, color .15s ease; }
+        .brattbtn:hover:not(:disabled) { background: var(--panel-border-2); color: var(--acc); }
+        .brattbtn:disabled { opacity: .5; cursor: default; }
+        .brcomposer { display: flex; align-items: flex-end; gap: 7px; padding: 7px 7px 7px 7px;
+                      border-radius: 15px; border: 1px solid var(--panel-border-3);
+                      background: var(--panel-alt);
+                      transition: border-color .2s ease, box-shadow .2s ease; }
+        .brcomposer:focus-within { border-color: var(--acc);
+                      box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 13%, transparent); }
+        .brbtn { transition: filter .15s ease, transform .1s ease; }
+        .brbtn:hover:not(:disabled) { filter: brightness(1.07); }
+        .brbtn:active:not(:disabled) { transform: translateY(1px); }
+        .brsplit { display: flex; align-items: center; justify-content: center;
+                   cursor: col-resize; touch-action: none; }
+        .brsplit span { width: 3px; height: 46px; border-radius: 2px;
+                        background: var(--panel-border-3); transition: background .15s ease, height .15s ease; }
+        .brsplit:hover span, .brsplit:focus-visible span { background: var(--acc); height: 84px; }
+        .brsplit:focus-visible { outline: none; }
+        @media (max-width: 1000px) {
+          .brwrap { grid-template-columns: minmax(0, 1fr) !important; grid-auto-rows: minmax(0, 1fr); }
+          .brsplit { display: none; }
+        }
       `}</style>
     </div>
   );

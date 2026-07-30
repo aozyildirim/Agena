@@ -41,6 +41,14 @@ class BusinessRequestSettings(Base):
     rubric: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Free-text "what makes a BR an Epic vs an Improvement".
     epic_rule: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The Decision Pack sections this org evaluates against, as a list of
+    # strings. NULL → the built-in DECISION_PACK_SECTIONS default.
+    decision_pack_sections: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Org-level prompt overrides. Precedence: these → the `prompts` table
+    # row → the code default. Both may contain {{DECISION_PACK_SECTIONS}},
+    # which is replaced with the org's numbered section list.
+    eval_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    intake_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     auto_eval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Azure project the auto-eval poller scans (auto_eval does nothing
     # without it — the queue UI's project selection lives in localStorage,
@@ -61,6 +69,12 @@ class BusinessRequestSettings(Base):
     # team lives in a different Azure organization.
     azure_pat: Mapped[str | None] = mapped_column(Text, nullable=True)
     azure_base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Identifies this org on the public webhook URL an Azure service hook
+    # posts to. A service hook carries no auth, so the token in the path is
+    # the credential — rotatable from BR settings.
+    webhook_token: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -146,6 +160,13 @@ class BusinessRequestEval(Base):
     # SHA-256 of the evaluated title+description — the auto-eval poller
     # re-evaluates only when this changes (new content on the work item).
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # SHA-256 of the discussion thread that was evaluated. Lets the poller
+    # re-score a needs_info item when stakeholders answer in the comments,
+    # without refetching comments for every item on every cycle.
+    discussion_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Set when the evaluation gaps were pushed back to the work item as a
+    # comment, so the UI can show it and we don't spam the thread.
+    pushed_to_source_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # When the LLM last ran (updated_at also moves on status/answer edits).
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

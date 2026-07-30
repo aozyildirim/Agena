@@ -32,6 +32,9 @@ _SKIP_PREFIXES = (
     '/redoc',
     '/auth/',
     '/invites/',
+    # Webhooks carry no tenant host — each one resolves its own org from the
+    # payload or a token in the path.
+    '/webhooks/',
 )
 
 # Known non-tenant host prefixes (bare domain, system subdomains, localhost, IP addresses).

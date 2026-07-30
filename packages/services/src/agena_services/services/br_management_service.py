@@ -49,38 +49,90 @@ def content_fingerprint(title: str, description: str) -> str:
     raw = f'{(title or "").strip()}\n{(description or "").strip()}'
     return hashlib.sha256(raw.encode('utf-8', errors='replace')).hexdigest()
 
+
+def discussion_fingerprint(comments: list[dict[str, Any]] | None) -> str:
+    """Stable hash of a work item's discussion thread. Answers to the AI's
+    questions usually land in comments, so the poller re-scores a
+    needs_info item when this changes even though the description didn't."""
+    raw = '\n'.join(
+        f'{c.get("id")}:{(c.get("text") or "").strip()}' for c in (comments or [])
+    )
+    return hashlib.sha256(raw.encode('utf-8', errors='replace')).hexdigest()
+
 VALID_TYPES = {'improvement', 'epic', 'not_br'}
 VALID_VERDICTS = {'ready', 'needs_info', 'not_br'}
 VALID_CHECK = {'ok', 'partial', 'missing'}
 
+# Turkish labels for the comment Agena posts back on the work item — the
+# audience there is the business requester, not the Agena UI.
+BR_TYPE_LABELS = {'improvement': 'Improvement', 'epic': 'Epic', 'not_br': 'BR değil'}
+VERDICT_LABELS = {
+    'ready': 'Hazır', 'needs_info': 'Bilgi eksik', 'not_br': 'BR değil',
+}
+
 # The Business Request "Decision Pack" — the sections a BR must cover before
 # it can go to the Decision Gate. The evaluation checks the work item against
-# each of these and reports per-section coverage. Org-specific tweaks come
-# from the `rubric` field, which is appended to the prompt.
-DECISION_PACK_SECTIONS = [
-    'Genel Talep Bilgileri (başlık, talep sahibi, iş birimi, BR ID, proje tipi)',
-    'Proje Özeti ve İş Gerekçesi (kısa özet, mevcut problem/ihtiyaç, beklenen iş faydası)',
-    'Etki ve Öncelik (etki alanı, etki seviyesi, hedef tarih/deadline + gerekçesi)',
-    'Zaman Çerçevesi ve Varsayımlar (başlangıç, bitiş/çeyrek, varsayımlar ve kısıtlar)',
-    'Scope — In-Scope (yapılacaklar)',
-    'Scope — Out-of-Scope (yapılmayacaklar; BOŞ BIRAKILAMAZ)',
-    'Fonksiyonel Gereksinimler ve Kabul Kriterleri',
-    'Marka, Kanal ve Platform Kapsamı',
-    'Paydaşlar ve Sahiplik (Business Owner, Product/Project Owner, Teknik Sahip, onaylayıcılar)',
-    'Sistemler ve Entegrasyonlar (dahil sistemler, harici entegrasyon detayları)',
-    'Uygulama Akışı / Workflow (akış tipi ve adımlar)',
-    'Onaylar ve Risk Netliği — Decision Gate (hukuk/finansal/operasyonel etki, gerekli onaylar)',
-    'Yönetici Özeti — Decision Pack (amaç/iş etkisi, kapsam özeti, kritik risk ve bağımlılıklar)',
+# each of these and reports per-section coverage. This is the built-in
+# default; an org can replace the list from BR settings. `critical` sections
+# carry an extra scoring penalty when they are missing.
+DECISION_PACK_SECTIONS: list[dict[str, Any]] = [
+    {'title': 'Genel Talep Bilgileri (başlık, talep sahibi, iş birimi, BR ID, proje tipi)', 'critical': False},
+    {'title': 'Proje Özeti ve İş Gerekçesi (kısa özet, mevcut problem/ihtiyaç, beklenen iş faydası)', 'critical': False},
+    {'title': 'Etki ve Öncelik (etki alanı, etki seviyesi, hedef tarih/deadline + gerekçesi)', 'critical': False},
+    {'title': 'Zaman Çerçevesi ve Varsayımlar (başlangıç, bitiş/çeyrek, varsayımlar ve kısıtlar)', 'critical': False},
+    {'title': 'Scope — In-Scope (yapılacaklar)', 'critical': False},
+    {'title': 'Scope — Out-of-Scope (yapılmayacaklar; BOŞ BIRAKILAMAZ)', 'critical': True},
+    {'title': 'Fonksiyonel Gereksinimler ve Kabul Kriterleri', 'critical': True},
+    {'title': 'Marka, Kanal ve Platform Kapsamı', 'critical': False},
+    {'title': 'Paydaşlar ve Sahiplik (Business Owner, Product/Project Owner, Teknik Sahip, onaylayıcılar)', 'critical': True},
+    {'title': 'Sistemler ve Entegrasyonlar (dahil sistemler, harici entegrasyon detayları)', 'critical': False},
+    {'title': 'Uygulama Akışı / Workflow (akış tipi ve adımlar)', 'critical': False},
+    {'title': 'Onaylar ve Risk Netliği — Decision Gate (hukuk/finansal/operasyonel etki, gerekli onaylar)', 'critical': True},
+    {'title': 'Yönetici Özeti — Decision Pack (amaç/iş etkisi, kapsam özeti, kritik risk ve bağımlılıklar)', 'critical': False},
 ]
 
-_SECTION_LIST = '\n'.join(f'{i + 1}. {s}' for i, s in enumerate(DECISION_PACK_SECTIONS))
+# Both system prompts carry this token instead of a baked-in section list, so
+# the org's own Decision Pack is rendered in at call time.
+SECTIONS_TOKEN = '{{DECISION_PACK_SECTIONS}}'
+
+
+def normalize_sections(raw: Any) -> list[dict[str, Any]]:
+    """Accept a list of plain strings or {title, critical} objects and return
+    the object form. Empty/garbage input falls back to the built-in pack."""
+    out: list[dict[str, Any]] = []
+    if isinstance(raw, list):
+        for entry in raw:
+            if isinstance(entry, str):
+                title, critical = entry.strip(), False
+            elif isinstance(entry, dict):
+                title = str(entry.get('title') or '').strip()
+                critical = bool(entry.get('critical'))
+            else:
+                continue
+            if title:
+                out.append({'title': title[:500], 'critical': critical})
+    return out[:40] or [dict(s) for s in DECISION_PACK_SECTIONS]
+
+
+def org_sections(settings: BusinessRequestSettings | None) -> list[dict[str, Any]]:
+    if settings is not None and settings.decision_pack_sections:
+        return normalize_sections(settings.decision_pack_sections)
+    return [dict(s) for s in DECISION_PACK_SECTIONS]
+
+
+def render_sections(sections: list[dict[str, Any]]) -> str:
+    """The numbered list the prompt shows the model, criticality inline."""
+    return '\n'.join(
+        f'{i + 1}. {s["title"]}' + (' [KRİTİK]' if s.get('critical') else '')
+        for i, s in enumerate(sections)
+    )
 
 DEFAULT_SYSTEM_PROMPT = """You are a Business Request (BR) intake analyst at a retail company. \
 You assess whether a work item, as written, is a complete, well-formed Business Request \
 ready to pass the Decision Gate.
 
 A BR is evaluated against the company's "Decision Pack" — these required sections:
-""" + _SECTION_LIST + """
+""" + SECTIONS_TOKEN + """
 
 For the given work item (its description + discussion comments), produce:
 1. checklist — for EACH Decision Pack section above, decide coverage: "ok" (clearly \
@@ -89,8 +141,7 @@ Turkish `note` saying what is missing or weak. Out-of-Scope being empty = "missi
 2. br_type — "improvement" (small bounded enhancement), "epic" (large/multi-team/multi-story \
 initiative that must be broken down), or "not_br" (a pure bug/technical task, not a business request).
 3. readiness_score — 0-100, driven by the checklist: roughly the share of sections that are \
-"ok", with extra penalty when critical ones are missing (Out-of-Scope, Kabul Kriterleri, \
-Paydaşlar/onaylar, Decision Gate riskleri).
+"ok", with extra penalty when a section marked [KRİTİK] is missing or partial.
 4. verdict — "ready" (no critical section missing, score high), "needs_info" (gaps remain), \
 or "not_br".
 5. questions — concrete Turkish clarifying questions that would fill the missing/partial \
@@ -115,7 +166,7 @@ non-technical business person. Everything you write in `reply`, `title`, `checkl
 notes and `pack_markdown` is in TURKISH.
 
 The BR must ultimately cover the company's "Decision Pack" sections:
-""" + _SECTION_LIST + """
+""" + SECTIONS_TOKEN + """
 
 Each turn you receive the conversation so far plus the current Decision Pack state. Do:
 1. Fold EVERYTHING the requester has said so far into the Decision Pack. Never invent \
@@ -125,17 +176,20 @@ captured this turn. NEVER put questions, numbered lists or examples inside `repl
 questions go in the structured `questions` field. When readiness_score >= \
 """ + str(INTAKE_SUBMIT_THRESHOLD) + """, congratulate them and say the BR is ready \
 to submit.
-2b. `questions` — AT MOST 3 focused questions targeting the most critical missing/\
-partial sections (öncelik: Out-of-Scope, kabul kriterleri, paydaşlar/onaylar, Decision \
-Gate riskleri, etki/öncelik). Each: {"id": "q1", "text": "<short Turkish question>", \
-"examples": ["<2-3 short example answers, max ~8 words each>"]}. The examples must be \
-plausible for THIS request so the user can tap one and edit. Empty array when ready \
-or not_br.
+2b. `questions` — ONE question for EVERY section still missing or partial, in the \
+section order above (sections marked [KRİTİK] matter most, but do not skip the \
+others). Each: {"id": "q1", "text": "<short Turkish question>", "section": "<the \
+EXACT section name from the list above that this question fills>", "examples": \
+["<2-3 short example answers, max ~8 words each>"]}. `section` must be copied \
+verbatim from the numbered list — the UI shows each question inside its own section \
+of the document, so a wrong or missing `section` strands the question. Keep every \
+question to one short sentence. The examples must be plausible for THIS request so \
+the user can tap one and edit. Empty array when ready or not_br.
 3. `title` — a short Azure work item title in Turkish (max ~90 chars).
 4. `checklist` — ALL sections above, each with status ok|partial|missing and a short \
 Turkish note.
 5. `readiness_score` — 0-100, the share of sections covered, with extra penalty when \
-critical ones are missing.
+a section marked [KRİTİK] is missing.
 6. `br_type` — improvement|epic|not_br (not_br = pure bug/technical task).
 7. `pack_markdown` — the FULL composed Decision Pack document in Turkish markdown: one \
 `##` heading per section with the current content, writing `_(eksik)_` under sections \
@@ -158,17 +212,25 @@ def _normalize_intake(raw: dict[str, Any]) -> dict[str, Any]:
     q_raw = raw.get('questions') or []
     questions: list[dict[str, Any]] = []
     if isinstance(q_raw, list):
-        for i, q in enumerate(q_raw[:3]):
+        # One per Decision Pack section at most — the UI places each inside
+        # the gap it fills, so there is no reason to cap lower.
+        for i, q in enumerate(q_raw[:20]):
             if isinstance(q, dict):
                 text = str(q.get('text') or '').strip()
+                section = str(q.get('section') or '').strip()
                 examples = [
                     str(e).strip() for e in (q.get('examples') or [])
                     if str(e).strip()
                 ][:3]
             else:
-                text, examples = str(q).strip(), []
+                text, section, examples = str(q).strip(), '', []
             if text:
-                questions.append({'id': f'q{i + 1}', 'text': text, 'examples': examples})
+                # `section` anchors the question to a Decision Pack row so the
+                # UI can show it in place, inside the gap it fills.
+                questions.append({
+                    'id': f'q{i + 1}', 'text': text,
+                    'section': section, 'examples': examples,
+                })
     return {
         'reply': str(raw.get('reply') or '').strip(),
         'title': str(raw.get('title') or '').strip(),
@@ -213,7 +275,15 @@ def _markdown_to_html(md: str) -> str:
 
 
 def _build_system_prompt(base: str, settings: BusinessRequestSettings | None) -> str:
-    parts = [base.strip()]
+    sections = render_sections(org_sections(settings))
+    text = (base or '').strip()
+    if SECTIONS_TOKEN in text:
+        text = text.replace(SECTIONS_TOKEN, sections)
+    else:
+        # A hand-edited prompt that dropped the token still needs the pack —
+        # the checklist the model must return is keyed on these sections.
+        text = f'{text}\n\n## Decision Pack sections\n{sections}'
+    parts = [text]
     if settings is not None:
         rubric = (settings.rubric or '').strip()
         epic_rule = (settings.epic_rule or '').strip()
@@ -224,13 +294,50 @@ def _build_system_prompt(base: str, settings: BusinessRequestSettings | None) ->
     return '\n\n'.join(parts)
 
 
+def _strip_html(raw: str) -> str:
+    """Azure comments come back as HTML. Flatten to text for the prompt."""
+    import html as _html
+
+    text = re.sub(r'<br\s*/?>|</p>|</div>|</li>', '\n', raw or '', flags=re.I)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = _html.unescape(text)
+    return re.sub(r'\n{3,}', '\n\n', text).strip()
+
+
+def format_comments(comments: list[dict[str, Any]] | None, limit: int = 30) -> str:
+    """Oldest-first transcript of the discussion thread, trimmed for prompts.
+
+    Azure returns newest-first; the thread reads as a conversation, so the
+    model gets it in chronological order with the latest turns intact."""
+    rows = list(comments or [])[:limit]
+    rows.reverse()
+    out: list[str] = []
+    for c in rows:
+        text = _strip_html(str(c.get('text') or ''))
+        if not text:
+            continue
+        who = str(c.get('created_by') or 'bilinmiyor')
+        when = str(c.get('created_at') or '')[:10]
+        out.append(f'[{when}] {who}: {text}')
+    return '\n'.join(out)[:8000]
+
+
 def _build_user_prompt(
     *, title: str, description: str, answers: dict[str, Any] | None,
+    comments: list[dict[str, Any]] | None = None,
 ) -> str:
     lines = [
         f'## Work item title\n{title or "(untitled)"}',
-        f'## Description\n{(description or "")[:6000] or "(empty)"}',
+        f'## Description\n{_strip_html(description or "")[:6000] or "(empty)"}',
     ]
+    discussion = format_comments(comments)
+    if discussion:
+        lines.append(
+            '## Discussion thread (oldest → newest)\n'
+            'Requirements are often clarified, narrowed or expanded here — treat '
+            'the thread as part of the request. A later comment overrides the '
+            'description when they conflict.\n' + discussion
+        )
     if answers:
         rendered = '\n'.join(
             f'- Q{qid}: {ans}' for qid, ans in answers.items() if str(ans).strip()
@@ -408,6 +515,106 @@ async def fetch_azure_items(
     return out
 
 
+async def upload_azure_attachment(
+    *, base_url: str, pat: str, project: str, work_item_id: str,
+    filename: str, data: bytes,
+) -> str:
+    """Upload one file and link it to the work item. Returns the Azure URL.
+
+    Two calls, per the Azure API: store the bytes, then add an
+    `AttachedFile` relation pointing at what came back."""
+    headers = _azure_headers(pat)
+    async with httpx.AsyncClient(timeout=60) as client:
+        up = await client.post(
+            f'{base_url}/{project}/_apis/wit/attachments'
+            f'?fileName={httpx.QueryParams({"n": filename})["n"]}&api-version=7.1-preview.3',
+            headers={**headers, 'Content-Type': 'application/octet-stream'},
+            content=data,
+        )
+        up.raise_for_status()
+        url = str((up.json() or {}).get('url') or '')
+        if not url:
+            raise ValueError(f'Azure returned no attachment URL for {filename}')
+
+        patch = [{
+            'op': 'add', 'path': '/relations/-',
+            'value': {
+                'rel': 'AttachedFile', 'url': url,
+                'attributes': {'comment': 'Agena BR Intake'},
+            },
+        }]
+        link = await client.patch(
+            f'{base_url}/_apis/wit/workitems/{work_item_id}?api-version=7.1-preview.3',
+            headers={**headers, 'Content-Type': 'application/json-patch+json'},
+            json=patch,
+        )
+        link.raise_for_status()
+    return url
+
+
+async def fetch_azure_item(
+    *, base_url: str, pat: str, work_item_id: str,
+) -> dict[str, Any] | None:
+    """One work item by id, in the same shape fetch_azure_items returns.
+
+    The webhook path needs this: a service-hook payload varies by event type,
+    so we take only the id from it and read the current state from Azure."""
+    headers = _azure_headers(pat)
+    url = (
+        f'{base_url}/_apis/wit/workitems/{work_item_id}?fields='
+        'System.Id,System.Title,System.State,System.WorkItemType,System.Description,'
+        'System.AssignedTo,System.TeamProject,System.CreatedDate,System.ChangedDate'
+        '&api-version=7.1-preview.3'
+    )
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(url, headers=headers)
+            r.raise_for_status()
+        except httpx.HTTPError:
+            logger.warning('BR webhook: work item %s not readable', work_item_id)
+            return None
+    f = (r.json() or {}).get('fields', {})
+    assigned = f.get('System.AssignedTo') or {}
+    email = ''
+    if isinstance(assigned, dict):
+        email = str(assigned.get('uniqueName') or assigned.get('mailAddress') or '')
+    project = str(f.get('System.TeamProject') or '')
+    ext_id = str(f.get('System.Id') or work_item_id)
+    return {
+        'source': 'azure',
+        'external_id': ext_id,
+        'title': f.get('System.Title', '') or '',
+        'state': f.get('System.State', '') or '',
+        'work_item_type': f.get('System.WorkItemType', '') or '',
+        'description': f.get('System.Description', '') or '',
+        'created_date': f.get('System.CreatedDate', '') or '',
+        'changed_date': f.get('System.ChangedDate', '') or '',
+        'assignee_email': email.lower(),
+        'project': project,
+        'url': f'{base_url}/{project}/_workitems/edit/{ext_id}',
+    }
+
+
+async def fetch_azure_comments(
+    *, base_url: str, pat: str, project: str, work_item_id: str,
+) -> list[dict[str, Any]]:
+    """Discussion thread for one work item. Best-effort: a thread we can't
+    read must not block the evaluation, so failures return []."""
+    from agena_services.integrations.azure_client import AzureDevOpsClient
+
+    if not project or not work_item_id:
+        return []
+    try:
+        return await AzureDevOpsClient().fetch_work_item_comments(
+            cfg={'org_url': base_url, 'pat': pat},
+            project=project,
+            work_item_id=str(work_item_id),
+        )
+    except Exception:
+        logger.warning('BR comment fetch failed for item %s', work_item_id, exc_info=True)
+        return []
+
+
 class BRManagementService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -480,6 +687,24 @@ class BRManagementService:
         )
         return output or '', usage or {}, provider
 
+    async def _base_prompt(
+        self, settings: BusinessRequestSettings | None, *,
+        slug: str, org_override: str | None, fallback: str,
+    ) -> str:
+        """Prompt precedence: the org's own text → the system-level row in
+        the `prompts` table → the constant shipped with the code."""
+        from agena_services.services.prompt_service import PromptService
+
+        if org_override and org_override.strip():
+            return org_override
+        try:
+            db_prompt = await PromptService.get(self.db, slug)
+            if db_prompt and db_prompt.strip():
+                return db_prompt
+        except ValueError:
+            pass
+        return fallback
+
     async def evaluate_item(
         self,
         *,
@@ -490,23 +715,40 @@ class BRManagementService:
         description: str,
         assignee_email: str | None = None,
         answers: dict[str, Any] | None = None,
+        project: str | None = None,
+        comments: list[dict[str, Any]] | None = None,
     ) -> BusinessRequestEval:
-        """Run one BR evaluation and upsert the result row."""
-        from agena_services.services.prompt_service import PromptService
+        """Run one BR evaluation and upsert the result row.
 
+        `comments` is the work item's discussion thread. Pass it when the
+        caller already has it (the auto-scanner does); otherwise an Azure
+        item's thread is fetched here — requirements are routinely
+        clarified in comments rather than the description."""
         settings = await self.get_settings(organization_id)
 
-        base = DEFAULT_SYSTEM_PROMPT
-        try:
-            db_prompt = await PromptService.get(self.db, 'br_evaluation_system_prompt')
-            if db_prompt and db_prompt.strip():
-                base = db_prompt
-        except ValueError:
-            pass
+        if comments is None and source == 'azure':
+            proj = (project or (settings.azure_project if settings else '') or '').strip()
+            if proj:
+                try:
+                    base_url, pat = await resolve_azure_creds(
+                        self.db, organization_id, settings
+                    )
+                    comments = await fetch_azure_comments(
+                        base_url=base_url, pat=pat,
+                        project=proj, work_item_id=str(external_id),
+                    )
+                except ValueError:
+                    # No usable Azure creds — evaluate on the description alone.
+                    comments = None
 
+        base = await self._base_prompt(
+            settings, slug='br_evaluation_system_prompt',
+            org_override=(settings.eval_prompt if settings else None),
+            fallback=DEFAULT_SYSTEM_PROMPT,
+        )
         system_prompt = _build_system_prompt(base, settings)
         user_prompt = _build_user_prompt(
-            title=title, description=description, answers=answers,
+            title=title, description=description, answers=answers, comments=comments,
         )
 
         output, usage, provider = await self._run_llm(
@@ -549,6 +791,7 @@ class BRManagementService:
             existing.answers = answers
         existing.status = 'evaluated'
         existing.content_hash = content_fingerprint(title, description)
+        existing.discussion_hash = discussion_fingerprint(comments)
         existing.evaluated_at = datetime.utcnow()
 
         await self.db.commit()
@@ -570,6 +813,61 @@ class BRManagementService:
 
         return existing
 
+    async def push_eval_to_source(
+        self, *, organization_id: int, row: BusinessRequestEval,
+    ) -> BusinessRequestEval:
+        """Post the evaluation's gaps back to the work item as a comment, so
+        the requester sees what to fill in without opening Agena."""
+        import html as _html
+
+        if row.source != 'azure':
+            raise ValueError('Pushing back to the source currently supports Azure only.')
+        if not row.checklist and not row.questions:
+            raise ValueError('Nothing to push — evaluate the item first.')
+
+        settings = await self.get_settings(organization_id)
+        base_url, pat = await resolve_azure_creds(self.db, organization_id, settings)
+
+        def esc(text: Any) -> str:
+            return _html.escape(str(text or '').strip())
+
+        gaps = [
+            c for c in (row.checklist or [])
+            if c.get('status') in ('missing', 'partial')
+        ]
+        parts = [
+            '<p><b>Agena — Business Request değerlendirmesi</b></p>',
+            f'<p>Hazırlık puanı: <b>{row.readiness_score if row.readiness_score is not None else "-"}/100</b>'
+            f' · Tip: <b>{esc(BR_TYPE_LABELS.get(row.br_type or "", row.br_type))}</b>'
+            f' · Sonuç: <b>{esc(VERDICT_LABELS.get(row.verdict or "", row.verdict))}</b></p>',
+        ]
+        if row.reasoning:
+            parts.append(f'<p>{esc(row.reasoning)}</p>')
+        if gaps:
+            parts.append('<p><b>Eksik veya yetersiz bölümler</b></p><ul>')
+            for c in gaps:
+                mark = 'eksik' if c.get('status') == 'missing' else 'kısmen var'
+                note = f' — {esc(c.get("note"))}' if c.get('note') else ''
+                parts.append(f'<li><b>{esc(c.get("section"))}</b> ({mark}){note}</li>')
+            parts.append('</ul>')
+        questions = [q for q in (row.questions or []) if str(q.get('text') or '').strip()]
+        if questions:
+            parts.append('<p><b>Netleştirilmesi gerekenler</b></p><ul>')
+            for q in questions:
+                parts.append(f'<li>{esc(q.get("text"))}</li>')
+            parts.append('</ul>')
+
+        from agena_services.integrations.azure_client import AzureDevOpsClient
+        await AzureDevOpsClient().post_raw_html_comment(
+            cfg={'org_url': base_url, 'pat': pat},
+            work_item_id=str(row.external_id),
+            html_body='\n'.join(parts),
+        )
+        row.pushed_to_source_at = datetime.utcnow()
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
     # ── Conversational intake (chat) ─────────────────────────────────
 
     async def intake_turn(
@@ -577,17 +875,13 @@ class BRManagementService:
     ) -> BusinessRequestIntake:
         """One chat turn: append the user message, run the interviewer LLM,
         fold the reply + updated Decision Pack back onto the intake row."""
-        from agena_services.services.prompt_service import PromptService
-
         settings = await self.get_settings(intake.organization_id)
 
-        base = DEFAULT_INTAKE_SYSTEM_PROMPT
-        try:
-            db_prompt = await PromptService.get(self.db, 'br_intake_system_prompt')
-            if db_prompt and db_prompt.strip():
-                base = db_prompt
-        except ValueError:
-            pass
+        base = await self._base_prompt(
+            settings, slug='br_intake_system_prompt',
+            org_override=(settings.intake_prompt if settings else None),
+            fallback=DEFAULT_INTAKE_SYSTEM_PROMPT,
+        )
         system_prompt = _build_system_prompt(base, settings)
 
         messages = list(intake.messages or [])
@@ -615,7 +909,9 @@ class BRManagementService:
             user_prompt=user_prompt,
             provider_override=(settings.provider if settings else None),
             model_override=(settings.model if settings else None),
-            max_output_tokens=2500,
+            # A question per open section plus the full pack — a tight budget
+            # here truncates the JSON and the whole turn is lost.
+            max_output_tokens=4500,
         )
         result = _normalize_intake(_extract_json(output))
         if not result['reply']:
@@ -719,6 +1015,34 @@ class BRManagementService:
         intake.azure_work_item_id = ext_id
         intake.azure_url = f'{base_url}/{project}/_workitems/edit/{ext_id}'
         intake.status = 'submitted'
+
+        # Carry the requester's screenshots onto the work item. Best-effort:
+        # the BR itself is already created, so a failed upload must not undo it.
+        if ext_id:
+            from pathlib import Path as _Path
+
+            from agena_models.models.business_request_attachment import (
+                BusinessRequestIntakeAttachment,
+            )
+            files = (
+                await self.db.execute(
+                    select(BusinessRequestIntakeAttachment).where(
+                        BusinessRequestIntakeAttachment.intake_id == intake.id
+                    )
+                )
+            ).scalars().all()
+            for att in files:
+                try:
+                    att.azure_url = await upload_azure_attachment(
+                        base_url=base_url, pat=pat, project=project,
+                        work_item_id=ext_id, filename=att.filename,
+                        data=_Path(att.storage_path).read_bytes(),
+                    )
+                except Exception:
+                    logger.warning(
+                        'BR intake %s: attachment %s not uploaded to work item %s',
+                        intake.id, att.filename, ext_id, exc_info=True,
+                    )
 
         # Mirror into the BR queue as an already-evaluated item so it shows
         # up scored the moment it lands in Azure.
@@ -847,6 +1171,105 @@ async def _notify_eval(
         logger.exception('BR eval notification failed (org=%s)', organization_id)
 
 
+def extract_webhook_item_id(payload: dict[str, Any]) -> str:
+    """The work item id out of an Azure DevOps service-hook body.
+
+    The shape moves around by event type — workitem.created carries it on
+    `resource.id`, workitem.updated on `resource.workItemId`, and the comment
+    events nest it under `resource.workItemId` or the comment's parent url —
+    so every known spot is checked rather than assuming one."""
+    resource = payload.get('resource') or {}
+    if not isinstance(resource, dict):
+        return ''
+    for key in ('workItemId', 'id'):
+        value = resource.get(key)
+        if isinstance(value, (int, str)) and str(value).strip().isdigit():
+            return str(value).strip()
+    # Comment events: .../workItems/12345/comments/6
+    match = re.search(r'/workItems/(\d+)', str(resource.get('url') or ''), re.I)
+    return match.group(1) if match else ''
+
+
+async def handle_azure_webhook(db: AsyncSession, *, token: str, payload: dict[str, Any]) -> str:
+    """Evaluate the work item an Azure service hook just told us about.
+
+    Returns a short status string for the log/response. Everything that is
+    simply "not for us" (unknown token, item outside the BR team) is a quiet
+    no-op — a service hook fires for every item in the project, and Azure
+    disables a hook that keeps erroring."""
+    cfg = (
+        await db.execute(
+            select(BusinessRequestSettings).where(
+                BusinessRequestSettings.webhook_token == token
+            )
+        )
+    ).scalar_one_or_none()
+    if cfg is None:
+        return 'unknown token'
+    if not await _module_enabled_orgs(db, [cfg.organization_id]):
+        return 'module disabled'
+
+    item_id = extract_webhook_item_id(payload)
+    if not item_id:
+        return 'no work item id in payload'
+
+    base_url, pat = await resolve_azure_creds(db, cfg.organization_id, cfg)
+    item = await fetch_azure_item(base_url=base_url, pat=pat, work_item_id=item_id)
+    if item is None:
+        return f'work item {item_id} not readable'
+
+    emails = {e.strip().lower() for e in (cfg.br_emails or []) if e}
+    if item['assignee_email'] not in emails:
+        # Assigned to someone outside the BR team — not our queue.
+        return f'work item {item_id} not assigned to the BR team'
+
+    existing = (
+        await db.execute(
+            select(BusinessRequestEval).where(
+                BusinessRequestEval.organization_id == cfg.organization_id,
+                BusinessRequestEval.source == 'azure',
+                BusinessRequestEval.external_id == item_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None and existing.status in ('accepted', 'rejected'):
+        return f'work item {item_id} already settled'
+
+    comments = await fetch_azure_comments(
+        base_url=base_url, pat=pat,
+        project=item['project'], work_item_id=item_id,
+    )
+    # Nothing changed since the last scoring — a state flip or a field edit
+    # that doesn't touch the request itself shouldn't burn an LLM call.
+    if (
+        existing is not None
+        and existing.content_hash == content_fingerprint(item['title'], item['description'])
+        and existing.discussion_hash == discussion_fingerprint(comments)
+    ):
+        return f'work item {item_id} unchanged'
+
+    is_new = existing is None
+    prev_score = existing.readiness_score if existing else None
+    row = await BRManagementService(db).evaluate_item(
+        organization_id=cfg.organization_id,
+        source='azure',
+        external_id=item_id,
+        title=item['title'],
+        description=item['description'],
+        assignee_email=item['assignee_email'],
+        answers=(existing.answers if existing else None),
+        project=item['project'],
+        comments=comments,
+    )
+    if is_new or prev_score != row.readiness_score:
+        await _notify_eval(
+            db, organization_id=cfg.organization_id,
+            user_id=await _org_owner_user_id(db, cfg.organization_id),
+            item=item, row=row, is_new=is_new, prev_score=prev_score,
+        )
+    return f'work item {item_id} evaluated: {row.readiness_score}'
+
+
 async def auto_scan_all_orgs(db: AsyncSession) -> None:
     """One poll cycle: for every org with auto-eval on (module enabled,
     Azure project set, interval due), fetch the BR people's open work items
@@ -911,14 +1334,26 @@ async def _auto_scan_org(db: AsyncSession, cfg: BusinessRequestSettings) -> None
     svc = BRManagementService(db)
     owner_id: int | None = None
     ran = 0
+    project = (cfg.azure_project or '').strip()
     for item in items:
         key = (item['source'], item['external_id'])
         existing = eval_map.get(key)
-        fingerprint = content_fingerprint(item['title'], item['description'])
-        if existing is not None and existing.content_hash == fingerprint:
-            continue
         # Accepted/rejected items are settled — don't churn them on edits.
         if existing is not None and existing.status in ('accepted', 'rejected'):
+            continue
+        fingerprint = content_fingerprint(item['title'], item['description'])
+        text_changed = existing is None or existing.content_hash != fingerprint
+        # A needs_info item is waiting on answers, and answers arrive as
+        # comments — so only for those do we pay for a thread fetch when the
+        # description itself is unchanged.
+        awaiting_answers = existing is not None and existing.verdict == 'needs_info'
+        if not text_changed and not awaiting_answers:
+            continue
+        comments = await fetch_azure_comments(
+            base_url=base_url, pat=pat,
+            project=project, work_item_id=item['external_id'],
+        )
+        if not text_changed and existing.discussion_hash == discussion_fingerprint(comments):
             continue
         if ran >= MAX_AUTO_EVALS_PER_CYCLE:
             logger.info(
@@ -939,6 +1374,7 @@ async def _auto_scan_org(db: AsyncSession, cfg: BusinessRequestSettings) -> None
                 assignee_email=item.get('assignee_email'),
                 # Fold saved stakeholder answers back in on re-evaluation.
                 answers=(existing.answers if existing else None),
+                comments=comments,
             )
         except Exception:
             logger.exception(

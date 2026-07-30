@@ -5,11 +5,15 @@ existing /tasks/{provider}/member/workitems endpoints and merges them
 with the saved evaluations returned by GET /evals here. Evaluation is
 synchronous in v1 (one LLM call per item).
 """
+import os
+import secrets
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,11 +25,21 @@ from agena_models.models.business_request import (
     BusinessRequestIntake,
     BusinessRequestSettings,
 )
+from agena_models.models.business_request_attachment import (
+    BusinessRequestIntakeAttachment,
+)
 from agena_services.services.br_management_service import (
+    DECISION_PACK_SECTIONS,
+    DEFAULT_INTAKE_SYSTEM_PROMPT,
+    DEFAULT_SYSTEM_PROMPT,
     INTAKE_SUBMIT_THRESHOLD,
+    SECTIONS_TOKEN,
     BRManagementService,
     _azure_headers,
+    fetch_azure_item,
     fetch_azure_items,
+    normalize_sections,
+    org_sections,
     resolve_azure_creds,
 )
 
@@ -34,6 +48,11 @@ router = APIRouter(prefix='/br-management', tags=['br-management'])
 VALID_STATUSES = {'pending', 'evaluated', 'accepted', 'rejected'}
 # Sentinel: PUT keeps the stored PAT unchanged unless a real value is sent.
 PAT_KEEP = '__keep__'
+
+# Intake attachments — same disk-backed pattern as task attachments.
+BR_ATTACHMENT_ROOT = Path(os.getenv('BR_ATTACHMENT_ROOT', '/app/data/uploads/br-intakes'))
+BR_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024  # 20 MB per file
+BR_ATTACHMENT_MAX_PER_REQUEST = 10
 
 
 async def _azure_creds(
@@ -49,10 +68,19 @@ async def _azure_creds(
 
 # ── Settings ─────────────────────────────────────────────────────────
 
+class SectionBody(BaseModel):
+    title: str
+    critical: bool = False
+
+
 class SettingsBody(BaseModel):
     br_emails: list[str] = []
     rubric: str | None = None
     epic_rule: str | None = None
+    # None / empty → fall back to the built-in Decision Pack.
+    decision_pack_sections: list[SectionBody] | None = None
+    eval_prompt: str | None = None
+    intake_prompt: str | None = None
     auto_eval: bool = False
     # Azure project the auto-eval poller scans (required for auto_eval to run).
     azure_project: str | None = None
@@ -68,6 +96,12 @@ class SettingsResponse(BaseModel):
     br_emails: list[str] = []
     rubric: str | None = None
     epic_rule: str | None = None
+    # The pack in force — the org's own list, or the built-in default.
+    decision_pack_sections: list[dict[str, Any]] = []
+    # Empty when the org hasn't overridden the prompt; the UI shows the
+    # matching default_* value as the effective text.
+    eval_prompt: str | None = None
+    intake_prompt: str | None = None
     auto_eval: bool = False
     azure_project: str | None = None
     auto_eval_interval_minutes: int = 5
@@ -76,15 +110,36 @@ class SettingsResponse(BaseModel):
     model: str | None = None
     azure_pat_set: bool = False  # never leak the token itself
     azure_base_url: str | None = None
+    # The org's slice of the public service-hook URL. Safe to show: it only
+    # accepts Azure work-item events for this org.
+    webhook_token: str | None = None
+    # Read-only reference values so the page can show what "default" means
+    # and offer a reset without hardcoding any of it in the frontend.
+    default_decision_pack_sections: list[dict[str, Any]] = []
+    default_eval_prompt: str = ''
+    default_intake_prompt: str = ''
+    sections_token: str = SECTIONS_TOKEN
+    submit_threshold: int = INTAKE_SUBMIT_THRESHOLD
 
 
 def _settings_response(row: BusinessRequestSettings | None) -> 'SettingsResponse':
+    defaults = {
+        'default_decision_pack_sections': [dict(s) for s in DECISION_PACK_SECTIONS],
+        'default_eval_prompt': DEFAULT_SYSTEM_PROMPT,
+        'default_intake_prompt': DEFAULT_INTAKE_SYSTEM_PROMPT,
+    }
     if row is None:
-        return SettingsResponse()
+        return SettingsResponse(
+            decision_pack_sections=[dict(s) for s in DECISION_PACK_SECTIONS],
+            **defaults,
+        )
     return SettingsResponse(
         br_emails=row.br_emails or [],
         rubric=row.rubric,
         epic_rule=row.epic_rule,
+        decision_pack_sections=org_sections(row),
+        eval_prompt=row.eval_prompt,
+        intake_prompt=row.intake_prompt,
         auto_eval=row.auto_eval,
         azure_project=row.azure_project,
         auto_eval_interval_minutes=row.auto_eval_interval_minutes or 5,
@@ -93,6 +148,8 @@ def _settings_response(row: BusinessRequestSettings | None) -> 'SettingsResponse
         model=row.model,
         azure_pat_set=bool((row.azure_pat or '').strip()),
         azure_base_url=row.azure_base_url,
+        webhook_token=row.webhook_token,
+        **defaults,
     )
 
 
@@ -130,6 +187,14 @@ async def put_settings(
     row.br_emails = emails
     row.rubric = (body.rubric or '').strip() or None
     row.epic_rule = (body.epic_rule or '').strip() or None
+    # Storing NULL means "use the built-in pack", so an org that clears the
+    # list back to the default doesn't carry a stale copy forever.
+    sections = normalize_sections([s.model_dump() for s in (body.decision_pack_sections or [])])
+    row.decision_pack_sections = (
+        None if sections == [dict(s) for s in DECISION_PACK_SECTIONS] else sections
+    )
+    row.eval_prompt = (body.eval_prompt or '').strip() or None
+    row.intake_prompt = (body.intake_prompt or '').strip() or None
     row.auto_eval = bool(body.auto_eval)
     row.azure_project = (body.azure_project or '').strip() or None
     row.auto_eval_interval_minutes = max(1, min(1440, int(body.auto_eval_interval_minutes or 5)))
@@ -163,6 +228,7 @@ class EvalResponse(BaseModel):
     status: str
     updated_at: datetime | None = None
     evaluated_at: datetime | None = None
+    pushed_to_source_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -175,6 +241,9 @@ class EvaluateBody(BaseModel):
     description: str = ''
     assignee_email: str | None = None
     answers: dict[str, Any] | None = None
+    # Which Azure project the item lives in — needed to read its discussion
+    # thread. Falls back to the project configured for auto-scan.
+    project: str | None = None
 
 
 class StatusBody(BaseModel):
@@ -455,6 +524,137 @@ async def intake_message(
     return IntakeResponse.from_row(row)
 
 
+class AttachmentResponse(BaseModel):
+    id: int
+    filename: str
+    content_type: str
+    size_bytes: int
+    azure_url: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+async def _intake_attachments(
+    db: AsyncSession, intake_id: int,
+) -> list[BusinessRequestIntakeAttachment]:
+    rows = await db.execute(
+        select(BusinessRequestIntakeAttachment)
+        .where(BusinessRequestIntakeAttachment.intake_id == intake_id)
+        .order_by(BusinessRequestIntakeAttachment.id)
+    )
+    return list(rows.scalars().all())
+
+
+@router.get('/intakes/{intake_id}/attachments', response_model=list[AttachmentResponse])
+async def list_intake_attachments(
+    intake_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[BusinessRequestIntakeAttachment]:
+    await _get_intake(db, intake_id, tenant.organization_id)
+    return await _intake_attachments(db, intake_id)
+
+
+@router.post('/intakes/{intake_id}/attachments', response_model=list[AttachmentResponse])
+async def upload_intake_attachments(
+    intake_id: int,
+    files: list[UploadFile] = File(...),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[BusinessRequestIntakeAttachment]:
+    """Attach screenshots or short documents to a draft request."""
+    intake = await _get_intake(db, intake_id, tenant.organization_id)
+    if intake.status == 'submitted':
+        raise HTTPException(status_code=400, detail='This request was already submitted.')
+    if len(files) > BR_ATTACHMENT_MAX_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f'Too many files (max {BR_ATTACHMENT_MAX_PER_REQUEST} per upload)',
+        )
+
+    target_dir = BR_ATTACHMENT_ROOT / str(tenant.organization_id) / str(intake_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    created: list[BusinessRequestIntakeAttachment] = []
+    for upload in files:
+        payload = await upload.read()
+        if len(payload) > BR_ATTACHMENT_MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f'{upload.filename}: file exceeds '
+                       f'{BR_ATTACHMENT_MAX_BYTES // (1024 * 1024)} MB limit',
+            )
+        # Never trust the client's path — keep only a sanitized basename.
+        safe = Path(upload.filename or 'dosya').name[:512] or 'dosya'
+        disk_path = target_dir / f'{secrets.token_hex(8)}_{safe}'
+        disk_path.write_bytes(payload)
+        row = BusinessRequestIntakeAttachment(
+            intake_id=intake_id,
+            organization_id=tenant.organization_id,
+            uploaded_by_user_id=tenant.user_id,
+            filename=safe,
+            content_type=(upload.content_type or 'application/octet-stream')[:128],
+            size_bytes=len(payload),
+            storage_path=str(disk_path),
+        )
+        db.add(row)
+        created.append(row)
+    await db.commit()
+    for row in created:
+        await db.refresh(row)
+    return await _intake_attachments(db, intake_id)
+
+
+@router.get('/intakes/{intake_id}/attachments/{attachment_id}')
+async def download_intake_attachment(
+    intake_id: int,
+    attachment_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> FileResponse:
+    await _get_intake(db, intake_id, tenant.organization_id)
+    row = (
+        await db.execute(
+            select(BusinessRequestIntakeAttachment).where(
+                BusinessRequestIntakeAttachment.id == attachment_id,
+                BusinessRequestIntakeAttachment.intake_id == intake_id,
+                BusinessRequestIntakeAttachment.organization_id == tenant.organization_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='attachment not found')
+    path = Path(row.storage_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail='file is no longer on disk')
+    return FileResponse(path, media_type=row.content_type, filename=row.filename)
+
+
+@router.delete('/intakes/{intake_id}/attachments/{attachment_id}')
+async def delete_intake_attachment(
+    intake_id: int,
+    attachment_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, bool]:
+    await _get_intake(db, intake_id, tenant.organization_id)
+    row = (
+        await db.execute(
+            select(BusinessRequestIntakeAttachment).where(
+                BusinessRequestIntakeAttachment.id == attachment_id,
+                BusinessRequestIntakeAttachment.intake_id == intake_id,
+                BusinessRequestIntakeAttachment.organization_id == tenant.organization_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='attachment not found')
+    Path(row.storage_path).unlink(missing_ok=True)
+    await db.delete(row)
+    await db.commit()
+    return {'deleted': True}
+
+
 @router.post('/intakes/{intake_id}/submit', response_model=IntakeResponse)
 async def intake_submit(
     intake_id: int,
@@ -508,11 +708,116 @@ async def evaluate(
             description=body.description,
             assignee_email=(body.assignee_email or '').strip().lower() or None,
             answers=body.answers,
+            project=(body.project or '').strip() or None,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class ReevaluateBody(BaseModel):
+    # Newly captured stakeholder answers, merged over whatever was saved.
+    answers: dict[str, Any] | None = None
+
+
+@router.post('/evals/{eval_id}/reevaluate', response_model=EvalResponse)
+async def reevaluate(
+    eval_id: int,
+    body: ReevaluateBody | None = None,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> BusinessRequestEval:
+    """Re-score a saved evaluation, pulling the work item fresh from Azure.
+
+    The evaluations list carries no description, so this reads the current
+    title/description/discussion rather than trusting a stale copy."""
+    row = (
+        await db.execute(
+            select(BusinessRequestEval).where(
+                BusinessRequestEval.id == eval_id,
+                BusinessRequestEval.organization_id == tenant.organization_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='evaluation not found')
+    if row.source != 'azure':
+        raise HTTPException(status_code=400, detail='Re-evaluation currently supports Azure only.')
+
+    svc = BRManagementService(db)
+    settings = await svc.get_settings(tenant.organization_id)
+    base_url, pat = await _azure_creds(db, tenant.organization_id, settings)
+    item = await fetch_azure_item(base_url=base_url, pat=pat, work_item_id=row.external_id)
+    if item is None:
+        raise HTTPException(
+            status_code=404, detail=f'Work item {row.external_id} is not readable in Azure.',
+        )
+
+    answers = {**(row.answers or {}), **((body.answers if body else None) or {})}
+    try:
+        return await svc.evaluate_item(
+            organization_id=tenant.organization_id,
+            source='azure',
+            external_id=row.external_id,
+            title=item['title'],
+            description=item['description'],
+            assignee_email=item.get('assignee_email') or row.assignee_email,
+            answers=answers or None,
+            project=item.get('project'),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post('/webhook-token', response_model=SettingsResponse)
+async def rotate_webhook_token(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> SettingsResponse:
+    """Mint (or replace) this org's service-hook token. Replacing it breaks
+    any subscription still posting to the old URL — that is the point."""
+    row = (
+        await db.execute(
+            select(BusinessRequestSettings).where(
+                BusinessRequestSettings.organization_id == tenant.organization_id
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        row = BusinessRequestSettings(organization_id=tenant.organization_id)
+        db.add(row)
+    row.webhook_token = secrets.token_urlsafe(24)
+    await db.commit()
+    await db.refresh(row)
+    return _settings_response(row)
+
+
+@router.post('/evals/{eval_id}/push-source', response_model=EvalResponse)
+async def push_eval_to_source(
+    eval_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> BusinessRequestEval:
+    """Post the evaluation's gaps and questions on the work item itself."""
+    row = (
+        await db.execute(
+            select(BusinessRequestEval).where(
+                BusinessRequestEval.id == eval_id,
+                BusinessRequestEval.organization_id == tenant.organization_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='evaluation not found')
+    try:
+        return await BRManagementService(db).push_eval_to_source(
+            organization_id=tenant.organization_id, row=row,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f'Azure comment failed: {exc}') from exc
 
 
 @router.put('/evals/{eval_id}/status', response_model=EvalResponse)

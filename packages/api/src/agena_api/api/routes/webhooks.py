@@ -258,3 +258,34 @@ async def pr_merged_webhook(
             result['workflow_sync_error'] = str(exc)
 
     return result
+
+
+@router.post('/br-evaluate/{token}')
+async def br_evaluate_webhook(
+    token: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """Azure DevOps service hook → evaluate the work item straight away.
+
+    The token in the path identifies the organization (a service hook sends
+    no credentials of its own); rotate it from BR settings. Scoring runs
+    inline so Azure sees a real result, but every "not for us" case returns
+    200 — Azure disables a subscription that keeps failing.
+    """
+    from agena_services.services.br_management_service import handle_azure_webhook
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    if not isinstance(payload, dict):
+        return {'status': 'ignored', 'reason': 'invalid_payload'}
+
+    try:
+        detail = await handle_azure_webhook(db, token=token.strip(), payload=payload)
+    except Exception as exc:
+        logger.exception('BR webhook failed')
+        return {'status': 'error', 'detail': str(exc)}
+    logger.info('BR webhook: %s', detail)
+    return {'status': 'ok', 'detail': detail}

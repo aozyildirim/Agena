@@ -7,6 +7,8 @@ import NavIcon from '@/components/NavIcon';
 
 type BREval = {
   id: number;
+  source: string;
+  external_id: string;
   br_type?: string | null;
   readiness_score?: number | null;
   verdict?: string | null;
@@ -15,6 +17,8 @@ type BREval = {
   questions?: { id: string; text: string }[] | null;
   answers?: Record<string, string> | null;
   status: string;
+  evaluated_at?: string | null;
+  pushed_to_source_at?: string | null;
 };
 type BRItem = {
   source: string;
@@ -86,9 +90,10 @@ export default function BRManagementPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+  const [pushingId, setPushingId] = useState<string | null>(null);
   const [evaluatingAll, setEvaluatingAll] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortKey>('name');
+  const [sortBy, setSortBy] = useState<SortKey>('date');
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
@@ -176,6 +181,31 @@ export default function BRManagementPage() {
   // Refetch items when project or sprint changes.
   useEffect(() => { void loadItems(); }, [loadItems]);
 
+  // Evaluations finish server-side, so a reload — or closing the tab — never
+  // loses one. Poll the saved results (DB only, no Azure round-trip) and fold
+  // them in, so scores land on the page as they complete. Stops once every
+  // item is scored and nothing is running.
+  useEffect(() => {
+    const anyPending = items.some((it) => !it.eval);
+    if (!project || (!anyPending && !evaluatingAll)) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const rows = await apiFetch<BREval[]>('/br-management/evals');
+        if (cancelled || !rows.length) return;
+        const byId = new Map(rows.map((r) => [r.source + ':' + r.external_id, r]));
+        setItems((prev) => prev.map((it) => {
+          const fresh = byId.get(it.source + ':' + it.external_id);
+          if (!fresh) return it;
+          if (it.eval && it.eval.evaluated_at === fresh.evaluated_at) return it;
+          return { ...it, eval: fresh };
+        }));
+      } catch { /* transient — the next tick retries */ }
+    };
+    const id = setInterval(() => void tick(), 8000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [project, items, evaluatingAll]);
+
   const stats = useMemo(() => {
     const s = { total: items.length, pending: 0, ready: 0, needs_info: 0, not_br: 0, epic: 0, improvement: 0 };
     for (const it of items) {
@@ -204,12 +234,20 @@ export default function BRManagementPage() {
       }
       return true;
     });
+    // Newest first, on the last-touched date (falls back to creation date).
+    const recency = (it: BRItem) => it.changed_date || it.created_date || '';
+    const byDateDesc = (a: BRItem, b: BRItem) => recency(b).localeCompare(recency(a));
     arr.sort((a, b) => {
-      if (sortBy === 'type') return (a.work_item_type || '').localeCompare(b.work_item_type || '');
-      if (sortBy === 'state') return (a.state || '').localeCompare(b.state || '');
-      if (sortBy === 'score') return (b.eval?.readiness_score ?? -1) - (a.eval?.readiness_score ?? -1);
-      if (sortBy === 'date') return (b.changed_date || '').localeCompare(a.changed_date || '');
-      return (a.title || '').localeCompare(b.title || '');
+      // Scored items rise above the un-scored queue in every sort — the
+      // results are what you came to read; the backlog waits below.
+      const scored = Number(Boolean(b.eval)) - Number(Boolean(a.eval));
+      if (scored) return scored;
+      // Every other sort keeps newest-first as the tiebreaker inside a group.
+      if (sortBy === 'type') return (a.work_item_type || '').localeCompare(b.work_item_type || '') || byDateDesc(a, b);
+      if (sortBy === 'state') return (a.state || '').localeCompare(b.state || '') || byDateDesc(a, b);
+      if (sortBy === 'score') return ((b.eval?.readiness_score ?? -1) - (a.eval?.readiness_score ?? -1)) || byDateDesc(a, b);
+      if (sortBy === 'name') return (a.title || '').localeCompare(b.title || '');
+      return byDateDesc(a, b);
     });
     return arr;
   }, [items, filter, search, sortBy]);
@@ -227,6 +265,9 @@ export default function BRManagementPage() {
           title: item.title,
           description: item.description,
           assignee_email: item.assignee_email,
+          // Lets the backend read the item's discussion thread — requirements
+          // are routinely clarified in comments rather than the description.
+          project,
           ...(answers ? { answers } : {}),
         }),
       });
@@ -236,6 +277,19 @@ export default function BRManagementPage() {
       flash(e instanceof Error ? e.message : t('br.error'), 'err');
     } finally {
       setEvaluatingId(null);
+    }
+  }, [t, project]);
+
+  const pushToSource = useCallback(async (ev: BREval) => {
+    setPushingId(ev.external_id);
+    try {
+      const updated = await apiFetch<BREval>('/br-management/evals/' + ev.id + '/push-source', { method: 'POST' });
+      setItems((prev) => prev.map((it) => it.external_id === ev.external_id ? { ...it, eval: updated } : it));
+      flash(t('br.pushed'));
+    } catch (e) {
+      flash(e instanceof Error ? e.message : t('br.error'), 'err');
+    } finally {
+      setPushingId(null);
     }
   }, [t]);
 
@@ -343,11 +397,11 @@ export default function BRManagementPage() {
             <div style={{ display: 'grid', gap: 4 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-50)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('br.sort.label')}</label>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} style={{ ...selectStyle, minWidth: 130 }}>
+                <option value="date">{t('br.sort.date')}</option>
                 <option value="name">{t('br.sort.name')}</option>
                 <option value="type">{t('br.sort.type')}</option>
                 <option value="state">{t('br.sort.state')}</option>
                 <option value="score">{t('br.sort.score')}</option>
-                <option value="date">{t('br.sort.date')}</option>
               </select>
             </div>
             <div style={{ flex: 1 }} />
@@ -544,6 +598,13 @@ export default function BRManagementPage() {
                             <button onClick={() => void setStatus(ev, 'rejected')}
                               style={{ fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 8, border: '1px solid ' + (ev.status === 'rejected' ? '#cf5b57' : 'var(--panel-border)'), background: ev.status === 'rejected' ? '#cf5b5720' : 'transparent', color: ev.status === 'rejected' ? '#cf5b57' : 'var(--ink-65)', cursor: 'pointer' }}>
                               {ev.status === 'rejected' ? '✕ ' + t('br.rejected') : t('br.reject')}
+                            </button>
+                            {/* Puts the gaps where the requester already works. */}
+                            <button onClick={() => void pushToSource(ev)} disabled={pushingId === ev.external_id}
+                              title={ev.pushed_to_source_at ? t('br.pushedAt', { date: new Date(ev.pushed_to_source_at + 'Z').toLocaleString() }) : ''}
+                              style={{ fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--ink-65)', cursor: pushingId === ev.external_id ? 'default' : 'pointer', opacity: pushingId === ev.external_id ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <NavIcon name="send" size={14} />
+                              {pushingId === ev.external_id ? t('br.pushing') : t('br.push')}
                             </button>
                           </div>
                         )}

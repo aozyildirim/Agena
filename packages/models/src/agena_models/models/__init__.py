@@ -57,6 +57,9 @@ from agena_models.models.business_request import (
     BusinessRequestIntake,
     BusinessRequestSettings,
 )
+from agena_models.models.business_request_attachment import (
+    BusinessRequestIntakeAttachment,
+)
 
 __all__ = [
     'User', 'Organization', 'OrganizationMember', 'Subscription',
@@ -91,4 +94,5 @@ __all__ = [
     'BusinessRequestSettings',
     'BusinessRequestEval',
     'BusinessRequestIntake',
+    'BusinessRequestIntakeAttachment',
 ]

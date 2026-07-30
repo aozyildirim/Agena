@@ -51,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/br-management', key: 'nav.brManagement', icon: 'clipboard', permission: 'tasks:read' as const, module: 'br_management', wsPerm: 'pages:br-management', children: [
         { href: '/dashboard/br-management', key: 'nav.brManagementOverview', icon: 'clipboard' },
         { href: '/dashboard/br-management/intake', key: 'nav.brManagementIntake', icon: 'chat' },
+        { href: '/dashboard/br-management/evaluated', key: 'nav.brManagementEvaluated', icon: 'user-check' },
         { href: '/dashboard/br-management/settings', key: 'nav.brManagementSettings', icon: 'settings' },
       ]},
       { href: '/dashboard/sprints', key: 'nav.sprints', icon: 'sprints', permission: 'tasks:read' as const, module: 'sprints', wsPerm: 'pages:sprints' },
