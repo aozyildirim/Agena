@@ -8,6 +8,10 @@ import NavIcon from '@/components/NavIcon';
 type Check = { section: string; status: 'ok' | 'partial' | 'missing'; note?: string };
 type Question = { id: string; text: string; section?: string; examples?: string[] };
 type PackSection = { title: string; critical: boolean };
+type BreakdownItem = {
+  type: string; title: string; description?: string;
+  azure_id?: string | null; children?: BreakdownItem[];
+};
 type Eval = {
   id: number;
   source: string;
@@ -22,6 +26,10 @@ type Eval = {
   questions?: Question[] | null;
   answers?: Record<string, string> | null;
   status: string;
+  state?: string | null;
+  pack_key?: string | null;
+  breakdown?: BreakdownItem[] | null;
+  breakdown_created_at?: string | null;
   evaluated_at?: string | null;
   pushed_to_source_at?: string | null;
 };
@@ -45,6 +53,18 @@ const FILTERS = [
   { key: 'not_br', label: 'br.type.not_br' },
 ] as const;
 
+/** Depth-first walk so the tree renders as indented rows. */
+function flattenBreakdown(
+  items: BreakdownItem[] | null | undefined, depth = 0,
+): { item: BreakdownItem; depth: number }[] {
+  const out: { item: BreakdownItem; depth: number }[] = [];
+  for (const item of items || []) {
+    out.push({ item, depth });
+    out.push(...flattenBreakdown(item.children, depth + 1));
+  }
+  return out;
+}
+
 const scoreColor = (s: number) => (s >= 70 ? '#3f9d6a' : s >= 40 ? '#d99a2b' : '#cf5b57');
 const norm = (s: string) =>
   (s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/^\s*\d+\s*/, '').trim();
@@ -65,8 +85,11 @@ export default function BREvaluatedPage() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
-  const [busy, setBusy] = useState<'push' | 'reeval' | 'status' | null>(null);
+  const [busy, setBusy] = useState<'push' | 'reeval' | 'status' | 'propose' | 'create' | null>(null);
+  const [azureProjects, setAzureProjects] = useState<string[]>([]);
+  const [bdProject, setBdProject] = useState('');
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [initialThreshold, setInitialThreshold] = useState(70);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null);
 
@@ -91,10 +114,13 @@ export default function BREvaluatedPage() {
         const s = await apiFetch<{
           decision_pack_sections?: PackSection[];
           azure_base_url?: string | null; azure_project?: string | null;
+          submit_threshold?: number;
         }>('/br-management/settings');
         setPackSections(s.decision_pack_sections || []);
         setAzureBase((s.azure_base_url || '').replace(/\/+$/, ''));
         setAzureProject(s.azure_project || '');
+        setBdProject(s.azure_project || '');
+        if (s.submit_threshold) setInitialThreshold(s.submit_threshold);
       } catch { /* the document still renders from the checklist alone */ }
       setLoading(false);
     };
@@ -166,6 +192,8 @@ export default function BREvaluatedPage() {
   }, [active, docRows]);
 
   const gapCount = docRows.filter((r) => r.status !== 'ok').length;
+  const flatBreakdown = useMemo(() => flattenBreakdown(active?.breakdown), [active?.breakdown]);
+  const pendingBreakdown = flatBreakdown.filter((n) => !n.item.azure_id).length;
   const answered = Object.values(draft).filter((v) => v.trim()).length;
 
   const patch = (next: Eval) => setRows((prev) => prev.map((r) => (r.id === next.id ? next : r)));
@@ -192,6 +220,40 @@ export default function BREvaluatedPage() {
     try {
       patch(await apiFetch<Eval>(`/br-management/evals/${active.id}/push-source`, { method: 'POST' }));
       flash(t('br.pushed'));
+    } catch (e) {
+      flash(e instanceof Error ? e.message : t('br.error'), 'err');
+    } finally { setBusy(null); }
+  };
+
+  const proposeBreakdown = async () => {
+    if (!active) return;
+    setBusy('propose');
+    try {
+      patch(await apiFetch<Eval>(`/br-management/evals/${active.id}/breakdown`, {
+        method: 'POST', signal: AbortSignal.timeout(240_000),
+      }));
+      if (!azureProjects.length) {
+        try {
+          const list = await apiFetch<{ id: string; name: string }[]>('/br-management/azure/projects');
+          setAzureProjects(list.map((x) => x.name));
+        } catch { /* free-text project input still works */ }
+      }
+      flash(t('br.breakdown.proposed'));
+    } catch (e) {
+      flash(e instanceof Error ? e.message : t('br.error'), 'err');
+    } finally { setBusy(null); }
+  };
+
+  const createBreakdown = async () => {
+    if (!active || !bdProject.trim()) return;
+    setBusy('create');
+    try {
+      patch(await apiFetch<Eval>(`/br-management/evals/${active.id}/breakdown/create`, {
+        method: 'POST',
+        body: JSON.stringify({ project: bdProject.trim() }),
+        signal: AbortSignal.timeout(180_000),
+      }));
+      flash(t('br.breakdown.created'));
     } catch (e) {
       flash(e instanceof Error ? e.message : t('br.error'), 'err');
     } finally { setBusy(null); }
@@ -454,6 +516,89 @@ export default function BREvaluatedPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* ── Delivery breakdown ───────────────────── */}
+                    <div style={{ marginTop: 26, paddingTop: 20, borderTop: '1px solid var(--panel-border)', display: 'grid', gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontSize: 10.5, fontWeight: 800, letterSpacing: 0.7,
+                          textTransform: 'uppercase', color: 'var(--ink-30)',
+                        }}>{t('br.breakdown.title')}</span>
+                        {active.breakdown_created_at && (
+                          <span style={{ fontSize: 11, color: '#3f9d6a', fontWeight: 700 }}>
+                            {t('br.breakdown.inAzure')}
+                          </span>
+                        )}
+                        <span style={{ flex: 1 }} />
+                        <button onClick={() => void proposeBreakdown()} disabled={busy !== null}
+                          className={active.breakdown?.length ? 'breghost' : 'brebtn-acc'}>
+                          <NavIcon name="layers" size={13} />
+                          {busy === 'propose' ? t('br.breakdown.proposing')
+                            : active.breakdown?.length ? t('br.breakdown.repropose') : t('br.breakdown.propose')}
+                        </button>
+                      </div>
+
+                      {!active.breakdown?.length ? (
+                        <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-35)', lineHeight: 1.65 }}>
+                          {t('br.breakdown.hint', { score: initialThreshold })}
+                        </p>
+                      ) : (
+                        <>
+                          <div style={{ display: 'grid', gap: 4 }}>
+                            {flattenBreakdown(active.breakdown).map((n, i) => (
+                              <div key={i} style={{
+                                display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 9,
+                                alignItems: 'baseline', padding: '8px 10px', borderRadius: 9,
+                                marginInlineStart: n.depth * 20,
+                                background: 'var(--panel-alt)',
+                                border: '1px solid ' + (n.item.azure_id ? 'color-mix(in srgb, #3f9d6a 40%, transparent)' : 'var(--panel-border-2)'),
+                              }}>
+                                <span className="brechip" style={{ cursor: 'default' }}>{n.item.type}</span>
+                                <span style={{ minWidth: 0 }}>
+                                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-90)', lineHeight: 1.45 }}>
+                                    {n.item.title}
+                                  </span>
+                                  {n.item.description && (
+                                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--ink-45)', lineHeight: 1.6, marginTop: 2 }}>
+                                      {n.item.description}
+                                    </span>
+                                  )}
+                                </span>
+                                {n.item.azure_id && (
+                                  azureBase && bdProject ? (
+                                    <a href={`${azureBase}/${bdProject}/_workitems/edit/${n.item.azure_id}`}
+                                      target="_blank" rel="noreferrer"
+                                      style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                                      #{n.item.azure_id} ↗
+                                    </a>
+                                  ) : (
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#3f9d6a', whiteSpace: 'nowrap' }}>
+                                      #{n.item.azure_id}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input value={bdProject} onChange={(e) => setBdProject(e.target.value)}
+                              list="bre-azure-projects" placeholder={t('br.settings.azureProjectPlaceholder')}
+                              style={{ ...inputStyle, width: 190 }} />
+                            <datalist id="bre-azure-projects">
+                              {azureProjects.map((x) => <option key={x} value={x} />)}
+                            </datalist>
+                            <button onClick={() => void createBreakdown()}
+                              disabled={busy !== null || !bdProject.trim() || pendingBreakdown === 0}
+                              className="brebtn-acc">
+                              <NavIcon name="send" size={13} />
+                              {busy === 'create' ? t('br.breakdown.creating')
+                                : pendingBreakdown === 0 ? t('br.breakdown.allCreated')
+                                  : t('br.breakdown.create', { count: pendingBreakdown })}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
 
                     {active.evaluated_at && (
                       <div style={{ marginTop: 20, fontSize: 11, color: 'var(--ink-30)' }}>

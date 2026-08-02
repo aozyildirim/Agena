@@ -66,6 +66,26 @@ const scoreColor = (s: number) => (s >= 75 ? '#3f9d6a' : s >= 45 ? '#c98a2b' : '
 const LS_PROJECT = 'br_azure_project';
 const LS_TEAM = 'br_azure_team';
 const LS_SPRINT = 'br_azure_sprint';  // sprint PATH, '' = all open
+// Evaluations run server-side and outlive the tab, so which ones are still
+// running is remembered here: { external_id: { at, since } }. `since` is the
+// eval's evaluated_at when we started, so a run counts as finished the moment
+// that value moves.
+const LS_RUNNING = 'br_running_evals';
+// A run that never reports back is treated as finished after this, so a
+// crashed backend can't leave a row spinning forever.
+const RUNNING_TTL_MS = 10 * 60 * 1000;
+
+type RunningMap = Record<string, { at: number; since: string | null }>;
+
+const readRunning = (): RunningMap => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_RUNNING) || '{}') as RunningMap;
+    const now = Date.now();
+    return Object.fromEntries(
+      Object.entries(raw).filter(([, v]) => v && now - v.at < RUNNING_TTL_MS),
+    );
+  } catch { return {}; }
+};
 
 const selectStyle: React.CSSProperties = {
   padding: '8px 12px', borderRadius: 8, border: '1px solid var(--panel-border-3)',
@@ -89,7 +109,7 @@ export default function BRManagementPage() {
   const [items, setItems] = useState<BRItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+  const [running, setRunning] = useState<RunningMap>({});
   const [pushingId, setPushingId] = useState<string | null>(null);
   const [evaluatingAll, setEvaluatingAll] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -105,6 +125,26 @@ export default function BRManagementPage() {
     setToast({ msg, kind });
     setTimeout(() => setToast(null), 3000);
   };
+
+  useEffect(() => { setRunning(readRunning()); }, []);
+
+  const markRunning = useCallback((id: string, since: string | null) => {
+    setRunning((prev) => {
+      const next = { ...prev, [id]: { at: Date.now(), since } };
+      localStorage.setItem(LS_RUNNING, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearRunning = useCallback((id: string) => {
+    setRunning((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      localStorage.setItem(LS_RUNNING, JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   // Initial load: settings + projects + restore selection.
   useEffect(() => {
@@ -187,24 +227,41 @@ export default function BRManagementPage() {
   // item is scored and nothing is running.
   useEffect(() => {
     const anyPending = items.some((it) => !it.eval);
-    if (!project || (!anyPending && !evaluatingAll)) return;
+    const anyRunning = Object.keys(running).length > 0;
+    if (!project || (!anyPending && !anyRunning && !evaluatingAll)) return;
     let cancelled = false;
     const tick = async () => {
       try {
         const rows = await apiFetch<BREval[]>('/br-management/evals');
         if (cancelled || !rows.length) return;
         const byId = new Map(rows.map((r) => [r.source + ':' + r.external_id, r]));
-        setItems((prev) => prev.map((it) => {
-          const fresh = byId.get(it.source + ':' + it.external_id);
-          if (!fresh) return it;
-          if (it.eval && it.eval.evaluated_at === fresh.evaluated_at) return it;
-          return { ...it, eval: fresh };
-        }));
+        // Return the previous array untouched when nothing moved. Handing
+        // back a fresh array every tick would re-run this effect (it depends
+        // on `items`), tearing down and rebuilding the interval forever.
+        setItems((prev) => {
+          let changed = false;
+          const next = prev.map((it) => {
+            const fresh = byId.get(it.source + ':' + it.external_id);
+            if (!fresh) return it;
+            if (it.eval && it.eval.evaluated_at === fresh.evaluated_at) return it;
+            changed = true;
+            return { ...it, eval: fresh };
+          });
+          return changed ? next : prev;
+        });
+        // A marker set by this tab — or by one that has since been closed —
+        // clears as soon as the stored evaluation is newer than it was.
+        for (const [id, mark] of Object.entries(readRunning())) {
+          const fresh = byId.get('azure:' + id);
+          if (fresh && fresh.evaluated_at && fresh.evaluated_at !== mark.since) {
+            clearRunning(id);
+          }
+        }
       } catch { /* transient — the next tick retries */ }
     };
     const id = setInterval(() => void tick(), 8000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [project, items, evaluatingAll]);
+  }, [project, items, evaluatingAll, running, clearRunning]);
 
   const stats = useMemo(() => {
     const s = { total: items.length, pending: 0, ready: 0, needs_info: 0, not_br: 0, epic: 0, improvement: 0 };
@@ -255,7 +312,7 @@ export default function BRManagementPage() {
   const pending = filteredItems.filter((i) => !i.eval).length;
 
   const evaluate = useCallback(async (item: BRItem, answers?: Record<string, string>) => {
-    setEvaluatingId(item.external_id);
+    markRunning(item.external_id, item.eval?.evaluated_at ?? null);
     try {
       const ev = await apiFetch<BREval>('/br-management/evaluate', {
         method: 'POST',
@@ -268,6 +325,9 @@ export default function BRManagementPage() {
           // Lets the backend read the item's discussion thread — requirements
           // are routinely clarified in comments rather than the description.
           project,
+          // The model is told the workflow state, so a Done BR is judged on
+          // what the written request covers rather than on progress.
+          state: item.state,
           ...(answers ? { answers } : {}),
         }),
       });
@@ -276,9 +336,9 @@ export default function BRManagementPage() {
     } catch (e) {
       flash(e instanceof Error ? e.message : t('br.error'), 'err');
     } finally {
-      setEvaluatingId(null);
+      clearRunning(item.external_id);
     }
-  }, [t, project]);
+  }, [t, project, markRunning, clearRunning]);
 
   const pushToSource = useCallback(async (ev: BREval) => {
     setPushingId(ev.external_id);
@@ -463,7 +523,7 @@ export default function BRManagementPage() {
               {filteredItems.map((item) => {
                 const ev = item.eval;
                 const isExpanded = expanded === item.external_id;
-                const isEvaluating = evaluatingId === item.external_id;
+                const isEvaluating = item.external_id in running;
                 const draft = answerDraft[item.external_id] || {};
                 return (
                   <div key={item.external_id} style={{ borderRadius: 10, border: '1px solid ' + (isExpanded ? 'var(--acc)' : 'var(--panel-border)'), background: isExpanded ? 'var(--acc-soft)' : 'var(--panel)', overflow: 'hidden' }}>
@@ -506,12 +566,26 @@ export default function BRManagementPage() {
                           {t(('br.verdict.' + ev.verdict) as TranslationKey)}
                         </span>
                       )}
-                      {!ev && (
-                        <button onClick={() => void evaluate(item)} disabled={isEvaluating}
-                          style={{ fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--acc)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: isEvaluating ? 'default' : 'pointer', opacity: isEvaluating ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                          {isEvaluating ? t('br.evaluating') : t('br.evaluate')}
-                        </button>
-                      )}
+                      {/* A first scoring is the accented call to action; a
+                          re-score is a quieter repeat, so the row reads as
+                          already-handled at a glance. */}
+                      <button onClick={() => void evaluate(item, ev?.answers || undefined)} disabled={isEvaluating}
+                        style={{
+                          fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8,
+                          whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5,
+                          border: '1px solid ' + (isEvaluating || !ev ? 'var(--acc)' : 'var(--panel-border-3)'),
+                          background: isEvaluating || !ev ? 'var(--acc-soft)' : 'transparent',
+                          color: isEvaluating || !ev ? 'var(--acc)' : 'var(--ink-45)',
+                          cursor: isEvaluating ? 'default' : 'pointer',
+                          opacity: isEvaluating ? 0.6 : 1,
+                        }}>
+                        {isEvaluating
+                          ? <span className="brpulse" />
+                          : <NavIcon name={ev ? 'clock' : 'zap'} size={12} />}
+                        {isEvaluating
+                          ? (ev ? t('br.reEvaluating') : t('br.evaluating'))
+                          : (ev ? t('br.reEvaluate') : t('br.evaluate'))}
+                      </button>
                       <span style={{ fontSize: 16, color: 'var(--ink-25)', cursor: 'pointer', transform: isExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', display: 'inline-flex' }} onClick={() => void openCard(item)}><NavIcon name="chevron-right" size={16} /></span>
                     </div>
 
@@ -589,7 +663,7 @@ export default function BRManagementPage() {
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             <button onClick={() => void evaluate(item, { ...(ev.answers || {}), ...draft })} disabled={isEvaluating}
                               style={{ fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--acc)', background: 'var(--acc-soft)', color: 'var(--acc)', cursor: isEvaluating ? 'default' : 'pointer', opacity: isEvaluating ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <NavIcon name="zap" size={14} /> {isEvaluating ? t('br.evaluating') : t('br.reEvaluate')}
+                              <NavIcon name="zap" size={14} /> {isEvaluating ? t('br.reEvaluating') : t('br.reEvaluate')}
                             </button>
                             <button onClick={() => void setStatus(ev, 'accepted')}
                               style={{ fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 8, border: '1px solid ' + (ev.status === 'accepted' ? '#3f9d6a' : 'var(--panel-border)'), background: ev.status === 'accepted' ? '#3f9d6a20' : 'transparent', color: ev.status === 'accepted' ? '#3f9d6a' : 'var(--ink-65)', cursor: 'pointer' }}>
@@ -617,6 +691,17 @@ export default function BRManagementPage() {
           )}
         </>
       )}
+
+      <style>{`
+        /* A run outlives the tab, so the marker has to read as "still
+           working" the moment the page comes back, not just while you watch. */
+        .brpulse { width: 8px; height: 8px; border-radius: 5px; flex-shrink: 0;
+                   background: var(--acc); animation: brPulse 1.1s ease-in-out infinite; }
+        @keyframes brPulse {
+          0%, 100% { opacity: .3; transform: scale(.8); }
+          50%      { opacity: 1;  transform: scale(1.15); }
+        }
+      `}</style>
     </div>
   );
 }

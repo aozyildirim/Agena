@@ -114,10 +114,96 @@ def normalize_sections(raw: Any) -> list[dict[str, Any]]:
     return out[:40] or [dict(s) for s in DECISION_PACK_SECTIONS]
 
 
-def org_sections(settings: BusinessRequestSettings | None) -> list[dict[str, Any]]:
-    if settings is not None and settings.decision_pack_sections:
-        return normalize_sections(settings.decision_pack_sections)
-    return [dict(s) for s in DECISION_PACK_SECTIONS]
+DEFAULT_PACK_KEY = 'default'
+
+
+def normalize_packs(raw: Any) -> list[dict[str, Any]]:
+    """Coerce stored packs into {key, name, applies_to, sections}."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    if isinstance(raw, list):
+        for i, entry in enumerate(raw):
+            if not isinstance(entry, dict):
+                continue
+            sections = normalize_sections(entry.get('sections'))
+            key = (str(entry.get('key') or '').strip() or f'pack{i + 1}')[:64]
+            if key in seen:
+                key = f'{key}-{i + 1}'[:64]
+            seen.add(key)
+            applies = str(entry.get('applies_to') or 'default').strip().lower()
+            if applies not in ('default', 'epic', 'improvement'):
+                applies = 'default'
+            out.append({
+                'key': key,
+                'name': (str(entry.get('name') or '').strip() or key)[:120],
+                'applies_to': applies,
+                'sections': sections,
+            })
+    return out[:8]
+
+
+def org_packs(settings: BusinessRequestSettings | None) -> list[dict[str, Any]]:
+    """Every pack this org evaluates against, always at least one.
+
+    An org that only ever configured the single `decision_pack_sections`
+    list keeps working — it becomes the default pack."""
+    if settings is not None and settings.decision_packs:
+        packs = normalize_packs(settings.decision_packs)
+        if packs:
+            return packs
+    return [{
+        'key': DEFAULT_PACK_KEY,
+        'name': 'Decision Pack',
+        'applies_to': 'default',
+        'sections': (
+            normalize_sections(settings.decision_pack_sections)
+            if settings is not None and settings.decision_pack_sections
+            else [dict(s) for s in DECISION_PACK_SECTIONS]
+        ),
+    }]
+
+
+def resolve_pack(
+    settings: BusinessRequestSettings | None, *,
+    pack_key: str | None = None, br_type: str | None = None,
+) -> dict[str, Any]:
+    """Pick the pack to judge against: an explicit choice wins, then one
+    matching the classification, then the default, then the first."""
+    packs = org_packs(settings)
+    if pack_key:
+        for p in packs:
+            if p['key'] == pack_key:
+                return p
+    if br_type in ('epic', 'improvement'):
+        for p in packs:
+            if p['applies_to'] == br_type:
+                return p
+    for p in packs:
+        if p['applies_to'] == 'default':
+            return p
+    return packs[0]
+
+
+def org_sections(
+    settings: BusinessRequestSettings | None, *,
+    pack_key: str | None = None, br_type: str | None = None,
+) -> list[dict[str, Any]]:
+    return resolve_pack(settings, pack_key=pack_key, br_type=br_type)['sections']
+
+
+def included_states(settings: BusinessRequestSettings | None) -> list[str]:
+    """States the BR queue covers. Empty list = every state except the
+    closed ones, which is the historical behaviour."""
+    if settings is not None and settings.included_states:
+        return [str(s).strip() for s in settings.included_states if str(s).strip()][:30]
+    return []
+
+
+def state_allowed(settings: BusinessRequestSettings | None, state: str) -> bool:
+    allow = included_states(settings)
+    if allow:
+        return (state or '') in allow
+    return (state or '') not in CLOSED_STATES
 
 
 def render_sections(sections: list[dict[str, Any]]) -> str:
@@ -206,6 +292,90 @@ Respond with ONLY a JSON object, no prose, exactly:
 "pack_markdown": "..."}"""
 
 
+DEFAULT_BREAKDOWN_SYSTEM_PROMPT = """You are a delivery lead breaking a matured \
+Business Request into work an engineering team can pick up. Everything you write \
+is in TURKISH.
+
+You receive the BR's Decision Pack and its classification. Produce the work \
+hierarchy that sits UNDER the BR:
+
+- An **Epic** BR breaks into Features; each Feature into User Stories; a Story \
+into Tasks only where the technical work is genuinely separable.
+- An **Improvement** BR breaks into User Stories directly (no Feature layer), \
+each with its Tasks.
+
+Rules:
+- Derive ONLY from what the Decision Pack states. Never invent scope. If the pack \
+says something is out of scope, no item may cover it.
+- Every item: a short imperative Turkish title (max ~90 chars) and a 1-3 sentence \
+`description` saying what "done" means for it. Acceptance criteria belong in the \
+User Story descriptions.
+- Keep the tree small enough to be real: at most 6 Features, at most 8 Stories per \
+Feature, at most 6 Tasks per Story. Fewer, meaningful items beat an exhaustive list.
+- No item may restate the BR itself, and no two items may cover the same work.
+
+Respond with ONLY a JSON object, no prose, exactly:
+{"items": [{"type": "Feature|User Story|Task", "title": "...", \
+"description": "...", "children": [ ...same shape... ]}]}"""
+
+# Which child types are legal under which parent, so a hallucinated level
+# can't produce an Azure link Azure will reject.
+BREAKDOWN_CHILD_TYPES = {
+    'Feature': ('User Story',),
+    'User Story': ('Task',),
+    'Task': (),
+}
+BREAKDOWN_ROOT_TYPES = {
+    'epic': ('Feature', 'User Story'),
+    'improvement': ('User Story',),
+}
+BREAKDOWN_MAX = {'Feature': 6, 'User Story': 8, 'Task': 6}
+
+
+def normalize_breakdown(
+    raw: Any, *, allowed: tuple[str, ...], depth: int = 0,
+) -> list[dict[str, Any]]:
+    """Validate the proposed tree: legal types, legal nesting, sane counts.
+
+    Anything the model got wrong is dropped rather than passed on to Azure,
+    where a bad link type fails the whole create."""
+    if not isinstance(raw, list) or depth > 2:
+        return []
+    out: list[dict[str, Any]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        wi_type = str(entry.get('type') or '').strip().title()
+        if wi_type == 'Userstory':
+            wi_type = 'User Story'
+        if wi_type not in allowed:
+            continue
+        title = str(entry.get('title') or '').strip()
+        if not title:
+            continue
+        if len(out) >= BREAKDOWN_MAX.get(wi_type, 6):
+            break
+        out.append({
+            'type': wi_type,
+            'title': title[:250],
+            'description': str(entry.get('description') or '').strip()[:4000],
+            'children': normalize_breakdown(
+                entry.get('children'),
+                allowed=BREAKDOWN_CHILD_TYPES.get(wi_type, ()),
+                depth=depth + 1,
+            ),
+            'azure_id': str(entry.get('azure_id') or '').strip() or None,
+        })
+    return out
+
+
+def count_breakdown(items: list[dict[str, Any]] | None) -> int:
+    total = 0
+    for item in items or []:
+        total += 1 + count_breakdown(item.get('children'))
+    return total
+
+
 def _normalize_intake(raw: dict[str, Any]) -> dict[str, Any]:
     base = _normalize(raw)
     # Structured questions with tappable example answers.
@@ -274,8 +444,54 @@ def _markdown_to_html(md: str) -> str:
     return '\n'.join(out)
 
 
-def _build_system_prompt(base: str, settings: BusinessRequestSettings | None) -> str:
-    sections = render_sections(org_sections(settings))
+def pack_field_values(
+    pack_markdown: str | None, field_map: dict[str, Any] | None,
+) -> dict[str, str]:
+    """Split the composed pack by section and return {azure field ref: text}.
+
+    Headings are matched loosely (case, punctuation and numbering ignored)
+    because the model writes the heading, not us. Sections with no mapping,
+    or with nothing written under them, are left out."""
+    if not pack_markdown or not field_map:
+        return {}
+
+    def key(s: str) -> str:
+        return re.sub(r'[^0-9a-zçğıöşü]+', ' ', (s or '').lower()).strip()
+
+    blocks: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in pack_markdown.splitlines():
+        heading = re.match(r'^#{1,4}\s+(.*)$', line.strip())
+        if heading:
+            current = key(heading.group(1))
+            blocks.setdefault(current, [])
+        elif current is not None:
+            blocks[current].append(line)
+
+    out: dict[str, str] = {}
+    for section, ref in field_map.items():
+        ref = str(ref or '').strip()
+        if not ref:
+            continue
+        wanted = key(str(section))
+        if not wanted:
+            continue
+        match = next(
+            (v for k, v in blocks.items() if k and (k == wanted or wanted in k or k in wanted)),
+            None,
+        )
+        text = '\n'.join(match or []).strip()
+        text = re.sub(r'^_\(eksik\)_$', '', text, flags=re.I | re.M).strip()
+        if text:
+            out[ref] = text[:8000]
+    return out
+
+
+def _build_system_prompt(
+    base: str, settings: BusinessRequestSettings | None, *,
+    pack_key: str | None = None, br_type: str | None = None,
+) -> str:
+    sections = render_sections(org_sections(settings, pack_key=pack_key, br_type=br_type))
     text = (base or '').strip()
     if SECTIONS_TOKEN in text:
         text = text.replace(SECTIONS_TOKEN, sections)
@@ -324,12 +540,19 @@ def format_comments(comments: list[dict[str, Any]] | None, limit: int = 30) -> s
 
 def _build_user_prompt(
     *, title: str, description: str, answers: dict[str, Any] | None,
-    comments: list[dict[str, Any]] | None = None,
+    comments: list[dict[str, Any]] | None = None, state: str | None = None,
 ) -> str:
     lines = [
         f'## Work item title\n{title or "(untitled)"}',
         f'## Description\n{_strip_html(description or "")[:6000] or "(empty)"}',
     ]
+    if state:
+        lines.append(
+            f'## Workflow state\n{state}\n'
+            'A request already in progress or delivered is judged the same way — '
+            'report what the written request still fails to cover. Do not soften '
+            'the score because work has started.'
+        )
     discussion = format_comments(comments)
     if discussion:
         lines.append(
@@ -452,12 +675,25 @@ async def resolve_azure_creds(
 
 async def fetch_azure_items(
     *, base_url: str, pat: str, project: str, emails: list[str],
-    sprint_path: str = '',
+    sprint_path: str = '', states: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Work items assigned to the BR people. sprint_path optional: empty =
-    ALL open (non-closed) work in the project — BRs are often pre-sprint.
+    the whole project — BRs are often pre-sprint. `states` names exactly
+    which workflow states count; empty means every non-closed state.
     A member whose query/PAT fails is skipped so the rest still surface."""
     sprint_path = (sprint_path or '').strip()
+    # The same state rule on both paths — a sprint filter used to smuggle in
+    # closed items while the project-wide query excluded them.
+    if states:
+        state_clause = (
+            'And [System.State] IN ('
+            + ', '.join(f"'{s}'" for s in states) + ')'
+        )
+    else:
+        state_clause = (
+            'And [System.State] NOT IN ('
+            + ', '.join(f"'{s}'" for s in CLOSED_STATES) + ')'
+        )
     out: list[dict[str, Any]] = []
     headers = _azure_headers(pat)
     async with httpx.AsyncClient(timeout=30) as client:
@@ -465,15 +701,13 @@ async def fetch_azure_items(
             if sprint_path:
                 where = (
                     f"[System.IterationPath] UNDER '{sprint_path}' "
-                    f"And [System.AssignedTo] = '{email}'"
+                    f"And [System.AssignedTo] = '{email}' {state_clause}"
                 )
-                order = 'Order By [System.State] Asc'
+                order = 'Order By [System.ChangedDate] Desc'
             else:
-                closed = ', '.join(f"'{s}'" for s in CLOSED_STATES)
                 where = (
                     f"[System.TeamProject] = '{project}' "
-                    f"And [System.AssignedTo] = '{email}' "
-                    f"And [System.State] NOT IN ({closed})"
+                    f"And [System.AssignedTo] = '{email}' {state_clause}"
                 )
                 order = 'Order By [System.ChangedDate] Desc'
             wiql_payload = {'query': f'Select [System.Id] From WorkItems Where {where} {order}'}
@@ -717,6 +951,8 @@ class BRManagementService:
         answers: dict[str, Any] | None = None,
         project: str | None = None,
         comments: list[dict[str, Any]] | None = None,
+        state: str | None = None,
+        pack_key: str | None = None,
     ) -> BusinessRequestEval:
         """Run one BR evaluation and upsert the result row.
 
@@ -746,9 +982,16 @@ class BRManagementService:
             org_override=(settings.eval_prompt if settings else None),
             fallback=DEFAULT_SYSTEM_PROMPT,
         )
-        system_prompt = _build_system_prompt(base, settings)
+        # A re-evaluation keeps judging against the pack it was first scored
+        # on unless the caller names one, so a score doesn't jump because the
+        # classification moved between packs mid-conversation.
+        chosen_pack = resolve_pack(
+            settings, pack_key=pack_key, br_type=None,
+        ) if pack_key else None
+        system_prompt = _build_system_prompt(base, settings, pack_key=pack_key)
         user_prompt = _build_user_prompt(
-            title=title, description=description, answers=answers, comments=comments,
+            title=title, description=description, answers=answers,
+            comments=comments, state=state,
         )
 
         output, usage, provider = await self._run_llm(
@@ -781,6 +1024,12 @@ class BRManagementService:
         existing.title = title or existing.title
         if assignee_email:
             existing.assignee_email = assignee_email
+        if state:
+            existing.state = state
+        existing.pack_key = (
+            chosen_pack['key'] if chosen_pack
+            else resolve_pack(settings, br_type=result['br_type'])['key']
+        )
         existing.br_type = result['br_type']
         existing.readiness_score = result['readiness_score']
         existing.verdict = result['verdict']
@@ -812,6 +1061,155 @@ class BRManagementService:
             pass
 
         return existing
+
+    async def propose_breakdown(
+        self, *, organization_id: int, row: BusinessRequestEval,
+        project: str | None = None,
+    ) -> BusinessRequestEval:
+        """Ask the model for the delivery tree under a matured BR.
+
+        Nothing is created in Azure here — the proposal is saved so a human
+        edits it first."""
+        settings = await self.get_settings(organization_id)
+        if (row.readiness_score or 0) < INTAKE_SUBMIT_THRESHOLD:
+            raise ValueError(
+                f'Readiness {row.readiness_score or 0} is below the gate '
+                f'({INTAKE_SUBMIT_THRESHOLD}) — mature the request before breaking it down.'
+            )
+        if row.br_type == 'not_br':
+            raise ValueError('This item is not a business request, so there is nothing to break down.')
+
+        # The checklist notes are the only record of what the pack actually
+        # says for an Azure-sourced BR, so they carry the scope.
+        pack = resolve_pack(settings, pack_key=row.pack_key, br_type=row.br_type)
+        covered = '\n'.join(
+            f'- {c.get("section")}: [{c.get("status")}] {c.get("note") or ""}'.strip()
+            for c in (row.checklist or [])
+        )
+        answers = '\n'.join(
+            f'- {k}: {v}' for k, v in (row.answers or {}).items() if str(v).strip()
+        )
+        parts = [
+            f'## BR title\n{row.title or "(untitled)"}',
+            f'## Classification\n{row.br_type or "improvement"}',
+            f'## Decision Pack ({pack["name"]}) coverage\n{covered or "(empty)"}',
+        ]
+        if row.reasoning:
+            parts.append(f'## Evaluation reasoning\n{row.reasoning}')
+        if answers:
+            parts.append(f'## Stakeholder answers\n{answers}')
+
+        base = await self._base_prompt(
+            settings, slug='br_breakdown_system_prompt',
+            org_override=None, fallback=DEFAULT_BREAKDOWN_SYSTEM_PROMPT,
+        )
+        output, usage, provider = await self._run_llm(
+            organization_id=organization_id,
+            system_prompt=base,
+            user_prompt='\n\n'.join(parts),
+            provider_override=(settings.provider if settings else None),
+            model_override=(settings.model if settings else None),
+            max_output_tokens=4000,
+        )
+        items = normalize_breakdown(
+            _extract_json(output).get('items'),
+            allowed=BREAKDOWN_ROOT_TYPES.get(row.br_type or 'improvement', ('User Story',)),
+        )
+        if not items:
+            raise RuntimeError('The model returned no usable breakdown — try again.')
+        row.breakdown = items
+        await self.db.commit()
+        await self.db.refresh(row)
+
+        try:
+            from agena_services.services.ai_usage_event_service import AIUsageEventService
+            await AIUsageEventService(self.db).record_llm_usage(
+                organization_id=organization_id, task_id=None,
+                operation_type='br_breakdown', provider=provider,
+                model=(settings.model if settings else None), usage=usage,
+                details={'external_id': row.external_id, 'items': count_breakdown(items)},
+            )
+        except Exception:
+            pass
+        return row
+
+    async def create_breakdown_in_azure(
+        self, *, organization_id: int, row: BusinessRequestEval, project: str,
+    ) -> BusinessRequestEval:
+        """Create the saved tree in Azure, each item linked to its parent.
+
+        Items that already carry an azure_id are skipped, so a partially
+        failed run can be re-run without duplicating work."""
+        if row.source != 'azure':
+            raise ValueError('Creating the breakdown currently supports Azure only.')
+        if not row.breakdown:
+            raise ValueError('No breakdown to create — propose one first.')
+        project = (project or '').strip()
+        if not project:
+            raise ValueError('An Azure project is required.')
+
+        settings = await self.get_settings(organization_id)
+        base_url, pat = await resolve_azure_creds(self.db, organization_id, settings)
+        headers = _azure_headers(pat)
+        headers['Content-Type'] = 'application/json-patch+json'
+        created = 0
+
+        async def create_one(
+            client: httpx.AsyncClient, item: dict[str, Any], parent_id: str,
+        ) -> None:
+            nonlocal created
+            if not item.get('azure_id'):
+                patch: list[dict[str, Any]] = [
+                    {'op': 'add', 'path': '/fields/System.Title', 'value': item['title'][:250]},
+                    {'op': 'add', 'path': '/fields/System.Tags', 'value': 'BR; Agena Breakdown'},
+                ]
+                if item.get('description'):
+                    patch.append({
+                        'op': 'add', 'path': '/fields/System.Description',
+                        'value': _markdown_to_html(item['description']),
+                    })
+                patch.append({
+                    'op': 'add', 'path': '/relations/-',
+                    'value': {
+                        'rel': 'System.LinkTypes.Hierarchy-Reverse',
+                        'url': f'{base_url}/_apis/wit/workItems/{parent_id}',
+                    },
+                })
+                resp = await client.post(
+                    f'{base_url}/{project}/_apis/wit/workitems/'
+                    f'${item["type"]}?api-version=7.1-preview.3',
+                    headers=headers, json=patch,
+                )
+                if resp.status_code >= 400:
+                    detail = ''
+                    try:
+                        detail = (resp.json() or {}).get('message', '')
+                    except ValueError:
+                        detail = resp.text[:200]
+                    raise ValueError(
+                        f'Azure rejected {item["type"]} "{item["title"][:60]}": {detail}'
+                    )
+                item['azure_id'] = str((resp.json() or {}).get('id') or '')
+                created += 1
+            for child in item.get('children') or []:
+                await create_one(client, child, item['azure_id'])
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            try:
+                for item in row.breakdown:
+                    await create_one(client, item, str(row.external_id))
+            finally:
+                # Persist whatever got created, even if a later item failed —
+                # otherwise a re-run duplicates the successful ones.
+                row.breakdown = normalize_breakdown(
+                    row.breakdown,
+                    allowed=BREAKDOWN_ROOT_TYPES.get(row.br_type or 'improvement', ('User Story',)),
+                )
+                if created:
+                    row.breakdown_created_at = datetime.utcnow()
+                await self.db.commit()
+                await self.db.refresh(row)
+        return row
 
     async def push_eval_to_source(
         self, *, organization_id: int, row: BusinessRequestEval,
@@ -882,7 +1280,7 @@ class BRManagementService:
             org_override=(settings.intake_prompt if settings else None),
             fallback=DEFAULT_INTAKE_SYSTEM_PROMPT,
         )
-        system_prompt = _build_system_prompt(base, settings)
+        system_prompt = _build_system_prompt(base, settings, pack_key=intake.pack_key)
 
         messages = list(intake.messages or [])
         messages.append({
@@ -988,6 +1386,13 @@ class BRManagementService:
             },
             {'op': 'add', 'path': '/fields/System.Tags', 'value': 'BR; Agena Intake'},
         ]
+        # Sections the org mapped to Azure custom fields are written there as
+        # well, so the BR is filterable and reportable in Azure rather than
+        # living only inside one description blob.
+        for ref, value in pack_field_values(
+            intake.pack_markdown, (settings.azure_field_map if settings else None),
+        ).items():
+            patch.append({'op': 'add', 'path': f'/fields/{ref}', 'value': value})
         if assignee_email:
             patch.append({
                 'op': 'add', 'path': '/fields/System.AssignedTo', 'value': assignee_email,
@@ -1222,6 +1627,10 @@ async def handle_azure_webhook(db: AsyncSession, *, token: str, payload: dict[st
     if item['assignee_email'] not in emails:
         # Assigned to someone outside the BR team — not our queue.
         return f'work item {item_id} not assigned to the BR team'
+    if not state_allowed(cfg, item['state']):
+        # The hook fires on every state change; only the states the org
+        # includes in its queue are scored.
+        return f'work item {item_id} is in state {item["state"]}, which is out of scope'
 
     existing = (
         await db.execute(
@@ -1260,6 +1669,8 @@ async def handle_azure_webhook(db: AsyncSession, *, token: str, payload: dict[st
         answers=(existing.answers if existing else None),
         project=item['project'],
         comments=comments,
+        state=item.get('state'),
+        pack_key=(existing.pack_key if existing else None),
     )
     if is_new or prev_score != row.readiness_score:
         await _notify_eval(
@@ -1318,6 +1729,7 @@ async def _auto_scan_org(db: AsyncSession, cfg: BusinessRequestSettings) -> None
     items = await fetch_azure_items(
         base_url=base_url, pat=pat,
         project=(cfg.azure_project or '').strip(), emails=emails,
+        states=included_states(cfg),
     )
     if not items:
         return
@@ -1375,6 +1787,8 @@ async def _auto_scan_org(db: AsyncSession, cfg: BusinessRequestSettings) -> None
                 # Fold saved stakeholder answers back in on re-evaluation.
                 answers=(existing.answers if existing else None),
                 comments=comments,
+                state=item.get('state'),
+                pack_key=(existing.pack_key if existing else None),
             )
         except Exception:
             logger.exception(

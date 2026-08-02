@@ -6,12 +6,16 @@ import { useLocale } from '@/lib/i18n';
 import NavIcon from '@/components/NavIcon';
 
 type Section = { title: string; critical: boolean };
+type Pack = { key: string; name: string; applies_to: string; sections: Section[] };
 
 type Settings = {
   br_emails: string[];
   rubric: string | null;
   epic_rule: string | null;
   decision_pack_sections: Section[];
+  decision_packs: Pack[];
+  included_states: string[];
+  azure_field_map: Record<string, string>;
   eval_prompt: string | null;
   intake_prompt: string | null;
   auto_eval: boolean;
@@ -28,7 +32,15 @@ type Settings = {
   default_intake_prompt: string;
   sections_token: string;
   submit_threshold: number;
+  closed_states: string[];
 };
+
+// The states Azure ships out of the box across its process templates. The
+// picker is free-text too, because a customized process can name its own.
+const COMMON_STATES = [
+  'New', 'Approved', 'Committed', 'Active', 'Resolved', 'Done', 'Closed', 'Removed',
+];
+const APPLIES_TO = ['default', 'epic', 'improvement'] as const;
 
 const PAT_KEEP = '__keep__';
 
@@ -88,7 +100,10 @@ export default function BRSettingsPage() {
   const [emails, setEmails] = useState('');
   const [rubric, setRubric] = useState('');
   const [epicRule, setEpicRule] = useState('');
-  const [sections, setSections] = useState<Section[]>([]);
+  const [packs, setPacks] = useState<Pack[]>([]);
+  const [activePack, setActivePack] = useState(0);
+  const [states, setStates] = useState<string[]>([]);
+  const [fieldMap, setFieldMap] = useState<Record<string, string>>({});
   const [evalPrompt, setEvalPrompt] = useState<string | null>(null);
   const [intakePrompt, setIntakePrompt] = useState<string | null>(null);
   const [openPrompt, setOpenPrompt] = useState<'eval' | 'intake' | null>(null);
@@ -119,7 +134,10 @@ export default function BRSettingsPage() {
     setEmails((s.br_emails || []).join('\n'));
     setRubric(s.rubric || '');
     setEpicRule(s.epic_rule || '');
-    setSections((s.decision_pack_sections || []).map((x) => ({ ...x })));
+    setPacks((s.decision_packs || []).map((p) => ({ ...p, sections: p.sections.map((x) => ({ ...x })) })));
+    setActivePack(0);
+    setStates(s.included_states || []);
+    setFieldMap({ ...(s.azure_field_map || {}) });
     setEvalPrompt(s.eval_prompt);
     setIntakePrompt(s.intake_prompt);
     setProvider(s.provider || '');
@@ -174,11 +192,33 @@ export default function BRSettingsPage() {
     () => emails.split(/[\n,;]+/).map((e) => e.trim()).filter(Boolean),
     [emails],
   );
+  const pack = packs[activePack] || { key: 'default', name: '', applies_to: 'default', sections: [] };
+  const sections = pack.sections;
   const criticalCount = sections.filter((s) => s.critical).length;
+  const totalSections = packs.reduce((n, p) => n + p.sections.length, 0);
+
+  /** Every pack edit goes through here so the array stays immutable. */
+  const editPack = (changes: Partial<Pack>) =>
+    setPacks(packs.map((p, i) => (i === activePack ? { ...p, ...changes } : p)));
+  const setSections = (next: Section[]) => editPack({ sections: next });
   const providerLabel = PROVIDERS.find((p) => p.value === provider)?.label || '';
   const isDefaultPack = useMemo(() => (
     JSON.stringify(sections) === JSON.stringify(initial?.default_decision_pack_sections || [])
   ), [sections, initial]);
+
+  const addPack = () => {
+    const key = `pack${packs.length + 1}`;
+    setPacks([...packs, {
+      key, name: '', applies_to: 'default',
+      sections: (initial?.default_decision_pack_sections || []).map((x) => ({ ...x })),
+    }]);
+    setActivePack(packs.length);
+  };
+  const removePack = () => {
+    if (packs.length <= 1) return;
+    setPacks(packs.filter((_, i) => i !== activePack));
+    setActivePack(Math.max(0, activePack - 1));
+  };
 
   const dirty = useMemo(() => {
     if (!initial) return false;
@@ -186,7 +226,9 @@ export default function BRSettingsPage() {
       JSON.stringify(emailList) !== JSON.stringify(initial.br_emails || [])
       || rubric.trim() !== (initial.rubric || '')
       || epicRule.trim() !== (initial.epic_rule || '')
-      || JSON.stringify(sections) !== JSON.stringify(initial.decision_pack_sections || [])
+      || JSON.stringify(packs) !== JSON.stringify(initial.decision_packs || [])
+      || JSON.stringify(states) !== JSON.stringify(initial.included_states || [])
+      || JSON.stringify(fieldMap) !== JSON.stringify(initial.azure_field_map || {})
       || (evalPrompt || '') !== (initial.eval_prompt || '')
       || (intakePrompt || '') !== (initial.intake_prompt || '')
       || provider !== (initial.provider || '')
@@ -197,7 +239,7 @@ export default function BRSettingsPage() {
       || baseUrl.trim() !== (initial.azure_base_url || '')
       || patTouched
     );
-  }, [initial, emailList, rubric, epicRule, sections, evalPrompt, intakePrompt,
+  }, [initial, emailList, rubric, epicRule, packs, states, fieldMap, evalPrompt, intakePrompt,
     provider, model, autoEval, azureProject, interval, baseUrl, patTouched]);
 
   const save = async () => {
@@ -209,7 +251,11 @@ export default function BRSettingsPage() {
           br_emails: emailList,
           rubric: rubric.trim() || null,
           epic_rule: epicRule.trim() || null,
-          decision_pack_sections: sections.filter((x) => x.title.trim()),
+          decision_packs: packs.map((p) => ({ ...p, sections: p.sections.filter((x) => x.title.trim()) })),
+          included_states: states,
+          azure_field_map: Object.fromEntries(
+            Object.entries(fieldMap).filter(([k, v]) => k.trim() && v.trim()),
+          ),
           eval_prompt: evalPrompt,
           intake_prompt: intakePrompt,
           provider: provider || null,
@@ -339,6 +385,42 @@ export default function BRSettingsPage() {
                   {t('br.settings.packCount', { count: sections.length, critical: criticalCount })}
                 </span>
               } />
+
+            {/* One tab per pack: a project BR is held to a heavier standard
+                than a small improvement. */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {packs.map((p, i) => (
+                <button key={i} type="button" onClick={() => setActivePack(i)}
+                  className={i === activePack ? 'brschip brschip-on' : 'brschip'}>
+                  {p.name || p.key} · {p.sections.length}
+                </button>
+              ))}
+              <button type="button" className="brsghost" style={{ padding: '5px 10px' }} onClick={addPack}>
+                + {t('br.settings.packAddPack')}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) minmax(150px, 1fr) auto', gap: 10, alignItems: 'end' }}>
+              <div>
+                <label style={fieldLabel}>{t('br.settings.packName')}</label>
+                <input value={pack.name} onChange={(e) => editPack({ name: e.target.value })}
+                  placeholder={t('br.settings.packNamePlaceholder')} style={inputStyle} />
+              </div>
+              <div>
+                <label style={fieldLabel}>{t('br.settings.packAppliesTo')}</label>
+                <select value={pack.applies_to} onChange={(e) => editPack({ applies_to: e.target.value })}
+                  style={{ ...inputStyle, cursor: 'pointer' }}>
+                  {APPLIES_TO.map((a) => (
+                    <option key={a} value={a}>{t(('br.settings.applies.' + a) as 'br.settings.applies.default')}</option>
+                  ))}
+                </select>
+              </div>
+              <button type="button" className="brsghost" onClick={removePack} disabled={packs.length <= 1}>
+                {t('br.settings.packRemovePack')}
+              </button>
+            </div>
+            <div style={hintStyle}>{t('br.settings.packAppliesToHint')}</div>
+
             <div style={{ display: 'grid', gap: 5 }}>
               {sections.map((s, i) => (
                 <div key={i} className="brssec" style={{
@@ -400,6 +482,64 @@ export default function BRSettingsPage() {
                 style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} />
               <div style={hintStyle}>{t('br.settings.epicRuleHint')}</div>
             </div>
+          </div>
+
+          {/* ── Which states count ─────────────────────────── */}
+          <div className="brscard" style={cardStyle}>
+            <CardHead icon="activity" label={t('br.settings.states')} purpose={t('br.settings.statesHint')}
+              aside={
+                <span style={{ ...eyebrow, color: 'var(--ink-30)', whiteSpace: 'nowrap' }}>
+                  {states.length ? states.length : t('br.settings.statesAllOpen')}
+                </span>
+              } />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {Array.from(new Set([...COMMON_STATES, ...states])).map((st) => {
+                const on = states.includes(st);
+                const closed = (initial?.closed_states || []).includes(st);
+                return (
+                  <button key={st} type="button"
+                    onClick={() => setStates(on ? states.filter((x) => x !== st) : [...states, st])}
+                    className={on ? 'brschip brschip-on' : 'brschip'}
+                    title={closed ? t('br.settings.statesClosedHint') : ''}>
+                    {st}{closed ? ' ·' : ''}
+                  </button>
+                );
+              })}
+            </div>
+            {states.length > 0 && (
+              <button type="button" className="brsghost" style={{ justifySelf: 'start' }}
+                onClick={() => setStates([])}>
+                {t('br.settings.statesReset')}
+              </button>
+            )}
+          </div>
+
+          {/* ── Azure custom fields ────────────────────────── */}
+          <div className="brscard" style={cardStyle}>
+            <CardHead icon="database" label={t('br.settings.fieldMap')} purpose={t('br.settings.fieldMapHint')}
+              aside={
+                <span style={{ ...eyebrow, color: 'var(--ink-30)', whiteSpace: 'nowrap' }}>
+                  {Object.values(fieldMap).filter((v) => v.trim()).length}
+                </span>
+              } />
+            <div style={{ display: 'grid', gap: 5 }}>
+              {sections.filter((s) => s.title.trim()).map((s) => (
+                <div key={s.title} style={{
+                  display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(150px, 210px)',
+                  gap: 8, alignItems: 'center',
+                }}>
+                  <span style={{
+                    fontSize: 12, color: 'var(--ink-65)', overflow: 'hidden',
+                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }} title={s.title}>{s.title.split('(')[0].trim()}</span>
+                  <input value={fieldMap[s.title] || ''}
+                    onChange={(e) => setFieldMap({ ...fieldMap, [s.title]: e.target.value })}
+                    placeholder="Custom.FieldName"
+                    style={{ ...inputStyle, fontSize: 12, padding: '7px 10px' }} />
+                </div>
+              ))}
+            </div>
+            <div style={hintStyle}>{t('br.settings.fieldMapNote')}</div>
           </div>
 
           {/* ── The judge ──────────────────────────────────── */}
@@ -540,7 +680,7 @@ export default function BRSettingsPage() {
             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.75, color: 'var(--ink-78)' }}>
               {emailList.length === 0
                 ? t('br.settings.policy.noPeople')
-                : t('br.settings.policy.line', { people: emailList.length, sections: sections.length })}
+                : t('br.settings.policy.line', { people: emailList.length, sections: totalSections })}
               {criticalCount > 0 && ' ' + t('br.settings.policy.critical', { count: criticalCount })}
               {' '}
               {provider
@@ -554,7 +694,8 @@ export default function BRSettingsPage() {
             <div style={{ height: 1, background: 'var(--panel-border)' }} />
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
               {statRow(emailList.length, t('br.settings.statPeople'))}
-              {statRow(sections.length, t('br.settings.statSections'))}
+              {statRow(totalSections, t('br.settings.statSections'))}
+              {packs.length > 1 && statRow(packs.length, t('br.settings.statPacks'))}
               {statRow(
                 <span style={{ color: criticalCount ? 'var(--warn)' : 'var(--ink-90)' }}>{criticalCount}</span>,
                 t('br.settings.statCritical'),

@@ -43,7 +43,23 @@ class BusinessRequestSettings(Base):
     epic_rule: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The Decision Pack sections this org evaluates against, as a list of
     # strings. NULL → the built-in DECISION_PACK_SECTIONS default.
+    # Superseded by `decision_packs`; kept as the fallback for orgs that only
+    # ever configured a single pack.
     decision_pack_sections: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Multiple named packs, so a request that will become a project can be
+    # held to a heavier standard than a small improvement:
+    # [{"key": "project", "name": "...", "applies_to": "epic",
+    #   "sections": [{"title": "...", "critical": true}]}]
+    # `applies_to`: default | epic | improvement.
+    decision_packs: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Which Azure states belong in the BR queue. NULL → every non-closed
+    # state (see CLOSED_STATES). Include 'Done' to keep scoring after
+    # delivery.
+    included_states: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Decision Pack section title → Azure field reference name, e.g.
+    # {"Scope — Out-of-Scope": "Custom.OutOfScope"}. Sections with a mapping
+    # are written into that field on submit as well as into the description.
+    azure_field_map: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Org-level prompt overrides. Precedence: these → the `prompts` table
     # row → the code default. Both may contain {{DECISION_PACK_SECTIONS}},
     # which is replaced with the org's numbered section list.
@@ -108,6 +124,8 @@ class BusinessRequestIntake(Base):
     pack_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
     br_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
     readiness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Which Decision Pack this interview is collecting against.
+    pack_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Set on submit.
     azure_work_item_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     azure_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
@@ -143,6 +161,16 @@ class BusinessRequestEval(Base):
     external_id: Mapped[str] = mapped_column(String(128))
     assignee_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Workflow state as of the last evaluation (New / Active / Done …). Part
+    # of the prompt, and what the queue filters on.
+    state: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Which Decision Pack this was scored against.
+    pack_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Proposed delivery breakdown, before/after it exists in Azure:
+    # [{"type": "Feature", "title": "...", "description": "...",
+    #   "azure_id": "123", "children": [...]}]
+    breakdown: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    breakdown_created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # improvement | epic | not_br
     br_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
     readiness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)

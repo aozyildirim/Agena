@@ -29,17 +29,24 @@ from agena_models.models.business_request_attachment import (
     BusinessRequestIntakeAttachment,
 )
 from agena_services.services.br_management_service import (
+    CLOSED_STATES,
     DECISION_PACK_SECTIONS,
     DEFAULT_INTAKE_SYSTEM_PROMPT,
     DEFAULT_SYSTEM_PROMPT,
     INTAKE_SUBMIT_THRESHOLD,
     SECTIONS_TOKEN,
+    BREAKDOWN_ROOT_TYPES,
     BRManagementService,
     _azure_headers,
     fetch_azure_item,
     fetch_azure_items,
+    included_states,
+    normalize_breakdown,
+    normalize_packs,
     normalize_sections,
+    org_packs,
     org_sections,
+    resolve_pack,
     resolve_azure_creds,
 )
 
@@ -73,12 +80,27 @@ class SectionBody(BaseModel):
     critical: bool = False
 
 
+class PackBody(BaseModel):
+    key: str = ''
+    name: str = ''
+    applies_to: str = 'default'   # default | epic | improvement
+    sections: list[SectionBody] = []
+
+
 class SettingsBody(BaseModel):
     br_emails: list[str] = []
     rubric: str | None = None
     epic_rule: str | None = None
     # None / empty → fall back to the built-in Decision Pack.
     decision_pack_sections: list[SectionBody] | None = None
+    # Named packs; a request that will become a project can be held to a
+    # heavier standard than a small improvement.
+    decision_packs: list[PackBody] | None = None
+    # Exactly which Azure states belong in the queue. Empty → every
+    # non-closed state.
+    included_states: list[str] | None = None
+    # Decision Pack section title → Azure field reference name.
+    azure_field_map: dict[str, str] | None = None
     eval_prompt: str | None = None
     intake_prompt: str | None = None
     auto_eval: bool = False
@@ -98,6 +120,9 @@ class SettingsResponse(BaseModel):
     epic_rule: str | None = None
     # The pack in force — the org's own list, or the built-in default.
     decision_pack_sections: list[dict[str, Any]] = []
+    decision_packs: list[dict[str, Any]] = []
+    included_states: list[str] = []
+    azure_field_map: dict[str, str] = {}
     # Empty when the org hasn't overridden the prompt; the UI shows the
     # matching default_* value as the effective text.
     eval_prompt: str | None = None
@@ -120,6 +145,10 @@ class SettingsResponse(BaseModel):
     default_intake_prompt: str = ''
     sections_token: str = SECTIONS_TOKEN
     submit_threshold: int = INTAKE_SUBMIT_THRESHOLD
+    # States Azure reports for the BR people's items, so the picker offers
+    # real options instead of a hardcoded list.
+    known_states: list[str] = []
+    closed_states: list[str] = list(CLOSED_STATES)
 
 
 def _settings_response(row: BusinessRequestSettings | None) -> 'SettingsResponse':
@@ -131,6 +160,7 @@ def _settings_response(row: BusinessRequestSettings | None) -> 'SettingsResponse
     if row is None:
         return SettingsResponse(
             decision_pack_sections=[dict(s) for s in DECISION_PACK_SECTIONS],
+            decision_packs=org_packs(None),
             **defaults,
         )
     return SettingsResponse(
@@ -138,6 +168,11 @@ def _settings_response(row: BusinessRequestSettings | None) -> 'SettingsResponse
         rubric=row.rubric,
         epic_rule=row.epic_rule,
         decision_pack_sections=org_sections(row),
+        decision_packs=org_packs(row),
+        included_states=included_states(row),
+        azure_field_map={
+            str(k): str(v) for k, v in (row.azure_field_map or {}).items() if str(v).strip()
+        },
         eval_prompt=row.eval_prompt,
         intake_prompt=row.intake_prompt,
         auto_eval=row.auto_eval,
@@ -193,6 +228,23 @@ async def put_settings(
     row.decision_pack_sections = (
         None if sections == [dict(s) for s in DECISION_PACK_SECTIONS] else sections
     )
+    packs = normalize_packs([p.model_dump() for p in (body.decision_packs or [])])
+    # A single default pack that matches the built-in one is stored as NULL,
+    # so "back to default" doesn't freeze a copy.
+    row.decision_packs = (
+        None
+        if not packs
+        or (len(packs) == 1 and packs[0]['sections'] == [dict(x) for x in DECISION_PACK_SECTIONS])
+        else packs
+    )
+    row.included_states = [
+        s.strip() for s in (body.included_states or []) if s and s.strip()
+    ][:30] or None
+    row.azure_field_map = {
+        str(k).strip(): str(v).strip()
+        for k, v in (body.azure_field_map or {}).items()
+        if str(k).strip() and str(v).strip()
+    } or None
     row.eval_prompt = (body.eval_prompt or '').strip() or None
     row.intake_prompt = (body.intake_prompt or '').strip() or None
     row.auto_eval = bool(body.auto_eval)
@@ -226,6 +278,10 @@ class EvalResponse(BaseModel):
     questions: list[dict[str, Any]] | None = None
     answers: dict[str, Any] | None = None
     status: str
+    state: str | None = None
+    pack_key: str | None = None
+    breakdown: list[dict[str, Any]] | None = None
+    breakdown_created_at: datetime | None = None
     updated_at: datetime | None = None
     evaluated_at: datetime | None = None
     pushed_to_source_at: datetime | None = None
@@ -244,6 +300,9 @@ class EvaluateBody(BaseModel):
     # Which Azure project the item lives in — needed to read its discussion
     # thread. Falls back to the project configured for auto-scan.
     project: str | None = None
+    # Workflow state, so the prompt knows whether the BR is already in
+    # progress or delivered.
+    state: str | None = None
 
 
 class StatusBody(BaseModel):
@@ -392,6 +451,7 @@ async def list_items(
     items = await fetch_azure_items(
         base_url=base_url, pat=pat, project=project,
         emails=emails, sprint_path=sprint_path,
+        states=included_states(settings),
     )
     for item in items:
         ev = eval_map.get((item['source'], item['external_id']))
@@ -414,6 +474,7 @@ class IntakeResponse(BaseModel):
     readiness_score: int | None = None
     azure_work_item_id: str | None = None
     azure_url: str | None = None
+    pack_key: str | None = None
     submit_threshold: int = INTAKE_SUBMIT_THRESHOLD
     updated_at: datetime | None = None
 
@@ -430,12 +491,18 @@ class IntakeResponse(BaseModel):
             readiness_score=row.readiness_score,
             azure_work_item_id=row.azure_work_item_id,
             azure_url=row.azure_url,
+            pack_key=row.pack_key,
             updated_at=row.updated_at,
         )
 
 
 class IntakeMessageBody(BaseModel):
     text: str
+
+
+class IntakeCreateBody(BaseModel):
+    # Which Decision Pack this interview collects against.
+    pack_key: str | None = None
 
 
 class IntakeSubmitBody(BaseModel):
@@ -480,14 +547,19 @@ async def list_intakes(
 
 @router.post('/intakes', response_model=IntakeResponse)
 async def create_intake(
+    body: IntakeCreateBody | None = None,
     tenant: CurrentTenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db_session),
 ) -> IntakeResponse:
+    settings = await BRManagementService(db).get_settings(tenant.organization_id)
+    # Pin the pack at creation so the standard can't shift mid-interview.
+    pack = resolve_pack(settings, pack_key=(body.pack_key if body else None))
     row = BusinessRequestIntake(
         organization_id=tenant.organization_id,
         created_by_user_id=tenant.user_id,
         status='draft',
         messages=[],
+        pack_key=pack['key'],
     )
     db.add(row)
     await db.commit()
@@ -709,11 +781,28 @@ async def evaluate(
             assignee_email=(body.assignee_email or '').strip().lower() or None,
             answers=body.answers,
             project=(body.project or '').strip() or None,
+            state=(body.state or '').strip() or None,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def _get_eval(
+    db: AsyncSession, eval_id: int, organization_id: int,
+) -> BusinessRequestEval:
+    row = (
+        await db.execute(
+            select(BusinessRequestEval).where(
+                BusinessRequestEval.id == eval_id,
+                BusinessRequestEval.organization_id == organization_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail='evaluation not found')
+    return row
 
 
 class ReevaluateBody(BaseModel):
@@ -765,9 +854,82 @@ async def reevaluate(
             assignee_email=item.get('assignee_email') or row.assignee_email,
             answers=answers or None,
             project=item.get('project'),
+            state=item.get('state'),
+            pack_key=row.pack_key,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class BreakdownItemBody(BaseModel):
+    type: str
+    title: str
+    description: str = ''
+    azure_id: str | None = None
+    children: list['BreakdownItemBody'] = []
+
+
+class BreakdownBody(BaseModel):
+    items: list[BreakdownItemBody] = []
+
+
+class BreakdownCreateBody(BaseModel):
+    project: str
+
+
+@router.post('/evals/{eval_id}/breakdown', response_model=EvalResponse)
+async def propose_breakdown(
+    eval_id: int,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> BusinessRequestEval:
+    """Ask the model for the Feature / Story / Task tree under a matured BR."""
+    row = await _get_eval(db, eval_id, tenant.organization_id)
+    try:
+        return await BRManagementService(db).propose_breakdown(
+            organization_id=tenant.organization_id, row=row,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put('/evals/{eval_id}/breakdown', response_model=EvalResponse)
+async def save_breakdown(
+    eval_id: int,
+    body: BreakdownBody,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> BusinessRequestEval:
+    """Persist the human-edited tree before it is created in Azure."""
+    row = await _get_eval(db, eval_id, tenant.organization_id)
+    row.breakdown = normalize_breakdown(
+        [i.model_dump() for i in body.items],
+        allowed=BREAKDOWN_ROOT_TYPES.get(row.br_type or 'improvement', ('User Story',)),
+    ) or None
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.post('/evals/{eval_id}/breakdown/create', response_model=EvalResponse)
+async def create_breakdown(
+    eval_id: int,
+    body: BreakdownCreateBody,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> BusinessRequestEval:
+    """Create the tree in Azure, each item linked under its parent."""
+    row = await _get_eval(db, eval_id, tenant.organization_id)
+    try:
+        return await BRManagementService(db).create_breakdown_in_azure(
+            organization_id=tenant.organization_id, row=row, project=body.project,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f'Azure request failed: {exc}') from exc
 
 
 @router.post('/webhook-token', response_model=SettingsResponse)
