@@ -24,6 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_core.database import get_db_session
 from agena_models.models.task_attachment import TaskAttachment
+
+from ._attachments import NOSNIFF, attachment_response, is_inline_safe_image
 from agena_models.models.task_record import TaskRecord
 from agena_services.services.integration_config_service import IntegrationConfigService
 from agena_services.services.task_share_service import TaskShareService
@@ -161,8 +163,11 @@ async def shared_task_image(
         raise HTTPException(status_code=502, detail=f'Upstream fetch failed: {exc}') from exc
 
     content_type = resp.headers.get('content-type', 'application/octet-stream').split(';', 1)[0].strip()
-    if not content_type.startswith('image/'):
-        raise HTTPException(status_code=415, detail=f'Upstream is not an image (got {content_type})')
+    # Inert raster types only. SVG passes a naive `image/` prefix check but
+    # carries script, and this endpoint is directly navigable by anyone
+    # holding the share token.
+    if not is_inline_safe_image(content_type):
+        raise HTTPException(status_code=415, detail=f'Upstream is not a supported image (got {content_type})')
     body = resp.content
 
     async def _stream():
@@ -171,7 +176,7 @@ async def shared_task_image(
     return StreamingResponse(
         _stream(),
         media_type=content_type,
-        headers={'Cache-Control': 'private, max-age=300'},
+        headers={'Cache-Control': 'private, max-age=300', **NOSNIFF},
     )
 
 
@@ -188,4 +193,4 @@ async def shared_task_attachment(
     p = Path(att.storage_path)
     if not p.is_file():
         raise HTTPException(status_code=404, detail='Attachment file is missing')
-    return FileResponse(str(p), media_type=att.content_type, filename=att.filename)
+    return attachment_response(p, att.content_type, att.filename)

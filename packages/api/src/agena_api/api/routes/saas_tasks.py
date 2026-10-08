@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+
+from ._attachments import NOSNIFF, attachment_response, is_inline_safe_image
 from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -820,8 +822,10 @@ async def proxy_image(
         raise HTTPException(status_code=502, detail=f'Upstream fetch failed: {exc}') from exc
 
     content_type = resp.headers.get('content-type', 'application/octet-stream').split(';', 1)[0].strip()
-    if not content_type.startswith('image/'):
-        raise HTTPException(status_code=415, detail=f'Upstream is not an image (got {content_type})')
+    # Inert raster types only — SVG passes an `image/` prefix check but runs
+    # script when this endpoint is navigated to directly.
+    if not is_inline_safe_image(content_type):
+        raise HTTPException(status_code=415, detail=f'Upstream is not a supported image (got {content_type})')
 
     body = resp.content
     async def _stream():
@@ -829,7 +833,7 @@ async def proxy_image(
     return StreamingResponse(
         _stream(),
         media_type=content_type,
-        headers={'Cache-Control': 'private, max-age=300'},
+        headers={'Cache-Control': 'private, max-age=300', **NOSNIFF},
     )
 
 
@@ -1723,7 +1727,7 @@ async def download_task_attachment(
     path = Path(row.storage_path)
     if not path.is_file():
         raise HTTPException(status_code=410, detail='Attachment file missing on server')
-    return FileResponse(path=str(path), media_type=row.content_type, filename=row.filename)
+    return attachment_response(path, row.content_type, row.filename)
 
 
 @router.delete('/{task_id}/attachments/{attachment_id}')
