@@ -20,4 +20,5 @@ export type {
   WebhookEndpoint,
   WebhookEndpointWithSecret,
   WebhookDelivery,
+  WeeklyDigest,
 } from './types';

@@ -811,6 +811,7 @@
   "profile.event.integration_auth_expired": "Autenticación de integración expirada",
   "profile.event.queue_backlog_warning": "Advertencia de acumulación en cola",
   "profile.event.security_alert": "Alertas de seguridad (nueva dirección de inicio de sesión, claves de API, credenciales, roles)",
+  "profile.event.weekly_digest": "Resumen semanal (lunes: tareas, PRs, gasto en IA, auditoría)",
   "agents.section": "Agentes",
   "agents.title": "Gestión de agentes",
   "agents.subtitle": "Asigna un modelo de IA por rol. Estos agentes procesarán los elementos de trabajo.",

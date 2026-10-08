@@ -213,3 +213,10 @@ export interface WebhookDelivery {
   created_at: string;
   payload: Record<string, unknown> | null;
 }
+
+export interface WeeklyDigest {
+  title: string;
+  message: string;
+  /** Structured numbers behind the text: tasks, prs_opened, flows, ai, audit, previous */
+  digest: Record<string, unknown>;
+}

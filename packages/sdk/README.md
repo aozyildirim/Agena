@@ -173,6 +173,15 @@ function verify(secret: string, headers: Record<string, string>, rawBody: Buffer
 }
 ```
 
+### Weekly digest
+
+Every Monday owners and admins get a summary of the week — tasks, PRs, flow runs, AI spend, audit activity — through their notification channels. Preview or trigger it from code:
+
+```typescript
+const { title, message, digest } = await agena.digest.weeklyPreview();
+await agena.digest.sendWeeklyToMe();
+```
+
 ## Error Handling
 
 ```typescript

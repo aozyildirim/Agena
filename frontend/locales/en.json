@@ -811,6 +811,7 @@
   "profile.event.integration_auth_expired": "Integration auth expired",
   "profile.event.queue_backlog_warning": "Queue backlog warning",
   "profile.event.security_alert": "Security alerts (new sign-in address, API keys, credentials, roles)",
+  "profile.event.weekly_digest": "Weekly digest (Monday summary of tasks, PRs, AI spend, audit)",
   "agents.section": "Agents",
   "agents.title": "Agent Management",
   "agents.subtitle": "Assign an AI model to each role. These agents will process work items.",

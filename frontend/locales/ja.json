@@ -811,6 +811,7 @@
   "profile.event.integration_auth_expired": "連携認証の期限切れ",
   "profile.event.queue_backlog_warning": "キューバックログ警告",
   "profile.event.security_alert": "セキュリティ通知（新しいログイン元、API キー、認証情報、ロール）",
+  "profile.event.weekly_digest": "週次ダイジェスト（月曜: タスク、PR、AI コスト、監査）",
   "agents.section": "エージェント",
   "agents.title": "エージェント管理",
   "agents.subtitle": "ロールごとに AI モデルを割り当てます。これらのエージェントが作業項目を処理します。",

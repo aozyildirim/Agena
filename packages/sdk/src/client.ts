@@ -18,6 +18,7 @@ import type {
   WebhookEndpoint,
   WebhookEndpointWithSecret,
   WebhookDelivery,
+  WeeklyDigest,
   ApiError,
 } from './types';
 
@@ -51,6 +52,8 @@ export class AgenaClient {
   readonly auditLogs: AuditLogsResource;
   /** Outbound webhooks (owner / admin) */
   readonly webhooks: WebhooksResource;
+  /** Weekly engineering digest (owner / admin) */
+  readonly digest: DigestResource;
 
   constructor(config: AgenaConfig) {
     this.baseUrl = (config.baseUrl || 'https://api.agena.dev').replace(/\/$/, '');
@@ -64,6 +67,7 @@ export class AgenaClient {
     this.auth = new AuthResource(this);
     this.auditLogs = new AuditLogsResource(this);
     this.webhooks = new WebhooksResource(this);
+    this.digest = new DigestResource(this);
   }
 
   /** Internal: make an authenticated API request and parse the JSON body */
@@ -342,5 +346,21 @@ class WebhooksResource {
 
   async delete(id: number): Promise<{ deleted: boolean }> {
     return this.client._request<{ deleted: boolean }>('DELETE', `/webhook-endpoints/${id}`);
+  }
+}
+
+// ─── Weekly Digest ─────────────────────────────────
+
+class DigestResource {
+  constructor(private client: AgenaClient) {}
+
+  /** This week's digest for your organization, rendered and structured */
+  async weeklyPreview(): Promise<WeeklyDigest> {
+    return this.client._request<WeeklyDigest>('GET', '/digest/weekly/preview');
+  }
+
+  /** Send this week's digest to yourself now, through your notification channels */
+  async sendWeeklyToMe(): Promise<{ sent: number }> {
+    return this.client._request<{ sent: number }>('POST', '/digest/weekly/send');
   }
 }

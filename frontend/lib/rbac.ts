@@ -13,7 +13,8 @@ export type Permission =
   | 'org:manage'
   | 'roles:manage'
   | 'audit:read'
-  | 'api_keys:manage';
+  | 'api_keys:manage'
+  | 'digest:manage';
 
 const PERMISSION_MATRIX: Record<Permission, Set<Role>> = {
   'tasks:read':          new Set(['owner', 'admin', 'member', 'viewer']),
@@ -25,6 +26,7 @@ const PERMISSION_MATRIX: Record<Permission, Set<Role>> = {
   'roles:manage':        new Set(['owner', 'admin']),
   'audit:read':          new Set(['owner', 'admin']),
   'api_keys:manage':     new Set(['owner', 'admin']),
+  'digest:manage':       new Set(['owner', 'admin']),
 };
 
 export function canAccess(role: Role | string, permission: Permission): boolean {

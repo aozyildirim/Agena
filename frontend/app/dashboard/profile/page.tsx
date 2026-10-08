@@ -71,6 +71,7 @@ const EVENT_PREF_DEFAULTS: Record<string, { in_app: boolean; email: boolean; web
   integration_auth_expired: { in_app: true, email: true, web_push: true },
   queue_backlog_warning: { in_app: true, email: false, web_push: true },
   security_alert: { in_app: true, email: true, web_push: true },
+  weekly_digest: { in_app: true, email: true, web_push: false },
 };
 
 export default function ProfilePage() {
