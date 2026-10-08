@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     app_name: str = 'AGENA AI Agent SaaS'
     app_env: str = Field(default='development', alias='APP_ENV')
+    # Where the browser app lives; used in links we put in e-mails (invites).
+    public_app_url: str = Field(default='https://agena.dev', alias='PUBLIC_APP_URL')
     app_host: str = Field(default='0.0.0.0', alias='APP_HOST')
     app_port: int = Field(default=8010, alias='APP_PORT')
     host_repo_root: str = Field(default='/Users', alias='HOST_REPO_ROOT')

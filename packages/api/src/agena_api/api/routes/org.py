@@ -61,10 +61,7 @@ class CheckSlugResponse(BaseModel):
 
 def _build_invite_url(token: str) -> str:
     """Build the frontend invite acceptance URL."""
-    settings = get_settings()
-    base = 'http://localhost:3000'
-    if settings.app_env == 'production':
-        base = 'https://app.agena.dev'
+    base = get_settings().public_app_url.rstrip('/')
     return f'{base}/invite?token={token}'
 
 
