@@ -119,6 +119,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/workspaces', key: 'nav.workspaces', icon: 'layers', module: 'core', wsPerm: 'workspace:manage' },
       { href: '/dashboard/permissions', key: 'nav.permissions', icon: 'lock', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
       { href: '/dashboard/workspace-roles', key: 'nav.workspaceRoles', icon: 'user-check', permission: 'roles:manage' as const, module: 'core', wsPerm: 'roles:manage' },
+      { href: '/dashboard/audit-log', key: 'nav.auditLog', icon: 'clipboard', permission: 'audit:read' as const, module: 'core' },
       { href: '/dashboard/modules', key: 'nav.modules', icon: 'grid', permission: 'integrations:manage' as const, module: 'core', wsPerm: 'modules:configure' },
     ],
   },

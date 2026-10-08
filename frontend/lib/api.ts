@@ -576,6 +576,67 @@ export async function listUsageEvents(params?: {
   return await apiFetch<UsageEventsResponse>(`/usage-events?${qs.toString()}`);
 }
 
+export interface AuditLogItem {
+  id: number;
+  created_at: string;
+  actor_user_id: number | null;
+  actor_email: string | null;
+  actor_role: string | null;
+  action: string;
+  method: string;
+  path: string;
+  route: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  status_code: number;
+  request_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  workspace_id: number | null;
+  details: Record<string, unknown> | null;
+}
+
+export interface AuditLogsResponse {
+  page: number;
+  page_size: number;
+  total: number;
+  items: AuditLogItem[];
+}
+
+export type AuditLogFilters = {
+  action?: string;
+  actor?: string;
+  target_type?: string;
+  q?: string;
+  created_from?: string;
+  created_to?: string;
+};
+
+function auditLogQuery(params?: AuditLogFilters & { page?: number; page_size?: number }): URLSearchParams {
+  const qs = new URLSearchParams();
+  if (params?.action && params.action !== 'all') qs.set('action', params.action);
+  if (params?.actor) qs.set('actor', params.actor);
+  if (params?.target_type && params.target_type !== 'all') qs.set('target_type', params.target_type);
+  if (params?.q) qs.set('q', params.q);
+  if (params?.created_from) qs.set('created_from', params.created_from);
+  if (params?.created_to) qs.set('created_to', params.created_to);
+  if (params?.page !== undefined) qs.set('page', String(params.page));
+  if (params?.page_size !== undefined) qs.set('page_size', String(params.page_size));
+  return qs;
+}
+
+export async function listAuditLogs(params?: AuditLogFilters & { page?: number; page_size?: number }): Promise<AuditLogsResponse> {
+  return await apiFetch<AuditLogsResponse>(`/audit-logs?${auditLogQuery(params).toString()}`);
+}
+
+export async function listAuditActions(): Promise<string[]> {
+  return await apiFetch<string[]>('/audit-logs/actions');
+}
+
+export async function downloadAuditLogCsv(params?: AuditLogFilters): Promise<Blob> {
+  return await apiDownloadBlob(`/audit-logs/export.csv?${auditLogQuery(params).toString()}`);
+}
+
 export async function markNotificationRead(notificationId: number): Promise<void> {
   await apiFetch(`/notifications/${notificationId}/read`, { method: 'POST' });
 }
