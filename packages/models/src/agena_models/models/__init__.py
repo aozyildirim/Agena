@@ -52,6 +52,7 @@ from agena_models.models.metric_snapshot import MetricSnapshot
 from agena_models.models.alert_rule import AlertRule
 from agena_models.models.alert import Alert
 from agena_models.models.team_member_type import TeamMemberType
+from agena_models.models.audit_log import AuditLog
 from agena_models.models.business_request import (
     BusinessRequestEval,
     BusinessRequestIntake,
@@ -91,6 +92,7 @@ __all__ = [
     'AlertRule',
     'Alert',
     'TeamMemberType',
+    'AuditLog',
     'BusinessRequestSettings',
     'BusinessRequestEval',
     'BusinessRequestIntake',
