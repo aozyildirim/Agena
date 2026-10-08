@@ -53,6 +53,7 @@ from agena_models.models.alert_rule import AlertRule
 from agena_models.models.alert import Alert
 from agena_models.models.team_member_type import TeamMemberType
 from agena_models.models.audit_log import AuditLog
+from agena_models.models.api_key import ApiKey
 from agena_models.models.business_request import (
     BusinessRequestEval,
     BusinessRequestIntake,
@@ -93,6 +94,7 @@ __all__ = [
     'Alert',
     'TeamMemberType',
     'AuditLog',
+    'ApiKey',
     'BusinessRequestSettings',
     'BusinessRequestEval',
     'BusinessRequestIntake',
