@@ -42,3 +42,6 @@ frontend/public/changelog-data.json
 # Local DB dumps + scratch images — never committed
 db_dump_*.sql
 patron.png
+
+# TypeScript incremental build cache
+frontend/tsconfig.tsbuildinfo
