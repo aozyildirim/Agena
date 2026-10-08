@@ -13,6 +13,7 @@ from agena_core.logging import configure_logging
 from agena_core.observability import init_sentry
 from agena_core.settings import get_settings
 from agena_models.models.task_record import TaskRecord
+from agena_models.models.flow_schedule import FlowSchedule
 import agena_models.models  # noqa: F401 -- register all ORM models
 from agena_services.services.event_bus import publish_fire_and_forget
 from agena_services.services.orchestration_service import OrchestrationService
@@ -267,6 +268,40 @@ async def _poll_correlations() -> None:
                 logger.info('Correlations: %s new cluster(s) detected', n)
         except Exception:
             logger.exception('Correlation pass failed')
+
+
+# Strong references to in-flight scheduled flow runs (see asyncio.create_task note).
+_scheduled_runs: set[asyncio.Task] = set()
+
+
+async def _poll_flow_schedules() -> None:
+    """Fire every flow schedule whose next_run_at has passed. Each schedule
+    is claimed with a conditional UPDATE first, so overlapping polls or
+    multiple workers never run the same tick twice; each run then goes to
+    its own task + session so a slow flow cannot hold up the next tick."""
+    from agena_services.services.flow_schedule_service import FlowScheduleService
+
+    async with SessionLocal() as session:
+        svc = FlowScheduleService(session)
+        due = await svc.due()
+        claimed_ids = [row.id for row in due if await svc.claim(row)]
+
+    async def _run_one(schedule_id: int) -> None:
+        try:
+            async with SessionLocal() as run_session:
+                run_svc = FlowScheduleService(run_session)
+                row = await run_session.get(FlowSchedule, schedule_id)
+                if row is not None:
+                    await run_svc.execute(row)
+        except Exception:
+            logger.exception('scheduled flow %s crashed', schedule_id)
+
+    for schedule_id in claimed_ids:
+        t = asyncio.create_task(_run_one(schedule_id))
+        _scheduled_runs.add(t)
+        t.add_done_callback(_scheduled_runs.discard)
+    if claimed_ids:
+        logger.info('flow schedules: fired %s', claimed_ids)
 
 
 async def _cleanup_stale_repo_locks() -> None:
@@ -638,6 +673,7 @@ async def process_queue() -> None:
     last_triage_poll = 0.0
     last_backlog_poll = 0.0
     last_br_poll = 0.0
+    last_schedule_poll = 0.0
 
     # Background-poll wrappers — fire-and-forget so a slow Azure WIQL
     # query inside triage / sentry / NR doesn't block the main loop
@@ -686,6 +722,10 @@ async def process_queue() -> None:
             if settings.auto_br_eval_enabled:
                 _bg(_poll_br_auto_evals, 'BR auto-eval')
             last_br_poll = now
+
+        if now - last_schedule_poll >= 60:  # 1 minute tick; cron resolution
+            _bg(_poll_flow_schedules, 'Flow schedules')
+            last_schedule_poll = now
 
         if now - last_backlog_poll >= 1800:  # 30 minutes
             if settings.auto_review_backlog_enabled:

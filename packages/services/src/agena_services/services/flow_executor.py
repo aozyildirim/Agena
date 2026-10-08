@@ -1894,10 +1894,14 @@ async def run_flow(
     now = datetime.now(timezone.utc)
 
     # FlowRun oluştur
+    # flow_runs.task_id is an integer column: scheduled / webhook runs that
+    # carry no task row must store NULL, not a stringified placeholder.
+    raw_task_id = task.get('id')
+    numeric_task_id: int | None = int(raw_task_id) if str(raw_task_id or '').isdigit() else None
     flow_run = FlowRun(
         flow_id=flow['id'],
         flow_name=flow['name'],
-        task_id=str(task.get('id', '')),
+        task_id=str(numeric_task_id) if numeric_task_id is not None else None,
         task_title=task.get('title', ''),
         user_id=user_id,
         status='running',
@@ -1919,7 +1923,7 @@ async def run_flow(
     node_map = {n['id']: n for n in ordered}
 
     # ── Boss Mode integration: set task to running + write agent logs ──
-    task_id: int | None = task.get('id')
+    task_id: int | None = numeric_task_id
     task_record: TaskRecord | None = None
     if task_id:
         task_record = await db.get(TaskRecord, task_id)

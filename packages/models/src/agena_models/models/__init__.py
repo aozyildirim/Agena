@@ -54,6 +54,7 @@ from agena_models.models.alert import Alert
 from agena_models.models.team_member_type import TeamMemberType
 from agena_models.models.audit_log import AuditLog
 from agena_models.models.api_key import ApiKey
+from agena_models.models.flow_schedule import FlowSchedule
 from agena_models.models.business_request import (
     BusinessRequestEval,
     BusinessRequestIntake,
@@ -95,6 +96,7 @@ __all__ = [
     'TeamMemberType',
     'AuditLog',
     'ApiKey',
+    'FlowSchedule',
     'BusinessRequestSettings',
     'BusinessRequestEval',
     'BusinessRequestIntake',
