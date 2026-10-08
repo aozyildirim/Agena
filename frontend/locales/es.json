@@ -3769,6 +3769,7 @@
   "admin.markRead": "Marcar leído",
   "dora.addRepo": "Añadir repo",
   "dora.addRepoToDora": "Añadir repo a DORA",
+  "dora.addRepoHint": "DORA no necesita un checkout local. Basta con el proveedor, el propietario y el nombre del repositorio: los commits, PRs, despliegues y revisiones llegan desde la API al sincronizar.",
   "dora.deployedAt": "Desplegado en",
   "dora.reviewTime": "Tiempo de revisión",
   "dora.weekendCommits": "Commits de fin de semana",

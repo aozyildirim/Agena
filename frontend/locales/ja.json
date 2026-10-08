@@ -3769,6 +3769,7 @@
   "admin.markRead": "既読にする",
   "dora.addRepo": "リポジトリ追加",
   "dora.addRepoToDora": "DORA にリポジトリ追加",
+  "dora.addRepoHint": "DORA にローカルチェックアウトは不要です。プロバイダー・オーナー・リポジトリ名だけで十分で、同期時にコミット・PR・デプロイ・レビューは API から取得されます。",
   "dora.deployedAt": "デプロイ日時",
   "dora.reviewTime": "レビュー時間",
   "dora.weekendCommits": "週末コミット",

@@ -3769,6 +3769,7 @@
   "admin.markRead": "Okundu işaretle",
   "dora.addRepo": "Repo ekle",
   "dora.addRepoToDora": "DORA'ya repo ekle",
+  "dora.addRepoHint": "DORA için lokal checkout gerekmez. Sadece provider, sahip ve repo adı yeterli — sync'te commit'ler, PR'lar, deploy'lar ve review'lar API'den gelir.",
   "dora.deployedAt": "Deploy zamanı",
   "dora.reviewTime": "İnceleme süresi",
   "dora.weekendCommits": "Hafta sonu commit'leri",

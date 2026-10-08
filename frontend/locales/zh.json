@@ -3769,6 +3769,7 @@
   "admin.markRead": "标记已读",
   "dora.addRepo": "添加仓库",
   "dora.addRepoToDora": "将仓库添加到 DORA",
+  "dora.addRepoHint": "DORA 不需要本地检出。只需提供商、所有者和仓库名——同步时提交、PR、部署和评审都来自 API。",
   "dora.deployedAt": "部署时间",
   "dora.reviewTime": "评审时间",
   "dora.weekendCommits": "周末提交",

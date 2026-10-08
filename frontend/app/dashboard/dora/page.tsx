@@ -598,7 +598,7 @@ export default function DoraOverviewPage() {
           >
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{t('dora.addRepoToDora')}</h2>
             <p style={{ marginTop: 6, marginBottom: 14, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-              DORA için lokal checkout gerekmez. Sadece provider + sahibi + repo adı yeterli — sync'te commits, PRs, deploys ve reviews API'den gelir.
+              {t('dora.addRepoHint')}
             </p>
 
             <div style={{ display: 'grid', gap: 12 }}>

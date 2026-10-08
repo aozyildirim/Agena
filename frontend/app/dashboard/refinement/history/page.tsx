@@ -333,7 +333,7 @@ export default function RefinementHistoryPage() {
                 )}
                 {search && (
                   <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(94,234,212,0.2)', color: '#5eead4', fontWeight: 700 }}>
-                    "{search}"
+                    &quot;{search}&quot;
                     <button onClick={() => setSearch('')} style={{ marginLeft: 6, border: 'none', background: 'transparent', color: '#5eead4', cursor: 'pointer', fontSize: 13 }}>×</button>
                   </span>
                 )}

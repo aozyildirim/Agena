@@ -63,7 +63,10 @@ export default function ApiKeysPage() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function onCreate() {
     if (!name.trim()) return;
