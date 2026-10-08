@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createFlowTemplate, deleteFlowTemplate, FlowTemplate, listFlowTemplates, loadPrefs, savePrefs } from '@/lib/api';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 type FlowLite = {
   id: string;
@@ -148,7 +148,7 @@ function starterTemplates(t: ReturnType<typeof useLocale>['t']): Array<{ name: s
   ];
 }
 
-const TEMPLATE_LOCALE_MAP: Record<string, { nameKey: string; descKey: string }> = {
+const TEMPLATE_LOCALE_MAP: Record<string, { nameKey: TranslationKey; descKey: TranslationKey }> = {
   'template-pr-review-loop': { nameKey: 'flows.preset.prReviewLoop.name', descKey: 'templates.preset.prReviewLoop.description' },
   'template-enterprise': { nameKey: 'templates.preset.enterprise.name', descKey: 'templates.preset.enterprise.description' },
   'template-hotfix': { nameKey: 'templates.preset.hotfix.name', descKey: 'templates.preset.hotfix.description' },

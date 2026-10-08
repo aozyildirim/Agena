@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 const SITE_URL = 'https://agena.dev';
 
@@ -70,10 +70,10 @@ export default function VsIndexPage() {
           >
             <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>{c.icon}</span>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink-90)', margin: '0 0 8px' }}>
-              {t(`vs.${c.slug}.title`)}
+              {t(`vs.${c.slug}.title` as TranslationKey)}
             </h2>
             <p style={{ color: 'var(--ink-45)', fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
-              {t(`vs.${c.slug}.subtitle`)}
+              {t(`vs.${c.slug}.subtitle` as TranslationKey)}
             </p>
             <span style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 600 }}>
               {t('vs.viewComparison')} →

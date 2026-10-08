@@ -125,7 +125,7 @@ export default function IntegrationsPage() {
   const [error, setError] = useState('');
   const [help, setHelp] = useState<{ title: string; steps: string[]; link?: string; note?: string } | null>(null);
 
-  const helpByProvider: Record<IntegrationConfig['provider'], { title: string; steps: string[]; link?: string; note?: string }> = {
+  const helpByProvider = {
     jira: {
       title: t('integrations.helpJiraTitle'),
       steps: [
@@ -266,7 +266,7 @@ export default function IntegrationsPage() {
       ],
       link: 'https://docs.sentry.io/api/guides/create-auth-token/',
     },
-  };
+  } satisfies Partial<Record<IntegrationConfig['provider'], { title: string; steps: string[]; link?: string; note?: string }>>;
 
   async function loadIntegrationState() {
     const [data, playbook] = await Promise.all([
@@ -312,18 +312,18 @@ export default function IntegrationsPage() {
     if (hal) {
       setHalServiceUrl(hal.base_url || '');
       setHalUsername(hal.username ?? '');
-      setHalLoginUrl(hal.extra_config?.login_url ?? '');
-      setHalChatUrl(hal.extra_config?.chat_url ?? '');
+      setHalLoginUrl(String(hal.extra_config?.login_url ?? ''));
+      setHalChatUrl(String(hal.extra_config?.chat_url ?? ''));
     }
     const newrelic = data.find((c) => c.provider === 'newrelic');
     if (newrelic) {
-      setNewrelicAccountId(newrelic.extra_config?.account_id ?? '');
+      setNewrelicAccountId(String(newrelic.extra_config?.account_id ?? ''));
       setNewrelicRegion(newrelic.base_url?.includes('eu.newrelic') ? 'eu' : 'us');
     }
     const sentry = data.find((c) => c.provider === 'sentry');
     if (sentry) {
       setSentryBaseUrl(sentry.base_url || 'https://sentry.io/api/0');
-      setSentryOrgSlug(sentry.extra_config?.organization_slug ?? '');
+      setSentryOrgSlug(String(sentry.extra_config?.organization_slug ?? ''));
     }
     const datadog = data.find((c) => c.provider === 'datadog');
     if (datadog) {

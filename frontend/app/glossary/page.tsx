@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 const TERM_KEYS = Array.from({ length: 20 }, (_, i) => `term${i + 1}`);
 
@@ -15,9 +15,9 @@ export default function GlossaryPage() {
   const terms = useMemo(() => {
     let list = TERM_KEYS.map((key) => ({
       key,
-      word: t(`glossary.${key}.word`),
-      short: t(`glossary.${key}.short`),
-      full: t(`glossary.${key}.full`),
+      word: t(`glossary.${key}.word` as TranslationKey),
+      short: t(`glossary.${key}.short` as TranslationKey),
+      full: t(`glossary.${key}.full` as TranslationKey),
     }));
 
     if (search.trim()) {
@@ -39,8 +39,8 @@ export default function GlossaryPage() {
 
   const jsonLdTerms = TERM_KEYS.map((key) => ({
     '@type': 'DefinedTerm',
-    name: t(`glossary.${key}.word`),
-    description: t(`glossary.${key}.short`),
+    name: t(`glossary.${key}.word` as TranslationKey),
+    description: t(`glossary.${key}.short` as TranslationKey),
   }));
 
   const jsonLdDefinedTermSet = {

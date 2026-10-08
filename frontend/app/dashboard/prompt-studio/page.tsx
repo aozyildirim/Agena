@@ -300,7 +300,7 @@ export default function PromptStudioPage() {
 }
 
 function orderPromptKeys(keys: string[]) {
-  const orderIndex = new Map(PROMPT_ORDER.map((k, idx) => [k, idx]));
+  const orderIndex = new Map<string, number>(PROMPT_ORDER.map((k, idx) => [k, idx]));
   return [...keys].sort((a, b) => {
     const ai = orderIndex.has(a) ? (orderIndex.get(a) as number) : 999 + a.charCodeAt(0);
     const bi = orderIndex.has(b) ? (orderIndex.get(b) as number) : 999 + b.charCodeAt(0);

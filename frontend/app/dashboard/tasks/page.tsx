@@ -106,7 +106,7 @@ function RowActionsKebab({
     key: string;
     label: string;
     icon: React.ReactNode;
-    onClick: () => void;
+    onClick?: () => void;
     danger?: boolean;
     href?: string;
     hidden?: boolean;
@@ -218,7 +218,7 @@ function RowActionsKebab({
         }
         return (
           <button key={it.key} type='button' style={baseStyle}
-            onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick(); }}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick?.(); }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--panel-alt)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
             {inner}

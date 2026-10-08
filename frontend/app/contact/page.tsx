@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import ContactForm from '@/components/ContactForm';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 export default function ContactPage() {
   const { t } = useLocale();
@@ -57,10 +57,10 @@ export default function ContactPage() {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <details key={i} style={{ padding: '14px 18px', borderRadius: 12, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', cursor: 'pointer' }}>
               <summary style={{ color: 'var(--ink-90)', fontWeight: 600, fontSize: 14, lineHeight: 1.5, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1, minWidth: 0 }}>{t(`contact.faq${i}Q`)}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>{t(`contact.faq${i}Q` as TranslationKey)}</span>
                 <span style={{ color: 'var(--ink-35)', fontSize: 16, flexShrink: 0 }}>+</span>
               </summary>
-              <p style={{ color: 'var(--ink-50)', fontSize: 13, lineHeight: 1.7, marginTop: 10 }}>{t(`contact.faq${i}A`)}</p>
+              <p style={{ color: 'var(--ink-50)', fontSize: 13, lineHeight: 1.7, marginTop: 10 }}>{t(`contact.faq${i}A` as TranslationKey)}</p>
             </details>
           ))}
         </div>

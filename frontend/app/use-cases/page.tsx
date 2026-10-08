@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 export default function UseCasesPage() {
   const { t } = useLocale();
@@ -44,12 +44,12 @@ export default function UseCasesPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
               <span style={{ fontSize: 28 }}>{uc.icon}</span>
               <div>
-                <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>{t(`useCases.${uc.key}.title`)}</h2>
-                <p style={{ color: 'var(--ink-35)', fontSize: 13, margin: '2px 0 0' }}>{t(`useCases.${uc.key}.subtitle`)}</p>
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>{t(`useCases.${uc.key}.title` as TranslationKey)}</h2>
+                <p style={{ color: 'var(--ink-35)', fontSize: 13, margin: '2px 0 0' }}>{t(`useCases.${uc.key}.subtitle` as TranslationKey)}</p>
               </div>
             </div>
             <p style={{ color: 'var(--ink-58)', fontSize: 15, lineHeight: 1.75, margin: '16px 0 20px' }}>
-              {t(`useCases.${uc.key}.desc`)}
+              {t(`useCases.${uc.key}.desc` as TranslationKey)}
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
               {[1, 2, 3, 4].map((b) => (
@@ -68,7 +68,7 @@ export default function UseCasesPage() {
                   }}
                 >
                   <span style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>&#10003;</span>
-                  {t(`useCases.${uc.key}.b${b}`)}
+                  {t(`useCases.${uc.key}.b${b}` as TranslationKey)}
                 </div>
               ))}
             </div>

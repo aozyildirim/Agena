@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 interface Integration {
   key: string;
@@ -89,9 +89,9 @@ export default function IntegrationsPage() {
         position: ci * 10 + ii + 1,
         item: {
           '@type': 'SoftwareApplication',
-          name: t(`integrations.${item.key}.name`),
-          description: t(`integrations.${item.key}.desc`),
-          applicationCategory: t(`integrations.${cat.catKey}`),
+          name: t(`integrations.${item.key}.name` as TranslationKey),
+          description: t(`integrations.${item.key}.desc` as TranslationKey),
+          applicationCategory: t(`integrations.${cat.catKey}` as TranslationKey),
         },
       }))
     ),
@@ -152,7 +152,7 @@ export default function IntegrationsPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
               <span style={{ fontSize: 26 }}>{cat.icon}</span>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>
-                {t(`integrations.${cat.catKey}`)}
+                {t(`integrations.${cat.catKey}` as TranslationKey)}
               </h2>
             </div>
 
@@ -178,7 +178,7 @@ export default function IntegrationsPage() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-90)', margin: 0 }}>
-                      {t(`integrations.${item.key}.name`)}
+                      {t(`integrations.${item.key}.name` as TranslationKey)}
                     </h3>
                     {item.comingSoon && (
                       <span
@@ -198,7 +198,7 @@ export default function IntegrationsPage() {
                   </div>
 
                   <p style={{ color: 'var(--ink-58)', fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-                    {t(`integrations.${item.key}.desc`)}
+                    {t(`integrations.${item.key}.desc` as TranslationKey)}
                   </p>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -218,7 +218,7 @@ export default function IntegrationsPage() {
                         }}
                       >
                         <span style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>&#10003;</span>
-                        {t(`integrations.${item.key}.f${f}`)}
+                        {t(`integrations.${item.key}.f${f}` as TranslationKey)}
                       </div>
                     ))}
                   </div>

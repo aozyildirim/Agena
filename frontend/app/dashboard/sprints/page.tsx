@@ -1724,7 +1724,7 @@ function DetailPanel({ item, onClose, project, integrations, aiLoading, aiResult
   item: WorkItem; onClose: () => void;
   project: string;
   integrations: IntegrationConfig[];
-  aiLoading: boolean; aiResult: string; onAssignAI: (options: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string; mode?: string }) => void;
+  aiLoading: boolean; aiResult: string; onAssignAI: (options: { project?: string; azureRepo?: string; localRepoMapping?: string; localRepoPath?: string; repoPlaybook?: string; agentRole?: string; agentProvider?: string; agentModel?: string; executionPrompt?: string; mode?: string; createPr?: boolean; remoteRepo?: string }) => void;
   repoMappings: RepoMapping[]; agentConfigs: AgentConfig[];
   savedFlows: { id: string; name: string }[];
   flowRunning: boolean;

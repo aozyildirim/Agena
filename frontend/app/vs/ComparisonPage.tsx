@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useLocale } from '@/lib/i18n';
+import { useLocale, type TranslationKey } from '@/lib/i18n';
 
 const SITE_URL = 'https://agena.dev';
 
@@ -27,8 +27,8 @@ export default function ComparisonPage({ slug, competitorName, rows }: Compariso
     '@graph': [
       {
         '@type': 'WebPage',
-        name: t(`vs.${slug}.metaTitle`),
-        description: t(`vs.${slug}.metaDesc`),
+        name: t(`vs.${slug}.metaTitle` as TranslationKey),
+        description: t(`vs.${slug}.metaDesc` as TranslationKey),
         url: `${SITE_URL}/vs/${slug}`,
         breadcrumb: {
           '@type': 'BreadcrumbList',
@@ -50,7 +50,7 @@ export default function ComparisonPage({ slug, competitorName, rows }: Compariso
       {
         '@type': 'Product',
         name: competitorName,
-        description: t(`vs.${slug}.subtitle`),
+        description: t(`vs.${slug}.subtitle` as TranslationKey),
       },
     ],
   };
@@ -71,13 +71,13 @@ export default function ComparisonPage({ slug, competitorName, rows }: Compariso
       {/* Hero */}
       <div style={{ marginBottom: 48, textAlign: 'center' }}>
         <h1 style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, color: 'var(--ink-90)', margin: '0 0 16px' }}>
-          {t(`vs.${slug}.title`)}
+          {t(`vs.${slug}.title` as TranslationKey)}
         </h1>
         <p style={{ color: 'var(--accent)', fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
-          {t(`vs.${slug}.subtitle`)}
+          {t(`vs.${slug}.subtitle` as TranslationKey)}
         </p>
         <p style={{ color: 'var(--ink-45)', fontSize: 15, lineHeight: 1.7, maxWidth: 640, margin: '0 auto' }}>
-          {t(`vs.${slug}.hook`)}
+          {t(`vs.${slug}.hook` as TranslationKey)}
         </p>
       </div>
 
@@ -157,7 +157,7 @@ export default function ComparisonPage({ slug, competitorName, rows }: Compariso
               }}
             >
               <span style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>&#10003;</span>
-              {t(`vs.${slug}.why${n}`)}
+              {t(`vs.${slug}.why${n}` as TranslationKey)}
             </div>
           ))}
         </div>
