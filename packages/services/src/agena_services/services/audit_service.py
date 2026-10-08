@@ -72,6 +72,12 @@ class AuditService:
         )
         self.db.add(row)
         await self.db.commit()
+        # Security-relevant rows fan out to owners/admins in the background;
+        # imported here to keep audit_service importable without the
+        # notification stack.
+        from agena_services.services.security_alert_service import schedule_security_alert
+
+        schedule_security_alert(row.id)
         return row
 
     def _filtered(
