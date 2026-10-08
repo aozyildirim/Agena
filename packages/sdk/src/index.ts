@@ -11,4 +11,7 @@ export type {
   AgentLiveStatus,
   Integration,
   User,
+  AuditLogEntry,
+  AuditLogPage,
+  AuditLogQuery,
 } from './types';

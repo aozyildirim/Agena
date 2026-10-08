@@ -111,6 +111,21 @@ const repos = await agena.integrations.githubRepos();
 const branches = await agena.integrations.githubBranches('owner', 'repo');
 ```
 
+### Audit Logs
+
+Owner / admin only. Every state-changing request a member makes is recorded — who, what, on which resource, from where. Request bodies are never stored.
+
+```typescript
+// Newest first, 50 per page
+const page = await agena.auditLogs.list({ action: 'tasks.assign_task', page: 1 });
+
+// Distinct action names (for a filter dropdown)
+const actions = await agena.auditLogs.actions();
+
+// CSV export of the filtered entries
+const csv = await agena.auditLogs.exportCsv({ created_from: '2026-10-01' });
+```
+
 ## Error Handling
 
 ```typescript

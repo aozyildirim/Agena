@@ -9,6 +9,9 @@ import type {
   AgentLiveStatus,
   Integration,
   User,
+  AuditLogEntry,
+  AuditLogPage,
+  AuditLogQuery,
   ApiError,
 } from './types';
 
@@ -38,6 +41,8 @@ export class AgenaClient {
   readonly integrations: IntegrationsResource;
   /** Auth operations */
   readonly auth: AuthResource;
+  /** Organization audit trail (owner / admin) */
+  readonly auditLogs: AuditLogsResource;
 
   constructor(config: AgenaConfig) {
     this.baseUrl = (config.baseUrl || 'https://api.agena.dev').replace(/\/$/, '');
@@ -49,10 +54,20 @@ export class AgenaClient {
     this.agents = new AgentsResource(this);
     this.integrations = new IntegrationsResource(this);
     this.auth = new AuthResource(this);
+    this.auditLogs = new AuditLogsResource(this);
   }
 
-  /** Internal: make an authenticated API request */
+  /** Internal: make an authenticated API request and parse the JSON body */
   async _request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    return this._send(method, path, body, (res) => res.json() as Promise<T>);
+  }
+
+  /** Internal: same, for endpoints that answer with text (CSV exports) */
+  async _requestText(method: string, path: string): Promise<string> {
+    return this._send(method, path, undefined, (res) => res.text());
+  }
+
+  private async _send<T>(method: string, path: string, body: unknown, read: (res: Response) => Promise<T>): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
 
@@ -76,7 +91,7 @@ export class AgenaClient {
         throw new AgenaApiError(res.status, detail);
       }
 
-      return res.json() as Promise<T>;
+      return read(res);
     } finally {
       clearTimeout(timer);
     }
@@ -206,5 +221,35 @@ class AuthResource {
     });
     if (!res.ok) throw new AgenaApiError(res.status, 'Login failed');
     return res.json();
+  }
+}
+
+// ─── Audit Logs ────────────────────────────────────
+
+class AuditLogsResource {
+  constructor(private client: AgenaClient) {}
+
+  private query(params?: AuditLogQuery & { page?: number; page_size?: number }): string {
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params || {})) {
+      if (value !== undefined && value !== null && value !== '') qs.set(key, String(value));
+    }
+    const s = qs.toString();
+    return s ? `?${s}` : '';
+  }
+
+  /** List audit entries, newest first (owner / admin only) */
+  async list(params?: AuditLogQuery & { page?: number; page_size?: number }): Promise<AuditLogPage> {
+    return this.client._request<AuditLogPage>('GET', `/audit-logs${this.query(params)}`);
+  }
+
+  /** Distinct action names seen in this organization — handy for filter UIs */
+  async actions(): Promise<string[]> {
+    return this.client._request<string[]>('GET', '/audit-logs/actions');
+  }
+
+  /** The filtered entries as CSV text (newest first, up to 10,000 rows) */
+  async exportCsv(params?: AuditLogQuery): Promise<string> {
+    return this.client._requestText('GET', `/audit-logs/export.csv${this.query(params)}`);
   }
 }

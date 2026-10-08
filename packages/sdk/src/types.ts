@@ -102,3 +102,46 @@ export interface ApiError {
   detail: string;
   status: number;
 }
+
+export interface AuditLogEntry {
+  id: number;
+  created_at: string;
+  actor_user_id: number | null;
+  actor_email: string | null;
+  actor_role: string | null;
+  /** `<area>.<endpoint>`, e.g. `tasks.assign_task` or `auth.login` */
+  action: string;
+  method: string;
+  path: string;
+  /** Matched path template, e.g. `/tasks/{task_id}/assign` */
+  route: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  status_code: number;
+  request_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  workspace_id: number | null;
+  /** Path params and redacted query string; never the request body */
+  details: Record<string, unknown> | null;
+}
+
+export interface AuditLogQuery {
+  /** Exact action name, e.g. `integrations.save_integration` */
+  action?: string;
+  /** Substring match on the actor's email */
+  actor?: string;
+  target_type?: string;
+  /** Free text over path, action, target id, IP, or an exact request id */
+  q?: string;
+  /** ISO date (YYYY-MM-DD), inclusive */
+  created_from?: string;
+  created_to?: string;
+}
+
+export interface AuditLogPage {
+  page: number;
+  page_size: number;
+  total: number;
+  items: AuditLogEntry[];
+}
