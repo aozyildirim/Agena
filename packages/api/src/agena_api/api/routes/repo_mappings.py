@@ -11,7 +11,7 @@ router = APIRouter(prefix='/repo-mappings', tags=['repo-mappings'])
 
 
 class RepoMappingCreate(BaseModel):
-    provider: str  # github | azure
+    provider: str  # github | azure | gitlab
     owner: str
     repo_name: str
     base_branch: str = 'main'
@@ -76,8 +76,8 @@ async def create_repo_mapping(
     tenant: CurrentTenant = Depends(require_permission('integrations:manage')),
     db: AsyncSession = Depends(get_db_session),
 ):
-    if body.provider not in ('github', 'azure'):
-        raise HTTPException(400, 'Provider must be github or azure')
+    if body.provider not in ('github', 'azure', 'gitlab'):
+        raise HTTPException(400, 'Provider must be github, azure or gitlab')
 
     # If setting as default, unset other defaults
     if body.is_default:

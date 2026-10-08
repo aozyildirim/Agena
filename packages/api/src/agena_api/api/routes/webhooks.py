@@ -13,6 +13,7 @@ from agena_core.database import get_db_session
 from agena_core.settings import get_settings
 from agena_models.models.task_record import TaskRecord
 from agena_services.services.flow_executor import run_pr_feedback_autofix
+from agena_services.services.gitlab_webhook import gitlab_mr_url, is_gitlab_mr_merged
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,10 @@ def _extract_pr_url(payload: dict[str, Any]) -> str:
     pr_url = str(payload.get('pr_url') or '').strip()
     if pr_url:
         return pr_url
+
+    gitlab_url = gitlab_mr_url(payload)
+    if gitlab_url:
+        return gitlab_url
 
     # Azure DevOps service hook shape.
     resource = payload.get('resource') if isinstance(payload.get('resource'), dict) else {}
@@ -157,20 +162,22 @@ def _is_pr_merged(payload: dict[str, Any]) -> bool:
     gh_pr = payload.get('pull_request') if isinstance(payload.get('pull_request'), dict) else {}
     if action == 'closed' and gh_pr.get('merged') is True:
         return True
-    return False
+    return is_gitlab_mr_merged(payload)
 
 
 @router.post('/pr-merged')
 async def pr_merged_webhook(
     request: Request,
     x_agena_webhook_secret: str | None = Header(default=None, alias='X-Agena-Webhook-Secret'),
+    x_gitlab_token: str | None = Header(default=None, alias='X-Gitlab-Token'),
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     """Handle PR merge/complete webhook — auto-resolve linked Sentry issues."""
     settings = get_settings()
     expected = (settings.pr_webhook_secret or '').strip()
     if expected:
-        provided = (x_agena_webhook_secret or '').strip()
+        # GitLab can't send custom headers; its "Secret token" arrives as X-Gitlab-Token.
+        provided = (x_agena_webhook_secret or x_gitlab_token or '').strip()
         if provided != expected:
             raise HTTPException(status_code=401, detail='Invalid webhook secret')
 

@@ -1646,6 +1646,51 @@ class OrchestrationService:
                         severity='error',
                         task_id=task.id,
                     )
+            elif create_pr and routing.remote_repo and routing.remote_repo.startswith('gitlab:'):
+                try:
+                    from agena_services.services.gitlab_pr_service import GitLabPRService
+                    from agena_services.services.remote_repo_service import parse_gitlab_spec
+
+                    parsed = parse_gitlab_spec(routing.remote_repo)
+                    if parsed is None:
+                        raise ValueError(f'Invalid GitLab repo spec: {routing.remote_repo}')
+                    gl_project, gl_branch = parsed
+                    await task_service.add_log(task.id, organization_id, 'pr',
+                        f'Pushing {len(pr_payload.files)} file(s) to GitLab via API: {gl_project}')
+                    pr_url = await GitLabPRService(self.db_session).push_files_and_create_mr(
+                        organization_id,
+                        project_path=gl_project,
+                        branch_name=pr_payload.branch_name,
+                        target_branch=gl_branch,
+                        title=pr_payload.title,
+                        description=pr_payload.body,
+                        files=[{'path': f.path, 'content': f.content} for f in pr_payload.files],
+                        commit_message=pr_payload.commit_message,
+                    )
+                    branch_name = pr_payload.branch_name
+                    await task_service.add_log(task.id, organization_id, 'pr', f'GitLab MR created: {pr_url}')
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_created',
+                        title=f'PR created for task #{task.id}',
+                        message=pr_url or 'GitLab MR created',
+                        severity='success',
+                        task_id=task.id,
+                        payload={'pr_url': pr_url},
+                    )
+                except Exception as pr_exc:
+                    await task_service.add_log(task.id, organization_id, 'pr',
+                        f'GitLab remote MR failed: {str(pr_exc)[:300]}')
+                    await notification_service.notify_event(
+                        organization_id=organization_id,
+                        user_id=task.created_by_user_id,
+                        event_type='pr_failed',
+                        title=f'PR failed for task #{task.id}',
+                        message=str(pr_exc)[:240],
+                        severity='error',
+                        task_id=task.id,
+                    )
             elif create_pr and routing.effective_source == 'azure':
                 await task_service.add_log(
                     task.id,
@@ -3026,6 +3071,9 @@ class OrchestrationService:
                 if stripped.startswith('github:') and '/' in stripped and not stripped.startswith('github: '):
                     remote_repo = stripped
                     break
+                if stripped.startswith('gitlab:') and '/' in stripped and not stripped.startswith('gitlab: '):
+                    remote_repo = stripped
+                    break
         # If remote repo is set, ignore local repo path (remote takes priority)
         local_repo_path = meta.get('local repo path') or None
         if remote_repo:
@@ -3040,6 +3088,9 @@ class OrchestrationService:
             elif repo_mapping.provider == 'azure':
                 effective_source = 'azure'
                 azure_project = repo_mapping.owner
+            elif repo_mapping.provider == 'gitlab':
+                remote_repo = f"gitlab:{repo_mapping.owner}/{repo_mapping.repo_name}@{repo_mapping.base_branch or 'main'}"
+                effective_source = 'gitlab'
             if repo_mapping.local_repo_path:
                 local_repo_path = repo_mapping.local_repo_path
                 remote_repo = None
@@ -4326,6 +4377,26 @@ class OrchestrationService:
                     total_read += len(content)
                     found.append(normalized)
 
+            elif remote_repo.startswith('gitlab:'):
+                gl = await self._resolve_gitlab_remote(remote_repo, organization_id)
+                if gl is None:
+                    return '', 0, [], list(plan_files)
+                gl_url, gl_project, branch, token = gl
+                for fp in plan_files:
+                    normalized = str(fp or '').strip().replace('\\', '/').lstrip('./')
+                    if not normalized:
+                        continue
+                    content = await svc.gitlab_file_content(gl_url, gl_project, token, normalized, branch)
+                    if content is None:
+                        missing.append(normalized)
+                        parts.append(f'\n--- {normalized} (not found in remote) ---\n')
+                        continue
+                    if total_read + len(content) > max_total:
+                        content = content[:max(400, max_total - total_read)]
+                    parts.append(f'\n--- {normalized} ({len(content)} chars) ---\n{content}')
+                    total_read += len(content)
+                    found.append(normalized)
+
             elif remote_repo.startswith('azure:'):
                 spec = remote_repo[len('azure:'):]
                 branch = 'main'
@@ -4435,6 +4506,12 @@ class OrchestrationService:
                 if not token:
                     return None
                 tree = await svc.github_tree(owner, repo, token, branch)
+            elif remote_repo.startswith('gitlab:'):
+                gl = await self._resolve_gitlab_remote(remote_repo, organization_id)
+                if gl is None:
+                    return None
+                gl_url, gl_project, branch, token = gl
+                tree = await svc.gitlab_tree(gl_url, gl_project, token, branch)
             elif remote_repo.startswith('azure:'):
                 spec = remote_repo[len('azure:'):]
                 branch = 'main'
@@ -4461,6 +4538,22 @@ class OrchestrationService:
             logger.warning('Failed to build remote file tree for %s: %s', remote_repo, exc)
             return None
 
+    async def _resolve_gitlab_remote(
+        self, remote_repo: str, organization_id: int,
+    ) -> tuple[str | None, str, str, str] | None:
+        """Parse ``gitlab:group/project[@branch]`` and load the org's GitLab credentials."""
+        from agena_services.services.integration_config_service import IntegrationConfigService
+        from agena_services.services.remote_repo_service import parse_gitlab_spec
+
+        parsed = parse_gitlab_spec(remote_repo)
+        if parsed is None:
+            return None
+        project_path, branch = parsed
+        cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'gitlab')
+        if cfg is None or not cfg.secret:
+            return None
+        return cfg.base_url, project_path, branch, cfg.secret
+
     async def _fetch_remote_agents_md(self, remote_repo: str, organization_id: int) -> str | None:
         """Try to fetch agents.md from remote repo root."""
         from agena_services.services.remote_repo_service import RemoteRepoService
@@ -4483,6 +4576,16 @@ class OrchestrationService:
                     return None
                 for name in ['CLAUDE.md', 'agents.md', 'AGENTS.md']:
                     content = await svc.github_file_content(owner, repo, token, name, branch)
+                    if content:
+                        return content
+
+            elif remote_repo.startswith('gitlab:'):
+                gl = await self._resolve_gitlab_remote(remote_repo, organization_id)
+                if gl is None:
+                    return None
+                gl_url, gl_project, branch, token = gl
+                for name in ['CLAUDE.md', 'agents.md', 'AGENTS.md']:
+                    content = await svc.gitlab_file_content(gl_url, gl_project, token, name, branch)
                     if content:
                         return content
 
@@ -4530,6 +4633,12 @@ class OrchestrationService:
                 if not token:
                     return None
                 return await svc.github_file_content(owner, repo, token, normalized, branch)
+            elif remote_repo.startswith('gitlab:'):
+                gl = await self._resolve_gitlab_remote(remote_repo, organization_id)
+                if gl is None:
+                    return None
+                gl_url, gl_project, branch, token = gl
+                return await svc.gitlab_file_content(gl_url, gl_project, token, normalized, branch)
             elif remote_repo.startswith('azure:'):
                 spec = remote_repo[len('azure:'):]
                 branch = 'main'
@@ -4568,6 +4677,14 @@ class OrchestrationService:
                 if not token:
                     return []
                 tree = await svc.github_tree(owner, repo, token, branch)
+                filtered = svc._filter_tree(tree)
+                return [item['path'] for item in filtered]
+            elif remote_repo.startswith('gitlab:'):
+                gl = await self._resolve_gitlab_remote(remote_repo, organization_id)
+                if gl is None:
+                    return []
+                gl_url, gl_project, branch, token = gl
+                tree = await svc.gitlab_tree(gl_url, gl_project, token, branch)
                 filtered = svc._filter_tree(tree)
                 return [item['path'] for item in filtered]
             elif remote_repo.startswith('azure:'):
@@ -4616,6 +4733,13 @@ class OrchestrationService:
                 if not token:
                     return 'Remote repo configured but no GitHub token available'
                 return await svc.github_repo_context(owner, repo, token, branch, task_title, task_description)
+
+            elif remote_repo.startswith('gitlab:'):
+                gl = await self._resolve_gitlab_remote(remote_repo, organization_id)
+                if gl is None:
+                    return 'Remote repo configured but no GitLab credentials available'
+                gl_url, gl_project, branch, token = gl
+                return await svc.gitlab_repo_context(gl_url, gl_project, token, branch, task_title, task_description)
 
             elif remote_repo.startswith('azure:'):
                 # Format: azure:project/repo or azure:project/repo@branch

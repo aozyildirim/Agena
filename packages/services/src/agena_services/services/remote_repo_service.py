@@ -11,6 +11,7 @@ import base64
 import logging
 import re
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -30,6 +31,24 @@ IGNORE_DIRS = {
 IGNORE_FILES = {'go.sum', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'}
 MAX_FILE_SIZE = 200_000  # skip files larger than 200KB
 MAX_TOTAL_CHARS = 120_000  # ~30K tokens — keeps context within LLM-friendly limits
+
+
+def parse_gitlab_spec(spec: str) -> tuple[str, str] | None:
+    """``gitlab:group/sub/project[@branch]`` -> (project_path, branch).
+
+    GitLab projects live under arbitrarily nested groups, so unlike the
+    owner/repo providers the whole path is the project identifier.
+    """
+    value = (spec or '').strip()
+    if value.startswith('gitlab:'):
+        value = value[len('gitlab:'):]
+    branch = 'main'
+    if '@' in value:
+        value, branch = value.rsplit('@', 1)
+    value = value.strip('/')
+    if '/' not in value or not branch:
+        return None
+    return value, branch
 
 
 class RemoteRepoService:
@@ -117,6 +136,96 @@ class RemoteRepoService:
             if total_chars > MAX_TOTAL_CHARS:
                 break
             content = await self.github_file_content(owner, repo, token, item['path'], branch)
+            if content is None:
+                continue
+            lines.append(f'\n--- {item["path"]} ---')
+            lines.append(content)
+            total_chars += len(content)
+        lines.append('=== END SOURCE FILES ===')
+        lines.append('')
+        lines.append('Return **File: path** blocks with code.')
+        return '\n'.join(lines)
+
+    # ── GitLab ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def gitlab_project_api(base_url: str | None, project_path: str) -> str:
+        """``https://host/api/v4/projects/<url-encoded path>`` for a project."""
+        root = (base_url or 'https://gitlab.com').rstrip('/')
+        if root.endswith('/api/v4'):
+            root = root[: -len('/api/v4')]
+        return f'{root}/api/v4/projects/{quote(project_path.strip("/"), safe="")}'
+
+    async def gitlab_tree(
+        self,
+        base_url: str | None,
+        project_path: str,
+        token: str,
+        branch: str = 'main',
+        max_pages: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Flat {path, size, type} list; GitLab pages the tree at 100 entries."""
+        url = f'{self.gitlab_project_api(base_url, project_path)}/repository/tree'
+        headers = {'PRIVATE-TOKEN': token}
+        items: list[dict[str, Any]] = []
+        async with httpx.AsyncClient(timeout=30) as client:
+            for page in range(1, max_pages + 1):
+                r = await client.get(url, headers=headers, params={
+                    'recursive': 'true', 'per_page': 100, 'page': page, 'ref': branch,
+                })
+                r.raise_for_status()
+                batch = r.json()
+                items.extend({'path': i['path'], 'size': 0, 'type': i['type']} for i in batch)
+                if len(batch) < 100:
+                    break
+        return items
+
+    async def gitlab_file_content(
+        self,
+        base_url: str | None,
+        project_path: str,
+        token: str,
+        path: str,
+        branch: str = 'main',
+    ) -> str | None:
+        """Raw file content, or None if missing/binary/too large."""
+        url = f'{self.gitlab_project_api(base_url, project_path)}/repository/files/{quote(path, safe="")}/raw'
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(url, headers={'PRIVATE-TOKEN': token}, params={'ref': branch})
+        if r.status_code != 200 or len(r.content) > MAX_FILE_SIZE:
+            return None
+        return r.content.decode('utf-8', errors='replace')
+
+    async def gitlab_repo_context(
+        self,
+        base_url: str | None,
+        project_path: str,
+        token: str,
+        branch: str = 'main',
+        task_title: str = '',
+        task_description: str = '',
+    ) -> str:
+        """Build LLM-ready repo context string from the GitLab API."""
+        tree = await self.gitlab_tree(base_url, project_path, token, branch)
+        filtered = self._filter_tree(tree)
+        relevant = self._rank_files(filtered, task_title, task_description)
+
+        lines = [f'Remote Repo: gitlab:{project_path} (branch: {branch})']
+        lines.append(f'Total files: {len(tree)}, Relevant: {len(relevant)}')
+        lines.append('')
+        lines.append('=== FILE TREE ===')
+        for item in filtered[:200]:
+            lines.append(f'  {item["path"]}')
+        if len(filtered) > 200:
+            lines.append(f'  ... and {len(filtered) - 200} more files')
+        lines.append('=== END FILE TREE ===')
+        lines.append('')
+        lines.append('=== RELEVANT SOURCE FILES ===')
+        total_chars = 0
+        for item in relevant:
+            if total_chars > MAX_TOTAL_CHARS:
+                break
+            content = await self.gitlab_file_content(base_url, project_path, token, item['path'], branch)
             if content is None:
                 continue
             lines.append(f'\n--- {item["path"]} ---')

@@ -675,6 +675,41 @@ async def list_github_repos(
     ]
 
 
+@router.get('/gitlab/projects')
+async def list_gitlab_projects(
+    search: str = Query(default='', max_length=100),
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[dict[str, Any]]:
+    """Projects the configured GitLab token is a member of (same shape as /github/repos)."""
+    config = await IntegrationConfigService(db).get_config(tenant.organization_id, 'gitlab')
+    if config is None or not config.secret:
+        return []
+    root = (config.base_url or 'https://gitlab.com').rstrip('/')
+    if root.endswith('/api/v4'):
+        root = root[: -len('/api/v4')]
+    params: dict[str, Any] = {
+        'membership': 'true', 'simple': 'true', 'per_page': 100,
+        'order_by': 'last_activity_at', 'sort': 'desc',
+    }
+    if search.strip():
+        params['search'] = search.strip()
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(f'{root}/api/v4/projects', headers={'PRIVATE-TOKEN': config.secret}, params=params)
+        if r.status_code != 200:
+            return []
+    return [
+        {
+            'id': project['id'],
+            'name': project['path_with_namespace'],
+            'default_branch': project.get('default_branch') or 'main',
+            'private': project.get('visibility', 'private') != 'public',
+            'web_url': project.get('web_url', ''),
+        }
+        for project in r.json()
+    ]
+
+
 async def _fetch_azure_workflow_state_order(
     client: httpx.AsyncClient,
     *,
