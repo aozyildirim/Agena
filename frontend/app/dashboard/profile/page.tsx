@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch, removeToken, loadPrefs, savePrefs } from '@/lib/api';
+import { apiFetch, removeToken, setToken, loadPrefs, savePrefs } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import NavIcon from '@/components/NavIcon';
 
@@ -94,6 +94,11 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [revokeBusy, setRevokeBusy] = useState(false);
 
   useEffect(() => {
     apiFetch<MeRes>('/auth/me').then(setUser).catch(() => {});
@@ -159,6 +164,39 @@ export default function ProfilePage() {
   function logout() {
     removeToken();
     router.push('/');
+  }
+
+  async function changePassword() {
+    if (pwNew !== pwConfirm) { setToast({ kind: 'err', msg: t('profile.passwordMismatch') }); return; }
+    if (pwNew.length < 8) { setToast({ kind: 'err', msg: t('profile.passwordTooShort') }); return; }
+    setPwBusy(true);
+    try {
+      // The server signs every other session out and hands this one a fresh token.
+      const res = await apiFetch<{ access_token: string }>('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ current_password: pwCurrent, new_password: pwNew }),
+      });
+      setToken(res.access_token);
+      setPwCurrent(''); setPwNew(''); setPwConfirm('');
+      setToast({ kind: 'ok', msg: t('profile.passwordChanged') });
+    } catch (e) {
+      setToast({ kind: 'err', msg: e instanceof Error ? e.message : t('profile.passwordChangeFailed') });
+    } finally {
+      setPwBusy(false);
+    }
+  }
+
+  async function signOutEverywhere() {
+    if (!window.confirm(t('profile.signOutEverywhereConfirm'))) return;
+    setRevokeBusy(true);
+    try {
+      await apiFetch('/auth/logout-all', { method: 'POST' });
+      removeToken();
+      router.push('/signin');
+    } catch (e) {
+      setToast({ kind: 'err', msg: e instanceof Error ? e.message : t('profile.passwordChangeFailed') });
+      setRevokeBusy(false);
+    }
   }
 
   const branchPreviewSrc = profileSettings.branch_prefix || 'feature/AB#{ext_id}-{title_slug}';
@@ -444,6 +482,41 @@ export default function ProfilePage() {
         </a>
       </div>
 
+      {/* ── Security: password + sessions ── */}
+      <div style={{ border: '1px solid var(--panel-border)', borderRadius: 12, padding: 18, background: 'var(--panel)', display: 'grid', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-90)' }}>{t('profile.securityTitle')}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2 }}>{t('profile.securityDesc')}</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, alignItems: 'end' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, color: 'var(--ink-42)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            {t('profile.currentPassword')}
+            <input type='password' autoComplete='current-password' value={pwCurrent} onChange={(e) => setPwCurrent(e.target.value)} style={pwField} />
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, color: 'var(--ink-42)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            {t('profile.newPassword')}
+            <input type='password' autoComplete='new-password' value={pwNew} onChange={(e) => setPwNew(e.target.value)} style={pwField} />
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, color: 'var(--ink-42)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            {t('profile.confirmPassword')}
+            <input type='password' autoComplete='new-password' value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} style={pwField}
+              onKeyDown={(e) => { if (e.key === 'Enter') void changePassword(); }} />
+          </label>
+          <button type='button' onClick={() => void changePassword()} disabled={pwBusy || !pwCurrent || !pwNew || !pwConfirm} className='button button-primary' style={{ height: 38 }}>
+            {pwBusy ? t('profile.changingPassword') : t('profile.changePassword')}
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid var(--panel-alt)' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-78)' }}>{t('profile.signOutEverywhere')}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2 }}>{t('profile.signOutEverywhereDesc')}</div>
+          </div>
+          <button type='button' onClick={() => void signOutEverywhere()} disabled={revokeBusy} className='button button-outline' style={{ height: 36, color: '#cf5b57' }}>
+            {revokeBusy ? t('profile.signingOut') : t('profile.signOutEverywhere')}
+          </button>
+        </div>
+      </div>
+
       {/* ── Toast: pinned bottom-right, auto-dismiss ── */}
       {toast && (
         <div
@@ -473,6 +546,11 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+const pwField: React.CSSProperties = {
+  width: '100%', height: 38, borderRadius: 8, border: '1px solid var(--panel-border)',
+  background: 'var(--surface)', color: 'var(--ink-90)', padding: '0 10px', fontSize: 13, outline: 'none',
+};
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (

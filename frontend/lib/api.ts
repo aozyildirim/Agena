@@ -233,7 +233,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit, auth = true)
       const parsed = JSON.parse(text) as { detail?: string };
       if (typeof parsed.detail === 'string' && parsed.detail.trim()) detail = parsed.detail.trim();
     } catch {}
-    const tokenErrors = new Set(['Invalid token', 'Invalid auth context', 'User not found']);
+    // Detail strings the backend uses when the bearer itself is no longer
+    // acceptable — as opposed to a 401 from an integration behind it.
+    const tokenErrors = new Set(['Invalid token', 'Invalid auth context', 'User not found', 'Session expired, please sign in again']);
     if (tokenErrors.has(detail)) {
       removeToken();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/signin') && !window.location.pathname.startsWith('/signup')) {
