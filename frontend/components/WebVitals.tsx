@@ -6,7 +6,7 @@ export default function WebVitals() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    import('web-vitals').then(({ onCLS, onFID, onLCP, onFCP, onTTFB }) => {
+    import('web-vitals').then(({ onCLS, onINP, onLCP, onFCP, onTTFB }) => {
       const send = (metric: { name: string; value: number; id: string }) => {
         if (typeof window.gtag === 'function') {
           window.gtag('event', metric.name, {
@@ -18,7 +18,7 @@ export default function WebVitals() {
         }
       };
       onCLS(send);
-      onFID(send);
+      onINP(send);
       onLCP(send);
       onFCP(send);
       onTTFB(send);

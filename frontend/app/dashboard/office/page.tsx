@@ -420,26 +420,34 @@ function AssignTaskModal({
     } catch { setSprintItems([]); } finally { setSprintLoading(false); }
   };
 
+  // Both sprint buttons below create the same task from the selected work
+  // item and differ only in how they assign it, so the description is built
+  // in one place.
+  const createSprintTask = async (item: SprintWorkItem) => {
+    const providerLabel = sprintProvider === 'youtrack' ? 'YouTrack' : sprintProvider === 'jira' ? 'Jira' : 'Azure';
+    const project = localStorage.getItem('agena_sprint_project') || '';
+    const mapping = repoMappings.find((m) => m.id === selectedMapping) || repoMappings[0];
+    const ctxParts = [
+      `External Source: ${providerLabel} #${item.id}`,
+      project ? `Project: ${project}` : '',
+      repoMode === 'remote' && remoteRepoMeta ? `Remote Repo: ${remoteRepoMeta}` : '',
+      repoMode !== 'remote' && mapping?.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
+      repoMode !== 'remote' && mapping?.name ? `Local Repo Mapping: ${mapping.name}` : '',
+      repoMode !== 'remote' && mapping?.local_path ? `Local Repo Path: ${mapping.local_path}` : '',
+    ].filter(Boolean);
+    const fullDesc = (sprintDesc || item.title) + '\n\n---\n' + ctxParts.join('\n');
+    return apiFetch<{ id: number }>('/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ title: `[${providerLabel} #${item.id}] ${item.title}`, description: fullDesc }),
+    });
+  };
+
   const handleSprintAssign = async () => {
     if (!selectedSprintItem) return;
     const item = selectedSprintItem;
     setSprintAssigning(item.id);
     try {
-      const project = localStorage.getItem('agena_sprint_project') || '';
-      const mapping = repoMappings.find((m) => m.id === selectedMapping) || repoMappings[0];
-      const ctxParts = [
-        `External Source: ${sprintProvider === 'youtrack' ? 'YouTrack' : sprintProvider === 'jira' ? 'Jira' : 'Azure'} #${item.id}`,
-        project ? `Project: ${project}` : '',
-        repoMode === 'remote' && remoteRepoMeta ? `Remote Repo: ${remoteRepoMeta}` : '',
-        repoMode !== 'remote' && mapping?.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
-        repoMode !== 'remote' && mapping?.name ? `Local Repo Mapping: ${mapping.name}` : '',
-        repoMode !== 'remote' && mapping?.local_path ? `Local Repo Path: ${mapping.local_path}` : '',
-      ].filter(Boolean);
-      const fullDesc = (sprintDesc || item.title) + '\n\n---\n' + ctxParts.join('\n');
-      const created = await apiFetch<{ id: number }>('/tasks', {
-        method: 'POST',
-        body: JSON.stringify({ title: `[${sprintProvider === 'youtrack' ? 'YouTrack' : sprintProvider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`, description: fullDesc }),
-      });
+      const created = await createSprintTask(item);
       await apiFetch(`/tasks/${created.id}/assign`, { method: 'POST', body: JSON.stringify(assignBody()) });
       onClose();
     } catch { /* silent */ } finally { setSprintAssigning(null); }
@@ -711,20 +719,7 @@ function AssignTaskModal({
                   <button onClick={async () => {
                     setSprintAssigning(selectedSprintItem.id);
                     try {
-                      const item = selectedSprintItem;
-                      const ctxParts = [
-                        `External Source: ${sprintProvider === 'youtrack' ? `YouTrack #${item.id}` : sprintProvider === 'jira' ? `Jira #${item.id}` : `Azure #${item.id}`}`,
-                        sprintProject ? `Project: ${sprintProject}` : '',
-                        repoMode !== 'remote' && mapping?.azure_repo_url ? `Azure Repo: ${mapping.azure_repo_url}` : '',
-                        repoMode !== 'remote' && mapping?.name ? `Local Repo Mapping: ${mapping.name}` : '',
-                        repoMode !== 'remote' && mapping?.local_path ? `Local Repo Path: ${mapping.local_path}` : '',
-                        repoMode === 'remote' && remoteRepoMeta ? `Remote Repo: ${remoteRepoMeta}` : '',
-                      ].filter(Boolean);
-                      const fullDesc = (sprintDesc || item.title) + '\n\n---\n' + ctxParts.join('\n');
-                      const created = await apiFetch<{ id: number }>('/tasks', {
-                        method: 'POST',
-                        body: JSON.stringify({ title: `[${sprintProvider === 'youtrack' ? 'YouTrack' : sprintProvider === 'jira' ? 'Jira' : 'Azure'} #${item.id}] ${item.title}`, description: fullDesc }),
-                      });
+                      const created = await createSprintTask(selectedSprintItem);
                       await apiFetch(`/tasks/${created.id}/assign`, { method: 'POST', body: JSON.stringify({ create_pr: true, mode: 'mcp_agent' }) });
                       onClose();
                     } catch { /* silent */ } finally { setSprintAssigning(null); }

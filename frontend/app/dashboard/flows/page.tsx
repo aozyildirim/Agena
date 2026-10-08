@@ -1447,6 +1447,7 @@ const VARIABLE_OPTIONS = [
 ];
 
 function VariablePicker({ targetRef, onInsert }: { targetRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>; onInsert: (val: string) => void }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
