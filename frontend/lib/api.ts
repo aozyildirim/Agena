@@ -753,6 +753,68 @@ export async function runFlowScheduleNow(id: number): Promise<FlowSchedule> {
   return apiFetch<FlowSchedule>(`/flows/schedules/${id}/run`, { method: 'POST' });
 }
 
+export interface WebhookEndpoint {
+  id: number;
+  name: string;
+  url: string;
+  events: string[] | null;
+  enabled: boolean;
+  failure_count: number;
+  last_delivery_at: string | null;
+  last_status: string | null;
+  created_at: string;
+}
+
+export interface WebhookEndpointWithSecret extends WebhookEndpoint {
+  /** Shown on create and rotate only. */
+  secret: string;
+}
+
+export interface WebhookDelivery {
+  id: number;
+  event_type: string;
+  status: 'pending' | 'sending' | 'delivered' | 'failed' | string;
+  attempts: number;
+  response_status: number | null;
+  last_error: string | null;
+  next_attempt_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  payload: Record<string, unknown> | null;
+}
+
+export async function listWebhookEventTypes(): Promise<string[]> {
+  return apiFetch<string[]>('/webhook-endpoints/event-types');
+}
+
+export async function listWebhookEndpoints(): Promise<WebhookEndpoint[]> {
+  return apiFetch<WebhookEndpoint[]>('/webhook-endpoints');
+}
+
+export async function createWebhookEndpoint(payload: { name: string; url: string; events: string[]; enabled?: boolean }): Promise<WebhookEndpointWithSecret> {
+  return apiFetch<WebhookEndpointWithSecret>('/webhook-endpoints', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateWebhookEndpoint(id: number, payload: { name?: string; url?: string; events?: string[]; enabled?: boolean }): Promise<WebhookEndpoint> {
+  return apiFetch<WebhookEndpoint>(`/webhook-endpoints/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function rotateWebhookSecret(id: number): Promise<WebhookEndpointWithSecret> {
+  return apiFetch<WebhookEndpointWithSecret>(`/webhook-endpoints/${id}/rotate-secret`, { method: 'POST' });
+}
+
+export async function testWebhookEndpoint(id: number): Promise<WebhookDelivery> {
+  return apiFetch<WebhookDelivery>(`/webhook-endpoints/${id}/test`, { method: 'POST' });
+}
+
+export async function listWebhookDeliveries(id: number, limit = 30): Promise<WebhookDelivery[]> {
+  return apiFetch<WebhookDelivery[]>(`/webhook-endpoints/${id}/deliveries?limit=${limit}`);
+}
+
+export async function deleteWebhookEndpoint(id: number): Promise<void> {
+  await apiFetch(`/webhook-endpoints/${id}`, { method: 'DELETE' });
+}
+
 export async function listFlowTemplates(): Promise<FlowTemplate[]> {
   return apiFetch<FlowTemplate[]>('/flows/templates');
 }

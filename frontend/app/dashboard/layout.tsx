@@ -107,6 +107,7 @@ const NAV_GROUPS: NavGroup[] = [
         { href: '/dashboard/integrations/appdynamics', key: 'nav.appdynamics', icon: 'chart', permission: 'integrations:manage' as const, module: 'appdynamics' },
       ]},
       { href: '/dashboard/mappings', key: 'nav.mappings', icon: 'map', module: 'core', wsPerm: 'repo:manage' },
+      { href: '/dashboard/webhook-endpoints', key: 'nav.outboundWebhooks', icon: 'send', permission: 'integrations:manage' as const, module: 'core' },
     ],
   },
   // 6) Admin — org, access and module management.
