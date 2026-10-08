@@ -97,7 +97,7 @@ async def get_current_tenant(
         except (TypeError, ValueError):
             workspace_id = None
 
-    return CurrentTenant(
+    tenant = CurrentTenant(
         user_id=user_id,
         organization_id=org_id,
         email=email,
@@ -105,6 +105,10 @@ async def get_current_tenant(
         is_platform_admin=bool(payload.get('pa')),
         workspace_id=workspace_id,
     )
+    # Left on the request so AuditMiddleware can attribute the call after
+    # the response is built — only requests that got this far are recorded.
+    request.state.tenant = tenant
+    return tenant
 
 
 async def require_platform_admin(

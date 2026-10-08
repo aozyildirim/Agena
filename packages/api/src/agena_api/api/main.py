@@ -6,12 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 from sqlalchemy import text
 
+from agena_api.api.middleware.audit import AuditMiddleware
 from agena_api.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from agena_api.api.middleware.rate_limit import RateLimitMiddleware
 from agena_api.api.middleware.request_id import RequestIDMiddleware
 from agena_api.api.middleware.request_logger import RequestLoggerMiddleware
 from agena_api.api.middleware.tenant import TenantMiddleware
-from agena_api.api.routes import admin, agents, alerts, analytics, auth, billing, br_management, chatops, datadog, device_auth, flows, github, insights, integration_rules, integrations, memory, modules, newrelic, notifications, org, preferences, pr_reviewer, public, refinement, repo_mappings, review_backlog, reviews, runtimes, saas_tasks, sentry, share, skills, tasks, team, triage, usage_events, webhooks, workflow_settings, workspace_invites, workspace_roles, workspaces, ws
+from agena_api.api.routes import admin, agents, alerts, analytics, audit_logs, auth, billing, br_management, chatops, datadog, device_auth, flows, github, insights, integration_rules, integrations, memory, modules, newrelic, notifications, org, preferences, pr_reviewer, public, refinement, repo_mappings, review_backlog, reviews, runtimes, saas_tasks, sentry, share, skills, tasks, team, triage, usage_events, webhooks, workflow_settings, workspace_invites, workspace_roles, workspaces, ws
 from agena_core.database import engine, SessionLocal
 from agena_core.logging import configure_logging
 from agena_core.observability import init_sentry
@@ -27,6 +28,11 @@ init_sentry('api')
 app = FastAPI(title=settings.app_name)
 
 # Middleware stack (outermost first in execution order).
+# AuditMiddleware is added first so it sits innermost: by the time it runs
+# the dependency layer has left the tenant on request.state and the router
+# has resolved the route, and RequestIDMiddleware (outermost) has already
+# stamped request.state.request_id.
+app.add_middleware(AuditMiddleware)
 app.add_middleware(TenantMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthRateLimitMiddleware)
@@ -43,6 +49,7 @@ app.add_middleware(
 
 app.include_router(analytics.router)
 app.include_router(auth.router)
+app.include_router(audit_logs.router)
 app.include_router(device_auth.router)
 app.include_router(org.router)
 app.include_router(billing.router)

@@ -1,31 +1,60 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_api.api.dependencies import CurrentTenant, get_current_tenant
 from agena_core.database import get_db_session
 from agena_models.schemas.auth import AuthResponse, LoginRequest, MeResponse, SignupRequest
+from agena_services.services.audit_actions import client_ip
+from agena_services.services.audit_service import AuditService
 from agena_services.services.auth_service import AuthService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
 
+async def _record_auth_event(db: AsyncSession, request: Request, action: str, user, org) -> None:
+    """Login/signup happen before there is a tenant on the request, so the
+    audit middleware cannot see them; record them here. Never lets a
+    bookkeeping failure turn into a failed sign-in."""
+    try:
+        await AuditService(db).record(
+            organization_id=org.id,
+            action=action,
+            actor_user_id=user.id,
+            actor_email=user.email,
+            method=request.method,
+            path=request.url.path,
+            status_code=200,
+            request_id=getattr(request.state, 'request_id', None),
+            ip_address=client_ip(request.headers, request.client.host if request.client else None),
+            user_agent=request.headers.get('user-agent'),
+        )
+    except Exception:
+        logger.warning('audit: failed to record %s for user %s', action, getattr(user, 'id', None), exc_info=True)
+
+
 @router.post('/signup', response_model=AuthResponse)
-async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db_session)) -> AuthResponse:
+async def signup(payload: SignupRequest, request: Request, db: AsyncSession = Depends(get_db_session)) -> AuthResponse:
     service = AuthService(db)
     try:
         token, user, org = await service.signup(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await _record_auth_event(db, request, 'auth.signup', user, org)
     return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '', is_platform_admin=user.is_platform_admin)
 
 
 @router.post('/login', response_model=AuthResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db_session)) -> AuthResponse:
+async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depends(get_db_session)) -> AuthResponse:
     service = AuthService(db)
     try:
         token, user, org = await service.login(payload)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+    await _record_auth_event(db, request, 'auth.login', user, org)
     return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '', is_platform_admin=user.is_platform_admin)
 
 
