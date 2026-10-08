@@ -1,5 +1,5 @@
 export interface AgenaConfig {
-  /** API key or JWT token */
+  /** An API key from Administration → API Keys (`agena_…`), or a session JWT */
   apiKey: string;
   /** Base URL of the AGENA API (default: https://api.agena.dev) */
   baseUrl?: string;

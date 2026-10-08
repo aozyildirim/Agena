@@ -34,19 +34,22 @@ console.log(`PR: ${updated.pr_url}`);
 
 ## Authentication
 
-Get your API token by logging in:
+Create an API key in the dashboard under **Administration → API Keys** (owner / admin). Keys look like `agena_…`, are shown once, act as the member who created them (never above admin), and can be revoked at any time.
 
 ```typescript
 import { AgenaClient } from '@agena/sdk';
 
-// Login to get a token
+const agena = new AgenaClient({ apiKey: process.env.AGENA_API_KEY! });
+```
+
+A short-lived session token also works — handy for scripts run by a signed-in user:
+
+```typescript
 const { access_token } = await AgenaClient.auth.login(
   'https://api.agena.dev',
   'you@email.com',
   'your-password'
 );
-
-// Use the token
 const agena = new AgenaClient({ apiKey: access_token });
 ```
 
