@@ -637,6 +637,36 @@ export async function downloadAuditLogCsv(params?: AuditLogFilters): Promise<Blo
   return await apiDownloadBlob(`/audit-logs/export.csv?${auditLogQuery(params).toString()}`);
 }
 
+export interface ApiKeyItem {
+  id: number;
+  name: string;
+  key_prefix: string;
+  role: string;
+  status: 'active' | 'revoked' | 'expired';
+  created_by_user_id: number | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface ApiKeyCreated extends ApiKeyItem {
+  /** Plaintext key — returned exactly once, never retrievable again. */
+  key: string;
+}
+
+export async function listApiKeys(): Promise<ApiKeyItem[]> {
+  return await apiFetch<ApiKeyItem[]>('/api-keys');
+}
+
+export async function createApiKey(payload: { name: string; role: string; expires_in_days?: number }): Promise<ApiKeyCreated> {
+  return await apiFetch<ApiKeyCreated>('/api-keys', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function revokeApiKey(id: number): Promise<ApiKeyItem> {
+  return await apiFetch<ApiKeyItem>(`/api-keys/${id}`, { method: 'DELETE' });
+}
+
 export async function markNotificationRead(notificationId: number): Promise<void> {
   await apiFetch(`/notifications/${notificationId}/read`, { method: 'POST' });
 }
