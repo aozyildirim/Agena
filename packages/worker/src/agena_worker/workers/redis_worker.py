@@ -14,6 +14,7 @@ from agena_core.observability import init_sentry
 from agena_core.settings import get_settings
 from agena_models.models.task_record import TaskRecord
 from agena_models.models.flow_schedule import FlowSchedule
+from agena_models.models.webhook_endpoint import WebhookDelivery
 import agena_models.models  # noqa: F401 -- register all ORM models
 from agena_services.services.event_bus import publish_fire_and_forget
 from agena_services.services.orchestration_service import OrchestrationService
@@ -302,6 +303,35 @@ async def _poll_flow_schedules() -> None:
         t.add_done_callback(_scheduled_runs.discard)
     if claimed_ids:
         logger.info('flow schedules: fired %s', claimed_ids)
+
+
+_webhook_sends: set[asyncio.Task] = set()
+
+
+async def _poll_webhook_deliveries() -> None:
+    """Deliver due outbound webhooks. Each delivery is claimed with a
+    conditional UPDATE (pending → sending) and posted from its own task and
+    session, so one slow customer endpoint never holds up the others."""
+    from agena_services.services.webhook_service import WebhookService
+
+    async with SessionLocal() as session:
+        svc = WebhookService(session)
+        due = await svc.due()
+        claimed = [d.id for d in due if await svc.claim(d)]
+
+    async def _send(delivery_id: int) -> None:
+        try:
+            async with SessionLocal() as s:
+                d = await s.get(WebhookDelivery, delivery_id)
+                if d is not None:
+                    await WebhookService(s).deliver(d)
+        except Exception:
+            logger.exception('webhook delivery %s crashed', delivery_id)
+
+    for delivery_id in claimed:
+        t = asyncio.create_task(_send(delivery_id))
+        _webhook_sends.add(t)
+        t.add_done_callback(_webhook_sends.discard)
 
 
 async def _cleanup_stale_repo_locks() -> None:
@@ -674,6 +704,7 @@ async def process_queue() -> None:
     last_backlog_poll = 0.0
     last_br_poll = 0.0
     last_schedule_poll = 0.0
+    last_webhook_poll = 0.0
 
     # Background-poll wrappers — fire-and-forget so a slow Azure WIQL
     # query inside triage / sentry / NR doesn't block the main loop
@@ -722,6 +753,10 @@ async def process_queue() -> None:
             if settings.auto_br_eval_enabled:
                 _bg(_poll_br_auto_evals, 'BR auto-eval')
             last_br_poll = now
+
+        if now - last_webhook_poll >= 20:  # outbound webhook deliveries + retries
+            _bg(_poll_webhook_deliveries, 'Webhook delivery')
+            last_webhook_poll = now
 
         if now - last_schedule_poll >= 60:  # 1 minute tick; cron resolution
             _bg(_poll_flow_schedules, 'Flow schedules')

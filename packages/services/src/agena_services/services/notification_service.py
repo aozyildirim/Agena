@@ -108,6 +108,20 @@ class NotificationService:
         email_body: str | None = None,
         email_html: str | None = None,
     ) -> bool:
+        # Outbound webhooks see every event once, regardless of who gets
+        # the in-app/e-mail copy; dedupe keeps per-recipient calls from
+        # fanning out repeatedly.
+        try:
+            from agena_services.services.webhook_service import WebhookService
+
+            await WebhookService(self.db).emit_once(
+                organization_id, event_type,
+                {'title': title, 'message': message, 'severity': severity, 'task_id': task_id, **(payload or {})},
+                dedupe_key=f'{title}|{message}|{task_id}',
+            )
+        except Exception:
+            logger.warning('webhook fan-out failed for %s', event_type, exc_info=True)
+
         settings = await self._resolve_profile_settings(user_id)
         should_store_in_app = self._is_enabled(settings, event_type, 'in_app')
         should_email = self._is_enabled(settings, event_type, 'email')
