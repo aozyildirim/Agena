@@ -810,6 +810,7 @@
   "profile.event.approval_decision": "Approval decision",
   "profile.event.integration_auth_expired": "Integration auth expired",
   "profile.event.queue_backlog_warning": "Queue backlog warning",
+  "profile.event.security_alert": "Security alerts (new sign-in address, API keys, credentials, roles)",
   "agents.section": "Agents",
   "agents.title": "Agent Management",
   "agents.subtitle": "Assign an AI model to each role. These agents will process work items.",

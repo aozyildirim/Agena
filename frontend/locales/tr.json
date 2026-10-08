@@ -810,6 +810,7 @@
   "profile.event.approval_decision": "Onay kararı",
   "profile.event.integration_auth_expired": "Entegrasyon kimlik doğrulaması süresi doldu",
   "profile.event.queue_backlog_warning": "Kuyruk birikimi uyarısı",
+  "profile.event.security_alert": "Güvenlik uyarıları (yeni giriş adresi, API anahtarları, kimlik bilgileri, roller)",
   "agents.section": "Agentlar",
   "agents.title": "Agent Yönetimi",
   "agents.subtitle": "Her role bir AI modeli ata. İş kalemlerini bu agentlar işleyecek.",

@@ -810,6 +810,7 @@
   "profile.event.approval_decision": "Freigabeentscheidung",
   "profile.event.integration_auth_expired": "Integrations-Auth abgelaufen",
   "profile.event.queue_backlog_warning": "Queue-Backlog-Warnung",
+  "profile.event.security_alert": "Sicherheitswarnungen (neue Anmeldeadresse, API-Schlüssel, Zugangsdaten, Rollen)",
   "agents.section": "Agenten",
   "agents.title": "Agentenverwaltung",
   "agents.subtitle": "Weise pro Rolle ein KI-Modell zu. Diese Agenten verarbeiten Work Items.",

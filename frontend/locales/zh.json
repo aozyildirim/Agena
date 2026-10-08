@@ -810,6 +810,7 @@
   "profile.event.approval_decision": "审批结果",
   "profile.event.integration_auth_expired": "集成认证已过期",
   "profile.event.queue_backlog_warning": "队列积压告警",
+  "profile.event.security_alert": "安全提醒（新登录地址、API 密钥、凭据、角色）",
   "agents.section": "代理",
   "agents.title": "代理管理",
   "agents.subtitle": "为每个角色分配 AI 模型，这些代理将处理工作项。",

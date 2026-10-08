@@ -810,6 +810,7 @@
   "profile.event.approval_decision": "Decisione approvazione",
   "profile.event.integration_auth_expired": "Auth integrazione scaduta",
   "profile.event.queue_backlog_warning": "Avviso backlog coda",
+  "profile.event.security_alert": "Avvisi di sicurezza (nuovo indirizzo di accesso, chiavi API, credenziali, ruoli)",
   "agents.section": "Agenti",
   "agents.title": "Gestione agenti",
   "agents.subtitle": "Assegna un modello AI per ruolo. Questi agenti elaborano i work item.",

@@ -810,6 +810,7 @@
   "profile.event.approval_decision": "Decisión de aprobación",
   "profile.event.integration_auth_expired": "Autenticación de integración expirada",
   "profile.event.queue_backlog_warning": "Advertencia de acumulación en cola",
+  "profile.event.security_alert": "Alertas de seguridad (nueva dirección de inicio de sesión, claves de API, credenciales, roles)",
   "agents.section": "Agentes",
   "agents.title": "Gestión de agentes",
   "agents.subtitle": "Asigna un modelo de IA por rol. Estos agentes procesarán los elementos de trabajo.",
