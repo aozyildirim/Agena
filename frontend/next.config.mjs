@@ -60,6 +60,11 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Vary', value: 'Accept' },
+          // Clickjacking: nothing here is meant to be framed by a third party.
+          // 'self' rather than 'none' — /dashboard/office embeds the pixel
+          // office as a same-origin iframe.
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         ],
       },
       {
@@ -68,6 +73,15 @@ const nextConfig = {
           { key: 'Link', value: agentDiscoveryLinks },
         ],
       },
+      // Tenant data and credential-entry surfaces: robots.txt is advisory and
+      // doesn't cover share links sent around outside the site, so send the
+      // directive on the response itself.
+      ...['/share/:path*', '/auth/:path*', '/invite/:path*', '/tasks/:path*', '/dashboard/:path*', '/signin', '/signup'].map((source) => ({
+        source,
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+        ],
+      })),
       {
         source: '/(.*)\\.(js|css|woff2?|png|jpg|svg|ico|webp)',
         headers: [

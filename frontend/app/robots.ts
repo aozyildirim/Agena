@@ -1,22 +1,35 @@
 import { MetadataRoute } from 'next';
 
+// Anything tenant-scoped or credential-entry. `/share/` and `/tasks/` carry
+// customer work-item content, so they must never land in an index.
+const DISALLOW = [
+  '/dashboard/',
+  '/api/',
+  '/signin',
+  '/signup',
+  '/invite/',
+  '/share/',
+  '/tasks/',
+  '/auth/',
+];
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/dashboard/', '/api/', '/signin', '/signup', '/invite/'],
+        disallow: DISALLOW,
       },
       {
         userAgent: 'Googlebot',
         allow: '/',
-        disallow: ['/dashboard/', '/api/', '/signin', '/signup', '/invite/'],
+        disallow: DISALLOW,
       },
       {
         userAgent: 'Bingbot',
         allow: '/',
-        disallow: ['/dashboard/', '/api/', '/signin', '/signup', '/invite/'],
+        disallow: DISALLOW,
       },
     ],
     sitemap: 'https://agena.dev/sitemap.xml',
