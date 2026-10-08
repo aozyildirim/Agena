@@ -39,6 +39,7 @@ from agena_core.security.jwt import create_access_token
 from agena_core.settings import get_settings
 from agena_models.models.organization import Organization
 from agena_models.models.organization_member import OrganizationMember
+from agena_models.models.user import User
 
 router = APIRouter(prefix='/auth/device', tags=['auth'])
 logger = logging.getLogger(__name__)
@@ -215,10 +216,12 @@ async def approve_device_code(
 
     # Mint a fresh access token tied to (user, org). Uses the same helper
     # the web login uses so permissions line up exactly.
+    user_row = await db.get(User, tenant.user_id)
     jwt = create_access_token(
         subject=tenant.email,
         org_id=org_row.id,
         user_id=tenant.user_id,
+        token_version=(user_row.token_version if user_row is not None else 0) or 0,
     )
     row['status'] = 'approved'
     row['user_id'] = tenant.user_id

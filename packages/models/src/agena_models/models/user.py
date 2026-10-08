@@ -15,6 +15,10 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_platform_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default='0')
+    # Embedded in every access token as `ver`; bumping it (password change,
+    # sign-out-everywhere) ends every session issued before the bump.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     org_memberships = relationship('OrganizationMember', back_populates='user')

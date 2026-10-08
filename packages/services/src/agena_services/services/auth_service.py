@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -153,7 +155,7 @@ class AuthService:
 
         await self.db.commit()
 
-        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin)
+        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin, token_version=user.token_version or 0)
         return token, user, org
 
     async def _signup_via_invite(self, payload: SignupRequest) -> tuple[str, User, Organization]:
@@ -235,6 +237,7 @@ class AuthService:
             org_id=org.id,
             user_id=user.id,
             is_platform_admin=user.is_platform_admin,
+            token_version=user.token_version or 0,
         )
         return token_str, user, org
 
@@ -260,5 +263,30 @@ class AuthService:
         org_row = await self.db.execute(select(Organization).where(Organization.id == membership.organization_id))
         org = org_row.scalar_one()
 
-        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin)
+        token = create_access_token(subject=user.email, org_id=org.id, user_id=user.id, is_platform_admin=user.is_platform_admin, token_version=user.token_version or 0)
         return token, user, org
+
+    async def change_password(self, user: User, current_password: str, new_password: str) -> None:
+        """Re-checks the current password, stores the new hash and bumps
+        token_version so every other session is signed out."""
+        try:
+            valid = verify_password(current_password, user.hashed_password)
+        except Exception:
+            valid = False
+        if not valid:
+            raise ValueError('Current password is incorrect')
+        if len(new_password or '') < 8:
+            raise ValueError('New password must be at least 8 characters')
+        if new_password == current_password:
+            raise ValueError('New password must differ from the current one')
+        user.hashed_password = hash_password(new_password)
+        user.token_version = int(user.token_version or 0) + 1
+        user.password_changed_at = datetime.utcnow()
+        await self.db.commit()
+
+    async def revoke_all_sessions(self, user: User) -> int:
+        """Sign the user out everywhere. API keys are unaffected — they have
+        their own revocation."""
+        user.token_version = int(user.token_version or 0) + 1
+        await self.db.commit()
+        return int(user.token_version)

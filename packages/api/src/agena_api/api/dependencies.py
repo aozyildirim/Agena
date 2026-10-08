@@ -92,6 +92,10 @@ async def get_current_tenant(
     user = user_result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found')
+    # Tokens minted before the column existed carry no `ver` and read as 0,
+    # matching the column default — nobody is signed out by the deploy.
+    if api_key is None and int(payload.get('ver', 0) or 0) != int(getattr(user, 'token_version', 0) or 0):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Session expired, please sign in again')
 
     member_result = await db.execute(
         select(OrganizationMember).where(

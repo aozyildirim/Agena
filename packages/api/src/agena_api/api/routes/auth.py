@@ -5,7 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_api.api.dependencies import CurrentTenant, get_current_tenant
 from agena_core.database import get_db_session
-from agena_models.schemas.auth import AuthResponse, LoginRequest, MeResponse, SignupRequest
+from agena_core.security.jwt import create_access_token
+from agena_models.models.organization import Organization
+from agena_models.models.user import User
+from agena_models.schemas.auth import AuthResponse, ChangePasswordRequest, LoginRequest, LogoutAllResponse, MeResponse, SignupRequest
 from agena_services.services.audit_actions import client_ip
 from agena_services.services.audit_service import AuditService
 from agena_services.services.auth_service import AuthService
@@ -56,6 +59,46 @@ async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depe
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     await _record_auth_event(db, request, 'auth.login', user, org)
     return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '', is_platform_admin=user.is_platform_admin)
+
+
+@router.post('/change-password', response_model=AuthResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthResponse:
+    """Changes the password and signs every *other* session out. The
+    response carries a fresh token so the caller's own session continues."""
+    if tenant.api_key_id is not None:
+        raise HTTPException(status_code=403, detail='Passwords cannot be changed with an API key')
+    user = await db.get(User, tenant.user_id)
+    org = await db.get(Organization, tenant.organization_id)
+    if user is None or org is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    try:
+        await AuthService(db).change_password(user, payload.current_password, payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    token = create_access_token(
+        subject=user.email, org_id=org.id, user_id=user.id,
+        is_platform_admin=user.is_platform_admin, token_version=user.token_version or 0,
+    )
+    return AuthResponse(access_token=token, user_id=user.id, organization_id=org.id, full_name=user.full_name or '', email=user.email, org_slug=org.slug or '', org_name=org.name or '', is_platform_admin=user.is_platform_admin)
+
+
+@router.post('/logout-all', response_model=LogoutAllResponse)
+async def logout_all(
+    tenant: CurrentTenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db_session),
+) -> LogoutAllResponse:
+    """Sign out everywhere — including the session making this call."""
+    if tenant.api_key_id is not None:
+        raise HTTPException(status_code=403, detail='Sessions cannot be revoked with an API key')
+    user = await db.get(User, tenant.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    version = await AuthService(db).revoke_all_sessions(user)
+    return LogoutAllResponse(revoked=True, token_version=version)
 
 
 @router.get('/me', response_model=MeResponse)

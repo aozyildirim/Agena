@@ -34,6 +34,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class LogoutAllResponse(BaseModel):
+    revoked: bool = True
+    # Sessions issued before this number are no longer accepted.
+    token_version: int
+
+
 class AuthResponse(BaseModel):
     access_token: str
     token_type: str = 'bearer'
