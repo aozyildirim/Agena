@@ -19,6 +19,7 @@ PERMISSION_MATRIX: dict[str, set[str]] = {
     'roles:manage':        {'owner', 'admin'},
     'audit:read':          {'owner', 'admin'},
     'api_keys:manage':     {'owner', 'admin'},
+    'digest:manage':       {'owner', 'admin'},
 }
 
 

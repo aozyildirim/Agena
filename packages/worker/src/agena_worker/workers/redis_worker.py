@@ -334,6 +334,16 @@ async def _poll_webhook_deliveries() -> None:
         t.add_done_callback(_webhook_sends.discard)
 
 
+async def _poll_weekly_digest() -> None:
+    """Monday ≥ 06:00 UTC: one digest per organization per ISO week."""
+    from agena_services.services.digest_service import WeeklyDigestService
+
+    async with SessionLocal() as session:
+        sent = await WeeklyDigestService(session).send_due()
+    if sent:
+        logger.info('weekly digest sent to orgs %s', sent)
+
+
 async def _cleanup_stale_repo_locks() -> None:
     """Best-effort cleanup for leaked repo locks from crashed/interrupted workers."""
     queue_service = QueueService()
@@ -705,6 +715,7 @@ async def process_queue() -> None:
     last_br_poll = 0.0
     last_schedule_poll = 0.0
     last_webhook_poll = 0.0
+    last_digest_poll = 0.0
 
     # Background-poll wrappers — fire-and-forget so a slow Azure WIQL
     # query inside triage / sentry / NR doesn't block the main loop
@@ -753,6 +764,10 @@ async def process_queue() -> None:
             if settings.auto_br_eval_enabled:
                 _bg(_poll_br_auto_evals, 'BR auto-eval')
             last_br_poll = now
+
+        if now - last_digest_poll >= 1800:  # 30 minutes; the service decides whether it is Monday
+            _bg(_poll_weekly_digest, 'Weekly digest')
+            last_digest_poll = now
 
         if now - last_webhook_poll >= 20:  # outbound webhook deliveries + retries
             _bg(_poll_webhook_deliveries, 'Webhook delivery')
