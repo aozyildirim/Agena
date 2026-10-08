@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { apiFetch, loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, loadPromptCatalog } from '@/lib/api';
+import { apiFetch, loadPrefs, savePrefs, runFlow, getFlowRuns, FlowRunResult, createFlowVersion, getFlowVersion, listFlowVersions, createNotificationEvent, loadPromptCatalog, listFlowSchedules, previewFlowSchedule, createFlowSchedule, updateFlowSchedule, deleteFlowSchedule, runFlowScheduleNow, type FlowSchedule } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import NavIcon from '@/components/NavIcon';
 
@@ -350,6 +350,7 @@ export default function FlowsPage() {
   const [creating, setCreating] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
   const [showRuns, setShowRuns] = useState(false);
+  const [showSchedules, setShowSchedules] = useState(false);
   const [runs, setRuns] = useState<FlowRunResult[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
   const [selectedRun, setSelectedRun] = useState<FlowRunResult | null>(null);
@@ -593,6 +594,10 @@ export default function FlowsPage() {
             style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (showRuns ? 'var(--acc)' : 'var(--panel-border-3)'), background: showRuns ? 'var(--acc-soft)' : 'transparent', color: showRuns ? 'var(--acc)' : 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.runHistory')}
           </button>
+          <button onClick={() => setShowSchedules((v) => !v)} disabled={!current}
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (showSchedules ? 'var(--acc)' : 'var(--panel-border-3)'), background: showSchedules ? 'var(--acc-soft)' : 'transparent', color: showSchedules ? 'var(--acc)' : 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+            {t('flows.schedule.button')}
+          </button>
           <button onClick={() => setShowTemplates(true)}
             style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-45)', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
             {t('flows.templates')}
@@ -730,6 +735,11 @@ export default function FlowsPage() {
         </div>
 
         {/* Run History Panel — overlay olarak açılır, canvas'ı ezmez */}
+        {showSchedules && current && (
+          <div className="flow-run-panel" style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <SchedulePanel flowId={current.id} flowName={current.name} onClose={() => setShowSchedules(false)} />
+          </div>
+        )}
         {showRuns && (
           <div className="flow-run-panel" style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <RunHistoryPanel
@@ -742,6 +752,151 @@ export default function FlowsPage() {
             />
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── SchedulePanel ─────────────────────────────────────────────────────────
+const SCHEDULE_PRESETS: Array<{ key: string; cron: string }> = [
+  { key: 'hourly', cron: '0 * * * *' },
+  { key: 'daily9', cron: '0 9 * * *' },
+  { key: 'weekdays9', cron: '0 9 * * 1-5' },
+  { key: 'mondays9', cron: '0 9 * * 1' },
+  { key: 'custom', cron: '' },
+];
+
+function SchedulePanel({ flowId, flowName, onClose }: { flowId: string; flowName: string; onClose: () => void }) {
+  const { t } = useLocale();
+  const browserTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+  const [schedules, setSchedules] = useState<FlowSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [preset, setPreset] = useState('weekdays9');
+  const [cron, setCron] = useState('0 9 * * 1-5');
+  const [timezone, setTimezone] = useState(browserTz || 'UTC');
+  const [preview, setPreview] = useState<string[]>([]);
+  const [busy, setBusy] = useState<number | 'create' | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      setSchedules((await listFlowSchedules()).filter((s) => s.flow_id === flowId));
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('flows.schedule.errorDefault'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowId]);
+
+  useEffect(() => {
+    if (!cron.trim()) { setPreview([]); return; }
+    const handle = window.setTimeout(() => {
+      previewFlowSchedule(cron.trim(), timezone.trim() || 'UTC')
+        .then((r) => { setPreview(r.next_runs); setError(''); })
+        .catch((e) => { setPreview([]); setError(e instanceof Error ? e.message : t('flows.schedule.invalidCron')); });
+    }, 350);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cron, timezone]);
+
+  function choosePreset(key: string) {
+    setPreset(key);
+    const p = SCHEDULE_PRESETS.find((x) => x.key === key);
+    if (p && p.cron) setCron(p.cron);
+  }
+
+  async function create() {
+    setBusy('create');
+    try {
+      await createFlowSchedule({ flow_id: flowId, flow_name: flowName, cron: cron.trim(), timezone: timezone.trim() || 'UTC', task: { title: `${t('flows.schedule.taskTitlePrefix')} ${flowName}` } });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('flows.schedule.errorDefault'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function act(s: FlowSchedule, fn: () => Promise<unknown>) {
+    setBusy(s.id);
+    try { await fn(); await load(); } catch (e) { setError(e instanceof Error ? e.message : t('flows.schedule.errorDefault')); } finally { setBusy(null); }
+  }
+
+  const fmt = (v: string | null) => (v ? new Date(v.endsWith('Z') ? v : `${v}Z`).toLocaleString() : '—');
+  const label = { fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' as const, color: 'var(--ink-42)' };
+  const field = { width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--panel-border-3)', background: 'var(--glass)', color: 'var(--ink)', fontSize: 12, outline: 'none' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 12, border: '1px solid var(--panel-border)', background: 'var(--panel)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid var(--panel-border)' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-90)' }}>{t('flows.schedule.title')}</div>
+        <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--ink-45)', cursor: 'pointer', fontSize: 14 }} title={t('flows.close')}>×</button>
+      </div>
+      <div style={{ padding: 12, display: 'grid', gap: 8, borderBottom: '1px solid var(--panel-border)' }}>
+        <div style={{ fontSize: 11, color: 'var(--ink-45)' }}>{t('flows.schedule.forFlow')} <b style={{ color: 'var(--ink-78)' }}>{flowName}</b></div>
+        <label style={{ display: 'grid', gap: 4 }}><span style={label}>{t('flows.schedule.preset')}</span>
+          <select value={preset} onChange={(e) => choosePreset(e.target.value)} style={field}>
+            {SCHEDULE_PRESETS.map((p) => <option key={p.key} value={p.key}>{t(`flows.schedule.preset.${p.key}` as Parameters<typeof t>[0])}</option>)}
+          </select>
+        </label>
+        <label style={{ display: 'grid', gap: 4 }}><span style={label}>{t('flows.schedule.cron')}</span>
+          <input value={cron} onChange={(e) => { setCron(e.target.value); setPreset('custom'); }} placeholder='0 9 * * 1-5' style={{ ...field, fontFamily: 'var(--font-mono, monospace)' }} />
+        </label>
+        <label style={{ display: 'grid', gap: 4 }}><span style={label}>{t('flows.schedule.timezone')}</span>
+          <input value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder='Europe/Istanbul' style={field} />
+        </label>
+        {preview.length > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--ink-45)' }}>
+            <div style={label}>{t('flows.schedule.nextRuns')}</div>
+            {preview.slice(0, 3).map((p) => <div key={p}>{fmt(p)}</div>)}
+          </div>
+        )}
+        {error && <div style={{ fontSize: 11, color: '#cf5b57' }}>{error}</div>}
+        <button onClick={() => void create()} disabled={busy === 'create' || !cron.trim() || preview.length === 0}
+          style={{ padding: '7px 10px', borderRadius: 8, border: 'none', background: 'var(--acc)', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700, opacity: (busy === 'create' || preview.length === 0) ? 0.6 : 1 }}>
+          {busy === 'create' ? t('flows.schedule.creating') : t('flows.schedule.create')}
+        </button>
+        <div style={{ fontSize: 10, color: 'var(--ink-35)' }}>{t('flows.schedule.hint')}</div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'grid', gap: 8, alignContent: 'start' }}>
+        {loading ? (
+          <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>{t('common.loading')}</div>
+        ) : schedules.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--ink-45)' }}>{t('flows.schedule.empty')}</div>
+        ) : schedules.map((s) => {
+          const color = s.last_status === 'failed' || s.last_status === 'missing_flow' || s.last_status === 'invalid' ? '#cf5b57' : s.last_status ? '#3f9d6a' : 'var(--ink-35)';
+          return (
+            <div key={s.id} style={{ border: '1px solid var(--panel-border-2)', borderRadius: 10, padding: 10, display: 'grid', gap: 4, opacity: s.enabled ? 1 : 0.6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <code style={{ fontSize: 12, color: 'var(--ink-90)' }}>{s.cron}</code>
+                <span style={{ fontSize: 10, color: 'var(--ink-45)' }}>{s.timezone}</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-58)' }}>{t('flows.schedule.nextRun')}: {s.enabled ? fmt(s.next_run_at) : t('flows.schedule.paused')}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-58)' }}>
+                {t('flows.schedule.lastRun')}: {fmt(s.last_run_at)} {s.last_status && <span style={{ color, fontWeight: 600 }}>· {s.last_status}</span>} · {s.run_count}×
+              </div>
+              {s.last_error && <div style={{ fontSize: 10, color: '#cf5b57', wordBreak: 'break-word' }}>{s.last_error}</div>}
+              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <button disabled={busy === s.id} onClick={() => void act(s, () => updateFlowSchedule(s.id, { enabled: !s.enabled }))} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--ink-58)', fontSize: 10, cursor: 'pointer' }}>
+                  {s.enabled ? t('flows.schedule.pause') : t('flows.schedule.resume')}
+                </button>
+                <button disabled={busy === s.id} onClick={() => void act(s, () => runFlowScheduleNow(s.id))} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'transparent', color: 'var(--acc)', fontSize: 10, cursor: 'pointer' }}>
+                  {busy === s.id ? t('flows.schedule.running') : t('flows.schedule.runNow')}
+                </button>
+                <button disabled={busy === s.id} onClick={() => { if (window.confirm(t('flows.schedule.confirmDelete'))) void act(s, () => deleteFlowSchedule(s.id)); }} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--panel-border-3)', background: 'transparent', color: '#cf5b57', fontSize: 10, cursor: 'pointer' }}>
+                  {t('flows.schedule.delete')}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

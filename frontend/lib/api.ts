@@ -711,6 +711,48 @@ export async function getFlowRun(runId: number): Promise<FlowRunResult> {
   return apiFetch<FlowRunResult>(`/flows/runs/${runId}`);
 }
 
+export interface FlowSchedule {
+  id: number;
+  flow_id: string;
+  flow_name: string;
+  cron: string;
+  timezone: string;
+  enabled: boolean;
+  task_json: Record<string, unknown> | null;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_run_id: number | null;
+  last_status: string | null;
+  last_error: string | null;
+  run_count: number;
+  created_at: string;
+}
+
+export async function listFlowSchedules(): Promise<FlowSchedule[]> {
+  return apiFetch<FlowSchedule[]>('/flows/schedules');
+}
+
+export async function previewFlowSchedule(cron: string, timezone: string): Promise<{ next_runs: string[] }> {
+  const qs = new URLSearchParams({ cron, timezone });
+  return apiFetch<{ next_runs: string[] }>(`/flows/schedules/preview?${qs.toString()}`);
+}
+
+export async function createFlowSchedule(payload: { flow_id: string; flow_name: string; cron: string; timezone: string; enabled?: boolean; task?: Record<string, unknown> }): Promise<FlowSchedule> {
+  return apiFetch<FlowSchedule>('/flows/schedules', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateFlowSchedule(id: number, payload: { cron?: string; timezone?: string; enabled?: boolean }): Promise<FlowSchedule> {
+  return apiFetch<FlowSchedule>(`/flows/schedules/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function deleteFlowSchedule(id: number): Promise<void> {
+  await apiFetch(`/flows/schedules/${id}`, { method: 'DELETE' });
+}
+
+export async function runFlowScheduleNow(id: number): Promise<FlowSchedule> {
+  return apiFetch<FlowSchedule>(`/flows/schedules/${id}/run`, { method: 'POST' });
+}
+
 export async function listFlowTemplates(): Promise<FlowTemplate[]> {
   return apiFetch<FlowTemplate[]>('/flows/templates');
 }
