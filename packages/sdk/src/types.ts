@@ -145,3 +145,40 @@ export interface AuditLogPage {
   total: number;
   items: AuditLogEntry[];
 }
+
+export interface FlowSchedule {
+  id: number;
+  flow_id: string;
+  flow_name: string;
+  /** 5-field cron: minute hour day-of-month month day-of-week */
+  cron: string;
+  /** IANA timezone the cron is evaluated in, e.g. Europe/Istanbul */
+  timezone: string;
+  enabled: boolean;
+  task_json: Record<string, unknown> | null;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_run_id: number | null;
+  last_status: string | null;
+  last_error: string | null;
+  run_count: number;
+  created_at: string;
+}
+
+export interface FlowScheduleCreateParams {
+  flow_id: string;
+  flow_name?: string;
+  cron: string;
+  timezone?: string;
+  enabled?: boolean;
+  /** The `task` object the flow's trigger node receives on each run */
+  task?: Record<string, unknown>;
+}
+
+export interface FlowScheduleUpdateParams {
+  cron?: string;
+  timezone?: string;
+  enabled?: boolean;
+  task?: Record<string, unknown>;
+  flow_name?: string;
+}

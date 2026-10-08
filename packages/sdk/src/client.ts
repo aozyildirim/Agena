@@ -12,6 +12,9 @@ import type {
   AuditLogEntry,
   AuditLogPage,
   AuditLogQuery,
+  FlowSchedule,
+  FlowScheduleCreateParams,
+  FlowScheduleUpdateParams,
   ApiError,
 } from './types';
 
@@ -137,7 +140,12 @@ class TasksResource {
 // ─── Flows ─────────────────────────────────────────
 
 class FlowsResource {
-  constructor(private client: AgenaClient) {}
+  /** Cron schedules for your flows */
+  readonly schedules: FlowSchedulesResource;
+
+  constructor(private client: AgenaClient) {
+    this.schedules = new FlowSchedulesResource(client);
+  }
 
   /** Execute a flow */
   async run(params: FlowRunParams): Promise<FlowRun> {
@@ -251,5 +259,41 @@ class AuditLogsResource {
   /** The filtered entries as CSV text (newest first, up to 10,000 rows) */
   async exportCsv(params?: AuditLogQuery): Promise<string> {
     return this.client._requestText('GET', `/audit-logs/export.csv${this.query(params)}`);
+  }
+}
+
+// ─── Flow Schedules ────────────────────────────────
+
+class FlowSchedulesResource {
+  constructor(private client: AgenaClient) {}
+
+  /** Your schedules, newest first */
+  async list(): Promise<FlowSchedule[]> {
+    return this.client._request<FlowSchedule[]>('GET', '/flows/schedules');
+  }
+
+  /** The next five fire times for a cron + timezone, without saving anything */
+  async preview(cron: string, timezone = 'UTC'): Promise<{ cron: string; timezone: string; next_runs: string[] }> {
+    const qs = new URLSearchParams({ cron, timezone });
+    return this.client._request('GET', `/flows/schedules/preview?${qs.toString()}`);
+  }
+
+  /** Schedule a flow; it runs as you */
+  async create(params: FlowScheduleCreateParams): Promise<FlowSchedule> {
+    return this.client._request<FlowSchedule>('POST', '/flows/schedules', params);
+  }
+
+  /** Change the cron, timezone, enabled flag or task payload */
+  async update(id: number, params: FlowScheduleUpdateParams): Promise<FlowSchedule> {
+    return this.client._request<FlowSchedule>('PUT', `/flows/schedules/${id}`, params);
+  }
+
+  async delete(id: number): Promise<{ deleted: boolean }> {
+    return this.client._request<{ deleted: boolean }>('DELETE', `/flows/schedules/${id}`);
+  }
+
+  /** Run the flow now, outside the schedule (next_run_at is untouched) */
+  async runNow(id: number): Promise<FlowSchedule> {
+    return this.client._request<FlowSchedule>('POST', `/flows/schedules/${id}/run`);
   }
 }

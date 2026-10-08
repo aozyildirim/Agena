@@ -14,4 +14,7 @@ export type {
   AuditLogEntry,
   AuditLogPage,
   AuditLogQuery,
+  FlowSchedule,
+  FlowScheduleCreateParams,
+  FlowScheduleUpdateParams,
 } from './types';

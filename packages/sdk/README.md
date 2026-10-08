@@ -90,6 +90,25 @@ const runs = await agena.flows.listRuns();
 const templates = await agena.flows.listTemplates();
 ```
 
+### Flow schedules
+
+```typescript
+// Weekdays at 09:00 Istanbul time, running as you
+const schedule = await agena.flows.schedules.create({
+  flow_id: 'my-flow-id',
+  cron: '0 9 * * 1-5',
+  timezone: 'Europe/Istanbul',
+});
+
+// What will fire next?
+const { next_runs } = await agena.flows.schedules.preview('0 9 * * 1-5', 'Europe/Istanbul');
+
+// Pause, run immediately, remove
+await agena.flows.schedules.update(schedule.id, { enabled: false });
+await agena.flows.schedules.runNow(schedule.id);
+await agena.flows.schedules.delete(schedule.id);
+```
+
 ### Agents
 
 ```typescript
