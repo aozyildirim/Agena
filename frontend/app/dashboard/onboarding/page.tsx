@@ -621,6 +621,7 @@ function StepRepo({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }
         provider: selection.provider,
         ...(selection.provider === 'azure' ? { azure_project: selection.project || '', azure_repo_name: selection.repo } : {}),
         ...(selection.provider === 'github' ? { github_repo_full_name: selection.repo } : {}),
+        ...(selection.provider === 'gitlab' ? { gitlab_project: selection.repo } : {}),
         default_branch: selection.branch,
       };
       savePrefs({ repo_mappings: [mapping] }).catch(() => {});

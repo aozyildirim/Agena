@@ -9,6 +9,7 @@ const LS_REPO_MAPPINGS = 'agena_repo_mappings';
 type Opt = { id: string; name: string };
 type AzureRepo = { id: string; name: string; remote_url: string; web_url: string };
 type GithubRepo = { id: string; name: string; full_name: string; private: boolean };
+type GitlabProject = { id: number; name: string; default_branch: string; private: boolean };
 
 const fieldStyle: React.CSSProperties = {
   width: '100%',
@@ -45,7 +46,7 @@ function loadLocalMappings(): RepoMapping[] {
 export default function RepoMappingsPage() {
   const { t } = useLocale();
   const [items, setItems] = useState<RepoMapping[]>([]);
-  const [sourceProvider, setSourceProvider] = useState<'azure' | 'github'>('azure');
+  const [sourceProvider, setSourceProvider] = useState<'azure' | 'github' | 'gitlab'>('azure');
   const [projects, setProjects] = useState<Opt[]>([]);
   const [selProject, setSelProject] = useState('');
   const [pendingProject, setPendingProject] = useState('');
@@ -59,6 +60,10 @@ export default function RepoMappingsPage() {
   const [pendingGithubRepo, setPendingGithubRepo] = useState('');
   const [githubRepoCount, setGithubRepoCount] = useState(0);
   const [githubRepoError, setGithubRepoError] = useState('');
+  const [gitlabProjects, setGitlabProjects] = useState<GitlabProject[]>([]);
+  const [selGitlabProject, setSelGitlabProject] = useState('');
+  const [loadingGitlabProjects, setLoadingGitlabProjects] = useState(false);
+  const [hasGitlabIntegration, setHasGitlabIntegration] = useState(false);
   const [path, setPath] = useState('');
   // Local-path autosuggest from the host bridge — populated whenever
   // the user picks a repo. The bridge scans common dev folders
@@ -109,6 +114,7 @@ export default function RepoMappingsPage() {
         const integrations = await apiFetch<Array<{ provider: string; has_secret?: boolean; username?: string | null }>>('/integrations');
         const github = integrations.find((c) => c.provider === 'github');
         setHasGithubIntegration(Boolean(github?.has_secret));
+        setHasGitlabIntegration(Boolean(integrations.find((c) => c.provider === 'gitlab')?.has_secret));
         if (github?.username && github.username.trim()) setGithubOwner(github.username.trim());
       } catch {
         setHasGithubIntegration(false);
@@ -286,12 +292,16 @@ export default function RepoMappingsPage() {
       // server-side feature. We match across the two by that triple.
       const triple = (m: RepoMapping) => {
         const provider = m.provider || 'azure';
-        const owner = provider === 'github'
-          ? (m.github_owner || m.github_repo_full_name?.split('/')[0] || '')
-          : (m.azure_project || '');
-        const repoName = provider === 'github'
-          ? (m.github_repo || m.github_repo_full_name?.split('/').pop() || m.name)
-          : (m.azure_repo_name || m.name);
+        const owner = provider === 'gitlab'
+          ? (m.gitlab_project?.split('/').slice(0, -1).join('/') || '')
+          : provider === 'github'
+            ? (m.github_owner || m.github_repo_full_name?.split('/')[0] || '')
+            : (m.azure_project || '');
+        const repoName = provider === 'gitlab'
+          ? (m.gitlab_project?.split('/').pop() || m.name)
+          : provider === 'github'
+            ? (m.github_repo || m.github_repo_full_name?.split('/').pop() || m.name)
+            : (m.azure_repo_name || m.name);
         return { provider, owner, repoName };
       };
 
@@ -362,6 +372,7 @@ export default function RepoMappingsPage() {
     setPendingRepoName('');
     setSelGithubRepo('');
     setPendingGithubRepo('');
+    setSelGitlabProject('');
     setPath('');
     setNotes('');
     setRepoPlaybook('');
@@ -377,11 +388,20 @@ export default function RepoMappingsPage() {
       item.github_repo_full_name ||
       (item.github_owner && item.github_repo),
     );
-    const provider: 'azure' | 'github' = inferredGithub ? 'github' : 'azure';
+    const provider: 'azure' | 'github' | 'gitlab' = item.provider === 'gitlab' ? 'gitlab' : inferredGithub ? 'github' : 'azure';
     setSourceProvider(provider);
     setEditingId(item.id);
 
-    if (provider === 'azure') {
+    if (provider === 'gitlab') {
+      setSelGitlabProject(item.gitlab_project || '');
+      setPendingProject('');
+      setSelProject('');
+      setPendingRepoUrl('');
+      setPendingRepoName('');
+      setSelRepoUrl('');
+      setPendingGithubRepo('');
+      setSelGithubRepo('');
+    } else if (provider === 'azure') {
       const rawProject = item.azure_project || '';
       const normalizedProject = projects.find((p) => p.name === rawProject || p.id === rawProject)?.name || rawProject;
       const rawRepoUrl = item.azure_repo_url || '';
@@ -434,6 +454,15 @@ export default function RepoMappingsPage() {
       setSelGithubRepo(rebuilt);
     }
   }, [sourceProvider, editingId, selGithubRepo, items, githubOwner]);
+
+  useEffect(() => {
+    if (sourceProvider !== 'gitlab' || !hasGitlabIntegration) return;
+    setLoadingGitlabProjects(true);
+    apiFetch<GitlabProject[]>('/tasks/gitlab/projects')
+      .then(setGitlabProjects)
+      .catch(() => setGitlabProjects([]))
+      .finally(() => setLoadingGitlabProjects(false));
+  }, [sourceProvider, hasGitlabIntegration]);
 
   // Load branches when a repo is selected
   useEffect(() => {
@@ -493,6 +522,8 @@ export default function RepoMappingsPage() {
         || (selRepoUrl ? selRepoUrl.split('/').pop() || '' : '');
     } else if (sourceProvider === 'github') {
       repoName = selGithubRepo.split('/')[1] || '';
+    } else if (sourceProvider === 'gitlab') {
+      repoName = selGitlabProject.split('/').pop() || '';
     }
     if (!repoName.trim()) return;
     // When the repo selection changes, the previously auto-filled path
@@ -535,7 +566,7 @@ export default function RepoMappingsPage() {
       .catch(() => { /* bridge offline — silent fallback */ })
       .finally(() => { if (!cancelled) setPathSuggestLoading(false); });
     return () => { cancelled = true; };
-  }, [sourceProvider, selRepoUrl, selGithubRepo, pendingRepoName, repos]);
+  }, [sourceProvider, selRepoUrl, selGithubRepo, selGitlabProject, pendingRepoName, repos]);
 
   // Any manual edit clears the "auto-filled" flag so the hint stops
   // claiming credit for a value the user has changed.
@@ -563,6 +594,20 @@ export default function RepoMappingsPage() {
         azure_project: effectiveProject,
         azure_repo_url: effectiveRepoUrl,
         azure_repo_name: effectiveRepoName,
+        default_branch: selectedBranch || undefined,
+      };
+    } else if (sourceProvider === 'gitlab') {
+      const project = selGitlabProject || currentEditing?.gitlab_project || '';
+      if (!project) return;
+      mapping = {
+        id: editingId || String(Date.now()),
+        provider: 'gitlab',
+        name: project.split('/').pop() || project,
+        local_path: path.trim(),
+        notes: notes.trim() || undefined,
+        repo_playbook: repoPlaybook.trim() || undefined,
+        analyze_prompt: analyzePrompt.trim() || undefined,
+        gitlab_project: project,
         default_branch: selectedBranch || undefined,
       };
     } else {
@@ -598,10 +643,13 @@ export default function RepoMappingsPage() {
         (currentEditing.provider || 'azure') !== (mapping.provider || 'azure') ||
         (currentEditing.azure_project || '') !== (mapping.azure_project || '') ||
         (currentEditing.azure_repo_url || '') !== (mapping.azure_repo_url || '') ||
-        (currentEditing.github_repo_full_name || '') !== (mapping.github_repo_full_name || '')
+        (currentEditing.github_repo_full_name || '') !== (mapping.github_repo_full_name || '') ||
+        (currentEditing.gitlab_project || '') !== (mapping.gitlab_project || '')
       );
     })();
-    if (!editingId) {
+    if (mapping.provider === 'gitlab' && !mapping.local_path) {
+      // Remote-only: profile scans read a local checkout.
+    } else if (!editingId) {
       await runProfileScan(mapping, { silentSuccess: true });
     } else if (!hadProfile && shouldScanOnUpdate) {
       await runProfileScan(mapping, { silentSuccess: true });
@@ -646,8 +694,10 @@ export default function RepoMappingsPage() {
   const selectedRepoMappings = useMemo(
     () => sourceProvider === 'azure'
       ? (selProject && selRepoUrl ? items.filter((m) => (m.provider || 'azure') === 'azure' && m.azure_project === selProject && m.azure_repo_url === selRepoUrl) : [])
-      : (selGithubRepo ? items.filter((m) => m.provider === 'github' && m.github_repo_full_name === selGithubRepo) : []),
-    [items, selProject, selRepoUrl, selGithubRepo, sourceProvider],
+      : sourceProvider === 'gitlab'
+        ? (selGitlabProject ? items.filter((m) => m.provider === 'gitlab' && m.gitlab_project === selGitlabProject) : [])
+        : (selGithubRepo ? items.filter((m) => m.provider === 'github' && m.github_repo_full_name === selGithubRepo) : []),
+    [items, selProject, selRepoUrl, selGithubRepo, selGitlabProject, sourceProvider],
   );
 
   return (
@@ -678,6 +728,10 @@ export default function RepoMappingsPage() {
               style={{ borderColor: sourceProvider === 'github' ? 'var(--acc)' : 'var(--panel-border-3)', background: sourceProvider === 'github' ? 'var(--acc-soft)' : 'var(--panel-alt)', color: sourceProvider === 'github' ? 'var(--acc)' : 'var(--ink-58)' }}>
               {t('mappings.providerGithub')}
             </button>
+            <button type='button' onClick={() => setSourceProvider('gitlab')} className='button'
+              style={{ borderColor: sourceProvider === 'gitlab' ? 'var(--acc)' : 'var(--panel-border-3)', background: sourceProvider === 'gitlab' ? 'var(--acc-soft)' : 'var(--panel-alt)', color: sourceProvider === 'gitlab' ? 'var(--acc)' : 'var(--ink-58)' }}>
+              {t('mappings.providerGitlab')}
+            </button>
           </div>
 
           {sourceProvider === 'azure' ? (
@@ -697,6 +751,25 @@ export default function RepoMappingsPage() {
                 </select>
               </div>
             </>
+          ) : sourceProvider === 'gitlab' ? (
+            <div>
+              <div style={fieldLabelStyle}>{t('mappings.gitlabProject')}</div>
+              <select
+                value={selGitlabProject}
+                onChange={(e) => {
+                  setSelGitlabProject(e.target.value);
+                  setSelectedBranch(gitlabProjects.find((p) => p.name === e.target.value)?.default_branch || '');
+                }}
+                disabled={loadingGitlabProjects || !hasGitlabIntegration}
+                style={fieldStyle}
+              >
+                <option value='' style={{ background: 'var(--surface)' }}>
+                  {!hasGitlabIntegration ? t('mappings.connectGitlabFirst') : (loadingGitlabProjects ? t('mappings.loadingGitlabProjects') : t('mappings.selectGitlabProject'))}
+                </option>
+                {gitlabProjects.map((p) => <option key={p.id} value={p.name} style={{ background: 'var(--surface)' }}>{p.name}{p.private ? ' (private)' : ''}</option>)}
+              </select>
+              <div style={{ fontSize: 10, color: 'var(--ink-45)', marginTop: 4 }}>{t('mappings.gitlabRemoteHint')}</div>
+            </div>
           ) : (
             <>
               <div>
@@ -843,10 +916,12 @@ export default function RepoMappingsPage() {
               onClick={() => void upsertMapping()}
               disabled={
                 saving ||
-                !path.trim() ||
+                (sourceProvider !== 'gitlab' && !path.trim()) ||
                 (sourceProvider === 'azure'
                   ? (!editingId && (!selProject || !selRepoUrl))
-                  : (!editingId && !selGithubRepo))
+                  : sourceProvider === 'gitlab'
+                    ? (!editingId && !selGitlabProject)
+                    : (!editingId && !selGithubRepo))
               }
               className='button button-primary'
               style={{ width: '100%' }}
@@ -880,10 +955,10 @@ export default function RepoMappingsPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 6, flexShrink: 0, background: 'var(--acc-soft)', color: 'var(--acc)', border: '1px solid var(--panel-border)' }}>
-                        {(m.provider === 'github') ? t('mappings.providerGithub') : t('mappings.providerAzure')}
+                        {(m.provider === 'gitlab') ? t('mappings.providerGitlab') : (m.provider === 'github') ? t('mappings.providerGithub') : t('mappings.providerAzure')}
                       </span>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                        {(m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
+                        {(m.provider === 'gitlab') ? (m.gitlab_project || m.name) : (m.provider === 'github') ? (m.github_repo_full_name || m.name) : (m.azure_repo_name || m.name)}
                       </span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

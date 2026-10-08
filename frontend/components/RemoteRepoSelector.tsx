@@ -6,19 +6,20 @@ import { apiFetch } from '@/lib/api';
 type AzureProject = { id: string; name: string };
 type AzureRepo = { id: string; name: string; remote_url: string };
 type GitHubRepo = { id: number; name: string; default_branch: string; private: boolean };
+type GitLabProject = GitHubRepo;
 
 export type RemoteRepoSelection = {
-  provider: 'github' | 'azure';
+  provider: 'github' | 'azure' | 'gitlab';
   project?: string;
   repo: string;
   branch: string;
   repoUrl?: string;
-  /** "github:owner/repo@branch" or "azure:project/repo@branch" */
+  /** "github:owner/repo@branch", "gitlab:group/project@branch" or "azure:project/repo@branch" */
   meta: string;
 };
 
 export type RepoDefault = {
-  provider: 'github' | 'azure';
+  provider: 'github' | 'azure' | 'gitlab';
   project?: string;
   repo?: string;
   branch?: string;
@@ -32,27 +33,35 @@ type Props = {
 };
 
 export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compact = false, defaultValue }: Props) {
-  const [provider, setProvider] = useState<'github' | 'azure'>(defaultValue?.provider || 'azure');
+  const [provider, setProvider] = useState<'github' | 'azure' | 'gitlab'>(defaultValue?.provider || 'azure');
   const [azureProjects, setAzureProjects] = useState<AzureProject[]>([]);
   const [azureRepos, setAzureRepos] = useState<AzureRepo[]>([]);
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
+  const [gitlabProjects, setGitlabProjects] = useState<GitLabProject[]>([]);
   const [selectedProject, setSelectedProject] = useState(defaultValue?.project || '');
   const [selectedRepo, setSelectedRepo] = useState(defaultValue?.repo || '');
   const [branch, setBranch] = useState(defaultValue?.branch || 'main');
   const [loading, setLoading] = useState(true);
   const [hasAzure, setHasAzure] = useState(false);
   const [hasGithub, setHasGithub] = useState(false);
+  const [hasGitlab, setHasGitlab] = useState(false);
 
   useEffect(() => {
     Promise.all([
       apiFetch<AzureProject[]>('/tasks/azure/projects').catch(() => []),
       apiFetch<GitHubRepo[]>('/tasks/github/repos').catch(() => []),
-    ]).then(([azP, ghR]) => {
+      apiFetch<GitLabProject[]>('/tasks/gitlab/projects').catch(() => []),
+    ]).then(([azP, ghR, glP]) => {
       setAzureProjects(azP);
       setGithubRepos(ghR);
+      setGitlabProjects(glP);
       setHasAzure(azP.length > 0);
       setHasGithub(ghR.length > 0);
-      if (!defaultValue && !azP.length && ghR.length) setProvider('github');
+      setHasGitlab(glP.length > 0);
+      if (!defaultValue && !azP.length) {
+        if (ghR.length) setProvider('github');
+        else if (glP.length) setProvider('gitlab');
+      }
     }).finally(() => setLoading(false));
   }, []);
 
@@ -72,6 +81,8 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
     if (!selectedRepo) { onChange(null); return; }
     if (provider === 'github') {
       onChange({ provider: 'github', repo: selectedRepo, branch, meta: `github:${selectedRepo}@${branch}` });
+    } else if (provider === 'gitlab') {
+      onChange({ provider: 'gitlab', repo: selectedRepo, branch, meta: `gitlab:${selectedRepo}@${branch}` });
     } else {
       const azR = azureRepos.find((r) => r.name === selectedRepo);
       onChange({
@@ -88,7 +99,7 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
   const sel = { padding: pd, borderRadius: 8, fontSize: fs, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', color: 'var(--ink-78)', width: '100%' };
 
   if (loading) return <div style={{ fontSize: fs, color: 'var(--ink-30)', padding: '4px 0' }}>Loading repos...</div>;
-  if (!hasAzure && !hasGithub) return <div style={{ fontSize: fs, color: 'var(--ink-25)', padding: '4px 0' }}>No integrations configured</div>;
+  if (!hasAzure && !hasGithub && !hasGitlab) return <div style={{ fontSize: fs, color: 'var(--ink-25)', padding: '4px 0' }}>No integrations configured</div>;
 
   return (
     <div style={{ display: 'grid', gap: 6 }}>
@@ -110,6 +121,15 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
               background: provider === 'github' ? `${accent}15` : 'transparent',
               color: provider === 'github' ? accent : 'var(--ink-45)' }}>
             GitHub
+          </button>
+        )}
+        {hasGitlab && (
+          <button type="button" onClick={() => { setProvider('gitlab'); setSelectedRepo(''); }}
+            style={{ padding: '3px 8px', borderRadius: 6, fontSize: fs, fontWeight: 700, cursor: 'pointer',
+              border: provider === 'gitlab' ? `1px solid ${accent}60` : '1px solid var(--panel-border-2)',
+              background: provider === 'gitlab' ? `${accent}15` : 'transparent',
+              color: provider === 'gitlab' ? accent : 'var(--ink-45)' }}>
+            GitLab
           </button>
         )}
       </div>
@@ -141,6 +161,20 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
         }} style={sel}>
           <option value=''>Select repo...</option>
           {githubRepos.map((r) => (
+            <option key={r.id} value={r.name}>{r.private ? '🔒 ' : ''}{r.name}</option>
+          ))}
+        </select>
+      )}
+
+      {/* GitLab: Project */}
+      {provider === 'gitlab' && (
+        <select value={selectedRepo} onChange={(e) => {
+          setSelectedRepo(e.target.value);
+          const gl = gitlabProjects.find((r) => r.name === e.target.value);
+          setBranch(gl?.default_branch || 'main');
+        }} style={sel}>
+          <option value=''>Select project...</option>
+          {gitlabProjects.map((r) => (
             <option key={r.id} value={r.name}>{r.private ? '🔒 ' : ''}{r.name}</option>
           ))}
         </select>

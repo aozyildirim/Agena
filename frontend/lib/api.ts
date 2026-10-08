@@ -288,7 +288,7 @@ export type RepoMapping = {
   id: string;
   name: string;
   local_path: string;
-  provider?: 'azure' | 'github';
+  provider?: 'azure' | 'github' | 'gitlab';
   notes?: string;
   repo_playbook?: string;
   azure_project?: string;
@@ -297,6 +297,7 @@ export type RepoMapping = {
   github_owner?: string;
   github_repo?: string;
   github_repo_full_name?: string;
+  gitlab_project?: string;
   analyze_prompt?: string;
   default_branch?: string;
 };
