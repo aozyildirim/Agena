@@ -2,16 +2,37 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agena_models.models.api_key import ApiKey
+from agena_core.settings import get_settings
 from agena_services.services.api_key_tokens import cap_role, generate_key, hash_key
+
+logger = logging.getLogger(__name__)
 
 # last_used_at is informational; one write a minute per key is plenty.
 TOUCH_INTERVAL = timedelta(seconds=60)
+
+# The rate limiter runs before authentication and only has Redis, so each
+# successful resolution leaves `apikey:org:<hash> = org_id` there for it.
+ORG_CACHE_TTL = 15 * 60
+_redis: Redis | None = None
+
+
+def _redis_client() -> Redis:
+    global _redis
+    if _redis is None:
+        _redis = Redis.from_url(get_settings().redis_url, decode_responses=True)
+    return _redis
+
+
+def org_cache_key(key_hash: str) -> str:
+    return f'apikey:org:{key_hash}'
 
 
 class ApiKeyService:
@@ -71,11 +92,16 @@ class ApiKeyService:
 
     async def resolve(self, plain: str) -> ApiKey | None:
         """The active key for this plaintext, or None (unknown, revoked, expired)."""
+        digest = hash_key(plain)
         row = (await self.db.execute(
-            select(ApiKey).where(ApiKey.key_hash == hash_key(plain))
+            select(ApiKey).where(ApiKey.key_hash == digest)
         )).scalar_one_or_none()
         if row is None or row.status != 'active':
             return None
+        try:
+            await _redis_client().set(org_cache_key(digest), row.organization_id, ex=ORG_CACHE_TTL)
+        except Exception:
+            logger.debug('api key org cache unavailable', exc_info=True)
         return row
 
     async def touch(self, row: ApiKey) -> None:

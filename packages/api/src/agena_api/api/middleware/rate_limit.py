@@ -24,6 +24,7 @@ from starlette.responses import JSONResponse, Response
 
 from agena_core.settings import get_settings
 from agena_core.security.jwt import decode_token
+from agena_services.services.api_key_tokens import hash_key, is_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Extract org_id from the Bearer token (best-effort; if missing let
         # the auth dependency handle rejection).
-        org_id = self._extract_org_id(request)
+        org_id = await self._resolve_org_id(request)
         if org_id is None:
             return await call_next(request)
 
@@ -119,14 +120,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers['X-RateLimit-Remaining'] = str(max(0, limit - current))
         return response
 
-    @staticmethod
-    def _extract_org_id(request: Request) -> int | None:
+    async def _resolve_org_id(self, request: Request) -> int | None:
         auth_header = request.headers.get('authorization', '')
         if not auth_header.lower().startswith('bearer '):
             return None
         token = auth_header[7:].strip()
         if not token:
             return None
+        if is_api_key(token):
+            # Left in Redis by ApiKeyService.resolve on the key's previous
+            # authenticated request; a cold cache lets one request through
+            # uncounted, then the key is billed to its organization.
+            try:
+                cached = await self._redis.get(f'apikey:org:{hash_key(token)}')
+                return int(cached) if cached else None
+            except Exception:
+                return None
         try:
             payload = decode_token(token)
             org_id = int(payload.get('org_id', 0) or 0)
