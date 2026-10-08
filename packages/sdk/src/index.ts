@@ -17,4 +17,7 @@ export type {
   FlowSchedule,
   FlowScheduleCreateParams,
   FlowScheduleUpdateParams,
+  WebhookEndpoint,
+  WebhookEndpointWithSecret,
+  WebhookDelivery,
 } from './types';

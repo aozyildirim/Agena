@@ -15,6 +15,9 @@ import type {
   FlowSchedule,
   FlowScheduleCreateParams,
   FlowScheduleUpdateParams,
+  WebhookEndpoint,
+  WebhookEndpointWithSecret,
+  WebhookDelivery,
   ApiError,
 } from './types';
 
@@ -46,6 +49,8 @@ export class AgenaClient {
   readonly auth: AuthResource;
   /** Organization audit trail (owner / admin) */
   readonly auditLogs: AuditLogsResource;
+  /** Outbound webhooks (owner / admin) */
+  readonly webhooks: WebhooksResource;
 
   constructor(config: AgenaConfig) {
     this.baseUrl = (config.baseUrl || 'https://api.agena.dev').replace(/\/$/, '');
@@ -58,6 +63,7 @@ export class AgenaClient {
     this.integrations = new IntegrationsResource(this);
     this.auth = new AuthResource(this);
     this.auditLogs = new AuditLogsResource(this);
+    this.webhooks = new WebhooksResource(this);
   }
 
   /** Internal: make an authenticated API request and parse the JSON body */
@@ -295,5 +301,46 @@ class FlowSchedulesResource {
   /** Run the flow now, outside the schedule (next_run_at is untouched) */
   async runNow(id: number): Promise<FlowSchedule> {
     return this.client._request<FlowSchedule>('POST', `/flows/schedules/${id}/run`);
+  }
+}
+
+// ─── Outbound Webhooks ─────────────────────────────
+
+class WebhooksResource {
+  constructor(private client: AgenaClient) {}
+
+  /** Event types you can subscribe to */
+  async eventTypes(): Promise<string[]> {
+    return this.client._request<string[]>('GET', '/webhook-endpoints/event-types');
+  }
+
+  async list(): Promise<WebhookEndpoint[]> {
+    return this.client._request<WebhookEndpoint[]>('GET', '/webhook-endpoints');
+  }
+
+  /** Register a URL; the returned `secret` signs every delivery and is shown once */
+  async create(params: { name: string; url: string; events?: string[]; enabled?: boolean }): Promise<WebhookEndpointWithSecret> {
+    return this.client._request<WebhookEndpointWithSecret>('POST', '/webhook-endpoints', params);
+  }
+
+  async update(id: number, params: { name?: string; url?: string; events?: string[]; enabled?: boolean }): Promise<WebhookEndpoint> {
+    return this.client._request<WebhookEndpoint>('PUT', `/webhook-endpoints/${id}`, params);
+  }
+
+  async rotateSecret(id: number): Promise<WebhookEndpointWithSecret> {
+    return this.client._request<WebhookEndpointWithSecret>('POST', `/webhook-endpoints/${id}/rotate-secret`);
+  }
+
+  /** Deliver a `ping` right away and return the outcome */
+  async test(id: number): Promise<WebhookDelivery> {
+    return this.client._request<WebhookDelivery>('POST', `/webhook-endpoints/${id}/test`);
+  }
+
+  async deliveries(id: number, limit = 30): Promise<WebhookDelivery[]> {
+    return this.client._request<WebhookDelivery[]>('GET', `/webhook-endpoints/${id}/deliveries?limit=${limit}`);
+  }
+
+  async delete(id: number): Promise<{ deleted: boolean }> {
+    return this.client._request<{ deleted: boolean }>('DELETE', `/webhook-endpoints/${id}`);
   }
 }

@@ -148,6 +148,31 @@ const actions = await agena.auditLogs.actions();
 const csv = await agena.auditLogs.exportCsv({ created_from: '2026-10-01' });
 ```
 
+### Outbound webhooks
+
+Every Agena event (task queued/completed/failed, PR created, security alerts, …) can be pushed to your own URL as a signed JSON POST, retried with backoff up to five times.
+
+```typescript
+const { secret } = await agena.webhooks.create({
+  name: 'ops bridge',
+  url: 'https://example.com/agena',
+  events: ['task_completed', 'task_failed', 'security_alert'], // or ['*']
+});
+```
+
+Verify deliveries with the secret — the signature covers `"<timestamp>.<raw body>"`:
+
+```typescript
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+function verify(secret: string, headers: Record<string, string>, rawBody: Buffer): boolean {
+  const expected = 'sha256=' + createHmac('sha256', secret)
+    .update(`${headers['x-agena-timestamp']}.`).update(rawBody).digest('hex');
+  const got = headers['x-agena-signature'] ?? '';
+  return got.length === expected.length && timingSafeEqual(Buffer.from(got), Buffer.from(expected));
+}
+```
+
 ## Error Handling
 
 ```typescript

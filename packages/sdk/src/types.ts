@@ -182,3 +182,34 @@ export interface FlowScheduleUpdateParams {
   task?: Record<string, unknown>;
   flow_name?: string;
 }
+
+export interface WebhookEndpoint {
+  id: number;
+  name: string;
+  url: string;
+  /** Event types delivered; ['*'] for everything, 'task_*'-style prefixes allowed */
+  events: string[] | null;
+  enabled: boolean;
+  failure_count: number;
+  last_delivery_at: string | null;
+  last_status: string | null;
+  created_at: string;
+}
+
+export interface WebhookEndpointWithSecret extends WebhookEndpoint {
+  /** Returned on create and rotateSecret only */
+  secret: string;
+}
+
+export interface WebhookDelivery {
+  id: number;
+  event_type: string;
+  status: 'pending' | 'sending' | 'delivered' | 'failed' | string;
+  attempts: number;
+  response_status: number | null;
+  last_error: string | null;
+  next_attempt_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  payload: Record<string, unknown> | null;
+}
