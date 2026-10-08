@@ -81,6 +81,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
         query = redact_query(request.query_params.multi_items())
         if query:
             details['query'] = query
+        api_key_id = getattr(tenant, 'api_key_id', None)
+        if api_key_id is not None:
+            details['api_key_id'] = api_key_id
 
         return dict(
             organization_id=tenant.organization_id,

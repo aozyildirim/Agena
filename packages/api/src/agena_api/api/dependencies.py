@@ -13,6 +13,8 @@ from agena_core.rbac import has_permission
 from agena_models.models.organization_member import OrganizationMember
 from agena_models.models.user import User
 from agena_core.security.jwt import decode_token
+from agena_services.services.api_key_service import ApiKeyService
+from agena_services.services.api_key_tokens import effective_role, is_api_key
 from agena_services.services.github_service import GitHubService
 from agena_services.services.queue_service import QueueService
 from agena_services.services.task_service import TaskService
@@ -31,6 +33,8 @@ class CurrentTenant:
     # frontend's WorkspaceSwitcher). May be None for endpoints that don't
     # care about workspace scope (e.g. /workspaces, /auth/me).
     workspace_id: int | None = None
+    # Set when the request authenticated with an API key rather than a session.
+    api_key_id: int | None = None
 
 
 def get_queue_service() -> QueueService:
@@ -51,14 +55,26 @@ async def get_current_tenant(
     db: AsyncSession = Depends(get_db_session),
 ) -> CurrentTenant:
     token = credentials.credentials
-    try:
-        payload = decode_token(token)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token') from exc
-
-    user_id = int(payload.get('user_id', 0) or 0)
-    org_id = int(payload.get('org_id', 0) or 0)
-    email = str(payload.get('sub', ''))
+    api_key = None
+    if is_api_key(token):
+        # SDK / automation credential: acts as the member who created it,
+        # at most at that member's current role (see effective_role below).
+        api_key = await ApiKeyService(db).resolve(token)
+        if api_key is None or api_key.created_by_user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or revoked API key')
+        user_id = int(api_key.created_by_user_id)
+        org_id = int(api_key.organization_id)
+        email = ''
+        is_platform_admin = False
+    else:
+        try:
+            payload = decode_token(token)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token') from exc
+        user_id = int(payload.get('user_id', 0) or 0)
+        org_id = int(payload.get('org_id', 0) or 0)
+        email = str(payload.get('sub', ''))
+        is_platform_admin = bool(payload.get('pa'))
 
     if user_id <= 0 or org_id <= 0:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid auth context')
@@ -87,6 +103,12 @@ async def get_current_tenant(
     if member is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='No organization access')
 
+    role = member.role or 'member'
+    if api_key is not None:
+        role = effective_role(api_key.role, role)
+        email = user.email
+        await ApiKeyService(db).touch(api_key)
+
     # Optional active workspace from header (frontend sends this from the
     # WorkspaceSwitcher's localStorage value).
     raw_ws = request.headers.get('x-workspace-id') or request.query_params.get('workspace_id')
@@ -101,9 +123,10 @@ async def get_current_tenant(
         user_id=user_id,
         organization_id=org_id,
         email=email,
-        role=member.role or 'member',
-        is_platform_admin=bool(payload.get('pa')),
+        role=role,
+        is_platform_admin=is_platform_admin,
         workspace_id=workspace_id,
+        api_key_id=api_key.id if api_key is not None else None,
     )
     # Left on the request so AuditMiddleware can attribute the call after
     # the response is built — only requests that got this far are recorded.
