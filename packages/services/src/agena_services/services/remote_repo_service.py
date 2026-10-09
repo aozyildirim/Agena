@@ -51,6 +51,22 @@ def parse_gitlab_spec(spec: str) -> tuple[str, str] | None:
     return value, branch
 
 
+def parse_gitlab_mr_url(url: str) -> tuple[str, int] | None:
+    """``https://host/group/sub/project/-/merge_requests/7`` -> (path, iid).
+
+    ``/-/`` is GitLab's separator between a project's path and the rest of the
+    route, so everything before it is the project — which is what makes this
+    work for groups nested any number of levels deep.
+    """
+    match = re.search(r'://[^/]+/(.+?)/-/merge_requests/(\d+)', (url or '').strip())
+    if match is None:
+        return None
+    project_path = match.group(1).strip('/')
+    if '/' not in project_path:
+        return None
+    return project_path, int(match.group(2))
+
+
 class RemoteRepoService:
     """Stateless service — pass credentials per call."""
 

@@ -1,11 +1,16 @@
 from datetime import datetime, timedelta, timezone
 
+from agena_services.integrations.gitlab_client import _diff_added_lines
 from agena_services.services.git_sync_parsing import gitlab_next_params, to_utc_naive
 from agena_services.services.gitlab_webhook import (
     gitlab_mr_url,
     is_gitlab_mr_merged,
 )
-from agena_services.services.remote_repo_service import RemoteRepoService, parse_gitlab_spec
+from agena_services.services.remote_repo_service import (
+    RemoteRepoService,
+    parse_gitlab_mr_url,
+    parse_gitlab_spec,
+)
 
 MR_URL = 'https://gitlab.com/acme/platform/api/-/merge_requests/7'
 
@@ -86,3 +91,44 @@ def test_offset_timestamps_are_converted_to_utc():
 def test_naive_timestamps_pass_through_untouched():
     naive = datetime(2026, 10, 8, 12)
     assert to_utc_naive(naive) is naive
+
+
+DIFF = '''@@ -1,4 +10,5 @@
+ context before
+-removed line
++added one
++added two
+ context after
+'''
+
+
+def test_only_added_lines_are_offered_for_inline_comments():
+    # Context lines advance the counter but can't carry a GitLab discussion
+    # without an old-side line, so they stay out.
+    assert _diff_added_lines(DIFF) == {11, 12}
+
+
+def test_a_file_with_no_hunk_header_yields_nothing():
+    assert _diff_added_lines('+orphan line') == set()
+    assert _diff_added_lines('') == set()
+
+
+def test_consecutive_hunks_each_reset_the_counter():
+    diff = '@@ -1 +1 @@\n+first\n@@ -50 +60 @@\n+second\n'
+    assert _diff_added_lines(diff) == {1, 60}
+
+
+def test_mr_url_parses_a_deeply_nested_group():
+    assert parse_gitlab_mr_url('https://gl.corp.io/acme/platform/team/api/-/merge_requests/7') == (
+        'acme/platform/team/api', 7,
+    )
+
+
+def test_mr_url_parses_a_plain_two_level_project():
+    assert parse_gitlab_mr_url('https://gitlab.com/acme/api/-/merge_requests/12') == ('acme/api', 12)
+
+
+def test_mr_url_rejects_other_urls():
+    assert parse_gitlab_mr_url('https://github.com/acme/api/pull/3') is None
+    assert parse_gitlab_mr_url('https://gitlab.com/acme/api/-/issues/5') is None
+    assert parse_gitlab_mr_url('') is None

@@ -263,6 +263,8 @@ class RevisionService:
                 return await self._is_github_pr_merged(url, organization_id)
             if (repo_mapping.provider or '').lower() == 'azure':
                 return await self._is_azure_pr_merged(url, repo_mapping, organization_id)
+            if (repo_mapping.provider or '').lower() == 'gitlab':
+                return await self._is_gitlab_mr_merged(url, organization_id)
         except Exception as exc:
             logger.info('PR merge probe failed for %s: %s', url, exc)
         return False
@@ -287,6 +289,25 @@ class RevisionService:
             return False
         data = resp.json() or {}
         return bool(data.get('merged'))
+
+    async def _is_gitlab_mr_merged(self, pr_url: str, organization_id: int) -> bool:
+        from agena_services.services.integration_config_service import IntegrationConfigService
+        from agena_services.services.remote_repo_service import RemoteRepoService, parse_gitlab_mr_url
+
+        parsed = parse_gitlab_mr_url(pr_url)
+        if parsed is None:
+            return False
+        project_path, mr_iid = parsed
+        cfg = await IntegrationConfigService(self.db_session).get_config(organization_id, 'gitlab')
+        if cfg is None or not cfg.secret:
+            return False
+        import httpx
+        api = f'{RemoteRepoService.gitlab_project_api(cfg.base_url, project_path)}/merge_requests/{mr_iid}'
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(api, headers={'PRIVATE-TOKEN': cfg.secret})
+        if resp.status_code != 200:
+            return False
+        return str((resp.json() or {}).get('state') or '') == 'merged'
 
     async def _is_azure_pr_merged(
         self, pr_url: str, repo_mapping: RepoMapping, organization_id: int,

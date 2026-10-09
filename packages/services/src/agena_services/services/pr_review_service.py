@@ -61,6 +61,19 @@ async def _github_cfg(db: AsyncSession, organization_id: int) -> dict[str, str] 
     return {'token': config.secret}
 
 
+async def _gitlab_cfg(db: AsyncSession, organization_id: int) -> dict[str, str] | None:
+    config = await IntegrationConfigService(db).get_config(organization_id, 'gitlab')
+    if config is None or not config.secret:
+        return None
+    return {'token': config.secret, 'base_url': config.base_url or ''}
+
+
+def _gitlab_project_path(rm: RepoMapping) -> str:
+    """A GitLab project is addressed by its full path, which the mapping
+    splits across owner (the group) and repo_name."""
+    return f'{rm.owner or ""}/{rm.repo_name or ""}'.strip('/')
+
+
 async def _resolve_repo(db: AsyncSession, organization_id: int, repo_mapping_id: int) -> tuple[RepoMapping, dict[str, str], str] | None:
     rm = (await db.execute(
         select(RepoMapping).where(
@@ -77,6 +90,9 @@ async def _resolve_repo(db: AsyncSession, organization_id: int, repo_mapping_id:
     if prov == 'github':
         cfg = await _github_cfg(db, organization_id)
         return (rm, cfg, 'github') if cfg else None
+    if prov == 'gitlab':
+        cfg = await _gitlab_cfg(db, organization_id)
+        return (rm, cfg, 'gitlab') if cfg else None
     return None
 
 
@@ -88,6 +104,11 @@ async def list_open_prs(db: AsyncSession, organization_id: int, repo_mapping_id:
     if provider == 'github':
         from agena_services.integrations.github_client import GitHubClient
         return await GitHubClient().list_open_pull_requests(token=cfg['token'], owner=rm.owner, repo=rm.repo_name)
+    if provider == 'gitlab':
+        from agena_services.integrations.gitlab_client import GitLabClient
+        return await GitLabClient().list_open_pull_requests(
+            token=cfg['token'], base_url=cfg['base_url'], project_path=_gitlab_project_path(rm),
+        )
     return await AzureDevOpsClient().list_open_pull_requests(cfg=cfg, project=rm.owner, repo=rm.repo_name)
 
 
@@ -324,6 +345,8 @@ async def review_pr(
         # 1) changed files -> numbered new content (bounded). Per provider.
         files: list[tuple[str, str]] = []
         commentable: dict[str, set[int]] = {}  # github: which RIGHT lines accept inline comments
+        gl_old_paths: dict[str, str] = {}  # gitlab: a renamed file's pre-MR path
+        gl_diff_refs: dict[str, str] = {}
         head_sha = ''
         total = 0
         if repo_provider == 'github':
@@ -341,6 +364,33 @@ async def review_pr(
                 numbered = _number_lines(content)
                 files.append((c['path'], numbered))
                 commentable[c['path']] = set(c.get('lines') or set())
+                total += len(numbered)
+        elif repo_provider == 'gitlab':
+            from agena_services.integrations.gitlab_client import GitLabClient
+            gl = GitLabClient()
+            gl_project = _gitlab_project_path(rm)
+            meta = await gl.get_pull_request(
+                token=cfg['token'], base_url=cfg['base_url'], project_path=gl_project, pr_number=str(pr_id),
+            )
+            head_sha = (meta or {}).get('head_sha') or ''
+            gl_diff_refs = (meta or {}).get('diff_refs') or {}
+            ref = source_branch or (meta or {}).get('source_branch') or ''
+            changed = await gl.fetch_pr_changed_files(
+                token=cfg['token'], base_url=cfg['base_url'], project_path=gl_project, pr_number=str(pr_id),
+            )
+            for c in changed[:_MAX_FILES]:
+                if total >= _MAX_TOTAL_CHARS:
+                    break
+                content = await gl.fetch_file_content(
+                    token=cfg['token'], base_url=cfg['base_url'], project_path=gl_project,
+                    path=c['path'], ref=ref,
+                )
+                if not content:
+                    continue
+                numbered = _number_lines(content)
+                files.append((c['path'], numbered))
+                commentable[c['path']] = set(c.get('lines') or set())
+                gl_old_paths[c['path']] = c.get('old_path') or c['path']
                 total += len(numbered)
         else:
             client = AzureDevOpsClient()
@@ -468,6 +518,19 @@ async def review_pr(
                         deferred.append(f)
                 else:
                     deferred.append(f)  # line outside the diff — GitHub rejects it
+            elif repo_provider == 'gitlab':
+                if f['line'] in commentable.get(f['file'], set()):
+                    did = await gl.post_pr_inline_comment(
+                        token=cfg['token'], base_url=cfg['base_url'], project_path=gl_project,
+                        pr_number=str(pr_id), diff_refs=gl_diff_refs, path=f['file'],
+                        old_path=gl_old_paths.get(f['file']), line=f['line'], body=body,
+                    )
+                    if did:
+                        posted += 1
+                    else:
+                        deferred.append(f)
+                else:
+                    deferred.append(f)  # not an added line — GitLab rejects the position
             else:
                 tid = await client.post_pr_inline_thread(cfg=cfg, project=rm.owner, repo=rm.repo_name, pr_id=str(pr_id), file_path=f['file'], line=f['line'], content=body)
                 if tid:
@@ -490,6 +553,14 @@ async def review_pr(
         if repo_provider == 'github':
             try:
                 await gh.post_issue_comment(token=cfg['token'], owner=rm.owner, repo=rm.repo_name, pr_number=str(pr_id), body=summary_text)
+            except Exception:
+                pass
+        elif repo_provider == 'gitlab':
+            try:
+                await gl.post_issue_comment(
+                    token=cfg['token'], base_url=cfg['base_url'], project_path=gl_project,
+                    pr_number=str(pr_id), body=summary_text,
+                )
             except Exception:
                 pass
         else:

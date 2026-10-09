@@ -48,7 +48,7 @@ export default function PrReviewerPage() {
   useEffect(() => {
     apiFetch<RepoMapping[]>('/repo-mappings')
       .then((rows) => {
-        const supported = rows.filter((r) => ['azure', 'github'].includes((r.provider || '').toLowerCase()));
+        const supported = rows.filter((r) => ['azure', 'github', 'gitlab'].includes((r.provider || '').toLowerCase()));
         setRepos(supported);
         if (supported.length && !repoId) setRepoId(String(supported[0].id));
       })

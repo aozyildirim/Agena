@@ -260,7 +260,7 @@ export default function DoraOverviewPage() {
   const [addRepoBusy, setAddRepoBusy] = useState(false);
   const [addRepoError, setAddRepoError] = useState('');
   const [addRepoForm, setAddRepoForm] = useState({
-    provider: 'azure' as 'azure' | 'github',
+    provider: 'azure' as 'azure' | 'github' | 'gitlab',
     owner: '',
     repo_name: '',
     base_branch: 'main',
@@ -268,6 +268,7 @@ export default function DoraOverviewPage() {
   const [azureProjects, setAzureProjects] = useState<{ id: string; name: string }[]>([]);
   const [azureRepos, setAzureRepos] = useState<{ id: string; name: string }[]>([]);
   const [githubRepos, setGithubRepos] = useState<{ name: string; full_name: string }[]>([]);
+  const [gitlabProjects, setGitlabProjects] = useState<{ id: number; name: string }[]>([]);
   const [optsLoading, setOptsLoading] = useState(false);
 
   // Pull project / repo dropdown options when the modal opens.
@@ -280,6 +281,9 @@ export default function DoraOverviewPage() {
         if (addRepoForm.provider === 'azure') {
           const ps = await apiFetch<{ id: string; name: string }[]>('/tasks/azure/projects').catch(() => []);
           if (!cancelled) setAzureProjects(Array.isArray(ps) ? ps : []);
+        } else if (addRepoForm.provider === 'gitlab') {
+          const ps = await apiFetch<{ id: number; name: string }[]>('/tasks/gitlab/projects').catch(() => []);
+          if (!cancelled) setGitlabProjects(Array.isArray(ps) ? ps : []);
         } else {
           const rs = await apiFetch<{ name: string; full_name: string }[]>('/integrations/github/repos').catch(() => []);
           if (!cancelled) setGithubRepos(Array.isArray(rs) ? rs : []);
@@ -605,7 +609,7 @@ export default function DoraOverviewPage() {
               <div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{t('common.provider')}</div>
                 <div style={{ display: 'inline-flex', padding: 3, borderRadius: 999, border: '1px solid var(--panel-border-2)', background: 'var(--panel-alt)' }}>
-                  {(['azure', 'github'] as const).map((p) => {
+                  {(['azure', 'github', 'gitlab'] as const).map((p) => {
                     const active = addRepoForm.provider === p;
                     return (
                       <button
@@ -658,6 +662,30 @@ export default function DoraOverviewPage() {
                     </select>
                   </label>
                 </>
+              ) : addRepoForm.provider === 'gitlab' ? (
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{t('mappings.gitlabProject')}</span>
+                  <select
+                    value={`${addRepoForm.owner}/${addRepoForm.repo_name}`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // Nested groups mean everything up to the LAST slash is
+                      // the group path and only the tail is the project.
+                      const slash = v.lastIndexOf('/');
+                      if (slash > 0) {
+                        setAddRepoForm((f) => ({ ...f, owner: v.slice(0, slash), repo_name: v.slice(slash + 1) }));
+                      } else {
+                        setAddRepoForm((f) => ({ ...f, owner: '', repo_name: '' }));
+                      }
+                    }}
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--panel-border)', background: 'var(--panel)', color: 'var(--ink)', fontSize: 13 }}
+                  >
+                    <option value='/'>{optsLoading ? t('mappings.loadingGitlabProjects') : t('mappings.selectGitlabProject')}</option>
+                    {gitlabProjects.map((p) => (
+                      <option key={p.id} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
               ) : (
                 <label style={{ display: 'grid', gap: 4 }}>
                   <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>{t('dora.githubRepo')}</span>

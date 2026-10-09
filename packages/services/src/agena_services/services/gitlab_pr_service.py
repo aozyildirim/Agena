@@ -176,7 +176,6 @@ class GitLabPRService:
         ]
 
     def _parse_mr_ref(self, mr_url: str) -> tuple[str, int] | None:
-        m = re.search(r'([^/]+/[^/]+)/-/merge_requests/(\d+)', mr_url)
-        if m:
-            return m.group(1), int(m.group(2))
-        return None
+        from agena_services.services.remote_repo_service import parse_gitlab_mr_url
+
+        return parse_gitlab_mr_url(mr_url)
