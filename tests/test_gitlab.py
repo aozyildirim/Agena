@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+
+from agena_services.services.git_sync_parsing import gitlab_next_params, to_utc_naive
 from agena_services.services.gitlab_webhook import (
     gitlab_mr_url,
     is_gitlab_mr_merged,
@@ -61,3 +64,25 @@ def test_project_api_url_encodes_the_path():
 def test_project_api_url_tolerates_an_api_suffix_and_default_host():
     assert RemoteRepoService.gitlab_project_api('https://git.corp.io/api/v4', 'a/b').startswith('https://git.corp.io/api/v4/projects/')
     assert RemoteRepoService.gitlab_project_api(None, 'a/b') == 'https://gitlab.com/api/v4/projects/a%2Fb'
+
+
+def test_pagination_follows_the_next_page_header():
+    params = {'per_page': '100', 'page': '1'}
+    assert gitlab_next_params('2', params) == {'per_page': '100', 'page': '2'}
+    # the caller's other filters have to survive the hop
+    assert gitlab_next_params('2', params)['per_page'] == '100'
+
+
+def test_pagination_stops_on_the_last_page():
+    assert gitlab_next_params('', {'page': '7'}) is None
+    assert gitlab_next_params(None, {'page': '7'}) is None
+
+
+def test_offset_timestamps_are_converted_to_utc():
+    assert to_utc_naive(datetime(2026, 10, 8, 12, tzinfo=timezone(timedelta(hours=3)))) == datetime(2026, 10, 8, 9)
+    assert to_utc_naive(datetime(2026, 10, 8, 12, tzinfo=timezone(timedelta(hours=-5)))) == datetime(2026, 10, 8, 17)
+
+
+def test_naive_timestamps_pass_through_untouched():
+    naive = datetime(2026, 10, 8, 12)
+    assert to_utc_naive(naive) is naive

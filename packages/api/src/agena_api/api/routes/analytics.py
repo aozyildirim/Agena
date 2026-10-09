@@ -904,6 +904,14 @@ async def sync_dora_data(
             'azure_repo_url': azure_repo_url,
             'azure_repo_name': row.repo_name,
         }
+    elif provider == 'gitlab':
+        repo_mapping = {
+            'id': str(row.id),
+            'provider': 'gitlab',
+            # owner holds the group path, so the full project path is both
+            # halves joined — GitLab identifies a project by that path.
+            'gitlab_project': f'{row.owner}/{row.repo_name}'.strip('/'),
+        }
     else:
         raise HTTPException(status_code=400, detail=f'Unsupported provider: {row.provider}')
 

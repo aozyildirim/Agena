@@ -14,6 +14,7 @@ from agena_models.models.git_commit import GitCommit
 from agena_models.models.git_deployment import GitDeployment
 from agena_models.models.git_pull_request import GitPullRequest
 from agena_models.models.integration_config import IntegrationConfig
+from agena_services.services.git_sync_parsing import gitlab_next_params, to_utc_naive
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,24 @@ class GitSyncService:
             )
             deployments = await self._sync_azure_deployments(
                 organization_id, repo_mapping_id, base_url, project, repo_name, pat,
+            )
+        elif provider == 'gitlab':
+            project_path = str(repo_mapping.get('gitlab_project') or '').strip()
+            if not project_path:
+                raise ValueError('gitlab_project is required for GitLab sync')
+
+            creds = await self._get_credentials(organization_id, 'gitlab')
+            token = creds['token']
+            base_url = creds['base_url']
+
+            commits = await self._sync_gitlab_commits(
+                organization_id, repo_mapping_id, base_url, project_path, token,
+            )
+            prs = await self._sync_gitlab_prs(
+                organization_id, repo_mapping_id, base_url, project_path, token,
+            )
+            deployments = await self._sync_gitlab_deployments(
+                organization_id, repo_mapping_id, base_url, project_path, token,
             )
         else:
             raise ValueError(f'Unsupported provider: {provider}')
@@ -407,6 +426,294 @@ class GitSyncService:
 
         await self.db.commit()
         logger.info('GitHub deployments synced: %d for %s/%s', count, owner, repo)
+        return count
+
+    # ── GitLab sync methods ──────────────────────────────────────────────────
+
+    async def _sync_gitlab_commits(
+        self,
+        org_id: int,
+        repo_mapping_id: str,
+        base_url: str,
+        project_path: str,
+        token: str,
+        since_days: int = 365,
+    ) -> int:
+        since = (datetime.utcnow() - timedelta(days=since_days)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        url = f'{self._gitlab_project_api(base_url, project_path)}/repository/commits'
+        # with_stats inlines additions/deletions; GitHub needs a per-commit
+        # round-trip for the same numbers, so this list is strictly richer.
+        params: dict[str, str] | None = {
+            'since': since, 'per_page': '100', 'page': '1', 'with_stats': 'true',
+        }
+        headers = self._gitlab_headers(token)
+        count = 0
+        commit_every_pages = 10
+        pages_since_commit = 0
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            while params:
+                response = await self._request_with_rate_limit(client, 'GET', url, headers=headers, params=params)
+                if response is None:
+                    break
+                items = response.json()
+                if not isinstance(items, list):
+                    break
+
+                for item in items:
+                    sha = str(item.get('id') or '')
+                    committed_at_str = item.get('committed_date') or item.get('created_at') or ''
+                    if not sha or not committed_at_str:
+                        continue
+                    stats = item.get('stats') or {}
+
+                    await self._upsert_commit(
+                        org_id=org_id,
+                        repo_mapping_id=repo_mapping_id,
+                        sha=sha[:64],
+                        author_name=(item.get('author_name') or '')[:255],
+                        author_email=(item.get('author_email') or '')[:255],
+                        message=(item.get('message') or '')[:5000],
+                        committed_at=self._parse_datetime(committed_at_str),
+                        additions=int(stats.get('additions') or 0),
+                        deletions=int(stats.get('deletions') or 0),
+                        files_changed=0,  # absent from the list payload
+                    )
+                    count += 1
+
+                pages_since_commit += 1
+                if pages_since_commit >= commit_every_pages:
+                    await self.db.commit()
+                    pages_since_commit = 0
+
+                params = self._gitlab_next_params(response, params)
+
+        await self.db.commit()
+        logger.info('GitLab commits synced: %d for %s', count, project_path)
+        return count
+
+    async def _sync_gitlab_prs(
+        self,
+        org_id: int,
+        repo_mapping_id: str,
+        base_url: str,
+        project_path: str,
+        token: str,
+        since_days: int = 365,
+    ) -> int:
+        cutoff = datetime.utcnow() - timedelta(days=since_days)
+        api = self._gitlab_project_api(base_url, project_path)
+        url = f'{api}/merge_requests'
+        params: dict[str, str] | None = {
+            'state': 'all', 'order_by': 'updated_at', 'sort': 'desc',
+            'per_page': '100', 'page': '1',
+        }
+        headers = self._gitlab_headers(token)
+        count = 0
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            while params:
+                response = await self._request_with_rate_limit(client, 'GET', url, headers=headers, params=params)
+                if response is None:
+                    break
+                items = response.json()
+                if not isinstance(items, list):
+                    break
+
+                stop_pagination = False
+                for item in items:
+                    updated_at_str = item.get('updated_at') or ''
+                    if updated_at_str and self._parse_datetime(updated_at_str) < cutoff:
+                        stop_pagination = True
+                        break
+
+                    mr_iid = str(item.get('iid') or '')
+                    if not mr_iid:
+                        continue
+
+                    author = item.get('author') or {}
+                    # 'merged' and 'closed' are what the analytics queries
+                    # already look for; only 'opened' needs renaming so an
+                    # open MR reads the same as an open GitHub PR.
+                    state = str(item.get('state') or '')
+                    status = 'open' if state == 'opened' else state
+
+                    await self._upsert_pr(
+                        org_id=org_id,
+                        repo_mapping_id=repo_mapping_id,
+                        provider='gitlab',
+                        external_id=mr_iid,
+                        title=(item.get('title') or '')[:512],
+                        author=(author.get('username') or '')[:255],
+                        status=status[:32],
+                        source_branch=(item.get('source_branch') or '')[:255],
+                        target_branch=(item.get('target_branch') or '')[:255],
+                        created_at_ext=self._parse_datetime_opt(item.get('created_at')),
+                        merged_at=self._parse_datetime_opt(item.get('merged_at')),
+                        closed_at=self._parse_datetime_opt(item.get('closed_at')),
+                        additions=0,  # diff stats only exist on the single-MR endpoint
+                        deletions=0,
+                        commits_count=0,
+                        review_comments=int(item.get('user_notes_count') or 0),
+                        is_draft=bool(item.get('draft') or item.get('work_in_progress') or False),
+                    )
+                    count += 1
+
+                if stop_pagination:
+                    break
+                params = self._gitlab_next_params(response, params)
+
+        await self.db.commit()
+        await self._backfill_gitlab_mr_approvals(org_id, repo_mapping_id, api, headers)
+        logger.info('GitLab MRs synced: %d for %s', count, project_path)
+        return count
+
+    async def _backfill_gitlab_mr_approvals(
+        self,
+        org_id: int,
+        repo_mapping_id: str,
+        api: str,
+        headers: dict[str, str],
+    ) -> None:
+        """Record who approved each merged MR.
+
+        GitLab has no per-review verdict like GitHub's APPROVED /
+        CHANGES_REQUESTED, so the approvals list is the closest signal:
+        everyone on it gets the vote GitHub's APPROVED maps to, which keeps
+        the contributor analytics provider-agnostic.
+        """
+        from agena_models.models.git_pull_request import GitPullRequest as PR
+        from agena_models.models.git_pull_request_review import GitPullRequestReview
+
+        pr_rows = (await self.db.execute(
+            select(PR.id, PR.external_id)
+            .outerjoin(
+                GitPullRequestReview,
+                (GitPullRequestReview.pull_request_id == PR.id)
+                & (GitPullRequestReview.organization_id == PR.organization_id),
+            )
+            .where(
+                PR.organization_id == org_id,
+                PR.repo_mapping_id == repo_mapping_id,
+                PR.provider == 'gitlab',
+                PR.merged_at.isnot(None),
+                GitPullRequestReview.id.is_(None),
+            )
+            .order_by(PR.merged_at.desc())
+            .limit(200)
+        )).all()
+        if not pr_rows:
+            return
+
+        sem = asyncio.Semaphore(10)
+        async with httpx.AsyncClient(timeout=20) as client:
+            async def _one(pr_id: int, mr_iid: str) -> tuple[int, list[dict]] | None:
+                async with sem:
+                    resp = await self._request_with_rate_limit(
+                        client, 'GET', f'{api}/merge_requests/{mr_iid}/approvals', headers=headers,
+                    )
+                    if resp is None:
+                        return None
+                    try:
+                        data = resp.json() or {}
+                    except Exception:
+                        return None
+                    if not isinstance(data, dict):
+                        return None
+                    parsed: list[dict] = []
+                    for entry in data.get('approved_by') or []:
+                        user = (entry or {}).get('user') or {}
+                        username = (user.get('username') or '').strip().lower()
+                        display = user.get('name') or user.get('username') or ''
+                        if not username and not display:
+                            continue
+                        parsed.append({
+                            'displayName': display,
+                            'uniqueName': username,
+                            'vote': 10,
+                        })
+                    return pr_id, parsed
+
+            results = await asyncio.gather(
+                *[_one(r.id, r.external_id) for r in pr_rows],
+                return_exceptions=True,
+            )
+
+        applied = 0
+        for r in results:
+            if isinstance(r, Exception) or r is None:
+                continue
+            pr_id, reviewers = r
+            if not reviewers:
+                continue
+            await self._upsert_pr_reviews(
+                org_id=org_id,
+                repo_mapping_id=repo_mapping_id,
+                pr_row_id=pr_id,
+                reviewers=reviewers,
+            )
+            applied += 1
+        if applied:
+            await self.db.commit()
+            logger.info('GitLab MR approvals backfill: %d/%d', applied, len(pr_rows))
+
+    async def _sync_gitlab_deployments(
+        self,
+        org_id: int,
+        repo_mapping_id: str,
+        base_url: str,
+        project_path: str,
+        token: str,
+    ) -> int:
+        url = f'{self._gitlab_project_api(base_url, project_path)}/deployments'
+        params: dict[str, str] | None = {
+            'per_page': '100', 'page': '1', 'order_by': 'created_at', 'sort': 'desc',
+        }
+        headers = self._gitlab_headers(token)
+        count = 0
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            while params:
+                response = await self._request_with_rate_limit(client, 'GET', url, headers=headers, params=params)
+                if response is None:
+                    break
+                items = response.json()
+                if not isinstance(items, list):
+                    break
+
+                for item in items:
+                    deploy_id = str(item.get('id') or '')
+                    if not deploy_id:
+                        continue
+
+                    environment = str((item.get('environment') or {}).get('name') or 'production')[:64]
+                    deployable = item.get('deployable') or {}
+                    commit = deployable.get('commit') or {}
+                    sha = str(item.get('sha') or commit.get('id') or '')[:64]
+                    created_at_str = item.get('created_at') or ''
+                    deployed_at = self._parse_datetime(created_at_str) if created_at_str else datetime.utcnow()
+                    # DORA's change-failure-rate counts 'failure'; GitLab
+                    # spells the same outcome 'failed'.
+                    status = str(item.get('status') or '')
+                    if status == 'failed':
+                        status = 'failure'
+
+                    await self._upsert_deployment(
+                        org_id=org_id,
+                        repo_mapping_id=repo_mapping_id,
+                        provider='gitlab',
+                        external_id=deploy_id,
+                        environment=environment,
+                        status=status[:32],
+                        deployed_at=deployed_at,
+                        sha=sha,
+                    )
+                    count += 1
+
+                params = self._gitlab_next_params(response, params)
+
+        await self.db.commit()
+        logger.info('GitLab deployments synced: %d for %s', count, project_path)
         return count
 
     # ── Azure sync methods ───────────────────────────────────────────────────
@@ -1097,6 +1404,21 @@ class GitSyncService:
             'X-GitHub-Api-Version': '2022-11-28',
         }
 
+    def _gitlab_headers(self, token: str) -> dict[str, str]:
+        return {'PRIVATE-TOKEN': token, 'Accept': 'application/json'}
+
+    def _gitlab_project_api(self, base_url: str, project_path: str) -> str:
+        from agena_services.services.remote_repo_service import RemoteRepoService
+
+        return RemoteRepoService.gitlab_project_api(base_url, project_path)
+
+    def _gitlab_next_params(
+        self,
+        response: httpx.Response,
+        params: dict[str, str] | None,
+    ) -> dict[str, str] | None:
+        return gitlab_next_params(response.headers.get('x-next-page'), params)
+
     def _azure_headers(self, pat: str) -> dict[str, str]:
         token = base64.b64encode(f':{pat}'.encode()).decode()
         return {'Authorization': f'Basic {token}', 'Content-Type': 'application/json'}
@@ -1143,15 +1465,11 @@ class GitSyncService:
         value = value.strip()
         for fmt in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%S%z'):
             try:
-                dt = datetime.strptime(value, fmt)
-                return dt.replace(tzinfo=None) if dt.tzinfo else dt
+                return to_utc_naive(datetime.strptime(value, fmt))
             except ValueError:
                 continue
-        # Fallback: strip timezone suffix and try again
-        if '+' in value:
-            value = value.split('+')[0]
         try:
-            return datetime.fromisoformat(value)
+            return to_utc_naive(datetime.fromisoformat(value.replace('Z', '+00:00')))
         except ValueError:
             return datetime.utcnow()
 
