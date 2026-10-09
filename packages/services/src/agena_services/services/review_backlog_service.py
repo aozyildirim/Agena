@@ -308,6 +308,45 @@ async def auto_nudge_all_orgs(db: AsyncSession) -> int:
 _AGENA_SIGNATURE = 'AGENA Review Backlog'
 
 
+async def _gitlab_mr_notes_api(
+    db: AsyncSession,
+    *,
+    organization_id: int,
+    pr,
+    mapping,
+) -> tuple[str, dict[str, str]] | None:
+    """``(notes endpoint, auth headers)`` for this MR, or None when GitLab
+    isn't configured. One MR note endpoint serves all three nudge paths:
+    reading the thread, looking for our signature, and posting."""
+    from agena_models.models.integration_config import IntegrationConfig
+    from agena_services.services.remote_repo_service import RemoteRepoService
+
+    cfg = (await db.execute(
+        select(IntegrationConfig).where(
+            IntegrationConfig.organization_id == organization_id,
+            IntegrationConfig.provider == 'gitlab',
+        )
+    )).scalar_one_or_none()
+    if not cfg or not cfg.secret:
+        return None
+    project_path = f'{mapping.owner or ""}/{mapping.repo_name or ""}'.strip('/')
+    if '/' not in project_path:
+        return None
+    api = RemoteRepoService.gitlab_project_api(cfg.base_url, project_path)
+    return (
+        f'{api}/merge_requests/{pr.external_id}/notes',
+        {'PRIVATE-TOKEN': cfg.secret, 'Accept': 'application/json'},
+    )
+
+
+def _gitlab_human_notes(payload) -> list[dict]:
+    """Drop GitLab's system notes — "changed title", "added 1 commit" and
+    friends are events, not review conversation."""
+    if not isinstance(payload, list):
+        return []
+    return [n for n in payload if isinstance(n, dict) and not n.get('system')]
+
+
 async def _refresh_azure_pr_status(
     db: AsyncSession,
     *,
@@ -680,6 +719,21 @@ async def _verify_existing_agena_comment(
                         if _AGENA_SIGNATURE in (c.get('content') or ''):
                             return True
             return False
+        if provider == 'gitlab':
+            resolved = await _gitlab_mr_notes_api(
+                db, organization_id=organization_id, pr=pr, mapping=mapping,
+            )
+            if resolved is None:
+                return False
+            notes_url, headers = resolved
+            async with _httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(f'{notes_url}?per_page=100', headers=headers)
+                if resp.status_code != 200:
+                    return False
+                for note in _gitlab_human_notes(resp.json()):
+                    if _AGENA_SIGNATURE in (note.get('body') or ''):
+                        return True
+            return False
     except Exception as exc:
         logger.info('AGENA signature check failed (provider=%s pr=%s): %s', provider, pr.external_id, exc)
     return False
@@ -701,6 +755,8 @@ async def _fetch_existing_pr_activity(
         ones for "is anyone reviewing").
     Azure : /repositories/{repoId}/pullRequests/{prId}/threads — each
         thread has a list of comments; we flatten + sort by lastUpdated.
+    GitLab: /merge_requests/{iid}/notes — one flat list, minus the system
+        notes GitLab writes for events like "changed title".
     """
     from agena_models.models.integration_config import IntegrationConfig
     import base64 as _b64
@@ -789,6 +845,27 @@ async def _fetch_existing_pr_activity(
                 flat.sort(key=lambda x: x[0])
                 last3 = flat[-3:]
                 lines = [f'- @{a} ({w[:10]}): {c}' for (w, a, c) in last3]
+                return 'Recent activity:\n' + '\n'.join(lines)
+        if provider == 'gitlab':
+            resolved = await _gitlab_mr_notes_api(
+                db, organization_id=organization_id, pr=pr, mapping=mapping,
+            )
+            if resolved is None:
+                return ''
+            notes_url, headers = resolved
+            async with _httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(f'{notes_url}?per_page=20&sort=asc', headers=headers)
+                if resp.status_code != 200:
+                    return ''
+                notes = _gitlab_human_notes(resp.json())
+                if not notes:
+                    return ''
+                lines = []
+                for note in notes[-3:]:
+                    user = ((note.get('author') or {}).get('username')) or 'unknown'
+                    body = (note.get('body') or '').strip().replace('\n', ' ')[:120]
+                    when = note.get('updated_at') or note.get('created_at') or ''
+                    lines.append(f'- @{user} ({when[:10]}): {body}')
                 return 'Recent activity:\n' + '\n'.join(lines)
     except Exception as exc:
         logger.info('PR activity fetch failed (provider=%s pr=%s): %s', provider, pr.external_id, exc)
@@ -898,7 +975,21 @@ async def _post_pr_comment(db: AsyncSession, n: ReviewBacklogNudge) -> bool:
                 return True
             logger.info('Azure PR comment failed (status=%s body=%s)', resp.status_code, resp.text[:200])
             return False
-        # GitLab / Bitbucket: not yet wired.
+        if provider == 'gitlab':
+            import httpx as _httpx
+            resolved = await _gitlab_mr_notes_api(
+                db, organization_id=n.organization_id, pr=pr, mapping=mapping,
+            )
+            if resolved is None:
+                return False
+            notes_url, headers = resolved
+            async with _httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(notes_url, headers=headers, json={'body': body})
+            if resp.status_code in (200, 201):
+                return True
+            logger.info('GitLab MR note failed (status=%s body=%s)', resp.status_code, resp.text[:200])
+            return False
+        # Bitbucket: not yet wired.
         return False
     except Exception:
         logger.exception('PR comment nudge failed for nudge=%s', n.id)

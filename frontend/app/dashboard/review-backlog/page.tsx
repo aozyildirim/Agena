@@ -815,7 +815,7 @@ function ExemptRepoPicker({
             maxHeight: 240, overflowY: 'auto', zIndex: 10,
           }}>
             {filtered.slice(0, 20).map((m) => {
-              const icon = (m.provider || '').toLowerCase() === 'github' ? '🐙' : '☁️';
+              const icon = PROVIDER_ICON[(m.provider || '').toLowerCase()] || '☁️';
               return (
                 <button
                   key={m.id}
