@@ -171,6 +171,7 @@ function RowActionsKebab({
       window.removeEventListener('resize', handleReposition);
       window.removeEventListener('scroll', handleReposition, true);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- listener wiring keyed on open; computePosition is called, not observed
   }, [open]);
 
   const visible = items.filter((it) => !it.hidden);
@@ -3010,6 +3011,7 @@ function AssignPopup({ taskId, mode, tasks, agents, flows, defaultCreatePr: init
         }
       })
       .catch(() => setMappingsLoaded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- seeds the picker from the task once; re-running would overwrite the user's selection
   }, []);
 
   function toggleMapping(id: number) {

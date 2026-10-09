@@ -127,7 +127,9 @@ export default function TriagePage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the filter handlers re-invoke the loaders
   useEffect(() => { void load(); void loadSettings(); void loadProjects(); void loadStates(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the filter handlers re-invoke the loaders
   useEffect(() => { void load(statusFilter, sourceFilter, projectFilter, stateFilter); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter, sourceFilter, projectFilter, stateFilter]);
   // Reset project + state pick when source tab changes — the previous
   // selection probably doesn't belong to the new source.

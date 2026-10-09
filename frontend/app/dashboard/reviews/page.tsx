@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
@@ -83,11 +83,7 @@ export default function ReviewsPage() {
     if (role) setFilterRole(role);
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [filterRole, filterSeverity, filterStatus]);
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: '200' });
@@ -100,7 +96,11 @@ export default function ReviewsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterRole, filterSeverity, filterStatus]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const stats = useMemo(() => {
     const byRole: Record<string, number> = {};

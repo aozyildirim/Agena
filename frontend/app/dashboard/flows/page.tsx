@@ -399,6 +399,7 @@ export default function FlowsPage() {
       const currentVersions = versionsByFlow[activeFlow] ?? [];
       setSelectedVersionId(currentVersions[0]?.id ?? '');
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only read in the fallback path; watching it would re-run on every version write
   }, [activeFlow]);
 
   function snapshotVersion(flow: Flow, label: string) {

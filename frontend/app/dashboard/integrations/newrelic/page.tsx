@@ -100,6 +100,7 @@ export default function NewRelicPage() {
     void loadRepos();
     // Auto-load entities so landing isn't an empty form.
     void searchEntities();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the search handlers call the fetchers directly
   }, []);
 
   useEffect(() => {

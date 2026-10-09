@@ -611,10 +611,12 @@ function PublicSkillsLibrary() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- immediate first load; the debounced effect below covers later searches
   useEffect(() => { void load(); }, []);
   useEffect(() => {
     const t = setTimeout(() => { void load(); }, 300);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- immediate first load; the debounced effect below covers later searches
   }, [search]);
 
   async function toggle(id: number) {

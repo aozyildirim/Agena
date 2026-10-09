@@ -202,6 +202,7 @@ export default function SentryPage() {
     void loadRepos();
     // Auto-load projects on first paint so landing isn't an empty form.
     void searchProjects();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the search handlers call the fetchers directly
   }, []);
 
   useEffect(() => {

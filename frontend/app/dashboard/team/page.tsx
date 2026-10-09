@@ -338,6 +338,7 @@ export default function TeamPage() {
       }
     };
     void run();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the resolver writes sprintPath, so watching it would re-trigger itself
   }, [provider, project, team]);
 
   useEffect(() => {

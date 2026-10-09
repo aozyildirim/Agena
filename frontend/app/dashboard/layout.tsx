@@ -458,6 +458,7 @@ function DashboardInner({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap is keyed on the route guard above; the rest are read at call time
   }, [router, shouldOpenOnboarding]);
 
   // Listen for module toggle events — separate effect so it's always active
@@ -501,11 +502,13 @@ function DashboardInner({ children }: { children: ReactNode }) {
     };
     window.addEventListener(NOTIF_SYNC_EVENT, onSync as EventListener);
     return () => window.removeEventListener(NOTIF_SYNC_EVENT, onSync as EventListener);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- wired once; watching the refresher would tear this down on every render
   }, []);
 
   useEffect(() => {
     const iv = setInterval(() => void refreshNotifications(8), 6000);
     return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- wired once; watching the refresher would tear this down on every render
   }, []);
 
   function logout() {
@@ -836,7 +839,9 @@ function DashboardInner({ children }: { children: ReactNode }) {
           textDecoration: 'none', flexShrink: 0,
           paddingRight: 12, marginRight: 4, height: '100%',
         }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG: next/image has nothing to optimise here */}
           <img src='/media/agena-logo.svg' alt='AGENA' className='logo-dark' style={{ height: 22, display: 'block' }} />
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG: next/image has nothing to optimise here */}
           <img src='/media/agena-logo-light.svg' alt='AGENA' className='logo-light' style={{ height: 22, display: 'none' }} />
         </Link>
 

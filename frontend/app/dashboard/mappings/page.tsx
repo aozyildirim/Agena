@@ -173,7 +173,7 @@ export default function RepoMappingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoadingRepos(false));
-  }, [selProject, sourceProvider, pendingRepoUrl, pendingRepoName, selRepoUrl]);
+  }, [selProject, sourceProvider, pendingRepoUrl, pendingRepoName, selRepoUrl, t]);
 
   useEffect(() => {
     if (sourceProvider !== 'azure') return;
@@ -218,7 +218,7 @@ export default function RepoMappingsPage() {
         if (reqId !== githubFetchRef.current) return;
         setLoadingGithubRepos(false);
       });
-  }, [sourceProvider, githubOwner, pendingGithubRepo]);
+  }, [sourceProvider, githubOwner, pendingGithubRepo, t]);
 
   useEffect(() => {
     if (!pendingRepoUrl) return;
@@ -496,6 +496,7 @@ export default function RepoMappingsPage() {
         }
       }).catch(() => {}).finally(() => setLoadingBranches(false));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- repos and the current branch only seed a default — they must not re-trigger the fetch
   }, [sourceProvider, selRepoUrl, selProject, selGithubRepo]);
 
   // Ask the host bridge for likely local-path matches whenever the

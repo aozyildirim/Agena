@@ -300,6 +300,7 @@ export default function BRIntakePage() {
   const score = active?.readiness_score ?? null;
   const threshold = active?.submit_threshold ?? 70;
   const canSubmit = active?.status === 'draft' && (score ?? 0) >= threshold;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- a ref feeds this list, so memoising it would hide a just-sent message until the server replies
   const displayMsgs: Msg[] = [
     ...(active?.messages || []),
     ...(pendingUserMsg.current ? [{ role: 'user' as const, text: pendingUserMsg.current }] : []),

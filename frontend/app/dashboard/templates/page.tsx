@@ -188,6 +188,7 @@ export default function TemplatesPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the refresh button calls load() directly
   useEffect(() => { void load(); }, []);
 
   async function installStarters() {

@@ -66,6 +66,7 @@ export default function NotificationsPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- load reads the page and filter this array already names; its identity is not a trigger
   useEffect(() => { void load(); }, [page, readStatus]);
 
   const pages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);

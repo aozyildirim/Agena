@@ -108,6 +108,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (urlTab && urlTab !== tab) setTab(urlTab);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- syncs state from the URL; watching the tab it sets would make it fight the user's clicks
   }, [urlTab]);
 
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function AdminPanel() {
     if (tab === 'users' && users.length === 0) loadUsers();
     if (tab === 'contact' && contacts.length === 0) loadContacts();
     if (tab === 'newsletter' && subscribers.length === 0) loadSubscribers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- lazy per-tab fetch: the length guards are read once, not watched
   }, [tab]);
 
   async function loadStats() {

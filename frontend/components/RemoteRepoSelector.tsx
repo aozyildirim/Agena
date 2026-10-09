@@ -63,6 +63,7 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
         else if (glP.length) setProvider('gitlab');
       }
     }).finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- defaultValue seeds the initial selection; re-running would clobber the user's choice
   }, []);
 
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function RemoteRepoSelector({ onChange, accent = '#5eead4', compa
           setSelectedRepo(defaultValue.repo);
         }
       }).catch(() => setAzureRepos([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- defaultValue seeds the initial selection; re-running would clobber the user's choice
   }, [provider, selectedProject]);
 
   useEffect(() => {

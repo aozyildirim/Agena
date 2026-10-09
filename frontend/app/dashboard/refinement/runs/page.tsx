@@ -128,7 +128,7 @@ export default function RefinementRunsPage() {
         latest: recs[0]?.created_at || '',
       }))
       .sort((a, b) => (b.latest || '').localeCompare(a.latest || ''));
-  }, [items, lang]);
+  }, [items, t]);
 
   // Auto-select the first sprint when loading lands.
   useEffect(() => {
@@ -164,7 +164,7 @@ export default function RefinementRunsPage() {
     } finally {
       setDeleting(null);
     }
-  }, [lang]);
+  }, [t]);
 
   // Delete the refinement RECORD from history (so the item can be re-refined).
   // This does NOT remove the Azure/Jira comment — that's deleteComment above.
@@ -192,7 +192,7 @@ export default function RefinementRunsPage() {
     } finally {
       setDeleting(null);
     }
-  }, [lang]);
+  }, [t]);
 
   // Open the in-app confirm modal (no native window.confirm).
   const askDelete = useCallback((kind: 'comment' | 'record', rec: RefinementHistoryItem) => {

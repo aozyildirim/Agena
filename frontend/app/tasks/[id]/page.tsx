@@ -621,6 +621,7 @@ export default function TaskDetailPage() {
     if (document.visibilityState === 'visible') start();
     document.addEventListener('visibilitychange', onVisibility);
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the polling loop is keyed on the task id; loadData is called, not observed
   }, [taskId]);
 
   useEffect(() => {
@@ -758,7 +759,7 @@ export default function TaskDetailPage() {
   // Split logs into runs
   const logRuns = useMemo(() => splitLogsByRun(logs), [logs]);
   const activeRunIndex = selectedRunIndex === -1 ? logRuns.length - 1 : selectedRunIndex;
-  const activeRunLogs = logRuns[activeRunIndex] || [];
+  const activeRunLogs = useMemo(() => logRuns[activeRunIndex] || [], [logRuns, activeRunIndex]);
   const isLatestRun = activeRunIndex === logRuns.length - 1;
 
   const filteredLogs = useMemo(() => {
@@ -880,7 +881,7 @@ export default function TaskDetailPage() {
       };
     }
     return fallback;
-  }, [task, latestLog, latestFailure, isLatestRun, activeRunIndex, activeRunLogs, answer]);
+  }, [task, latestLog, latestFailure, isLatestRun, activeRunIndex, activeRunLogs, answer, t]);
 
   function handleRunClick() {
     // Check if task already has repo config in description
@@ -1415,6 +1416,7 @@ export default function TaskDetailPage() {
                               title={a.filename}
                               style={{ background: 'none', border: 'none', padding: 0, cursor: 'zoom-in', width: '100%' }}
                             >
+                              {/* eslint-disable-next-line @next/next/no-img-element -- object URL from the browser, not an asset next/image can resolve */}
                               <img src={previewUrl} alt={a.filename} style={{ width: '100%', height: mediaH, objectFit: 'contain', background: 'var(--panel)', borderRadius: 4, display: 'block' }} />
                             </button>
                           ) : (
@@ -2518,6 +2520,7 @@ function RunConfigModal({ task, onRun, onClose }: {
         setSelectedFlow(userFlows[0]?.id || '');
       }
     }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- seeds flow defaults from saved prefs once
   }, []);
 
   const desc = rawDesc.toLowerCase();

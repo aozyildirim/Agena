@@ -1,5 +1,6 @@
 'use client';
 
+import NextImage from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, type TranslationKey } from '@/lib/i18n';
@@ -410,6 +411,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', width: 'max-content', animation: 'integrationMarqueeSingle 34s linear infinite', padding: '7px 0' }}>
               {integrations.map((item) => (
                 <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '0 7px', padding: '5px 10px', borderRadius: 8, border: '1px solid var(--panel-border-2)', background: 'var(--panel)', whiteSpace: 'nowrap' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- SVG: next/image has nothing to optimise here */}
                   <img src={item.logo} alt={item.name} loading='lazy' style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'contain', flexShrink: 0 }} />
                   <span style={{ color: 'var(--ink-78)', fontSize: 11, fontWeight: 600, lineHeight: 1 }}>{item.name}</span>
                 </div>
@@ -428,7 +430,15 @@ export default function HomePage() {
           </div>
           <div className='flow-showcase'>
             <div className='flow-showcase-image-wrap'>
-              <img src='/media/flow.png' alt='AGENA Agentic AI Pipeline Flow - Autonomous Code Generation Workflow' className='flow-showcase-image' loading='lazy' />
+              <NextImage
+                src='/media/flow.png'
+                alt='AGENA Agentic AI Pipeline Flow - Autonomous Code Generation Workflow'
+                className='flow-showcase-image'
+                width={2346}
+                height={1408}
+                sizes='(max-width: 768px) 100vw, 55vw'
+                loading='lazy'
+              />
             </div>
             <div className='flow-showcase-content'>
               <div className='section-label'>{t('landing.flowShowcaseLabel')}</div>
@@ -478,9 +488,12 @@ export default function HomePage() {
               minHeight: 220,
               boxShadow: '0 18px 48px rgba(2,132,199,0.18)',
             }}>
-              <img
+              <NextImage
                 src='/media/patron.png'
                 alt='Patron Modu'
+                width={1782}
+                height={768}
+                sizes='(max-width: 768px) 100vw, 50vw'
                 loading='lazy'
                 style={{ width: '100%', height: '100%', minHeight: 220, objectFit: 'cover' }}
               />
@@ -1563,6 +1576,7 @@ $ agena refinement analyze -p MyProject -t MyTeam`}</code>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 80% -20%, rgba(74, 21, 75, 0.32), transparent 52%)' }} />
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- SVG: next/image has nothing to optimise here */}
                   <img src='/media/slack-logo.svg' alt='Slack' style={{ width: 48, height: 48 }} loading='lazy' />
                   <div>
                     <div style={{ color: 'var(--ink-90)', fontWeight: 700, fontSize: 17 }}>{t('landing.slackTitle')}</div>
@@ -1582,6 +1596,7 @@ $ agena refinement analyze -p MyProject -t MyTeam`}</code>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 20% -20%, rgba(75, 137, 220, 0.3), transparent 55%)' }} />
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- SVG: next/image has nothing to optimise here */}
                   <img src='/media/teams-logo.svg' alt='Microsoft Teams' style={{ width: 48, height: 48 }} loading='lazy' />
                   <div>
                     <div style={{ color: 'var(--ink-90)', fontWeight: 700, fontSize: 17 }}>{t('landing.teamsTitle')}</div>

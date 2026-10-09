@@ -63,6 +63,7 @@ export default function DatadogPage() {
   useEffect(() => {
     void loadRepos();
     void fetchIssues();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the search handlers call the fetchers directly
   }, []);
 
   useEffect(() => {

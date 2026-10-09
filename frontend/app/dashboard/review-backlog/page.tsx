@@ -133,7 +133,9 @@ export default function ReviewBacklogPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the filter handlers re-invoke the loaders
   useEffect(() => { void load(); void loadSettings(); void loadRepos(); void loadAllMappings(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; the filter handlers re-invoke the loaders
   useEffect(() => { void load(repoFilter); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [repoFilter]);
 
   async function scanNow() {

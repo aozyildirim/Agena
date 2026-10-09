@@ -62,6 +62,7 @@ export default function InviteTokenPage() {
       <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Link href='/' style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG: next/image has nothing to optimise here */}
             <img src='/media/agena-logo.svg' alt='AGENA' loading='lazy' style={{ width: 138, height: 'auto', display: 'block' }} />
           </Link>
         </div>
